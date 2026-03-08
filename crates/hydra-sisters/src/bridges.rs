@@ -123,9 +123,9 @@ pub fn memory_bridge() -> McpSisterBridge {
     McpSisterBridge::new(
         SisterId::Memory,
         "agentic-memory",
-        "0.4.2",
+        "0.5.0",
         &[
-            // Core operations
+            // V2 core operations
             "memory_add",
             "memory_query",
             "memory_similar",
@@ -147,6 +147,31 @@ pub fn memory_bridge() -> McpSisterBridge {
             "memory_session_resume",
             // Conversation
             "conversation_log",
+            // V3 capture tools (Universal Fix — active capture)
+            "memory_capture_message",
+            "memory_capture_tool",
+            "memory_capture_file",
+            "memory_capture_decision",
+            "memory_capture_boundary",
+            // V3 retrieval tools
+            "memory_retrieve",
+            "memory_resurrect",
+            "memory_v3_session_resume",
+            "memory_search_temporal",
+            "memory_search_semantic",
+            "memory_search_entity",
+            "memory_v3_stats",
+            // V4 longevity tools (20-year memory hierarchy)
+            "memory_longevity_stats",
+            "memory_longevity_search",
+            "memory_longevity_consolidate",
+            "memory_longevity_health",
+            "memory_hierarchy_query",
+            "memory_hierarchy_navigate",
+            "memory_hierarchy_significance",
+            "memory_embedding_status",
+            // Capability reporting (Universal Fix — honest reporting)
+            "memory_capabilities",
             // Workspace
             "memory_workspace_create",
             "memory_workspace_switch",
@@ -553,6 +578,580 @@ pub fn evolve_bridge() -> McpSisterBridge {
             "evolve_collective_query",
         ],
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Bridge constructor tests ───────────────────────────
+
+    #[test]
+    fn test_memory_bridge_id() {
+        let b = memory_bridge();
+        assert_eq!(b.id, SisterId::Memory);
+        assert_eq!(b.bridge_name, "agentic-memory");
+        assert_eq!(b.bridge_version, "0.5.0");
+    }
+
+    #[test]
+    fn test_memory_bridge_capabilities() {
+        let b = memory_bridge();
+        // V2 tools
+        assert!(b.caps.contains(&"memory_add".to_string()));
+        assert!(b.caps.contains(&"memory_query".to_string()));
+        assert!(b.caps.contains(&"memory_similar".to_string()));
+        assert!(b.caps.contains(&"session_start".to_string()));
+        assert!(b.caps.contains(&"conversation_log".to_string()));
+        // V3 capture tools (Universal Fix)
+        assert!(b.caps.contains(&"memory_capture_message".to_string()));
+        assert!(b.caps.contains(&"memory_capture_decision".to_string()));
+        assert!(b.caps.contains(&"memory_search_semantic".to_string()));
+        // V4 longevity tools
+        assert!(b.caps.contains(&"memory_longevity_search".to_string()));
+        assert!(b.caps.contains(&"memory_longevity_stats".to_string()));
+        assert!(b.caps.contains(&"memory_hierarchy_query".to_string()));
+        // Capability reporting
+        assert!(b.caps.contains(&"memory_capabilities".to_string()));
+        assert!(b.caps.len() >= 40);
+    }
+
+    #[test]
+    fn test_vision_bridge_id() {
+        let b = vision_bridge();
+        assert_eq!(b.id, SisterId::Vision);
+        assert_eq!(b.bridge_name, "agentic-vision");
+        assert_eq!(b.bridge_version, "0.3.0");
+    }
+
+    #[test]
+    fn test_vision_bridge_capabilities() {
+        let b = vision_bridge();
+        assert!(b.caps.contains(&"vision_capture".to_string()));
+        assert!(b.caps.contains(&"vision_ocr".to_string()));
+        assert!(b.caps.contains(&"observation_log".to_string()));
+    }
+
+    #[test]
+    fn test_codebase_bridge_id() {
+        let b = codebase_bridge();
+        assert_eq!(b.id, SisterId::Codebase);
+        assert_eq!(b.bridge_name, "agentic-codebase");
+        assert_eq!(b.bridge_version, "0.3.0");
+    }
+
+    #[test]
+    fn test_codebase_bridge_capabilities() {
+        let b = codebase_bridge();
+        assert!(b.caps.contains(&"codebase_core".to_string()));
+        assert!(b.caps.contains(&"omniscience_search".to_string()));
+        assert!(b.caps.contains(&"analysis_log".to_string()));
+    }
+
+    #[test]
+    fn test_identity_bridge_id() {
+        let b = identity_bridge();
+        assert_eq!(b.id, SisterId::Identity);
+        assert_eq!(b.bridge_name, "agentic-identity");
+    }
+
+    #[test]
+    fn test_identity_bridge_capabilities() {
+        let b = identity_bridge();
+        assert!(b.caps.contains(&"identity_create".to_string()));
+        assert!(b.caps.contains(&"action_sign".to_string()));
+        assert!(b.caps.contains(&"trust_verify".to_string()));
+    }
+
+    #[test]
+    fn test_time_bridge_id() {
+        let b = time_bridge();
+        assert_eq!(b.id, SisterId::Time);
+        assert_eq!(b.bridge_name, "agentic-time");
+    }
+
+    #[test]
+    fn test_time_bridge_capabilities() {
+        let b = time_bridge();
+        assert!(b.caps.contains(&"time_deadline_add".to_string()));
+        assert!(b.caps.contains(&"time_decay_create".to_string()));
+    }
+
+    #[test]
+    fn test_contract_bridge_id() {
+        let b = contract_bridge();
+        assert_eq!(b.id, SisterId::Contract);
+        assert_eq!(b.bridge_name, "agentic-contract");
+    }
+
+    #[test]
+    fn test_contract_bridge_capabilities() {
+        let b = contract_bridge();
+        assert!(b.caps.contains(&"contract_create".to_string()));
+        assert!(b.caps.contains(&"policy_check".to_string()));
+        assert!(b.caps.contains(&"violation_report".to_string()));
+    }
+
+    #[test]
+    fn test_comm_bridge_id() {
+        let b = comm_bridge();
+        assert_eq!(b.id, SisterId::Comm);
+        assert_eq!(b.bridge_name, "agentic-comm");
+    }
+
+    #[test]
+    fn test_comm_bridge_capabilities() {
+        let b = comm_bridge();
+        assert!(b.caps.contains(&"comm_channel".to_string()));
+        assert!(b.caps.contains(&"comm_message".to_string()));
+        assert!(b.caps.contains(&"comm_health".to_string()));
+    }
+
+    #[test]
+    fn test_planning_bridge_id() {
+        let b = planning_bridge();
+        assert_eq!(b.id, SisterId::Planning);
+        assert_eq!(b.bridge_name, "agentic-planning");
+    }
+
+    #[test]
+    fn test_planning_bridge_capabilities() {
+        let b = planning_bridge();
+        assert!(b.caps.contains(&"planning_goal".to_string()));
+        assert!(b.caps.contains(&"planning_singularity".to_string()));
+    }
+
+    #[test]
+    fn test_cognition_bridge_id() {
+        let b = cognition_bridge();
+        assert_eq!(b.id, SisterId::Cognition);
+        assert_eq!(b.bridge_name, "agentic-cognition");
+    }
+
+    #[test]
+    fn test_cognition_bridge_capabilities() {
+        let b = cognition_bridge();
+        assert!(b.caps.contains(&"cognition_model_create".to_string()));
+        assert!(b.caps.contains(&"cognition_bias_detect".to_string()));
+    }
+
+    #[test]
+    fn test_reality_bridge_id() {
+        let b = reality_bridge();
+        assert_eq!(b.id, SisterId::Reality);
+        assert_eq!(b.bridge_name, "agentic-reality");
+    }
+
+    #[test]
+    fn test_reality_bridge_capabilities() {
+        let b = reality_bridge();
+        assert!(b.caps.contains(&"reality_hallucination".to_string()));
+        assert!(b.caps.contains(&"reality_verify".to_string()));
+    }
+
+    #[test]
+    fn test_forge_bridge_id() {
+        let b = forge_bridge();
+        assert_eq!(b.id, SisterId::Forge);
+        assert_eq!(b.bridge_name, "agentic-forge");
+        assert_eq!(b.bridge_version, "0.1.0");
+    }
+
+    #[test]
+    fn test_forge_bridge_capabilities() {
+        let b = forge_bridge();
+        assert!(b.caps.contains(&"forge_blueprint_create".to_string()));
+        assert!(b.caps.contains(&"forge_validate".to_string()));
+    }
+
+    #[test]
+    fn test_aegis_bridge_id() {
+        let b = aegis_bridge();
+        assert_eq!(b.id, SisterId::Aegis);
+        assert_eq!(b.bridge_name, "agentic-aegis");
+        assert_eq!(b.bridge_version, "0.1.0");
+    }
+
+    #[test]
+    fn test_aegis_bridge_capabilities() {
+        let b = aegis_bridge();
+        assert!(b.caps.contains(&"aegis_validate_streaming".to_string()));
+        assert!(b.caps.contains(&"aegis_scan_security".to_string()));
+    }
+
+    #[test]
+    fn test_veritas_bridge_id() {
+        let b = veritas_bridge();
+        assert_eq!(b.id, SisterId::Veritas);
+        assert_eq!(b.bridge_name, "agentic-veritas");
+        assert_eq!(b.bridge_version, "0.1.0");
+    }
+
+    #[test]
+    fn test_veritas_bridge_capabilities() {
+        let b = veritas_bridge();
+        assert!(b.caps.contains(&"veritas_compile_intent".to_string()));
+        assert!(b.caps.contains(&"veritas_confidence_score".to_string()));
+    }
+
+    #[test]
+    fn test_evolve_bridge_id() {
+        let b = evolve_bridge();
+        assert_eq!(b.id, SisterId::Evolve);
+        assert_eq!(b.bridge_name, "agentic-evolve");
+        assert_eq!(b.bridge_version, "0.1.0");
+    }
+
+    #[test]
+    fn test_evolve_bridge_capabilities() {
+        let b = evolve_bridge();
+        assert!(b.caps.contains(&"evolve_pattern_store".to_string()));
+        assert!(b.caps.contains(&"evolve_crystallize".to_string()));
+        assert!(b.caps.contains(&"evolve_collective_sync".to_string()));
+    }
+
+    // ── all_bridges tests ──────────────────────────────────
+
+    #[test]
+    fn test_all_bridges_count() {
+        assert_eq!(all_bridges().len(), 14);
+    }
+
+    #[test]
+    fn test_all_bridges_unique_ids() {
+        let bridges = all_bridges();
+        let mut ids: Vec<_> = bridges.iter().map(|b| b.id).collect();
+        ids.sort_by_key(|id| format!("{:?}", id));
+        ids.dedup();
+        assert_eq!(ids.len(), 14);
+    }
+
+    #[test]
+    fn test_all_bridges_have_capabilities() {
+        for b in all_bridges() {
+            assert!(!b.caps.is_empty(), "{} has no capabilities", b.bridge_name);
+        }
+    }
+
+    #[test]
+    fn test_all_bridges_default_available() {
+        for b in all_bridges() {
+            assert!(
+                b.available.load(std::sync::atomic::Ordering::SeqCst),
+                "{} not available by default",
+                b.bridge_name
+            );
+        }
+    }
+
+    #[test]
+    fn test_all_bridges_default_timeout() {
+        for b in all_bridges() {
+            assert_eq!(
+                b.timeout,
+                std::time::Duration::from_secs(5),
+                "{} has wrong default timeout",
+                b.bridge_name
+            );
+        }
+    }
+
+    // ── McpSisterBridge methods ────────────────────────────
+
+    #[test]
+    fn test_set_available() {
+        let b = memory_bridge();
+        assert!(b.available.load(std::sync::atomic::Ordering::SeqCst));
+        b.set_available(false);
+        assert!(!b.available.load(std::sync::atomic::Ordering::SeqCst));
+        b.set_available(true);
+        assert!(b.available.load(std::sync::atomic::Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_set_timeout() {
+        let mut b = memory_bridge();
+        b.set_timeout(std::time::Duration::from_secs(30));
+        assert_eq!(b.timeout, std::time::Duration::from_secs(30));
+    }
+
+    // ── SisterBridge trait impl tests ──────────────────────
+
+    #[tokio::test]
+    async fn test_bridge_health_check_healthy() {
+        let b = memory_bridge();
+        assert_eq!(b.health_check().await, HealthStatus::Healthy);
+    }
+
+    #[tokio::test]
+    async fn test_bridge_health_check_unavailable() {
+        let b = memory_bridge();
+        b.set_available(false);
+        assert_eq!(b.health_check().await, HealthStatus::Unavailable);
+    }
+
+    #[tokio::test]
+    async fn test_bridge_call_success() {
+        let b = memory_bridge();
+        let action = SisterAction::new("memory_add", serde_json::json!({"content": "test"}));
+        let result = b.call(action).await;
+        assert!(result.is_ok());
+        let r = result.unwrap();
+        assert_eq!(r.data["sister"], "agentic-memory");
+        assert_eq!(r.data["tool"], "memory_add");
+    }
+
+    #[tokio::test]
+    async fn test_bridge_call_unavailable() {
+        let b = memory_bridge();
+        b.set_available(false);
+        let action = SisterAction::new("memory_add", serde_json::json!({}));
+        let result = b.call(action).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.retryable);
+        assert_eq!(err.sister_id, SisterId::Memory);
+    }
+
+    #[tokio::test]
+    async fn test_bridge_batch_call() {
+        let b = memory_bridge();
+        let actions = vec![
+            SisterAction::new("memory_add", serde_json::json!({})),
+            SisterAction::new("memory_query", serde_json::json!({})),
+        ];
+        let results = b.batch_call(actions).await;
+        assert_eq!(results.len(), 2);
+        assert!(results[0].is_ok());
+        assert!(results[1].is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_bridge_batch_call_empty() {
+        let b = memory_bridge();
+        let results = b.batch_call(vec![]).await;
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_bridge_capabilities_returns_correct_list() {
+        let b = memory_bridge();
+        let caps = b.capabilities();
+        assert!(caps.contains(&"memory_add".to_string()));
+    }
+
+    #[test]
+    fn test_bridge_sister_id_trait() {
+        let b = vision_bridge();
+        assert_eq!(b.sister_id(), SisterId::Vision);
+    }
+
+    #[test]
+    fn test_bridge_name_trait() {
+        let b = codebase_bridge();
+        assert_eq!(b.name(), "agentic-codebase");
+    }
+
+    #[test]
+    fn test_bridge_version_trait() {
+        let b = identity_bridge();
+        assert_eq!(b.version(), "0.3.0");
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // UNIVERSAL FIX — V3/V4 Memory Bridge Tests
+    // ═══════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_memory_bridge_v3_capture_tools() {
+        let b = memory_bridge();
+        let v3_capture = [
+            "memory_capture_message",
+            "memory_capture_tool",
+            "memory_capture_file",
+            "memory_capture_decision",
+            "memory_capture_boundary",
+        ];
+        for tool in &v3_capture {
+            assert!(b.caps.contains(&tool.to_string()),
+                "V3 capture tool '{}' missing from memory bridge", tool);
+        }
+    }
+
+    #[test]
+    fn test_memory_bridge_v3_retrieval_tools() {
+        let b = memory_bridge();
+        let v3_retrieval = [
+            "memory_retrieve",
+            "memory_resurrect",
+            "memory_v3_session_resume",
+            "memory_search_temporal",
+            "memory_search_semantic",
+            "memory_search_entity",
+            "memory_v3_stats",
+        ];
+        for tool in &v3_retrieval {
+            assert!(b.caps.contains(&tool.to_string()),
+                "V3 retrieval tool '{}' missing from memory bridge", tool);
+        }
+    }
+
+    #[test]
+    fn test_memory_bridge_v4_longevity_tools() {
+        let b = memory_bridge();
+        let v4_longevity = [
+            "memory_longevity_stats",
+            "memory_longevity_search",
+            "memory_longevity_consolidate",
+            "memory_longevity_health",
+            "memory_hierarchy_query",
+            "memory_hierarchy_navigate",
+            "memory_hierarchy_significance",
+            "memory_embedding_status",
+        ];
+        for tool in &v4_longevity {
+            assert!(b.caps.contains(&tool.to_string()),
+                "V4 longevity tool '{}' missing from memory bridge", tool);
+        }
+    }
+
+    #[test]
+    fn test_memory_bridge_capability_reporting() {
+        let b = memory_bridge();
+        assert!(b.caps.contains(&"memory_capabilities".to_string()),
+            "memory_capabilities tool missing — honest reporting not available");
+    }
+
+    #[test]
+    fn test_memory_bridge_v2_backward_compat() {
+        let b = memory_bridge();
+        // V2 tools must still be present for backward compatibility
+        let v2_tools = [
+            "memory_add", "memory_query", "memory_similar",
+            "memory_temporal", "memory_context", "memory_traverse",
+            "memory_correct", "memory_resolve", "memory_causal",
+            "memory_quality", "memory_stats",
+            "memory_ground", "memory_evidence", "memory_suggest",
+            "session_start", "session_end", "memory_session_resume",
+            "conversation_log",
+        ];
+        for tool in &v2_tools {
+            assert!(b.caps.contains(&tool.to_string()),
+                "V2 tool '{}' removed — backward compatibility broken", tool);
+        }
+    }
+
+    #[test]
+    fn test_memory_bridge_workspace_tools_preserved() {
+        let b = memory_bridge();
+        let workspace_tools = [
+            "memory_workspace_create", "memory_workspace_switch",
+            "memory_workspace_list", "memory_workspace_delete",
+            "memory_workspace_export", "memory_workspace_import",
+        ];
+        for tool in &workspace_tools {
+            assert!(b.caps.contains(&tool.to_string()),
+                "Workspace tool '{}' missing", tool);
+        }
+    }
+
+    #[test]
+    fn test_memory_bridge_total_capabilities() {
+        let b = memory_bridge();
+        // V2 (24) + V3 capture (5) + V3 retrieval (7) + V4 longevity (8) + capabilities (1) + workspace (6) = 51
+        // But some are counted in both V2 and workspace, so just check minimum
+        assert!(b.caps.len() >= 40,
+            "Memory bridge has only {} capabilities, expected >= 40", b.caps.len());
+    }
+
+    #[tokio::test]
+    async fn test_memory_bridge_v3_tool_call_succeeds() {
+        let b = memory_bridge();
+        let action = SisterAction::new(
+            "memory_capture_message",
+            serde_json::json!({
+                "role": "user",
+                "content": "test message",
+                "summary": "testing V3 capture",
+            }),
+        );
+        let result = b.call(action).await;
+        assert!(result.is_ok(), "V3 memory_capture_message call failed");
+        let r = result.unwrap();
+        assert_eq!(r.data["tool"], "memory_capture_message");
+    }
+
+    #[tokio::test]
+    async fn test_memory_bridge_v4_tool_call_succeeds() {
+        let b = memory_bridge();
+        let action = SisterAction::new(
+            "memory_longevity_search",
+            serde_json::json!({
+                "query": "test query",
+                "limit": 5,
+            }),
+        );
+        let result = b.call(action).await;
+        assert!(result.is_ok(), "V4 memory_longevity_search call failed");
+        let r = result.unwrap();
+        assert_eq!(r.data["tool"], "memory_longevity_search");
+    }
+
+    #[tokio::test]
+    async fn test_memory_bridge_capabilities_tool_call() {
+        let b = memory_bridge();
+        let action = SisterAction::new("memory_capabilities", serde_json::json!({}));
+        let result = b.call(action).await;
+        assert!(result.is_ok(), "memory_capabilities tool call failed");
+    }
+
+    #[tokio::test]
+    async fn test_memory_bridge_v3_batch_capture() {
+        let b = memory_bridge();
+        let actions = vec![
+            SisterAction::new("memory_capture_message", serde_json::json!({
+                "role": "user", "content": "msg1"
+            })),
+            SisterAction::new("memory_capture_decision", serde_json::json!({
+                "decision": "use Rust", "reasoning": "performance"
+            })),
+            SisterAction::new("memory_capture_boundary", serde_json::json!({
+                "boundary_type": "session_end"
+            })),
+        ];
+        let results = b.batch_call(actions).await;
+        assert_eq!(results.len(), 3);
+        assert!(results.iter().all(|r| r.is_ok()),
+            "Batch V3 capture failed: {:?}", results);
+    }
+
+    #[test]
+    fn test_memory_bridge_no_duplicate_tools() {
+        let b = memory_bridge();
+        let mut seen = std::collections::HashSet::new();
+        for cap in &b.caps {
+            assert!(seen.insert(cap.clone()),
+                "Duplicate tool in memory bridge: {}", cap);
+        }
+    }
+
+    #[test]
+    fn test_other_bridges_unchanged() {
+        // Verify non-memory bridges weren't accidentally modified
+        assert_eq!(vision_bridge().bridge_version, "0.3.0");
+        assert_eq!(codebase_bridge().bridge_version, "0.3.0");
+        assert_eq!(identity_bridge().bridge_version, "0.3.0");
+        assert_eq!(time_bridge().bridge_version, "0.2.0");
+        assert_eq!(contract_bridge().bridge_version, "0.2.0");
+        assert_eq!(comm_bridge().bridge_version, "0.2.0");
+        assert_eq!(planning_bridge().bridge_version, "0.2.0");
+        assert_eq!(cognition_bridge().bridge_version, "0.2.0");
+        assert_eq!(reality_bridge().bridge_version, "0.2.0");
+        assert_eq!(forge_bridge().bridge_version, "0.1.0");
+        assert_eq!(aegis_bridge().bridge_version, "0.1.0");
+        assert_eq!(veritas_bridge().bridge_version, "0.1.0");
+        assert_eq!(evolve_bridge().bridge_version, "0.1.0");
+    }
 }
 
 /// Create all 14 bridges
