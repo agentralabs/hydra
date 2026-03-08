@@ -1,0 +1,23 @@
+[package]
+name = "hydra-kernel"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Cognitive kernel for agentic-hydra: the 5-phase cognitive loop"
+
+[dependencies]
+hydra-core = { workspace = true }
+hydra-ux = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+tracing = { workspace = true }
+parking_lot = { workspace = true }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+pretty_assertions = { workspace = true }
+futures = { workspace = true }

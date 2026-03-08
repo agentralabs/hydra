@@ -1,0 +1,21 @@
+[package]
+name = "hydra-intent"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Intent compiler for agentic-hydra: 4-layer token-conservative escalation"
+
+[dependencies]
+hydra-core = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+tracing = { workspace = true }
+parking_lot = { workspace = true }
+dashmap = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+pretty_assertions = { workspace = true }
+futures = { workspace = true }

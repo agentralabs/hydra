@@ -1,0 +1,20 @@
+[package]
+name = "hydra-voice"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Offline voice pipeline for agentic-hydra: wake word, STT, TTS, voice state machine"
+
+[dependencies]
+hydra-core = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+parking_lot = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+pretty_assertions = { workspace = true }
+tempfile = "3.10"

@@ -1,0 +1,19 @@
+[package]
+name = "hydra-mcp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "MCP Universal Adapter: connect to any MCP server dynamically"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+parking_lot = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+pretty_assertions = { workspace = true }

@@ -1,0 +1,29 @@
+[package]
+name = "hydra-model"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Model router for agentic-hydra: multi-model routing, privacy, cost optimization"
+
+[features]
+default = []
+live-llm = []
+local-llm = []
+
+[dependencies]
+hydra-core = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+parking_lot = { workspace = true }
+dashmap = { workspace = true }
+async-trait = { workspace = true }
+reqwest = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+pretty_assertions = { workspace = true }
+futures = { workspace = true }

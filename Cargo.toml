@@ -1,0 +1,138 @@
+[workspace]
+resolver = "2"
+members = [
+    # === PUBLIC CRATES (Apache 2.0) ===
+    "crates/hydra-core",
+    "crates/hydra-kernel",
+    "crates/hydra-intent",
+    "crates/hydra-protocol",
+    "crates/hydra-gate",
+    "crates/hydra-ledger",
+    "crates/hydra-sisters",
+    "crates/hydra-model",
+    "crates/hydra-belief",
+    "crates/hydra-trace",
+    "crates/hydra-tasks",
+    "crates/hydra-collab",
+    "crates/hydra-autonomy",
+    "crates/hydra-integrations",
+    "crates/hydra-monitor",
+    "crates/hydra-native",
+    "crates/hydra-ux",
+    "crates/hydra-voice",
+    "crates/hydra-cli",
+    "crates/hydra-db",
+    "crates/hydra-server",
+    "crates/hydra-pulse",
+    "crates/hydra-runtime",
+    "crates/hydra-compiler",
+    "crates/hydra-skills",
+    "crates/hydra-federation",
+    "crates/hydra-inventions",
+    "crates/hydra-mcp",
+    "crates/hydra-observability",
+    "crates/hydra-integration",
+    "crates/animus",
+    "crates/hydra-stress",
+    # === PRIVATE CRATES (proprietary, feature-gated) ===
+    "private/crates/hydra-gate-advanced",
+    "private/crates/hydra-consolidation",
+    "private/crates/hydra-omniscience",
+    "private/crates/hydra-collective",
+    "private/crates/hydra-replay",
+    "private/crates/hydra-enterprise",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT"
+
+[workspace.dependencies]
+# Async & Concurrency
+tokio = { version = "1.35", features = ["full", "tracing"] }
+futures = "0.3"
+async-trait = "0.1"
+dashmap = "5.5"
+parking_lot = "0.12"
+crossbeam-channel = "0.5"
+tokio-util = "0.7"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# Database
+rusqlite = { version = "0.31", features = ["bundled", "backup", "blob", "functions"] }
+
+# Cryptography
+sha2 = "0.10"
+blake3 = "1.5"
+ed25519-dalek = { version = "2.1", features = ["rand_core", "serde"] }
+rand = "0.8"
+
+# Date/Time & IDs
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.6", features = ["v4", "v7", "serde"] }
+
+# Error Handling & Logging
+thiserror = "1.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# HTTP
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+
+# Internal crates
+hydra-core = { path = "crates/hydra-core" }
+hydra-ux = { path = "crates/hydra-ux" }
+hydra-kernel = { path = "crates/hydra-kernel" }
+hydra-intent = { path = "crates/hydra-intent" }
+hydra-protocol = { path = "crates/hydra-protocol" }
+hydra-gate = { path = "crates/hydra-gate" }
+hydra-ledger = { path = "crates/hydra-ledger" }
+hydra-sisters = { path = "crates/hydra-sisters" }
+hydra-model = { path = "crates/hydra-model" }
+hydra-belief = { path = "crates/hydra-belief" }
+hydra-trace = { path = "crates/hydra-trace" }
+hydra-tasks = { path = "crates/hydra-tasks" }
+hydra-collab = { path = "crates/hydra-collab" }
+hydra-autonomy = { path = "crates/hydra-autonomy" }
+hydra-integrations = { path = "crates/hydra-integrations" }
+hydra-monitor = { path = "crates/hydra-monitor" }
+hydra-voice = { path = "crates/hydra-voice" }
+hydra-db = { path = "crates/hydra-db" }
+hydra-native = { path = "crates/hydra-native" }
+hydra-pulse = { path = "crates/hydra-pulse" }
+hydra-server = { path = "crates/hydra-server" }
+hydra-runtime = { path = "crates/hydra-runtime" }
+hydra-compiler = { path = "crates/hydra-compiler" }
+hydra-skills = { path = "crates/hydra-skills" }
+hydra-federation = { path = "crates/hydra-federation" }
+hydra-inventions = { path = "crates/hydra-inventions" }
+hydra-mcp = { path = "crates/hydra-mcp" }
+hydra-observability = { path = "crates/hydra-observability" }
+hydra-integration = { path = "crates/hydra-integration" }
+animus = { path = "crates/animus" }
+
+# Private crates (proprietary)
+hydra-gate-advanced = { path = "private/crates/hydra-gate-advanced" }
+hydra-consolidation = { path = "private/crates/hydra-consolidation" }
+hydra-omniscience = { path = "private/crates/hydra-omniscience" }
+hydra-collective = { path = "private/crates/hydra-collective" }
+hydra-replay = { path = "private/crates/hydra-replay" }
+hydra-enterprise = { path = "private/crates/hydra-enterprise" }
+
+# HTTP Server
+axum = { version = "0.7", features = ["macros"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors"] }
+
+# Dev dependencies
+tokio-test = "0.4"
+pretty_assertions = "1.4"
+proptest = "1.4"
+tempfile = "3.10"

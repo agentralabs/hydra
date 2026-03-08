@@ -1,0 +1,19 @@
+pub mod circuit_breaker;
+pub mod executor;
+pub mod llm_config;
+pub mod local;
+pub mod preferences;
+pub mod profile;
+pub mod providers;
+pub mod registry;
+pub mod router;
+
+pub use circuit_breaker::{CircuitBreaker, CircuitState};
+pub use executor::{ErrorCategory, ErrorSeverity, ExecutionResult, ExecutorError, ModelExecutor};
+pub use llm_config::LlmConfig;
+pub use local::{LocalModelManager, LocalModelProfile, MemoryTier, OllamaClient};
+pub use preferences::ModelPreferences;
+pub use profile::{ModelCapabilities, ModelProfile, PrivacyLevel, TaskType};
+pub use providers::{CompletionRequest, CompletionResponse, LlmError};
+pub use registry::ModelRegistry;
+pub use router::{ModelRouter, RoutingDecision};

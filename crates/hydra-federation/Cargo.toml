@@ -1,0 +1,20 @@
+[package]
+name = "hydra-federation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "P2P federation for multi-agent collaboration, skill sharing, and task delegation"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+parking_lot = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+pretty_assertions = { workspace = true }

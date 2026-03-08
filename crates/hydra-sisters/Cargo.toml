@@ -1,0 +1,28 @@
+[package]
+name = "hydra-sisters"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Sister bridges for agentic-hydra: 14 sister integrations, batcher, registry"
+
+[features]
+default = []
+live-sisters = []
+
+[dependencies]
+hydra-core = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+parking_lot = { workspace = true }
+dashmap = { workspace = true }
+async-trait = { workspace = true }
+reqwest = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+pretty_assertions = { workspace = true }
+futures = { workspace = true }

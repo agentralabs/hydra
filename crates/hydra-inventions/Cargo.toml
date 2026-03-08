@@ -1,0 +1,20 @@
+[package]
+name = "hydra-inventions"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Advanced cognitive inventions: Resurrection, Dream State, Shadow Self, Token Minimizer"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+parking_lot = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+pretty_assertions = { workspace = true }

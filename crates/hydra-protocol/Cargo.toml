@@ -1,0 +1,23 @@
+[package]
+name = "hydra-protocol"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Protocol hunter for agentic-hydra: discover, rank, and manage execution protocols"
+
+[dependencies]
+hydra-core = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+parking_lot = { workspace = true }
+dashmap = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+pretty_assertions = { workspace = true }
+serde_json = { workspace = true }

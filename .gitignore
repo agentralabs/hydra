@@ -1,0 +1,33 @@
+# Build artifacts
+/target/
+*.log
+*.tmp
+
+# Proprietary - DO NOT COMMIT
+/specs/
+/private/
+/private/crates/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Credentials
+.env
+.env.local
+*.pem
+*.key
+
+# Test artifacts
+*.profraw
+coverage/
+
+# Desktop app build artifacts
+hydra-desktop/.next/
+hydra-desktop/node_modules/

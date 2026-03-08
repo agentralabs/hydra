@@ -1,0 +1,8 @@
+[package]
+name = "hydra-monitor"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+hydra-core = { workspace = true }

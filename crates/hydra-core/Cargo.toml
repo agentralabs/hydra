@@ -1,0 +1,20 @@
+[package]
+name = "hydra-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Core types, traits, and errors for agentic-hydra"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+toml = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+tokio-test = { workspace = true }

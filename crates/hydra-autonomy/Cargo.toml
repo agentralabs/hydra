@@ -1,0 +1,8 @@
+[package]
+name = "hydra-autonomy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+hydra-core = { workspace = true }

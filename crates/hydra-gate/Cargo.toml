@@ -1,0 +1,25 @@
+[package]
+name = "hydra-gate"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Execution gate for agentic-hydra: risk assessment, approval flow, kill switch"
+
+[features]
+default = []
+advanced-gate = ["dep:hydra-gate-advanced"]
+
+[dependencies]
+hydra-core = { workspace = true }
+hydra-gate-advanced = { workspace = true, optional = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+parking_lot = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+pretty_assertions = { workspace = true }

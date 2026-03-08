@@ -1,0 +1,32 @@
+[package]
+name = "hydra-stress"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Stress tests for agentic-hydra: load, concurrency, memory, stability, resource exhaustion"
+
+[dependencies]
+hydra-core = { workspace = true }
+hydra-runtime = { workspace = true }
+hydra-db = { workspace = true }
+hydra-server = { workspace = true }
+hydra-kernel = { workspace = true }
+hydra-gate = { workspace = true }
+hydra-sisters = { workspace = true }
+hydra-ledger = { workspace = true }
+hydra-integration = { path = "../hydra-integration" }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+axum = { workspace = true }
+reqwest = { workspace = true }
+futures = { workspace = true }
+parking_lot = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+pretty_assertions = { workspace = true }

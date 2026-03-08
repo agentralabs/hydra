@@ -1,0 +1,27 @@
+[package]
+name = "hydra-native"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Native desktop UI for agentic-hydra (Dioxus + Tauri architecture)"
+
+[features]
+default = []
+# Enable actual desktop rendering (requires system webkit)
+desktop = ["dep:dioxus"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+parking_lot = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+
+# Desktop rendering (optional — tests run without it)
+dioxus = { version = "0.6", features = ["desktop"], optional = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+pretty_assertions = { workspace = true }

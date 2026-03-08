@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120" fill="none">
+  <!-- Central node -->
+  <circle cx="60" cy="60" r="10" fill="#6366f1" opacity="0.3"/>
+  <circle cx="60" cy="60" r="6" fill="#6366f1"/>
+  <!-- Head nodes (the "hydra heads") -->
+  <circle cx="60" cy="20" r="6" fill="#8b5cf6" opacity="0.3"/>
+  <circle cx="60" cy="20" r="3.5" fill="#8b5cf6"/>
+  <circle cx="25" cy="35" r="6" fill="#a78bfa" opacity="0.3"/>
+  <circle cx="25" cy="35" r="3.5" fill="#a78bfa"/>
+  <circle cx="95" cy="35" r="6" fill="#a78bfa" opacity="0.3"/>
+  <circle cx="95" cy="35" r="3.5" fill="#a78bfa"/>
+  <circle cx="20" cy="75" r="6" fill="#8b5cf6" opacity="0.3"/>
+  <circle cx="20" cy="75" r="3.5" fill="#8b5cf6"/>
+  <circle cx="100" cy="75" r="6" fill="#8b5cf6" opacity="0.3"/>
+  <circle cx="100" cy="75" r="3.5" fill="#8b5cf6"/>
+  <circle cx="40" cy="100" r="6" fill="#a78bfa" opacity="0.3"/>
+  <circle cx="40" cy="100" r="3.5" fill="#a78bfa"/>
+  <circle cx="80" cy="100" r="6" fill="#a78bfa" opacity="0.3"/>
+  <circle cx="80" cy="100" r="3.5" fill="#a78bfa"/>
+  <!-- Edges from center to heads -->
+  <path d="M 58 54 L 60 23" stroke="#6366f1" stroke-width="1.5" opacity="0.4"/>
+  <path d="M 55 56 L 28 37" stroke="#6366f1" stroke-width="1.5" opacity="0.4"/>
+  <path d="M 65 56 L 92 37" stroke="#6366f1" stroke-width="1.5" opacity="0.4"/>
+  <path d="M 54 63 L 23 73" stroke="#6366f1" stroke-width="1.5" opacity="0.4"/>
+  <path d="M 66 63 L 97 73" stroke="#6366f1" stroke-width="1.5" opacity="0.4"/>
+  <path d="M 56 66 L 43 97" stroke="#6366f1" stroke-width="1.5" opacity="0.4"/>
+  <path d="M 64 66 L 77 97" stroke="#6366f1" stroke-width="1.5" opacity="0.4"/>
+  <!-- Orbital ring -->
+  <circle cx="60" cy="60" r="48" stroke="#6366f1" stroke-width="1.5" fill="none" opacity="0.15" stroke-dasharray="6 4"/>
+</svg>

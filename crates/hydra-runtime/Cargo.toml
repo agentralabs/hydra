@@ -1,0 +1,55 @@
+[package]
+name = "hydra-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Runtime for agentic-hydra: boot sequence, shutdown, config, event bus, JSON-RPC, SSE"
+
+[features]
+default = []
+live-llm = []
+# Private/enterprise features
+advanced-gate = ["hydra-gate/advanced-gate"]
+consolidation = ["dep:hydra-consolidation"]
+omniscience = ["dep:hydra-omniscience"]
+collective = ["dep:hydra-collective"]
+replay = ["dep:hydra-replay"]
+enterprise = ["dep:hydra-enterprise"]
+# Meta-feature: all private features
+private = ["advanced-gate", "consolidation", "omniscience", "collective", "replay", "enterprise"]
+
+[dependencies]
+hydra-core = { workspace = true }
+hydra-ux = { workspace = true }
+hydra-kernel = { workspace = true }
+hydra-intent = { workspace = true }
+hydra-protocol = { workspace = true }
+hydra-gate = { workspace = true }
+hydra-ledger = { workspace = true }
+hydra-sisters = { workspace = true }
+hydra-model = { workspace = true }
+hydra-belief = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+parking_lot = { workspace = true }
+async-trait = { workspace = true }
+dashmap = { workspace = true }
+tokio-util = { workspace = true }
+reqwest = { workspace = true }
+toml = { workspace = true }
+# Optional private crates
+hydra-consolidation = { workspace = true, optional = true }
+hydra-omniscience = { workspace = true, optional = true }
+hydra-collective = { workspace = true, optional = true }
+hydra-replay = { workspace = true, optional = true }
+hydra-enterprise = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+pretty_assertions = { workspace = true }
+tempfile = "3.10"
