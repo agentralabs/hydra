@@ -27,7 +27,3 @@ Thumbs.db
 # Test artifacts
 *.profraw
 coverage/
-
-# Desktop app build artifacts
-hydra-desktop/.next/
-hydra-desktop/node_modules/

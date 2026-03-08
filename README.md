@@ -86,11 +86,16 @@ curl -X POST http://localhost:7777/rpc \
 curl -N http://localhost:7777/events
 ```
 
-### Desktop App
+### Desktop App (Tauri + Dioxus)
 
 ```bash
-cd hydra-desktop
-npm install && npm run dev
+# Development
+cd crates/hydra-native
+cargo tauri dev
+
+# Release build
+cargo tauri build
+# Binary at: target/release/bundle/
 ```
 
 ## Architecture
