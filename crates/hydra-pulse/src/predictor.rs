@@ -216,4 +216,93 @@ mod tests {
         predictor.learn("third query here", "response 3");
         assert_eq!(predictor.pattern_count(), 2);
     }
+
+    #[test]
+    fn test_prediction_result_miss() {
+        let result = PredictionResult::miss();
+        assert!(!result.matched);
+        assert!(result.response.is_none());
+        assert_eq!(result.confidence, 0.0);
+        assert!(result.pattern.is_none());
+    }
+
+    #[test]
+    fn test_prediction_result_hit() {
+        let result = PredictionResult::hit("answer".into(), 0.9, "pattern".into());
+        assert!(result.matched);
+        assert_eq!(result.response, Some("answer".into()));
+        assert_eq!(result.confidence, 0.9);
+        assert_eq!(result.pattern, Some("pattern".into()));
+    }
+
+    #[test]
+    fn test_predictor_short_input() {
+        let predictor = ResponsePredictor::with_defaults();
+        predictor.learn("hi", "hello");
+        let result = predictor.predict("hi");
+        assert!(!result.matched); // Below min_prefix_len of 3
+    }
+
+    #[test]
+    fn test_predictor_clear() {
+        let predictor = ResponsePredictor::with_defaults();
+        predictor.learn("test input", "test response");
+        assert_eq!(predictor.pattern_count(), 1);
+        predictor.clear();
+        assert_eq!(predictor.pattern_count(), 0);
+    }
+
+    #[test]
+    fn test_predictor_learn_empty_input() {
+        let predictor = ResponsePredictor::with_defaults();
+        predictor.learn("", "response");
+        assert_eq!(predictor.pattern_count(), 0);
+    }
+
+    #[test]
+    fn test_predictor_case_insensitive() {
+        let predictor = ResponsePredictor::with_defaults();
+        predictor.learn("Hello World", "greeting");
+        let result = predictor.predict("hello world");
+        assert!(result.matched);
+    }
+
+    #[test]
+    fn test_predictor_learn_updates_response() {
+        let predictor = ResponsePredictor::with_defaults();
+        predictor.learn("test query", "old response");
+        predictor.learn("test query", "new response");
+        let result = predictor.predict("test query");
+        assert_eq!(result.response, Some("new response".into()));
+    }
+
+    #[test]
+    fn test_prediction_result_serde() {
+        let result = PredictionResult::hit("answer".into(), 0.9, "pat".into());
+        let json = serde_json::to_string(&result).unwrap();
+        let restored: PredictionResult = serde_json::from_str(&json).unwrap();
+        assert!(restored.matched);
+        assert_eq!(restored.confidence, 0.9);
+    }
+
+    #[test]
+    fn test_predictor_with_defaults_settings() {
+        let predictor = ResponsePredictor::with_defaults();
+        // Should accept patterns of length >= 3
+        predictor.learn("abc", "response");
+        let result = predictor.predict("abc");
+        assert!(result.matched);
+    }
+
+    #[test]
+    fn test_predictor_multiple_patterns() {
+        let predictor = ResponsePredictor::with_defaults();
+        predictor.learn("how do I create a file", "Use touch command");
+        predictor.learn("how do I delete a file", "Use rm command");
+        assert_eq!(predictor.pattern_count(), 2);
+        let r1 = predictor.predict("how do I create a file");
+        assert!(r1.matched);
+        let r2 = predictor.predict("how do I delete a file");
+        assert!(r2.matched);
+    }
 }

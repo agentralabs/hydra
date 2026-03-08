@@ -270,4 +270,98 @@ mod tests {
             Err(RegistryError::ValidationFailed(_))
         ));
     }
+
+    #[test]
+    fn test_registry_default() {
+        let registry = SkillRegistry::default();
+        assert_eq!(registry.count(), 0);
+    }
+
+    #[test]
+    fn test_registry_get_by_id() {
+        let registry = SkillRegistry::new();
+        registry.register(make_skill("greet", "s1")).unwrap();
+        let skill = registry.get("s1").unwrap();
+        assert_eq!(skill.name, "greet");
+    }
+
+    #[test]
+    fn test_registry_get_not_found() {
+        let registry = SkillRegistry::new();
+        assert!(matches!(registry.get("nope"), Err(RegistryError::NotFound(_))));
+    }
+
+    #[test]
+    fn test_registry_lookup_not_found() {
+        let registry = SkillRegistry::new();
+        assert!(matches!(registry.lookup("nope"), Err(RegistryError::NotFound(_))));
+    }
+
+    #[test]
+    fn test_registry_remove() {
+        let registry = SkillRegistry::new();
+        registry.register(make_skill("greet", "s1")).unwrap();
+        assert!(registry.remove("greet"));
+        assert_eq!(registry.count(), 0);
+    }
+
+    #[test]
+    fn test_registry_remove_nonexistent() {
+        let registry = SkillRegistry::new();
+        assert!(!registry.remove("nope"));
+    }
+
+    #[test]
+    fn test_registry_list() {
+        let registry = SkillRegistry::new();
+        registry.register(make_skill("a", "s1")).unwrap();
+        registry.register(make_skill("b", "s2")).unwrap();
+        let list = registry.list();
+        assert_eq!(list.len(), 2);
+    }
+
+    #[test]
+    fn test_discover_no_match() {
+        let registry = SkillRegistry::new();
+        registry.register(make_skill("greet", "s1")).unwrap();
+        let matches = registry.discover("totally-unrelated");
+        assert!(matches.is_empty());
+    }
+
+    #[test]
+    fn test_discover_intent_confidence() {
+        let registry = SkillRegistry::new();
+        registry.register(make_skill("greet", "s1")).unwrap();
+        let matches = registry.discover("greet");
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].confidence, 0.9); // Intent match
+    }
+
+    #[test]
+    fn test_discover_tool_confidence() {
+        let registry = SkillRegistry::new();
+        registry.register(make_skill("greet", "s1")).unwrap();
+        let matches = registry.discover("greet.run");
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].confidence, 1.0); // Tool match (highest)
+    }
+
+    #[test]
+    fn test_version_upgrade() {
+        let registry = SkillRegistry::new();
+        registry.register(make_skill("greet", "s1")).unwrap();
+        let mut v2 = make_skill("greet", "s2");
+        v2.version = "2.0.0".into();
+        registry.register(v2).unwrap();
+        let skill = registry.lookup("greet").unwrap();
+        assert_eq!(skill.version, "2.0.0");
+    }
+
+    #[test]
+    fn test_registry_error_display() {
+        let err = RegistryError::NotFound("test".into());
+        assert!(format!("{}", err).contains("test"));
+        let err = RegistryError::AlreadyExists("dup".into());
+        assert!(format!("{}", err).contains("dup"));
+    }
 }

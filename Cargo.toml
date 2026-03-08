@@ -34,6 +34,9 @@ members = [
     "crates/hydra-integration",
     "crates/animus",
     "crates/hydra-stress",
+    "crates/hydra-installer",
+    "crates/hydra-cache",
+    "crates/hydra-desktop",
     # === PRIVATE CRATES (proprietary, feature-gated) ===
     "private/crates/hydra-gate-advanced",
     "private/crates/hydra-consolidation",
@@ -41,6 +44,9 @@ members = [
     "private/crates/hydra-collective",
     "private/crates/hydra-replay",
     "private/crates/hydra-enterprise",
+]
+exclude = [
+    "extensions/*",
 ]
 
 [workspace.package]
@@ -117,6 +123,7 @@ hydra-mcp = { path = "crates/hydra-mcp" }
 hydra-observability = { path = "crates/hydra-observability" }
 hydra-integration = { path = "crates/hydra-integration" }
 animus = { path = "crates/animus" }
+hydra-installer = { path = "crates/hydra-installer" }
 
 # Private crates (proprietary)
 hydra-gate-advanced = { path = "private/crates/hydra-gate-advanced" }

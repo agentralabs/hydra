@@ -1,6 +1,7 @@
 //! CompiledExecutor — runs compiled ASTs without LLM calls (zero tokens).
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
@@ -29,12 +30,22 @@ pub struct StepResult {
     pub success: bool,
 }
 
+/// Callback type for dispatching tool execution through a real bridge.
+/// Arguments: (tool_name, resolved_params) -> Result<Value, error_message>
+pub type CompiledToolDispatcher = Arc<
+    dyn Fn(&str, &HashMap<String, serde_json::Value>) -> Result<serde_json::Value, String>
+        + Send
+        + Sync,
+>;
+
 /// Executes compiled action ASTs without any LLM calls
 pub struct CompiledExecutor {
     /// Context: variable bindings from user input
     variables: HashMap<String, serde_json::Value>,
     /// Results from previous steps (for StoreResult / PreviousResult)
     stored_results: HashMap<String, serde_json::Value>,
+    /// Optional dispatcher for real tool execution via sister bridges
+    tool_dispatcher: Option<CompiledToolDispatcher>,
 }
 
 impl CompiledExecutor {
@@ -42,6 +53,7 @@ impl CompiledExecutor {
         Self {
             variables: HashMap::new(),
             stored_results: HashMap::new(),
+            tool_dispatcher: None,
         }
     }
 
@@ -49,7 +61,15 @@ impl CompiledExecutor {
         Self {
             variables,
             stored_results: HashMap::new(),
+            tool_dispatcher: None,
         }
+    }
+
+    /// Set a real tool dispatcher for bridging compiled action execution
+    /// through sister bridges instead of simulating results.
+    pub fn with_dispatcher(mut self, dispatcher: CompiledToolDispatcher) -> Self {
+        self.tool_dispatcher = Some(dispatcher);
+        self
     }
 
     /// Execute a compiled action. Returns zero tokens used.
@@ -79,16 +99,25 @@ impl CompiledExecutor {
         match node {
             ActionNode::Action { tool, params } => {
                 let resolved = self.resolve_params(params);
-                // In production: call the actual tool via sister bridge
-                // For now: simulate success
-                let result = serde_json::json!({ "status": "ok", "tool": tool });
+
+                let (result, success) = if let Some(ref dispatcher) = self.tool_dispatcher {
+                    // Dispatch through real sister bridge
+                    match dispatcher(tool, &resolved) {
+                        Ok(val) => (val, true),
+                        Err(err) => (serde_json::json!({ "error": err }), false),
+                    }
+                } else {
+                    // Fallback: simulate success
+                    (serde_json::json!({ "status": "ok", "tool": tool }), true)
+                };
+
                 results.push(StepResult {
                     tool: tool.clone(),
                     params: resolved,
                     result: result.clone(),
-                    success: true,
+                    success,
                 });
-                true
+                success
             }
             ActionNode::Sequence(nodes) => {
                 for node in nodes {
@@ -311,5 +340,160 @@ mod tests {
         let result = executor.execute(&compiled);
         assert!(result.success);
         assert_eq!(result.steps_executed, 2);
+    }
+
+    #[test]
+    fn test_default_executor() {
+        let executor = CompiledExecutor::default();
+        let compiled = make_compiled(ActionNode::Action {
+            tool: "t".into(),
+            params: HashMap::new(),
+        });
+        let mut executor = executor;
+        let result = executor.execute(&compiled);
+        assert!(result.success);
+    }
+
+    #[test]
+    fn test_store_result() {
+        let compiled = make_compiled(ActionNode::StoreResult {
+            key: "step1".into(),
+            action: Box::new(ActionNode::Action {
+                tool: "fetch".into(),
+                params: HashMap::new(),
+            }),
+        });
+        let mut executor = CompiledExecutor::new();
+        let result = executor.execute(&compiled);
+        assert!(result.success);
+        assert_eq!(result.steps_executed, 1);
+    }
+
+    #[test]
+    fn test_if_condition_exists_true() {
+        let compiled = make_compiled(ActionNode::Sequence(vec![
+            ActionNode::StoreResult {
+                key: "data".into(),
+                action: Box::new(ActionNode::Action { tool: "fetch".into(), params: HashMap::new() }),
+            },
+            ActionNode::If {
+                condition: ConditionExpr::Exists("data".into()),
+                then: Box::new(ActionNode::Action { tool: "process".into(), params: HashMap::new() }),
+                else_: None,
+            },
+        ]));
+        let mut executor = CompiledExecutor::new();
+        let result = executor.execute(&compiled);
+        assert!(result.success);
+        assert_eq!(result.steps_executed, 2); // fetch + process
+    }
+
+    #[test]
+    fn test_if_condition_exists_false() {
+        let compiled = make_compiled(ActionNode::If {
+            condition: ConditionExpr::Exists("nonexistent".into()),
+            then: Box::new(ActionNode::Action { tool: "skip".into(), params: HashMap::new() }),
+            else_: Some(Box::new(ActionNode::Action { tool: "fallback".into(), params: HashMap::new() })),
+        });
+        let mut executor = CompiledExecutor::new();
+        let result = executor.execute(&compiled);
+        assert!(result.success);
+        assert_eq!(result.results[0].tool, "fallback");
+    }
+
+    #[test]
+    fn test_condition_not() {
+        let compiled = make_compiled(ActionNode::If {
+            condition: ConditionExpr::Not(Box::new(ConditionExpr::Exists("nope".into()))),
+            then: Box::new(ActionNode::Action { tool: "yes".into(), params: HashMap::new() }),
+            else_: None,
+        });
+        let mut executor = CompiledExecutor::new();
+        let result = executor.execute(&compiled);
+        assert_eq!(result.steps_executed, 1);
+        assert_eq!(result.results[0].tool, "yes");
+    }
+
+    #[test]
+    fn test_condition_and() {
+        let mut executor = CompiledExecutor::with_variables(HashMap::from([
+            ("a".into(), serde_json::json!("exists")),
+            ("b".into(), serde_json::json!("also")),
+        ]));
+        let compiled = make_compiled(ActionNode::If {
+            condition: ConditionExpr::And(vec![
+                ConditionExpr::Exists("a".into()),
+                ConditionExpr::Exists("b".into()),
+            ]),
+            then: Box::new(ActionNode::Action { tool: "both".into(), params: HashMap::new() }),
+            else_: None,
+        });
+        let result = executor.execute(&compiled);
+        assert_eq!(result.steps_executed, 1);
+    }
+
+    #[test]
+    fn test_condition_or() {
+        let mut executor = CompiledExecutor::with_variables(HashMap::from([
+            ("a".into(), serde_json::json!("yes")),
+        ]));
+        let compiled = make_compiled(ActionNode::If {
+            condition: ConditionExpr::Or(vec![
+                ConditionExpr::Exists("a".into()),
+                ConditionExpr::Exists("z".into()),
+            ]),
+            then: Box::new(ActionNode::Action { tool: "found".into(), params: HashMap::new() }),
+            else_: None,
+        });
+        let result = executor.execute(&compiled);
+        assert_eq!(result.steps_executed, 1);
+    }
+
+    #[test]
+    fn test_previous_result_param() {
+        let compiled = make_compiled(ActionNode::Sequence(vec![
+            ActionNode::StoreResult {
+                key: "step1".into(),
+                action: Box::new(ActionNode::Action { tool: "fetch".into(), params: HashMap::new() }),
+            },
+            ActionNode::Action {
+                tool: "use".into(),
+                params: HashMap::from([("data".into(), ParamExpr::PreviousResult("step1".into()))]),
+            },
+        ]));
+        let mut executor = CompiledExecutor::new();
+        let result = executor.execute(&compiled);
+        assert!(result.success);
+        assert_eq!(result.steps_executed, 2);
+    }
+
+    #[test]
+    fn test_execution_result_serde() {
+        let result = ExecutionResult {
+            compiled_id: "id".into(),
+            signature: "sig".into(),
+            success: true,
+            tokens_used: 0,
+            duration_ms: 5,
+            steps_executed: 1,
+            results: vec![],
+            error: None,
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        let restored: ExecutionResult = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.tokens_used, 0);
+    }
+
+    #[test]
+    fn test_foreach_empty_collection() {
+        let compiled = make_compiled(ActionNode::ForEach {
+            variable: "item".into(),
+            collection: CollectionExpr::Literal(vec![]),
+            body: Box::new(ActionNode::Action { tool: "process".into(), params: HashMap::new() }),
+        });
+        let mut executor = CompiledExecutor::new();
+        let result = executor.execute(&compiled);
+        assert!(result.success);
+        assert_eq!(result.steps_executed, 0);
     }
 }

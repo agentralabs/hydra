@@ -168,6 +168,10 @@ fn test_settings_config_to_fields() {
         server_url: "http://localhost:7777".into(),
         theme: Theme::Dark,
         voice_enabled: false,
+        sounds_enabled: true,
+        sound_volume: 0.7,
+        auto_approve_low_risk: false,
+        default_mode: "companion".into(),
     };
     let fields = config_to_fields(&config);
     assert!(!fields.is_empty());

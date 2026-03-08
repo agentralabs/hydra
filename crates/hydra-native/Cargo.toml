@@ -18,6 +18,7 @@ uuid = { workspace = true }
 parking_lot = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
+hydra-model = { workspace = true }
 
 # Desktop rendering (optional — tests run without it)
 dioxus = { version = "0.6", features = ["desktop"], optional = true }

@@ -182,4 +182,94 @@ mod tests {
             Err(PulseFormatError::UnsupportedVersion(99))
         ));
     }
+
+    #[test]
+    fn test_magic_constant() {
+        assert_eq!(APULSE_MAGIC, b"APULSE");
+    }
+
+    #[test]
+    fn test_version_constant() {
+        assert_eq!(APULSE_VERSION, 1);
+    }
+
+    #[test]
+    fn test_pulse_entry_serde() {
+        let entry = PulseEntry {
+            key: "test".into(),
+            value: serde_json::json!(42),
+            updated_at: "2026-01-01".into(),
+        };
+        let json = serde_json::to_string(&entry).unwrap();
+        let restored: PulseEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.key, "test");
+    }
+
+    #[test]
+    fn test_pulse_pattern_entry_serde() {
+        let entry = PulsePatternEntry { input: "hi".into(), response: "hello".into(), confidence: 0.9, hit_count: 5 };
+        let json = serde_json::to_string(&entry).unwrap();
+        let restored: PulsePatternEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.hit_count, 5);
+    }
+
+    #[test]
+    fn test_pulse_watch_entry_serde() {
+        let entry = PulseWatchEntry {
+            id: "w1".into(),
+            trigger_type: "interval".into(),
+            trigger_config: serde_json::json!({"seconds": 60}),
+            description: "test".into(),
+            enabled: true,
+        };
+        let json = serde_json::to_string(&entry).unwrap();
+        let restored: PulseWatchEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.id, "w1");
+    }
+
+    #[test]
+    fn test_to_bytes_starts_with_magic() {
+        let state = PulseState::empty();
+        let bytes = state.to_bytes();
+        assert_eq!(&bytes[..6], APULSE_MAGIC);
+        assert_eq!(bytes[6], APULSE_VERSION);
+    }
+
+    #[test]
+    fn test_from_bytes_invalid_json() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(APULSE_MAGIC);
+        bytes.push(APULSE_VERSION);
+        bytes.extend_from_slice(b"not json");
+        let result = PulseState::from_bytes(&bytes);
+        assert!(matches!(result, Err(PulseFormatError::JsonError(_))));
+    }
+
+    #[test]
+    fn test_error_display() {
+        assert!(format!("{}", PulseFormatError::TooShort).contains("too short"));
+        assert!(format!("{}", PulseFormatError::InvalidMagic).contains("magic"));
+        assert!(format!("{}", PulseFormatError::UnsupportedVersion(2)).contains("2"));
+    }
+
+    #[test]
+    fn test_state_with_watches() {
+        let mut state = PulseState::empty();
+        state.watches.push(PulseWatchEntry {
+            id: "w1".into(),
+            trigger_type: "file".into(),
+            trigger_config: serde_json::json!({"pattern": "*.rs"}),
+            description: "Rust files".into(),
+            enabled: true,
+        });
+        let bytes = state.to_bytes();
+        let restored = PulseState::from_bytes(&bytes).unwrap();
+        assert_eq!(restored.watches.len(), 1);
+    }
+
+    #[test]
+    fn test_empty_state_session_count() {
+        let state = PulseState::empty();
+        assert_eq!(state.session_count, 0);
+    }
 }

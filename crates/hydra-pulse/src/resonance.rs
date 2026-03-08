@@ -181,4 +181,90 @@ mod tests {
         model.reset();
         assert_eq!(model.dimension_count(), 0);
     }
+
+    #[test]
+    fn test_clamp_learning_rate_high() {
+        let model = ResonanceModel::new(5.0);
+        model.observe("dim", 0.5);
+        // Should not panic, learning rate clamped to 1.0
+        assert!(model.preference("dim").is_some());
+    }
+
+    #[test]
+    fn test_clamp_learning_rate_low() {
+        let model = ResonanceModel::new(-1.0);
+        model.observe("dim", 0.5);
+        assert!(model.preference("dim").is_some());
+    }
+
+    #[test]
+    fn test_observe_clamps_value() {
+        let model = ResonanceModel::with_defaults();
+        model.observe("dim", 2.0);
+        let v = model.preference("dim").unwrap();
+        assert!(v <= 1.0);
+    }
+
+    #[test]
+    fn test_observe_clamps_negative() {
+        let model = ResonanceModel::with_defaults();
+        model.observe("dim", -1.0);
+        let v = model.preference("dim").unwrap();
+        assert!(v >= 0.0);
+    }
+
+    #[test]
+    fn test_all_preferences() {
+        let model = ResonanceModel::with_defaults();
+        model.observe("a", 0.1);
+        model.observe("b", 0.9);
+        let prefs = model.all_preferences();
+        assert_eq!(prefs.len(), 2);
+    }
+
+    #[test]
+    fn test_preference_nonexistent() {
+        let model = ResonanceModel::with_defaults();
+        assert!(model.preference("nope").is_none());
+    }
+
+    #[test]
+    fn test_user_preference_serde() {
+        let pref = UserPreference { dimension: "test".into(), value: 0.5, observations: 3 };
+        let json = serde_json::to_string(&pref).unwrap();
+        let restored: UserPreference = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.dimension, "test");
+        assert_eq!(restored.observations, 3);
+    }
+
+    #[test]
+    fn test_resonance_score_serde() {
+        let score = ResonanceScore { overall: 0.8, dimensions: vec![("dim".into(), 0.9)] };
+        let json = serde_json::to_string(&score).unwrap();
+        let restored: ResonanceScore = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.overall, 0.8);
+    }
+
+    #[test]
+    fn test_multiple_observations_increase_count() {
+        let model = ResonanceModel::with_defaults();
+        model.observe("dim", 0.5);
+        model.observe("dim", 0.6);
+        model.observe("dim", 0.7);
+        let prefs = model.all_preferences();
+        let pref = prefs.iter().find(|p| p.dimension == "dim").unwrap();
+        assert_eq!(pref.observations, 3);
+    }
+
+    #[test]
+    fn test_score_partial_dimensions() {
+        let model = ResonanceModel::with_defaults();
+        model.observe("a", 0.5);
+        model.observe("b", 0.5);
+        let mut traits = HashMap::new();
+        traits.insert("a".into(), 0.5); // only score on "a", not "b"
+        let score = model.score(&traits);
+        assert!(score.overall > 0.95); // near perfect match on the one dimension
+        assert_eq!(score.dimensions.len(), 1);
+    }
 }

@@ -207,4 +207,93 @@ mod tests {
         let read = skills.iter().find(|s| s.name == "file_read").unwrap();
         assert_eq!(read.risk_level, RiskLevel::Low);
     }
+
+    #[test]
+    fn test_file_read_requirements() {
+        let skills = builtin_skills();
+        let read = skills.iter().find(|s| s.name == "file_read").unwrap();
+        assert!(read.requirements.contains(&Requirement::FileSystem));
+        assert!(read.metadata.idempotent);
+    }
+
+    #[test]
+    fn test_file_write_requirements() {
+        let skills = builtin_skills();
+        let write = skills.iter().find(|s| s.name == "file_write").unwrap();
+        assert!(write.requirements.contains(&Requirement::FileSystem));
+        assert!(write.metadata.reversible);
+        assert_eq!(write.risk_level, RiskLevel::Medium);
+    }
+
+    #[test]
+    fn test_http_get_requirements() {
+        let skills = builtin_skills();
+        let http = skills.iter().find(|s| s.name == "http_get").unwrap();
+        assert!(http.requirements.contains(&Requirement::Network));
+        assert!(http.metadata.cacheable);
+        assert!(http.metadata.idempotent);
+    }
+
+    #[test]
+    fn test_shell_exec_has_permission() {
+        let skills = builtin_skills();
+        let shell = skills.iter().find(|s| s.name == "shell_exec").unwrap();
+        assert!(shell.requirements.contains(&Requirement::Permission("shell".into())));
+    }
+
+    #[test]
+    fn test_all_builtins_have_triggers() {
+        for skill in builtin_skills() {
+            assert!(!skill.triggers.is_empty(), "{} has no triggers", skill.name);
+            assert!(skill.triggers.len() >= 2, "{} should have at least 2 triggers", skill.name);
+        }
+    }
+
+    #[test]
+    fn test_all_builtins_have_params() {
+        for skill in builtin_skills() {
+            assert!(!skill.parameters.is_empty(), "{} has no params", skill.name);
+        }
+    }
+
+    #[test]
+    fn test_all_builtins_have_outputs() {
+        for skill in builtin_skills() {
+            assert!(!skill.outputs.is_empty(), "{} has no outputs", skill.name);
+        }
+    }
+
+    #[test]
+    fn test_builtin_ids_unique() {
+        let skills = builtin_skills();
+        let ids: Vec<&str> = skills.iter().map(|s| s.id.as_str()).collect();
+        let mut unique = ids.clone();
+        unique.sort();
+        unique.dedup();
+        assert_eq!(ids.len(), unique.len());
+    }
+
+    #[test]
+    fn test_builtin_names_unique() {
+        let skills = builtin_skills();
+        let names: Vec<&str> = skills.iter().map(|s| s.name.as_str()).collect();
+        let mut unique = names.clone();
+        unique.sort();
+        unique.dedup();
+        assert_eq!(names.len(), unique.len());
+    }
+
+    #[test]
+    fn test_all_builtins_sandbox_none() {
+        for skill in builtin_skills() {
+            assert_eq!(skill.sandbox_level, SandboxLevel::None, "{} should have None sandbox", skill.name);
+        }
+    }
+
+    #[test]
+    fn test_file_write_has_two_params() {
+        let skills = builtin_skills();
+        let write = skills.iter().find(|s| s.name == "file_write").unwrap();
+        assert_eq!(write.parameters.len(), 2);
+    }
 }

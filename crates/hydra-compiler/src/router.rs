@@ -178,4 +178,56 @@ mod tests {
         assert!(router.deregister("temp"));
         assert_eq!(router.compiled_count(), 0);
     }
+
+    #[test]
+    fn test_router_default() {
+        let router = ExecutionRouter::default();
+        assert_eq!(router.compiled_count(), 0);
+    }
+
+    #[test]
+    fn test_deregister_nonexistent() {
+        let router = ExecutionRouter::new();
+        assert!(!router.deregister("nope"));
+    }
+
+    #[test]
+    fn test_execute_compiled_nonexistent() {
+        let router = ExecutionRouter::new();
+        let result = router.execute_compiled("nope", HashMap::new());
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_routing_decision_serde() {
+        let decision = RoutingDecision::Compiled { compiled_id: "id".into(), signature: "sig".into() };
+        let json = serde_json::to_string(&decision).unwrap();
+        let restored: RoutingDecision = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored, decision);
+    }
+
+    #[test]
+    fn test_routing_decision_llm_serde() {
+        let decision = RoutingDecision::Llm { reason: "no match".into() };
+        let json = serde_json::to_string(&decision).unwrap();
+        let restored: RoutingDecision = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored, decision);
+    }
+
+    #[test]
+    fn test_router_stats_initial() {
+        let router = ExecutionRouter::new();
+        let stats = router.stats();
+        assert_eq!(stats.compiled_actions, 0);
+        assert_eq!(stats.compiled_hits, 0);
+        assert_eq!(stats.llm_fallbacks, 0);
+    }
+
+    #[test]
+    fn test_router_stats_serde() {
+        let stats = RouterStats { compiled_actions: 5, compiled_hits: 10, llm_fallbacks: 3 };
+        let json = serde_json::to_string(&stats).unwrap();
+        let restored: RouterStats = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.compiled_hits, 10);
+    }
 }

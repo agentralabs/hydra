@@ -6,3 +6,6 @@ rust-version.workspace = true
 
 [dependencies]
 hydra-core = { workspace = true }
+ureq = { version = "2", features = ["json"] }
+serde_json = { workspace = true }
+serde = { workspace = true }

@@ -40,8 +40,9 @@ pub fn config_to_fields(config: &AppConfig) -> Vec<SettingsField> {
                 selected: match config.theme {
                     Theme::Dark => "dark".into(),
                     Theme::Light => "light".into(),
+                    Theme::System => "system".into(),
                 },
-                options: vec!["dark".into(), "light".into()],
+                options: vec!["dark".into(), "light".into(), "system".into()],
             },
             description: "UI color scheme".into(),
         },
@@ -50,6 +51,27 @@ pub fn config_to_fields(config: &AppConfig) -> Vec<SettingsField> {
             label: "Voice Input".into(),
             value: SettingsValue::Bool(config.voice_enabled),
             description: "Enable voice commands".into(),
+        },
+        SettingsField {
+            key: "sounds_enabled".into(),
+            label: "Sounds".into(),
+            value: SettingsValue::Bool(config.sounds_enabled),
+            description: "Enable UI sound effects".into(),
+        },
+        SettingsField {
+            key: "auto_approve_low_risk".into(),
+            label: "Auto-approve Low Risk".into(),
+            value: SettingsValue::Bool(config.auto_approve_low_risk),
+            description: "Skip approval for low-risk actions".into(),
+        },
+        SettingsField {
+            key: "default_mode".into(),
+            label: "Default Mode".into(),
+            value: SettingsValue::Choice {
+                selected: config.default_mode.clone(),
+                options: vec!["companion".into(), "workspace".into()],
+            },
+            description: "Mode on startup".into(),
         },
     ]
 }
@@ -64,12 +86,25 @@ pub fn apply_field(config: &mut AppConfig, key: &str, value: &SettingsValue) -> 
         ("theme", SettingsValue::Choice { selected, .. }) => {
             config.theme = match selected.as_str() {
                 "light" => Theme::Light,
+                "system" => Theme::System,
                 _ => Theme::Dark,
             };
             true
         }
         ("voice_enabled", SettingsValue::Bool(v)) => {
             config.voice_enabled = *v;
+            true
+        }
+        ("sounds_enabled", SettingsValue::Bool(v)) => {
+            config.sounds_enabled = *v;
+            true
+        }
+        ("auto_approve_low_risk", SettingsValue::Bool(v)) => {
+            config.auto_approve_low_risk = *v;
+            true
+        }
+        ("default_mode", SettingsValue::Choice { selected, .. }) => {
+            config.default_mode = selected.clone();
             true
         }
         _ => false,
@@ -84,7 +119,7 @@ mod tests {
     fn test_config_to_fields() {
         let config = AppConfig::default();
         let fields = config_to_fields(&config);
-        assert_eq!(fields.len(), 3);
+        assert_eq!(fields.len(), 6);
         assert_eq!(fields[0].key, "server_url");
     }
 

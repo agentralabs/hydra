@@ -1,11 +1,20 @@
 use serde::{Deserialize, Serialize};
 
+/// A named hard boundary that blocks specific actions unconditionally.
+/// Used to define custom enforcement rules beyond the built-in defaults.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HardBoundary {
+    pub description: String,
+    pub blocked_actions: Vec<String>,
+}
+
 /// Hard boundary enforcement — actions that are NEVER allowed regardless of risk score.
 /// This runs BEFORE risk assessment in the ExecutionGate pipeline.
 #[derive(Debug, Clone)]
 pub struct BoundaryEnforcer {
     blocked_paths: Vec<String>,
     blocked_patterns: Vec<BlockedPattern>,
+    hard_boundaries: Vec<HardBoundary>,
 }
 
 /// A pattern that is unconditionally blocked
@@ -66,6 +75,7 @@ impl BoundaryEnforcer {
                 "~/.gnupg/".into(),
                 ".gnupg/".into(),
             ],
+            hard_boundaries: Vec::new(),
             blocked_patterns: vec![
                 BlockedPattern {
                     name: "email_without_confirmation",
@@ -101,6 +111,29 @@ impl BoundaryEnforcer {
         }
     }
 
+    /// Check if an action+target pair is allowed through the boundary.
+    /// Two-argument version that also checks hard boundaries against the action.
+    /// Returns `BoundaryResult::Blocked` if either hits a hard block.
+    pub fn check_action(&self, action: &str, target: &str) -> BoundaryResult {
+        let action_lower = action.to_lowercase();
+
+        // Check hard boundaries against the action
+        for boundary in &self.hard_boundaries {
+            for blocked in &boundary.blocked_actions {
+                if action_lower.contains(&blocked.to_lowercase()) {
+                    return BoundaryResult::Blocked(BoundaryViolation {
+                        rule_name: "hard_boundary".into(),
+                        reason: boundary.description.clone(),
+                        target: format!("{}:{}", action, target),
+                    });
+                }
+            }
+        }
+
+        // Fall through to target-based check
+        self.check(target)
+    }
+
     /// Check if an action target is allowed through the boundary.
     /// Returns `BoundaryResult::Blocked` if the target hits a hard block.
     pub fn check(&self, target: &str) -> BoundaryResult {
@@ -115,6 +148,19 @@ impl BoundaryEnforcer {
                     reason: format!("Path '{}' is in a protected system directory", path),
                     target: target.to_string(),
                 });
+            }
+        }
+
+        // Check hard boundaries against the target too
+        for boundary in &self.hard_boundaries {
+            for blocked in &boundary.blocked_actions {
+                if lower.contains(&blocked.to_lowercase()) {
+                    return BoundaryResult::Blocked(BoundaryViolation {
+                        rule_name: "hard_boundary".into(),
+                        reason: boundary.description.clone(),
+                        target: target.to_string(),
+                    });
+                }
             }
         }
 
@@ -152,6 +198,16 @@ impl BoundaryEnforcer {
     /// Add a custom blocked pattern
     pub fn add_blocked_pattern(&mut self, pattern: BlockedPattern) {
         self.blocked_patterns.push(pattern);
+    }
+
+    /// Add a hard boundary that blocks specific actions unconditionally
+    pub fn add_boundary(&mut self, boundary: HardBoundary) {
+        self.hard_boundaries.push(boundary);
+    }
+
+    /// Get all hard boundaries (for inspection/testing)
+    pub fn hard_boundaries(&self) -> &[HardBoundary] {
+        &self.hard_boundaries
     }
 
     /// Get all blocked paths (for inspection/testing)

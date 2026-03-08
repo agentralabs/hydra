@@ -156,6 +156,135 @@ mod tests {
     }
 
     #[test]
+    fn test_known_peer_can_share_but_not_delegate() {
+        let peer = PeerInfo {
+            id: "peer-k".into(),
+            name: "known-peer".into(),
+            endpoint: "localhost:9000".into(),
+            version: "0.1.0".into(),
+            capabilities: PeerCapabilities::default(),
+            trust_level: TrustLevel::Known,
+            federation_type: FederationType::Team,
+            last_seen: chrono::Utc::now().to_rfc3339(),
+            active_tasks: 0,
+        };
+        assert!(peer.allows_skill_sharing());
+        assert!(!peer.allows_delegation());
+    }
+
+    #[test]
+    fn test_peer_at_capacity() {
+        let peer = PeerInfo {
+            id: "peer-full".into(),
+            name: "full".into(),
+            endpoint: "localhost:9000".into(),
+            version: "0.1.0".into(),
+            capabilities: PeerCapabilities {
+                max_concurrent_tasks: 2,
+                ..PeerCapabilities::default()
+            },
+            trust_level: TrustLevel::Trusted,
+            federation_type: FederationType::Personal,
+            last_seen: chrono::Utc::now().to_rfc3339(),
+            active_tasks: 2,
+        };
+        assert!(!peer.has_capacity());
+    }
+
+    #[test]
+    fn test_peer_has_capacity_below_max() {
+        let peer = PeerInfo {
+            id: "peer-ok".into(),
+            name: "ok".into(),
+            endpoint: "localhost:9000".into(),
+            version: "0.1.0".into(),
+            capabilities: PeerCapabilities {
+                max_concurrent_tasks: 4,
+                ..PeerCapabilities::default()
+            },
+            trust_level: TrustLevel::Trusted,
+            federation_type: FederationType::Personal,
+            last_seen: chrono::Utc::now().to_rfc3339(),
+            active_tasks: 3,
+        };
+        assert!(peer.has_capacity());
+    }
+
+    #[test]
+    fn test_peer_capabilities_default() {
+        let caps = PeerCapabilities::default();
+        assert!(caps.sisters.is_empty());
+        assert!(caps.skills.is_empty());
+        assert_eq!(caps.max_concurrent_tasks, 4);
+        assert_eq!(caps.available_memory_mb, 512);
+        assert_eq!(caps.federation_types, vec![FederationType::Personal]);
+    }
+
+    #[test]
+    fn test_peer_id_deterministic() {
+        let id1 = generate_peer_id("same", "same");
+        let id2 = generate_peer_id("same", "same");
+        assert_eq!(id1, id2);
+    }
+
+    #[test]
+    fn test_peer_id_different_secret() {
+        let id1 = generate_peer_id("host", "secret1");
+        let id2 = generate_peer_id("host", "secret2");
+        assert_ne!(id1, id2);
+    }
+
+    #[test]
+    fn test_peer_info_serialization() {
+        let peer = PeerInfo {
+            id: "peer-ser".into(),
+            name: "serializable".into(),
+            endpoint: "localhost:9000".into(),
+            version: "0.1.0".into(),
+            capabilities: PeerCapabilities::default(),
+            trust_level: TrustLevel::Owner,
+            federation_type: FederationType::Personal,
+            last_seen: "2026-01-01T00:00:00Z".into(),
+            active_tasks: 0,
+        };
+        let json = serde_json::to_string(&peer).unwrap();
+        let restored: PeerInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.id, "peer-ser");
+        assert_eq!(restored.trust_level, TrustLevel::Owner);
+    }
+
+    #[test]
+    fn test_federation_type_serialization() {
+        let json = serde_json::to_string(&FederationType::Personal).unwrap();
+        assert_eq!(json, "\"Personal\"");
+        let json = serde_json::to_string(&FederationType::Team).unwrap();
+        assert_eq!(json, "\"Team\"");
+        let json = serde_json::to_string(&FederationType::Collective).unwrap();
+        assert_eq!(json, "\"Collective\"");
+    }
+
+    #[test]
+    fn test_has_capability_in_skills() {
+        let peer = PeerInfo {
+            id: "p".into(),
+            name: "p".into(),
+            endpoint: "l".into(),
+            version: "0.1.0".into(),
+            capabilities: PeerCapabilities {
+                sisters: vec![],
+                skills: vec!["special_skill".into()],
+                ..PeerCapabilities::default()
+            },
+            trust_level: TrustLevel::Trusted,
+            federation_type: FederationType::Personal,
+            last_seen: "now".into(),
+            active_tasks: 0,
+        };
+        assert!(peer.has_capability("special_skill"));
+        assert!(!peer.has_capability("memory"));
+    }
+
+    #[test]
     fn test_unknown_peer_restrictions() {
         let peer = PeerInfo {
             id: "peer-xyz".into(),

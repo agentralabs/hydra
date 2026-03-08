@@ -80,3 +80,102 @@ impl ReplayEngine {
         undo_receipts
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn build_chain(n: usize) -> Vec<LedgerReceipt> {
+        let mut chain = Vec::new();
+        let mut prev_hash = None;
+        for i in 0..n {
+            let r = LedgerReceipt::new(
+                i as u64,
+                LedgerReceiptType::ActionExecuted,
+                format!("action_{}", i),
+                serde_json::json!({"seq": i}),
+                prev_hash,
+            );
+            prev_hash = Some(r.content_hash.clone());
+            chain.push(r);
+        }
+        chain
+    }
+
+    #[test]
+    fn replay_empty_chain() {
+        let result = ReplayEngine::replay(&[], 0);
+        assert!(result.is_empty());
+        assert_eq!(result.tokens_used, 0);
+        assert!(result.deterministic);
+    }
+
+    #[test]
+    fn replay_full_chain() {
+        let chain = build_chain(5);
+        let result = ReplayEngine::replay(&chain, 0);
+        assert_eq!(result.receipts.len(), 5);
+    }
+
+    #[test]
+    fn replay_partial_chain() {
+        let chain = build_chain(5);
+        let result = ReplayEngine::replay(&chain, 2);
+        assert_eq!(result.receipts.len(), 3); // sequences 2,3,4
+    }
+
+    #[test]
+    fn replay_and_verify_valid_chain() {
+        let chain = build_chain(3);
+        let (result, valid) = ReplayEngine::replay_and_verify(&chain, 0);
+        assert!(valid);
+        assert_eq!(result.receipts.len(), 3);
+    }
+
+    #[test]
+    fn replay_and_verify_tampered_chain() {
+        let mut chain = build_chain(3);
+        chain[1].action = "tampered".to_string();
+        let (_result, valid) = ReplayEngine::replay_and_verify(&chain, 0);
+        assert!(!valid);
+    }
+
+    #[test]
+    fn generate_undo_creates_compensating_receipts() {
+        let chain = build_chain(5);
+        let undo = ReplayEngine::generate_undo(&chain, 2, 4);
+        // Should undo sequences 3 and 4 (receipts after sequence 2, up to 4)
+        assert_eq!(undo.len(), 2);
+        for u in &undo {
+            assert_eq!(u.receipt_type, LedgerReceiptType::UndoPerformed);
+            assert!(u.action.starts_with("undo:"));
+        }
+    }
+
+    #[test]
+    fn generate_undo_empty_range() {
+        let chain = build_chain(3);
+        let undo = ReplayEngine::generate_undo(&chain, 5, 4);
+        assert!(undo.is_empty());
+    }
+
+    #[test]
+    fn undo_receipts_are_hash_valid() {
+        let chain = build_chain(5);
+        let undo = ReplayEngine::generate_undo(&chain, 2, 4);
+        for u in &undo {
+            assert!(u.verify_hash());
+        }
+    }
+
+    #[test]
+    fn undo_receipts_chain_properly() {
+        let chain = build_chain(3);
+        let undo = ReplayEngine::generate_undo(&chain, 0, 2);
+        // Each undo should reference the previous one's hash
+        assert_eq!(undo[0].previous_hash, Some(chain.last().unwrap().content_hash.clone()));
+        if undo.len() > 1 {
+            assert_eq!(undo[1].previous_hash, Some(undo[0].content_hash.clone()));
+        }
+    }
+}

@@ -224,7 +224,7 @@ fn test_settings_persistence() {
     assert_eq!(config.theme, Theme::Dark);
 
     let fields = config_to_fields(&config);
-    assert_eq!(fields.len(), 3);
+    assert_eq!(fields.len(), 6);
 
     // Apply changes
     apply_field(

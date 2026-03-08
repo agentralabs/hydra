@@ -1,4 +1,5 @@
 pub mod executor;
+pub mod routes;
 mod rpc;
 mod sse;
 mod state;
@@ -32,6 +33,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/health", get(health_handler))
         .route("/rpc", post(rpc_handler))
         .route("/events", get(sse_handler))
+        .merge(routes::api_routes())
         .layer(cors)
         .with_state(Arc::new(state))
 }

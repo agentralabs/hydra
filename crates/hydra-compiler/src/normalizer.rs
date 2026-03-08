@@ -251,4 +251,92 @@ mod tests {
         let var = norm.variables.values().next().unwrap();
         assert_eq!(var.inferred_type, InferredType::Path);
     }
+
+    #[test]
+    fn test_normalize_empty() {
+        assert!(SequenceNormalizer::normalize(&[]).is_none());
+    }
+
+    #[test]
+    fn test_normalize_empty_actions() {
+        let instances = vec![vec![]];
+        assert!(SequenceNormalizer::normalize(&instances).is_none());
+    }
+
+    #[test]
+    fn test_normalize_different_lengths() {
+        let instances = vec![
+            vec![make_action("a", &[])],
+            vec![make_action("a", &[]), make_action("b", &[])],
+        ];
+        assert!(SequenceNormalizer::normalize(&instances).is_none());
+    }
+
+    #[test]
+    fn test_infer_type_number() {
+        let instances = vec![
+            vec![make_action("set", &[("count", serde_json::json!(1))])],
+            vec![make_action("set", &[("count", serde_json::json!(2))])],
+        ];
+        let norm = SequenceNormalizer::normalize(&instances).unwrap();
+        let var = norm.variables.values().next().unwrap();
+        assert_eq!(var.inferred_type, InferredType::Number);
+    }
+
+    #[test]
+    fn test_infer_type_boolean() {
+        let instances = vec![
+            vec![make_action("flag", &[("enabled", serde_json::json!(true))])],
+            vec![make_action("flag", &[("enabled", serde_json::json!(false))])],
+        ];
+        let norm = SequenceNormalizer::normalize(&instances).unwrap();
+        let var = norm.variables.values().next().unwrap();
+        assert_eq!(var.inferred_type, InferredType::Boolean);
+    }
+
+    #[test]
+    fn test_infer_type_unknown() {
+        let instances = vec![
+            vec![make_action("set", &[("val", serde_json::json!(null))])],
+            vec![make_action("set", &[("val", serde_json::json!([1,2]))])],
+        ];
+        let norm = SequenceNormalizer::normalize(&instances).unwrap();
+        let var = norm.variables.values().next().unwrap();
+        assert_eq!(var.inferred_type, InferredType::Unknown);
+    }
+
+    #[test]
+    fn test_normalized_param_variable_serde() {
+        let var = NormalizedParam::Variable { name: "x".into() };
+        let json = serde_json::to_string(&var).unwrap();
+        let restored: NormalizedParam = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored, var);
+    }
+
+    #[test]
+    fn test_inferred_type_serde() {
+        for t in [InferredType::String, InferredType::Number, InferredType::Boolean, InferredType::Path, InferredType::Unknown] {
+            let json = serde_json::to_string(&t).unwrap();
+            let restored: InferredType = serde_json::from_str(&json).unwrap();
+            assert_eq!(restored, t);
+        }
+    }
+
+    #[test]
+    fn test_raw_action_serde() {
+        let action = make_action("test", &[("key", serde_json::json!("val"))]);
+        let json = serde_json::to_string(&action).unwrap();
+        let restored: RawAction = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.tool, "test");
+    }
+
+    #[test]
+    fn test_single_instance_all_constant() {
+        let instances = vec![
+            vec![make_action("deploy", &[("env", serde_json::json!("prod"))])],
+        ];
+        let norm = SequenceNormalizer::normalize(&instances).unwrap();
+        assert!(norm.variables.is_empty());
+        assert_eq!(norm.actions[0].params["env"], NormalizedParam::Literal(serde_json::json!("prod")));
+    }
 }

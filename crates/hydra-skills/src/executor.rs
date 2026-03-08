@@ -1,14 +1,20 @@
 //! SkillExecutor — sandboxed skill execution.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::definition::SkillDefinition;
+use crate::definition::{SkillDefinition, SkillSource};
 use crate::sandbox::Sandbox;
 use crate::validator::SkillValidator;
+
+/// Callback type for dispatching skill execution through a real bridge.
+/// Arguments: (sister_id, tool_name, params) -> Result<Value, error_message>
+pub type ToolDispatcher =
+    Arc<dyn Fn(&str, &str, &serde_json::Value) -> Result<serde_json::Value, String> + Send + Sync>;
 
 #[derive(Debug, Error)]
 pub enum ExecutionError {
@@ -38,6 +44,7 @@ pub struct SkillResult {
 pub struct SkillExecutor {
     validator: SkillValidator,
     default_timeout: Duration,
+    tool_dispatcher: Option<ToolDispatcher>,
 }
 
 impl SkillExecutor {
@@ -45,6 +52,7 @@ impl SkillExecutor {
         Self {
             validator: SkillValidator::new(),
             default_timeout: Duration::from_secs(30),
+            tool_dispatcher: None,
         }
     }
 
@@ -52,7 +60,16 @@ impl SkillExecutor {
         Self {
             validator: SkillValidator::new(),
             default_timeout: timeout,
+            tool_dispatcher: None,
         }
+    }
+
+    /// Set a real tool dispatcher for bridging skill execution through sister bridges.
+    /// When set, MCP-sourced skills dispatch to the named sister; builtin skills
+    /// dispatch with sister_id "builtin".
+    pub fn with_dispatcher(mut self, dispatcher: ToolDispatcher) -> Self {
+        self.tool_dispatcher = Some(dispatcher);
+        self
     }
 
     /// Execute a skill with inputs
@@ -84,18 +101,53 @@ impl SkillExecutor {
             ));
         }
 
-        // 5. Execute (simulated — real execution would dispatch to runtime)
+        // 5. Execute — dispatch through real bridge if available, otherwise simulate
         let elapsed = start.elapsed();
         if elapsed > self.default_timeout {
             return Err(ExecutionError::Timeout(self.default_timeout));
         }
 
-        // In production: dispatch to real runtime (MCP call, HTTP, subprocess)
-        // For now: return simulated success with transformed inputs as outputs
-        let outputs = inputs
-            .iter()
-            .map(|(k, v)| (format!("result_{}", k), v.clone()))
-            .collect();
+        let outputs: HashMap<String, serde_json::Value> = if let Some(ref dispatcher) = self.tool_dispatcher {
+            // Determine sister_id from skill source
+            let sister_id = match &skill.source {
+                SkillSource::Mcp { server } => server.as_str(),
+                SkillSource::Builtin => "builtin",
+                SkillSource::User => "user",
+                SkillSource::OpenClaw => "openclaw",
+            };
+
+            // Derive tool name from first Tool trigger, or fall back to skill name
+            let tool_name = skill
+                .triggers
+                .iter()
+                .find_map(|t| {
+                    if let crate::definition::SkillTrigger::Tool(name) = t {
+                        Some(name.as_str())
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or(&skill.name);
+
+            // Build params value from inputs
+            let params_value = serde_json::to_value(&inputs).unwrap_or(serde_json::Value::Null);
+
+            // Dispatch through the real bridge
+            let result = dispatcher(sister_id, tool_name, &params_value)
+                .map_err(|e| ExecutionError::ValidationFailed(e))?;
+
+            // Convert result into outputs map
+            match result {
+                serde_json::Value::Object(map) => map.into_iter().collect(),
+                other => HashMap::from([("result".into(), other)]),
+            }
+        } else {
+            // Fallback: simulated success with transformed inputs as outputs
+            inputs
+                .iter()
+                .map(|(k, v)| (format!("result_{}", k), v.clone()))
+                .collect()
+        };
 
         Ok(SkillResult {
             success: true,
@@ -186,5 +238,61 @@ mod tests {
     fn test_executor_timeout_config() {
         let executor = SkillExecutor::with_timeout(Duration::from_secs(60));
         assert_eq!(executor.default_timeout, Duration::from_secs(60));
+    }
+
+    #[test]
+    fn test_executor_default() {
+        let executor = SkillExecutor::default();
+        assert_eq!(executor.default_timeout, Duration::from_secs(30));
+    }
+
+    #[test]
+    fn test_executor_can_execute_safe() {
+        let executor = SkillExecutor::new();
+        let skill = test_skill(SandboxLevel::None);
+        assert!(executor.can_execute(&skill));
+    }
+
+    #[test]
+    fn test_executor_can_execute_unsafe() {
+        let executor = SkillExecutor::new();
+        let mut skill = test_skill(SandboxLevel::Strict);
+        skill.requirements.push(Requirement::Network);
+        assert!(!executor.can_execute(&skill));
+    }
+
+    #[test]
+    fn test_skill_result_serde() {
+        let result = SkillResult {
+            success: true,
+            outputs: HashMap::from([("key".into(), serde_json::json!("val"))]),
+            duration_ms: 42,
+            tokens_used: 0,
+            error: None,
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        let restored: SkillResult = serde_json::from_str(&json).unwrap();
+        assert!(restored.success);
+        assert_eq!(restored.tokens_used, 0);
+    }
+
+    #[test]
+    fn test_execution_error_display() {
+        let err = ExecutionError::MissingParam("name".into());
+        assert!(format!("{}", err).contains("name"));
+        let err = ExecutionError::Timeout(Duration::from_secs(30));
+        assert!(format!("{}", err).contains("30"));
+    }
+
+    #[test]
+    fn test_executor_result_has_outputs() {
+        let executor = SkillExecutor::new();
+        let skill = test_skill(SandboxLevel::None);
+        let inputs = HashMap::from([
+            ("input".into(), serde_json::json!("test")),
+        ]);
+        let result = executor.execute(&skill, inputs).unwrap();
+        assert!(result.outputs.contains_key("result_input"));
+        assert_eq!(result.outputs["result_input"], serde_json::json!("test"));
     }
 }

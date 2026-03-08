@@ -42,6 +42,7 @@ dashmap = { workspace = true }
 tokio-util = { workspace = true }
 reqwest = { workspace = true }
 toml = { workspace = true }
+sha2 = { workspace = true }
 # Optional private crates
 hydra-consolidation = { workspace = true, optional = true }
 hydra-omniscience = { workspace = true, optional = true }

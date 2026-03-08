@@ -101,3 +101,90 @@ impl Default for TaskRegistry {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_registry_empty() {
+        let reg = TaskRegistry::new();
+        assert_eq!(reg.active_count(), 0);
+        assert!(reg.list_active().is_empty());
+    }
+
+    #[test]
+    fn test_create_token() {
+        let reg = TaskRegistry::new();
+        let _token = reg.create_token("run-1");
+        assert!(reg.is_active("run-1"));
+        assert_eq!(reg.active_count(), 1);
+    }
+
+    #[test]
+    fn test_cancel_nonexistent() {
+        let reg = TaskRegistry::new();
+        assert!(!reg.cancel("nonexistent"));
+    }
+
+    #[test]
+    fn test_cancel_existing() {
+        let reg = TaskRegistry::new();
+        reg.create_token("run-1");
+        assert!(reg.cancel("run-1"));
+        assert!(!reg.is_active("run-1"));
+        assert_eq!(reg.active_count(), 0);
+    }
+
+    #[test]
+    fn test_cancel_all() {
+        let reg = TaskRegistry::new();
+        reg.create_token("run-1");
+        reg.create_token("run-2");
+        reg.create_token("run-3");
+        assert_eq!(reg.active_count(), 3);
+        let count = reg.cancel_all();
+        assert_eq!(count, 3);
+        assert_eq!(reg.active_count(), 0);
+    }
+
+    #[test]
+    fn test_is_cancelled() {
+        let reg = TaskRegistry::new();
+        let token = reg.create_token("run-1");
+        assert!(!reg.is_cancelled("run-1"));
+        token.cancel();
+        assert!(reg.is_cancelled("run-1"));
+    }
+
+    #[test]
+    fn test_is_cancelled_nonexistent() {
+        let reg = TaskRegistry::new();
+        assert!(!reg.is_cancelled("nonexistent"));
+    }
+
+    #[test]
+    fn test_remove() {
+        let reg = TaskRegistry::new();
+        reg.create_token("run-1");
+        reg.remove("run-1");
+        assert!(!reg.is_active("run-1"));
+    }
+
+    #[test]
+    fn test_list_active() {
+        let reg = TaskRegistry::new();
+        reg.create_token("run-a");
+        reg.create_token("run-b");
+        let active = reg.list_active();
+        assert_eq!(active.len(), 2);
+        assert!(active.contains(&"run-a".to_string()));
+        assert!(active.contains(&"run-b".to_string()));
+    }
+
+    #[test]
+    fn test_default() {
+        let reg = TaskRegistry::default();
+        assert_eq!(reg.active_count(), 0);
+    }
+}

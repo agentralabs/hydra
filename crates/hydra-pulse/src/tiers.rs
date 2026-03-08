@@ -223,4 +223,90 @@ mod tests {
         let chain = selector.escalation_chain(ResponseTier::Full);
         assert_eq!(chain, vec![ResponseTier::Full]);
     }
+
+    #[test]
+    fn test_tier_label() {
+        assert_eq!(ResponseTier::Instant.label(), "instant");
+        assert_eq!(ResponseTier::Fast.label(), "fast");
+        assert_eq!(ResponseTier::Full.label(), "full");
+    }
+
+    #[test]
+    fn test_tier_serde() {
+        for tier in [ResponseTier::Instant, ResponseTier::Fast, ResponseTier::Full] {
+            let json = serde_json::to_string(&tier).unwrap();
+            let restored: ResponseTier = serde_json::from_str(&json).unwrap();
+            assert_eq!(restored, tier);
+        }
+    }
+
+    #[test]
+    fn test_tier_config_default() {
+        let config = TierConfig::default();
+        assert!(config.instant_enabled);
+        assert!(config.fast_enabled);
+        assert_eq!(config.min_cache_confidence, 0.7);
+        assert!(config.progressive);
+    }
+
+    #[test]
+    fn test_selector_is_progressive() {
+        let selector = TierSelector::with_defaults();
+        assert!(selector.is_progressive());
+    }
+
+    #[test]
+    fn test_selector_not_progressive() {
+        let config = TierConfig { progressive: false, ..Default::default() };
+        let selector = TierSelector::new(config);
+        assert!(!selector.is_progressive());
+    }
+
+    #[test]
+    fn test_selector_instant_disabled() {
+        let config = TierConfig { instant_enabled: false, ..Default::default() };
+        let selector = TierSelector::new(config);
+        let tier = selector.select(true, 0.99, true);
+        assert_eq!(tier, ResponseTier::Fast); // Skips instant
+    }
+
+    #[test]
+    fn test_selector_fast_disabled() {
+        let config = TierConfig { fast_enabled: false, ..Default::default() };
+        let selector = TierSelector::new(config);
+        let tier = selector.select(false, 0.0, true);
+        assert_eq!(tier, ResponseTier::Full); // Skips fast even though local is available
+    }
+
+    #[test]
+    fn test_escalation_chain_from_fast() {
+        let selector = TierSelector::with_defaults();
+        let chain = selector.escalation_chain(ResponseTier::Fast);
+        assert_eq!(chain, vec![ResponseTier::Fast, ResponseTier::Full]);
+    }
+
+    #[test]
+    fn test_response_source_serde() {
+        for source in [ResponseSource::Cache, ResponseSource::Predicted, ResponseSource::Ack, ResponseSource::LocalLlm, ResponseSource::CloudLlm] {
+            let json = serde_json::to_string(&source).unwrap();
+            let restored: ResponseSource = serde_json::from_str(&json).unwrap();
+            assert_eq!(restored, source);
+        }
+    }
+
+    #[test]
+    fn test_tiered_response_serde() {
+        let resp = TieredResponse {
+            tier: ResponseTier::Fast,
+            content: "answer".into(),
+            confidence: 0.8,
+            latency_ms: 200,
+            source: ResponseSource::LocalLlm,
+            superseded_by: Some(ResponseTier::Full),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        let restored: TieredResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.tier, ResponseTier::Fast);
+        assert_eq!(restored.superseded_by, Some(ResponseTier::Full));
+    }
 }

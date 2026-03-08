@@ -147,4 +147,70 @@ mod tests {
         assert_eq!(sandbox.max_memory_mb(), 128);
         assert_eq!(sandbox.max_duration_secs(), 30);
     }
+
+    #[test]
+    fn test_sandbox_none_level() {
+        let sandbox = Sandbox::for_level(SandboxLevel::None);
+        assert_eq!(sandbox.level(), SandboxLevel::None);
+    }
+
+    #[test]
+    fn test_sandbox_basic_level() {
+        let sandbox = Sandbox::for_level(SandboxLevel::Basic);
+        assert_eq!(sandbox.level(), SandboxLevel::Basic);
+    }
+
+    #[test]
+    fn test_sandbox_strict_level() {
+        let sandbox = Sandbox::for_level(SandboxLevel::Strict);
+        assert_eq!(sandbox.level(), SandboxLevel::Strict);
+    }
+
+    #[test]
+    fn test_sandbox_none_unlimited_memory() {
+        let sandbox = Sandbox::for_level(SandboxLevel::None);
+        assert_eq!(sandbox.max_memory_mb(), 0); // unlimited
+    }
+
+    #[test]
+    fn test_sandbox_basic_memory() {
+        let sandbox = Sandbox::for_level(SandboxLevel::Basic);
+        assert_eq!(sandbox.max_memory_mb(), 512);
+    }
+
+    #[test]
+    fn test_sandbox_none_duration() {
+        let sandbox = Sandbox::for_level(SandboxLevel::None);
+        assert_eq!(sandbox.max_duration_secs(), 300);
+    }
+
+    #[test]
+    fn test_sandbox_basic_write_temp() {
+        let sandbox = Sandbox::for_level(SandboxLevel::Basic);
+        assert!(sandbox.check_operation(&SandboxOp::WriteFile("/tmp/output.txt".into())));
+    }
+
+    #[test]
+    fn test_sandbox_basic_write_outside_temp() {
+        let sandbox = Sandbox::for_level(SandboxLevel::Basic);
+        assert!(!sandbox.check_operation(&SandboxOp::WriteFile("/home/user/data.txt".into())));
+    }
+
+    #[test]
+    fn test_sandbox_basic_var_tmp() {
+        let sandbox = Sandbox::for_level(SandboxLevel::Basic);
+        assert!(sandbox.check_operation(&SandboxOp::ReadFile("/var/tmp/data.txt".into())));
+    }
+
+    #[test]
+    fn test_sandbox_strict_write_denied() {
+        let sandbox = Sandbox::for_level(SandboxLevel::Strict);
+        assert!(!sandbox.check_operation(&SandboxOp::WriteFile("/tmp/file.txt".into())));
+    }
+
+    #[test]
+    fn test_sandbox_none_not_temp_only() {
+        let sandbox = Sandbox::for_level(SandboxLevel::None);
+        assert!(!sandbox.temp_dir_only());
+    }
 }

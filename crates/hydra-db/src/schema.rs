@@ -1,5 +1,55 @@
 pub const SCHEMA_VERSION: u32 = 1;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_schema_version() {
+        assert_eq!(SCHEMA_VERSION, 1);
+    }
+
+    #[test]
+    fn test_create_tables_contains_runs() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS runs"));
+    }
+
+    #[test]
+    fn test_create_tables_contains_steps() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS steps"));
+    }
+
+    #[test]
+    fn test_create_tables_contains_checkpoints() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS checkpoints"));
+    }
+
+    #[test]
+    fn test_create_tables_contains_approvals() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS approvals"));
+    }
+
+    #[test]
+    fn test_create_tables_contains_schema_version() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS schema_version"));
+    }
+
+    #[test]
+    fn test_create_tables_has_foreign_keys() {
+        assert!(CREATE_TABLES.contains("REFERENCES runs(id)"));
+    }
+
+    #[test]
+    fn test_create_tables_has_indexes() {
+        assert!(CREATE_TABLES.contains("CREATE INDEX IF NOT EXISTS"));
+    }
+
+    #[test]
+    fn test_create_tables_has_status_checks() {
+        assert!(CREATE_TABLES.contains("CHECK(status IN"));
+    }
+}
+
 pub const CREATE_TABLES: &str = r#"
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY,

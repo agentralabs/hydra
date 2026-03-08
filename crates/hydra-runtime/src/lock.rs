@@ -90,3 +90,108 @@ fn is_process_alive(_pid: u32) -> bool {
     // In production, use the `sysinfo` crate. For now, assume stale.
     false
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn temp_dir() -> PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!("hydra_lock_test_{}_{}", std::process::id(), id));
+        let _ = std::fs::create_dir_all(&dir);
+        dir
+    }
+
+    #[test]
+    fn test_new_not_held() {
+        let dir = temp_dir();
+        let lock = InstanceLock::new(&dir);
+        assert!(!lock.is_held());
+    }
+
+    #[test]
+    fn test_acquire_and_release() {
+        let dir = temp_dir();
+        let mut lock = InstanceLock::new(&dir);
+        lock.acquire().unwrap();
+        assert!(lock.is_held());
+        assert!(lock.lock_exists());
+        lock.release();
+        assert!(!lock.is_held());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_release_without_acquire() {
+        let dir = temp_dir();
+        let mut lock = InstanceLock::new(&dir);
+        lock.release(); // should not panic
+        assert!(!lock.is_held());
+    }
+
+    #[test]
+    fn test_drop_releases_lock() {
+        let dir = temp_dir();
+        let lock_path = dir.join("hydra.lock");
+        {
+            let mut lock = InstanceLock::new(&dir);
+            lock.acquire().unwrap();
+            assert!(lock_path.exists());
+        }
+        // After drop, lock file should be removed
+        assert!(!lock_path.exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_stale_lock_recovery() {
+        let dir = temp_dir();
+        // Create a stale lock file with a fake PID
+        let lock_path = dir.join("hydra.lock");
+        std::fs::write(&lock_path, "999999999").unwrap();
+        let mut lock = InstanceLock::new(&dir);
+        // Since is_process_alive returns false, should succeed
+        lock.acquire().unwrap();
+        assert!(lock.is_held());
+        lock.release();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_lock_error_already_running_display() {
+        let err = LockError::AlreadyRunning(1234);
+        let msg = format!("{}", err);
+        assert!(msg.contains("1234"));
+        assert!(msg.contains("Another Hydra instance"));
+    }
+
+    #[test]
+    fn test_lock_error_io_display() {
+        let err = LockError::IoError("permission denied".into());
+        let msg = format!("{}", err);
+        assert!(msg.contains("permission denied"));
+        assert!(msg.contains("lock file"));
+    }
+
+    #[test]
+    fn test_lock_error_eq() {
+        assert_eq!(LockError::AlreadyRunning(1), LockError::AlreadyRunning(1));
+        assert_ne!(LockError::AlreadyRunning(1), LockError::AlreadyRunning(2));
+    }
+
+    #[test]
+    fn test_lock_exists_before_acquire() {
+        let dir = temp_dir();
+        let lock = InstanceLock::new(&dir);
+        // Lock file shouldn't exist if we haven't done anything
+        let lock_path = dir.join("hydra.lock");
+        if lock_path.exists() {
+            let _ = std::fs::remove_file(&lock_path);
+        }
+        assert!(!lock.lock_exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}

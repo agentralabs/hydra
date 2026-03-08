@@ -6,5 +6,5 @@ pub mod sanitize;
 
 pub use cache::IntentCache;
 pub use classifier::LocalClassifier;
-pub use compiler::{CompileResult, CompileStatus, IntentCompiler};
+pub use compiler::{CompileResult, CompileStatus, Complexity, IntentCompiler};
 pub use fuzzy::FuzzyMatcher;

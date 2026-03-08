@@ -59,3 +59,87 @@ pub fn resolve_conflict(conflict: &Conflict, strategy: ConflictStrategy) -> Reso
         ConflictStrategy::AskUser => Resolution::AskUser,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::belief::{Belief, BeliefCategory};
+
+    fn make_conflict(incoming_source: BeliefSource, existing_source: BeliefSource) -> Conflict {
+        let existing = Belief::new(BeliefCategory::Fact, "test subject", "old content", existing_source);
+        let incoming = Belief::new(BeliefCategory::Fact, "test subject", "new content", incoming_source);
+        Conflict {
+            existing,
+            incoming,
+            similarity: 1.0,
+        }
+    }
+
+    #[test]
+    fn newer_wins_always_keeps_new() {
+        let conflict = make_conflict(BeliefSource::Inferred, BeliefSource::UserStated);
+        assert_eq!(resolve_conflict(&conflict, ConflictStrategy::NewerWins), Resolution::KeepNew);
+    }
+
+    #[test]
+    fn higher_confidence_keeps_higher() {
+        let conflict = make_conflict(BeliefSource::Corrected, BeliefSource::Inferred);
+        // Corrected = 0.99, Inferred = 0.6
+        assert_eq!(
+            resolve_conflict(&conflict, ConflictStrategy::HigherConfidence),
+            Resolution::KeepNew
+        );
+    }
+
+    #[test]
+    fn higher_confidence_keeps_old_when_existing_higher() {
+        let conflict = make_conflict(BeliefSource::Inferred, BeliefSource::Corrected);
+        // Inferred = 0.6, Corrected = 0.99
+        assert_eq!(
+            resolve_conflict(&conflict, ConflictStrategy::HigherConfidence),
+            Resolution::KeepOld
+        );
+    }
+
+    #[test]
+    fn user_stated_wins_corrected_beats_all() {
+        let conflict = make_conflict(BeliefSource::Corrected, BeliefSource::UserStated);
+        assert_eq!(
+            resolve_conflict(&conflict, ConflictStrategy::UserStatedWins),
+            Resolution::KeepNew
+        );
+    }
+
+    #[test]
+    fn user_stated_wins_user_beats_inferred() {
+        let conflict = make_conflict(BeliefSource::UserStated, BeliefSource::Inferred);
+        assert_eq!(
+            resolve_conflict(&conflict, ConflictStrategy::UserStatedWins),
+            Resolution::KeepNew
+        );
+    }
+
+    #[test]
+    fn user_stated_wins_inferred_loses_to_user() {
+        let conflict = make_conflict(BeliefSource::Inferred, BeliefSource::UserStated);
+        assert_eq!(
+            resolve_conflict(&conflict, ConflictStrategy::UserStatedWins),
+            Resolution::KeepOld
+        );
+    }
+
+    #[test]
+    fn user_stated_wins_inferred_loses_to_corrected() {
+        let conflict = make_conflict(BeliefSource::Inferred, BeliefSource::Corrected);
+        assert_eq!(
+            resolve_conflict(&conflict, ConflictStrategy::UserStatedWins),
+            Resolution::KeepOld
+        );
+    }
+
+    #[test]
+    fn ask_user_strategy() {
+        let conflict = make_conflict(BeliefSource::Inferred, BeliefSource::Inferred);
+        assert_eq!(resolve_conflict(&conflict, ConflictStrategy::AskUser), Resolution::AskUser);
+    }
+}

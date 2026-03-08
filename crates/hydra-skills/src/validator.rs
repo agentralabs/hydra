@@ -160,4 +160,64 @@ mod tests {
         let result = validator.validate(&skill);
         assert!(!result.safe);
     }
+
+    #[test]
+    fn test_validator_default() {
+        let v = SkillValidator::default();
+        let skill = make_skill(SkillSource::Builtin, SandboxLevel::None, RiskLevel::Low);
+        assert!(v.validate(&skill).safe);
+    }
+
+    #[test]
+    fn test_validator_high_risk_warning() {
+        let v = SkillValidator::new();
+        let skill = make_skill(SkillSource::Builtin, SandboxLevel::Basic, RiskLevel::High);
+        let result = v.validate(&skill);
+        assert!(result.safe); // high risk is a warning, not blocking
+        assert!(!result.warnings.is_empty());
+    }
+
+    #[test]
+    fn test_validator_critical_risk() {
+        let v = SkillValidator::new();
+        let skill = make_skill(SkillSource::Builtin, SandboxLevel::Basic, RiskLevel::Critical);
+        let result = v.validate(&skill);
+        assert!(result.risk_score > 0.9);
+    }
+
+    #[test]
+    fn test_validator_mcp_source_risk() {
+        let v = SkillValidator::new();
+        let skill = make_skill(SkillSource::Mcp { server: "test".into() }, SandboxLevel::Basic, RiskLevel::Low);
+        let result = v.validate(&skill);
+        assert!(result.risk_score > 0.1); // MCP adds 0.15
+    }
+
+    #[test]
+    fn test_validator_empty_description_warning() {
+        let v = SkillValidator::new();
+        let mut skill = make_skill(SkillSource::Builtin, SandboxLevel::None, RiskLevel::Low);
+        skill.description = String::new();
+        let result = v.validate(&skill);
+        assert!(result.warnings.iter().any(|w| w.contains("no description")));
+    }
+
+    #[test]
+    fn test_validator_strict_low_risk_ok() {
+        let v = SkillValidator::strict();
+        let skill = make_skill(SkillSource::Builtin, SandboxLevel::Basic, RiskLevel::Low);
+        let result = v.validate(&skill);
+        assert!(result.safe);
+    }
+
+    #[test]
+    fn test_validation_result_fields() {
+        let v = SkillValidator::new();
+        let skill = make_skill(SkillSource::Builtin, SandboxLevel::None, RiskLevel::Low);
+        let result = v.validate(&skill);
+        assert!(result.safe);
+        assert!(result.issues.is_empty());
+        assert!(result.risk_score >= 0.0);
+        assert!(result.risk_score <= 1.0);
+    }
 }

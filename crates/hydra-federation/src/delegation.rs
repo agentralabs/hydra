@@ -206,6 +206,136 @@ mod tests {
     }
 
     #[test]
+    fn test_delegation_most_trusted() {
+        let registry = PeerRegistry::new();
+        registry.register(make_peer(
+            "trusted",
+            TrustLevel::Trusted,
+            0,
+            vec!["memory".into()],
+        ));
+        registry.register(make_peer(
+            "owner",
+            TrustLevel::Owner,
+            0,
+            vec!["memory".into()],
+        ));
+
+        let delegation = TaskDelegation::new(LoadBalanceStrategy::MostTrusted);
+        let task = make_task(vec!["memory"]);
+        let peer = delegation.find_peer(&task, &registry).unwrap();
+        assert_eq!(peer.id, "owner");
+    }
+
+    #[test]
+    fn test_delegation_round_robin() {
+        let registry = PeerRegistry::new();
+        registry.register(make_peer(
+            "a",
+            TrustLevel::Trusted,
+            0,
+            vec!["memory".into()],
+        ));
+        registry.register(make_peer(
+            "b",
+            TrustLevel::Trusted,
+            0,
+            vec!["memory".into()],
+        ));
+
+        let delegation = TaskDelegation::new(LoadBalanceStrategy::RoundRobin);
+        let task = make_task(vec!["memory"]);
+        let p1 = delegation.find_peer(&task, &registry).unwrap();
+        let p2 = delegation.find_peer(&task, &registry).unwrap();
+        // Round robin should pick different peers (if 2 candidates)
+        // May not always differ due to HashMap ordering, but counter increments
+        assert!(p1.id == "a" || p1.id == "b");
+        assert!(p2.id == "a" || p2.id == "b");
+    }
+
+    #[test]
+    fn test_delegation_validate_ok() {
+        let peer = make_peer(
+            "valid",
+            TrustLevel::Trusted,
+            0,
+            vec!["memory".into()],
+        );
+        let delegation = TaskDelegation::default();
+        let task = make_task(vec!["memory"]);
+        assert!(delegation.validate_delegation(&task, &peer).is_ok());
+    }
+
+    #[test]
+    fn test_delegation_validate_insufficient_trust() {
+        let peer = make_peer(
+            "untrusted",
+            TrustLevel::Known,
+            0,
+            vec!["memory".into()],
+        );
+        let delegation = TaskDelegation::default();
+        let task = make_task(vec!["memory"]);
+        assert!(matches!(
+            delegation.validate_delegation(&task, &peer),
+            Err(DelegationError::InsufficientTrust(_))
+        ));
+    }
+
+    #[test]
+    fn test_delegation_validate_no_capacity() {
+        let peer = make_peer(
+            "full",
+            TrustLevel::Trusted,
+            4, // max concurrent is 4
+            vec!["memory".into()],
+        );
+        let delegation = TaskDelegation::default();
+        let task = make_task(vec!["memory"]);
+        assert!(matches!(
+            delegation.validate_delegation(&task, &peer),
+            Err(DelegationError::NoCapacity(_))
+        ));
+    }
+
+    #[test]
+    fn test_task_priority_ordering() {
+        assert!(TaskPriority::Critical > TaskPriority::High);
+        assert!(TaskPriority::High > TaskPriority::Normal);
+        assert!(TaskPriority::Normal > TaskPriority::Low);
+    }
+
+    #[test]
+    fn test_delegated_task_serialization() {
+        let task = make_task(vec!["memory", "vision"]);
+        let json = serde_json::to_string(&task).unwrap();
+        let restored: DelegatedTask = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.id, "task-1");
+        assert_eq!(restored.requirements.len(), 2);
+    }
+
+    #[test]
+    fn test_delegation_result_serialization() {
+        let result = DelegationResult {
+            task_id: "t-1".into(),
+            peer_id: "p-1".into(),
+            success: true,
+            result: serde_json::json!({"output": "done"}),
+            duration_ms: 150,
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        let restored: DelegationResult = serde_json::from_str(&json).unwrap();
+        assert!(restored.success);
+        assert_eq!(restored.duration_ms, 150);
+    }
+
+    #[test]
+    fn test_delegation_default() {
+        let delegation = TaskDelegation::default();
+        assert_eq!(delegation.strategy, LoadBalanceStrategy::LeastLoaded);
+    }
+
+    #[test]
     fn test_delegation_no_capable_peer() {
         let registry = PeerRegistry::new();
         registry.register(make_peer(

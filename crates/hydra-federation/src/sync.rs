@@ -226,6 +226,136 @@ mod tests {
     }
 
     #[test]
+    fn test_sync_merge_keep_remote() {
+        let sync = SyncProtocol::new(ConflictStrategy::KeepRemote);
+        sync.local_put("key", serde_json::json!("local"), "local");
+
+        let remote = vec![SyncEntry {
+            key: "key".into(),
+            value: serde_json::json!("remote"),
+            version: 1,
+            timestamp: "2000-01-01T00:00:00Z".into(),
+            origin_peer: "peer-b".into(),
+        }];
+
+        sync.merge(remote);
+        assert_eq!(sync.get("key").unwrap().value, serde_json::json!("remote"));
+    }
+
+    #[test]
+    fn test_sync_merge_higher_version_wins() {
+        let sync = SyncProtocol::new(ConflictStrategy::HigherVersion);
+        sync.local_put("key", serde_json::json!("local"), "local");
+
+        let remote = vec![SyncEntry {
+            key: "key".into(),
+            value: serde_json::json!("remote"),
+            version: 999, // Much higher
+            timestamp: "2000-01-01T00:00:00Z".into(),
+            origin_peer: "peer-b".into(),
+        }];
+
+        sync.merge(remote);
+        assert_eq!(sync.get("key").unwrap().value, serde_json::json!("remote"));
+    }
+
+    #[test]
+    fn test_sync_merge_higher_version_loses() {
+        let sync = SyncProtocol::new(ConflictStrategy::HigherVersion);
+        sync.local_put("key", serde_json::json!("local"), "local");
+        sync.local_put("key2", serde_json::json!("bump"), "local"); // version now 2
+
+        let remote = vec![SyncEntry {
+            key: "key".into(),
+            value: serde_json::json!("old_remote"),
+            version: 0, // Lower version
+            timestamp: "2099-01-01T00:00:00Z".into(),
+            origin_peer: "peer-b".into(),
+        }];
+
+        sync.merge(remote);
+        assert_eq!(sync.get("key").unwrap().value, serde_json::json!("local"));
+    }
+
+    #[test]
+    fn test_sync_entry_count() {
+        let sync = SyncProtocol::default();
+        assert_eq!(sync.entry_count(), 0);
+        sync.local_put("a", serde_json::json!(1), "local");
+        sync.local_put("b", serde_json::json!(2), "local");
+        assert_eq!(sync.entry_count(), 2);
+    }
+
+    #[test]
+    fn test_sync_version_increments() {
+        let sync = SyncProtocol::default();
+        assert_eq!(sync.version(), 0);
+        sync.local_put("a", serde_json::json!(1), "local");
+        assert_eq!(sync.version(), 1);
+        sync.local_put("b", serde_json::json!(2), "local");
+        assert_eq!(sync.version(), 2);
+    }
+
+    #[test]
+    fn test_sync_get_nonexistent() {
+        let sync = SyncProtocol::default();
+        assert!(sync.get("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_sync_overwrite() {
+        let sync = SyncProtocol::default();
+        sync.local_put("key", serde_json::json!("v1"), "local");
+        sync.local_put("key", serde_json::json!("v2"), "local");
+        assert_eq!(sync.get("key").unwrap().value, serde_json::json!("v2"));
+        assert_eq!(sync.entry_count(), 1);
+    }
+
+    #[test]
+    fn test_sync_default() {
+        let sync = SyncProtocol::default();
+        assert_eq!(sync.version(), 0);
+        assert_eq!(sync.entry_count(), 0);
+    }
+
+    #[test]
+    fn test_sync_entry_serialization() {
+        let entry = SyncEntry {
+            key: "k".into(),
+            value: serde_json::json!({"nested": true}),
+            version: 42,
+            timestamp: "2026-01-01T00:00:00Z".into(),
+            origin_peer: "peer-a".into(),
+        };
+        let json = serde_json::to_string(&entry).unwrap();
+        let restored: SyncEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.version, 42);
+        assert_eq!(restored.origin_peer, "peer-a");
+    }
+
+    #[test]
+    fn test_sync_report_default() {
+        let report = SyncReport::default();
+        assert_eq!(report.incoming_applied, 0);
+        assert_eq!(report.outgoing_sent, 0);
+        assert_eq!(report.conflicts_resolved, 0);
+    }
+
+    #[test]
+    fn test_sync_merge_version_updates() {
+        let sync = SyncProtocol::default();
+        let remote = vec![SyncEntry {
+            key: "key".into(),
+            value: serde_json::json!("remote"),
+            version: 50,
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            origin_peer: "peer-b".into(),
+        }];
+        sync.merge(remote);
+        assert!(sync.version() >= 50);
+    }
+
+    #[test]
     fn test_sync_changes_since() {
         let sync = SyncProtocol::default();
         sync.local_put("a", serde_json::json!(1), "local");
