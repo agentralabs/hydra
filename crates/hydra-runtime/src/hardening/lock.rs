@@ -17,7 +17,7 @@ impl std::fmt::Display for LockError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::AlreadyHeld(pid) => {
-                write!(f, "Lock already held by PID {pid}")
+                write!(f, "Hydra is already running on this project (PID {pid}). Use a different terminal for a different project.")
             }
             Self::IoError(msg) => write!(f, "Lock I/O error: {msg}"),
             Self::StaleRecoveryFailed(msg) => write!(f, "Stale lock recovery failed: {msg}"),

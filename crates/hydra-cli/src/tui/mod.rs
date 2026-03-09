@@ -221,17 +221,29 @@ pub async fn run() -> io::Result<()> {
         }
     }
 
-    // STEP 4: Draw splash with 0% — user sees clean welcome from first pixel
+    // STEP 4: Acquire per-project lock — prevents two Hydras on the same project.
+    // Multiple Hydras on DIFFERENT projects is fine and expected.
+    let project_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let mut _project_lock = hydra_runtime::InstanceLock::for_project(&project_dir);
+    if let Err(e) = _project_lock.acquire() {
+        // Can't lock — another instance owns this project
+        restore_stderr(saved_stderr);
+        cleanup_terminal();
+        eprintln!("{}", e);
+        return Err(io::Error::new(io::ErrorKind::AlreadyExists, e.to_string()));
+    }
+
+    // STEP 5: Draw splash with 0% — user sees clean welcome from first pixel
     draw_splash(&mut terminal, "Starting Hydra...", 0);
 
-    // STEP 5: Spawn sisters in background
+    // STEP 6: Spawn sisters in background
     let (sisters_tx, mut sisters_rx) = mpsc::unbounded_channel::<SistersHandle>();
     tokio::spawn(async move {
         let handle = hydra_native::sisters::init_sisters().await;
         let _ = sisters_tx.send(handle);
     });
 
-    // STEP 5: Animate progress bar while waiting for sisters
+    // STEP 7: Animate progress bar while waiting for sisters
     {
         let mut tick = 0u32;
         loop {
@@ -332,7 +344,14 @@ async fn run_loop(
             Event::Key(key_event) => {
                 event::handle_key_event(app, key_event);
             }
-            Event::Mouse(_) => {}
+            Event::Mouse(mouse) => {
+                use crossterm::event::MouseEventKind;
+                match mouse.kind {
+                    MouseEventKind::ScrollUp => app.scroll_up(),
+                    MouseEventKind::ScrollDown => app.scroll_down(),
+                    _ => {}
+                }
+            }
             Event::Resize(_, _) => {}
         }
 

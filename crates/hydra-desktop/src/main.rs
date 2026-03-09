@@ -52,6 +52,16 @@ fn main() {
 
 #[allow(non_snake_case)]
 fn App() -> Element {
+    // ── Per-project lock — prevents two Hydras on the same project ──
+    let _project_lock: Arc<parking_lot::Mutex<hydra_runtime::InstanceLock>> = use_hook(|| {
+        let project_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+        let mut lock = hydra_runtime::InstanceLock::for_project(&project_dir);
+        if let Err(e) = lock.acquire() {
+            eprintln!("[hydra] {}", e);
+        }
+        Arc::new(parking_lot::Mutex::new(lock))
+    });
+
     // ── Load persisted profile ──
     let persisted = load_profile();
     let onboarding_done = persisted.as_ref().map_or(false, |p| p.onboarding_complete);
