@@ -108,6 +108,21 @@ mod tests {
     fn test_create_tables_contains_mutation_log() {
         assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS mutation_log"));
     }
+
+    #[test]
+    fn test_create_tables_contains_beliefs() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS beliefs"));
+    }
+
+    #[test]
+    fn test_create_tables_contains_mcp_discovered_skills() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS mcp_discovered_skills"));
+    }
+
+    #[test]
+    fn test_create_tables_contains_federation_state() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS federation_state"));
+    }
 }
 
 pub const CREATE_TABLES: &str = r#"
@@ -369,4 +384,56 @@ CREATE TABLE IF NOT EXISTS cursor_events (
 CREATE INDEX IF NOT EXISTS idx_cursor_sessions_task ON cursor_sessions(task_id);
 CREATE INDEX IF NOT EXISTS idx_cursor_events_session ON cursor_events(session_id);
 CREATE INDEX IF NOT EXISTS idx_cursor_events_ts ON cursor_events(timestamp_ms);
+
+CREATE TABLE IF NOT EXISTS beliefs (
+    id TEXT PRIMARY KEY,
+    category TEXT NOT NULL CHECK(category IN ('preference','fact','convention','correction')),
+    subject TEXT NOT NULL,
+    content TEXT NOT NULL,
+    confidence REAL NOT NULL DEFAULT 0.5,
+    source TEXT NOT NULL CHECK(source IN ('user_stated','inferred','corrected')),
+    confirmations INTEGER NOT NULL DEFAULT 0,
+    contradictions INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1,
+    supersedes TEXT,
+    superseded_by TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_beliefs_subject ON beliefs(subject);
+CREATE INDEX IF NOT EXISTS idx_beliefs_category ON beliefs(category);
+CREATE INDEX IF NOT EXISTS idx_beliefs_active ON beliefs(active) WHERE active = 1;
+
+CREATE TABLE IF NOT EXISTS mcp_discovered_skills (
+    id TEXT PRIMARY KEY,
+    server_name TEXT NOT NULL,
+    tool_name TEXT NOT NULL,
+    description TEXT,
+    input_schema TEXT,
+    discovered_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_used_at TEXT,
+    use_count INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE INDEX IF NOT EXISTS idx_mcp_skills_server ON mcp_discovered_skills(server_name);
+CREATE INDEX IF NOT EXISTS idx_mcp_skills_active ON mcp_discovered_skills(active) WHERE active = 1;
+
+CREATE TABLE IF NOT EXISTS federation_state (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    peer_id TEXT NOT NULL,
+    peer_name TEXT,
+    endpoint TEXT NOT NULL,
+    trust_level TEXT NOT NULL DEFAULT 'unknown',
+    capabilities TEXT,
+    federation_type TEXT NOT NULL DEFAULT 'personal',
+    last_sync_version INTEGER NOT NULL DEFAULT 0,
+    last_seen TEXT NOT NULL DEFAULT (datetime('now')),
+    active_tasks INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_federation_peer ON federation_state(peer_id);
+CREATE INDEX IF NOT EXISTS idx_federation_active ON federation_state(active) WHERE active = 1;
 "#;

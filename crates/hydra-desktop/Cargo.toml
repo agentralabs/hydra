@@ -18,4 +18,5 @@ parking_lot = "0.12"
 tracing = "0.1"
 hydra-runtime = { path = "../hydra-runtime" }
 hydra-db = { path = "../hydra-db" }
+hydra-federation = { path = "../hydra-federation" }
 chrono = { workspace = true }

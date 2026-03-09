@@ -13,7 +13,7 @@ use crate::cognitive::spawner::AgentSpawner;
 use crate::sisters::SistersHandle;
 use crate::state::hydra::{CognitivePhase, PhaseState, PhaseStatus};
 use crate::utils::{detect_language, extract_json_plan, format_bytes, generate_deliverable_steps};
-use hydra_db::HydraDb;
+use hydra_db::{HydraDb, BeliefRow, McpDiscoveredSkillRow, FederationStateRow};
 use hydra_runtime::approval::{ApprovalDecision, ApprovalManager};
 use hydra_runtime::undo::{UndoStack, FileCreateAction};
 
@@ -143,6 +143,22 @@ pub enum CognitiveUpdate {
     CursorModeChange { mode: String },
     /// Cursor paused (user interaction detected).
     CursorPaused { paused: bool },
+
+    // -- Belief system --
+    /// Active beliefs loaded during PERCEIVE phase.
+    BeliefsLoaded { count: usize, summary: String },
+    /// A belief was updated or created during LEARN phase.
+    BeliefUpdated { subject: String, content: String, confidence: f64, is_new: bool },
+
+    // -- MCP Skill Discovery --
+    /// MCP skills discovered and registered.
+    McpSkillsDiscovered { server: String, tools: Vec<String>, count: usize },
+
+    // -- Federation --
+    /// Federation state synced.
+    FederationSync { peers_online: usize, last_sync_version: i64 },
+    /// Federation task delegated to a peer.
+    FederationDelegated { peer_name: String, task_summary: String },
 }
 
 /// Configuration for the cognitive loop (read-only inputs).
@@ -178,6 +194,7 @@ pub async fn run_cognitive_loop(
     spawner: Option<Arc<AgentSpawner>>,
     approval_manager: Option<Arc<ApprovalManager>>,
     db: Option<Arc<HydraDb>>,
+    federation: Option<Arc<crate::federation::FederationManager>>,
 ) {
     use crate::sisters::Sisters;
 
@@ -271,6 +288,101 @@ pub async fn run_cognitive_loop(
             "involves_vision": false,
         })
     };
+
+    // ── BELIEF LOADING: Load active beliefs from DB for context injection ──
+    let beliefs_context = if let Some(ref db) = db {
+        match db.get_active_beliefs(20) {
+            Ok(beliefs) if !beliefs.is_empty() => {
+                let summary: String = beliefs.iter()
+                    .map(|b| format!("- {} [{}]: {} (confidence: {:.0}%)", b.subject, b.category, b.content, b.confidence * 100.0))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                let _ = tx.send(CognitiveUpdate::BeliefsLoaded {
+                    count: beliefs.len(),
+                    summary: summary.clone(),
+                });
+                Some(summary)
+            }
+            _ => None,
+        }
+    } else { None };
+
+    // ── MCP SKILL DISCOVERY: Discover tools from connected sisters ──
+    let mcp_context = if let Some(ref sh) = sisters_handle {
+        let tools = sh.discover_mcp_tools();
+        if !tools.is_empty() {
+            // Persist discovered tools to DB
+            if let Some(ref db) = db {
+                let now = chrono::Utc::now().to_rfc3339();
+                let mut servers_seen: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+                for (server, tool_name) in &tools {
+                    servers_seen.entry(server.clone()).or_default().push(tool_name.clone());
+                    let skill_id = format!("mcp-{}-{}", server.to_lowercase(), tool_name);
+                    let _ = db.upsert_mcp_skill(&McpDiscoveredSkillRow {
+                        id: skill_id,
+                        server_name: server.clone(),
+                        tool_name: tool_name.clone(),
+                        description: None,
+                        input_schema: None,
+                        discovered_at: now.clone(),
+                        last_used_at: None,
+                        use_count: 0,
+                        active: true,
+                    });
+                }
+                // Report discovery per server
+                for (server, tool_names) in &servers_seen {
+                    let _ = tx.send(CognitiveUpdate::McpSkillsDiscovered {
+                        server: server.clone(),
+                        tools: tool_names.clone(),
+                        count: tool_names.len(),
+                    });
+                }
+            }
+            // Build context summary for prompt injection
+            let mut by_server: std::collections::HashMap<&str, Vec<&str>> = std::collections::HashMap::new();
+            for (server, tool_name) in &tools {
+                by_server.entry(server).or_default().push(tool_name);
+            }
+            let summary: String = by_server.iter()
+                .map(|(server, tls)| format!("- {} ({} tools): {}", server, tls.len(), tls.join(", ")))
+                .collect::<Vec<_>>()
+                .join("\n");
+            Some(summary)
+        } else { None }
+    } else { None };
+
+    // ── FEDERATION CONTEXT: Load peer status for delegation awareness ──
+    let federation_context = if let Some(ref fed) = federation {
+        if fed.is_enabled() {
+            let peer_count = fed.peer_count();
+            let available = fed.registry.available_peers().len();
+            if let Some(ref db) = db {
+                // Persist federation state
+                for peer in fed.registry.list() {
+                    let _ = db.upsert_federation_peer(&FederationStateRow {
+                        peer_id: peer.id.clone(),
+                        peer_name: Some(peer.name.clone()),
+                        endpoint: peer.endpoint.clone(),
+                        trust_level: format!("{:?}", peer.trust_level),
+                        capabilities: Some(serde_json::to_string(&peer.capabilities.sisters).unwrap_or_default()),
+                        federation_type: format!("{:?}", peer.federation_type),
+                        last_sync_version: 0,
+                        last_seen: peer.last_seen.clone(),
+                        active_tasks: peer.active_tasks as i64,
+                        active: true,
+                    });
+                }
+            }
+            let _ = tx.send(CognitiveUpdate::FederationSync {
+                peers_online: peer_count,
+                last_sync_version: fed.sync.version() as i64,
+            });
+            if peer_count > 0 {
+                Some(format!("Federation: {} peers registered, {} available for delegation", peer_count, available))
+            } else { None }
+        } else { None }
+    } else { None };
 
     let perceive_ms = perceive_start.elapsed().as_millis() as u64;
 
@@ -414,6 +526,18 @@ pub async fn run_cognitive_loop(
         }
         if let Some(ref intent) = veritas_intent {
             sp.push_str(&format!("\n# Compiled Intent\n{}\n\n", intent));
+        }
+        // Inject active beliefs
+        if let Some(ref beliefs) = beliefs_context {
+            sp.push_str(&format!("\n# Active Beliefs\nThese are known facts and preferences about this user. Use them naturally:\n{}\n\n", beliefs));
+        }
+        // Inject discovered MCP tools
+        if let Some(ref mcp) = mcp_context {
+            sp.push_str(&format!("\n# Available MCP Tools\nYou can use these external tools when relevant:\n{}\n\n", mcp));
+        }
+        // Inject federation status
+        if let Some(ref fed_ctx) = federation_context {
+            sp.push_str(&format!("\n# Federation Status\n{}\n\n", fed_ctx));
         }
         sp
     } else {
@@ -1141,6 +1265,105 @@ pub async fn run_cognitive_loop(
         }
     }
 
+    // ── BELIEF UPDATE: Extract and persist beliefs from this interaction ──
+    if let Some(ref db) = db {
+        let lower = text.to_lowercase();
+        // Detect user-stated beliefs (preferences, facts, corrections)
+        let belief_patterns: &[(&str, &str, &str)] = &[
+            ("i prefer", "preference", "user_stated"),
+            ("i always use", "preference", "user_stated"),
+            ("i never use", "preference", "user_stated"),
+            ("we use", "fact", "user_stated"),
+            ("we're using", "fact", "user_stated"),
+            ("our database is", "fact", "user_stated"),
+            ("our framework is", "fact", "user_stated"),
+            ("our stack is", "fact", "user_stated"),
+            ("actually,", "correction", "corrected"),
+            ("that's wrong", "correction", "corrected"),
+            ("no, i meant", "correction", "corrected"),
+            ("i meant", "correction", "corrected"),
+            ("don't ever", "convention", "user_stated"),
+            ("always ", "convention", "user_stated"),
+        ];
+        for (pattern, category, source) in belief_patterns {
+            if lower.contains(pattern) {
+                // Extract the belief content (user's full statement)
+                let subject = extract_belief_subject(text, pattern);
+                let now = chrono::Utc::now().to_rfc3339();
+                let belief_id = format!("belief-{}", md5_simple(&format!("{}:{}", subject, text)));
+
+                // Check if a similar belief exists (by subject)
+                let existing = db.get_beliefs_by_subject(&subject).unwrap_or_default();
+                if let Some(old) = existing.first() {
+                    // Supersede old belief
+                    let _ = db.supersede_belief(&old.id, &belief_id);
+                }
+
+                let confidence = match *source {
+                    "corrected" => 0.99,
+                    "user_stated" => 0.95,
+                    _ => 0.60,
+                };
+                let _ = db.upsert_belief(&BeliefRow {
+                    id: belief_id,
+                    category: category.to_string(),
+                    subject: subject.clone(),
+                    content: text.to_string(),
+                    confidence,
+                    source: source.to_string(),
+                    confirmations: 0,
+                    contradictions: 0,
+                    active: true,
+                    supersedes: existing.first().map(|b| b.id.clone()),
+                    superseded_by: None,
+                    created_at: now.clone(),
+                    updated_at: now,
+                });
+                let _ = tx.send(CognitiveUpdate::BeliefUpdated {
+                    subject: subject.clone(),
+                    content: text.to_string(),
+                    confidence,
+                    is_new: existing.is_empty(),
+                });
+                break; // One belief per message
+            }
+        }
+
+        // Confirm existing beliefs that are referenced in the response
+        if let Ok(beliefs) = db.get_active_beliefs(50) {
+            for belief in &beliefs {
+                if final_response.to_lowercase().contains(&belief.subject.to_lowercase()) {
+                    let _ = db.confirm_belief(&belief.id);
+                }
+            }
+        }
+    }
+
+    // ── FEDERATION SYNC: Sync learnings with federated peers ──
+    if let Some(ref fed) = federation {
+        if fed.is_enabled() && llm_result.is_ok() {
+            // Sync the interaction as a state entry
+            let entry = hydra_federation::sync::SyncEntry {
+                key: format!("interaction:{}", config.task_id),
+                value: serde_json::json!({
+                    "input": &text[..text.len().min(200)],
+                    "response_summary": &final_response[..final_response.len().min(200)],
+                }),
+                version: fed.sync.version() + 1,
+                timestamp: chrono::Utc::now().to_rfc3339(),
+                origin_peer: "self".to_string(),
+            };
+            fed.sync.local_put(&entry.key, entry.value, "self");
+
+            // Update DB sync version
+            if let Some(ref db) = db {
+                for peer in fed.registry.list() {
+                    let _ = db.update_federation_sync(&peer.id, fed.sync.version() as i64);
+                }
+            }
+        }
+    }
+
     // Sprint 4: Metacognition — reflect on this interaction
     if let Some(ref inv) = inventions {
         let success = llm_result.is_ok();
@@ -1219,6 +1442,23 @@ pub async fn run_cognitive_loop(
 
     tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
     let _ = tx.send(CognitiveUpdate::ResetIdle);
+}
+
+/// Extract the subject from a belief-triggering sentence.
+/// E.g., "I prefer PostgreSQL" → "PostgreSQL", "We use Express" → "Express"
+fn extract_belief_subject(text: &str, trigger: &str) -> String {
+    let lower = text.to_lowercase();
+    if let Some(pos) = lower.find(trigger) {
+        let remainder = &text[pos + trigger.len()..];
+        let trimmed = remainder.trim();
+        // Take the first meaningful phrase (up to 60 chars or end of sentence)
+        let end = trimmed.find(|c: char| c == '.' || c == ',' || c == '!' || c == '?')
+            .unwrap_or(trimmed.len().min(60));
+        trimmed[..end].trim().to_string()
+    } else {
+        // Fallback: use first 3 words
+        text.split_whitespace().take(3).collect::<Vec<_>>().join(" ")
+    }
 }
 
 /// Detect whether user input is an action request that should be executed, not narrated.

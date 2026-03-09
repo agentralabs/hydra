@@ -31,6 +31,7 @@ use hydra_native::components::ghost_cursor::{GhostCursorState, CursorMode, curso
 use hydra_db::HydraDb;
 use hydra_runtime::approval::{ApprovalDecision, ApprovalManager};
 use hydra_runtime::undo::UndoStack;
+use hydra_native::federation::FederationManager;
 
 const CSS: &str = include_str!("styles.css");
 
@@ -81,6 +82,7 @@ fn App() -> Element {
     let agent_spawner: Arc<AgentSpawner> = use_hook(|| Arc::new(AgentSpawner::new(100)));
     let undo_stack: Arc<parking_lot::Mutex<UndoStack>> = use_hook(|| Arc::new(parking_lot::Mutex::new(UndoStack::new(100))));
     let approval_manager: Arc<ApprovalManager> = use_hook(|| Arc::new(ApprovalManager::with_default_timeout()));
+    let federation_manager: Arc<FederationManager> = use_hook(|| Arc::new(FederationManager::new()));
     // ── Initialize security database ──
     let hydra_db: Option<Arc<HydraDb>> = use_hook(|| {
         let db_path = std::env::var("HOME")
@@ -387,6 +389,7 @@ fn App() -> Element {
     let spawner_sig: Signal<Arc<AgentSpawner>> = use_signal(|| agent_spawner.clone());
     let approval_sig: Signal<Arc<ApprovalManager>> = use_signal(|| send_msg_approval_mgr.clone());
     let db_sig: Signal<Option<Arc<HydraDb>>> = use_signal(|| hydra_db.clone());
+    let fed_sig: Signal<Arc<FederationManager>> = use_signal(|| federation_manager.clone());
 
     let mut send_message = move |text: String| {
         let validation = validate_input(&text, 10_000);
@@ -454,7 +457,8 @@ fn App() -> Element {
         let spawner = spawner_sig.read().clone();
         let approval_mgr = approval_sig.read().clone();
         let db_handle = db_sig.read().clone();
-        spawn(async move { run_cognitive_loop(loop_config, sisters_handle, tx, decide, Some(undo_sig.read().clone()), Some(inv), Some(notifier), Some(spawner), Some(approval_mgr), db_handle).await; });
+        let fed_mgr = fed_sig.read().clone();
+        spawn(async move { run_cognitive_loop(loop_config, sisters_handle, tx, decide, Some(undo_sig.read().clone()), Some(inv), Some(notifier), Some(spawner), Some(approval_mgr), db_handle, Some(fed_mgr)).await; });
 
         let chat_db_rx = chat_db_sig.read().clone();
         spawn(async move {
@@ -681,6 +685,51 @@ fn App() -> Element {
                         } else {
                             ghost_cursor.write().resume();
                         }
+                    }
+                    CognitiveUpdate::BeliefsLoaded { count, summary } => {
+                        evidence_panel.write().add_memory_context(
+                            &format!("Active Beliefs ({})", count),
+                            &summary,
+                        );
+                    }
+                    CognitiveUpdate::BeliefUpdated { subject, confidence, is_new, .. } => {
+                        let action = if is_new { "New belief" } else { "Updated belief" };
+                        let now = chrono::Utc::now().to_rfc3339();
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Info,
+                            &format!("{}: {} ({:.0}%)", action, subject, confidence * 100.0),
+                            None,
+                            Some("Learn"),
+                        );
+                    }
+                    CognitiveUpdate::McpSkillsDiscovered { server, tools, count } => {
+                        evidence_panel.write().add_memory_context(
+                            &format!("MCP: {} ({} tools)", server, count),
+                            &tools.join(", "),
+                        );
+                    }
+                    CognitiveUpdate::FederationSync { peers_online, last_sync_version } => {
+                        if peers_online > 0 {
+                            let now = chrono::Utc::now().to_rfc3339();
+                            timeline_panel.write().push_event(
+                                &now,
+                                TimelineEventKind::Info,
+                                &format!("Federation: {} peers, sync v{}", peers_online, last_sync_version),
+                                None,
+                                Some("Perceive"),
+                            );
+                        }
+                    }
+                    CognitiveUpdate::FederationDelegated { peer_name, task_summary } => {
+                        let now = chrono::Utc::now().to_rfc3339();
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Delegation,
+                            &format!("Delegated to {}: {}", peer_name, task_summary),
+                            None,
+                            Some("Decide"),
+                        );
                     }
                 }
             }

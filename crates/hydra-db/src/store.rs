@@ -174,6 +174,50 @@ pub struct CursorEventRow {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BeliefRow {
+    pub id: String,
+    pub category: String,
+    pub subject: String,
+    pub content: String,
+    pub confidence: f64,
+    pub source: String,
+    pub confirmations: i64,
+    pub contradictions: i64,
+    pub active: bool,
+    pub supersedes: Option<String>,
+    pub superseded_by: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpDiscoveredSkillRow {
+    pub id: String,
+    pub server_name: String,
+    pub tool_name: String,
+    pub description: Option<String>,
+    pub input_schema: Option<String>,
+    pub discovered_at: String,
+    pub last_used_at: Option<String>,
+    pub use_count: i64,
+    pub active: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FederationStateRow {
+    pub peer_id: String,
+    pub peer_name: Option<String>,
+    pub endpoint: String,
+    pub trust_level: String,
+    pub capabilities: Option<String>,
+    pub federation_type: String,
+    pub last_sync_version: i64,
+    pub last_seen: String,
+    pub active_tasks: i64,
+    pub active: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunRow {
     pub id: String,
     pub intent: String,
@@ -847,6 +891,214 @@ impl HydraDb {
         let mut rows = Vec::new();
         for r in iter { rows.push(r?); }
         Ok(rows)
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // BELIEFS
+    // ═══════════════════════════════════════════════════════
+
+    pub fn upsert_belief(&self, b: &BeliefRow) -> Result<(), DbError> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "INSERT INTO beliefs (id, category, subject, content, confidence, source, confirmations, contradictions, active, supersedes, superseded_by, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13) ON CONFLICT(id) DO UPDATE SET content=?4, confidence=?5, confirmations=?7, contradictions=?8, active=?9, superseded_by=?11, updated_at=?13",
+            params![b.id, b.category, b.subject, b.content, b.confidence, b.source, b.confirmations, b.contradictions, b.active as i32, b.supersedes, b.superseded_by, b.created_at, b.updated_at],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_active_beliefs(&self, limit: usize) -> Result<Vec<BeliefRow>, DbError> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(
+            "SELECT id, category, subject, content, confidence, source, confirmations, contradictions, active, supersedes, superseded_by, created_at, updated_at FROM beliefs WHERE active = 1 ORDER BY confidence DESC, updated_at DESC LIMIT ?1"
+        )?;
+        let iter = stmt.query_map(params![limit as i64], |row| {
+            let active_i: i32 = row.get(8)?;
+            Ok(BeliefRow {
+                id: row.get(0)?, category: row.get(1)?, subject: row.get(2)?,
+                content: row.get(3)?, confidence: row.get(4)?, source: row.get(5)?,
+                confirmations: row.get(6)?, contradictions: row.get(7)?,
+                active: active_i != 0, supersedes: row.get(9)?,
+                superseded_by: row.get(10)?, created_at: row.get(11)?, updated_at: row.get(12)?,
+            })
+        })?;
+        let mut rows = Vec::new();
+        for r in iter { rows.push(r?); }
+        Ok(rows)
+    }
+
+    pub fn get_beliefs_by_subject(&self, subject: &str) -> Result<Vec<BeliefRow>, DbError> {
+        let conn = self.conn.lock();
+        let pattern = format!("%{}%", subject);
+        let mut stmt = conn.prepare(
+            "SELECT id, category, subject, content, confidence, source, confirmations, contradictions, active, supersedes, superseded_by, created_at, updated_at FROM beliefs WHERE active = 1 AND subject LIKE ?1 ORDER BY confidence DESC"
+        )?;
+        let iter = stmt.query_map(params![pattern], |row| {
+            let active_i: i32 = row.get(8)?;
+            Ok(BeliefRow {
+                id: row.get(0)?, category: row.get(1)?, subject: row.get(2)?,
+                content: row.get(3)?, confidence: row.get(4)?, source: row.get(5)?,
+                confirmations: row.get(6)?, contradictions: row.get(7)?,
+                active: active_i != 0, supersedes: row.get(9)?,
+                superseded_by: row.get(10)?, created_at: row.get(11)?, updated_at: row.get(12)?,
+            })
+        })?;
+        let mut rows = Vec::new();
+        for r in iter { rows.push(r?); }
+        Ok(rows)
+    }
+
+    pub fn supersede_belief(&self, old_id: &str, new_id: &str) -> Result<(), DbError> {
+        let conn = self.conn.lock();
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "UPDATE beliefs SET active = 0, superseded_by = ?1, updated_at = ?2 WHERE id = ?3",
+            params![new_id, now, old_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn confirm_belief(&self, id: &str) -> Result<(), DbError> {
+        let conn = self.conn.lock();
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "UPDATE beliefs SET confirmations = confirmations + 1, confidence = MIN(1.0, confidence + 0.02), updated_at = ?1 WHERE id = ?2",
+            params![now, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn contradict_belief(&self, id: &str) -> Result<(), DbError> {
+        let conn = self.conn.lock();
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "UPDATE beliefs SET contradictions = contradictions + 1, confidence = MAX(0.0, confidence - 0.05), updated_at = ?1 WHERE id = ?2",
+            params![now, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn belief_count(&self) -> Result<i64, DbError> {
+        let conn = self.conn.lock();
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM beliefs WHERE active = 1", [], |row| row.get(0),
+        )?;
+        Ok(count)
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // MCP DISCOVERED SKILLS
+    // ═══════════════════════════════════════════════════════
+
+    pub fn upsert_mcp_skill(&self, s: &McpDiscoveredSkillRow) -> Result<(), DbError> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "INSERT INTO mcp_discovered_skills (id, server_name, tool_name, description, input_schema, discovered_at, last_used_at, use_count, active) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) ON CONFLICT(id) DO UPDATE SET description=?4, input_schema=?5, active=?9",
+            params![s.id, s.server_name, s.tool_name, s.description, s.input_schema, s.discovered_at, s.last_used_at, s.use_count, s.active as i32],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_mcp_skills(&self, server: Option<&str>) -> Result<Vec<McpDiscoveredSkillRow>, DbError> {
+        let conn = self.conn.lock();
+        let mut rows = Vec::new();
+        if let Some(srv) = server {
+            let mut stmt = conn.prepare(
+                "SELECT id, server_name, tool_name, description, input_schema, discovered_at, last_used_at, use_count, active FROM mcp_discovered_skills WHERE active = 1 AND server_name = ?1 ORDER BY use_count DESC"
+            )?;
+            let iter = stmt.query_map(params![srv], |row| {
+                let active_i: i32 = row.get(8)?;
+                Ok(McpDiscoveredSkillRow {
+                    id: row.get(0)?, server_name: row.get(1)?, tool_name: row.get(2)?,
+                    description: row.get(3)?, input_schema: row.get(4)?,
+                    discovered_at: row.get(5)?, last_used_at: row.get(6)?,
+                    use_count: row.get(7)?, active: active_i != 0,
+                })
+            })?;
+            for r in iter { rows.push(r?); }
+        } else {
+            let mut stmt = conn.prepare(
+                "SELECT id, server_name, tool_name, description, input_schema, discovered_at, last_used_at, use_count, active FROM mcp_discovered_skills WHERE active = 1 ORDER BY use_count DESC"
+            )?;
+            let iter = stmt.query_map([], |row| {
+                let active_i: i32 = row.get(8)?;
+                Ok(McpDiscoveredSkillRow {
+                    id: row.get(0)?, server_name: row.get(1)?, tool_name: row.get(2)?,
+                    description: row.get(3)?, input_schema: row.get(4)?,
+                    discovered_at: row.get(5)?, last_used_at: row.get(6)?,
+                    use_count: row.get(7)?, active: active_i != 0,
+                })
+            })?;
+            for r in iter { rows.push(r?); }
+        }
+        Ok(rows)
+    }
+
+    pub fn record_mcp_skill_use(&self, id: &str) -> Result<(), DbError> {
+        let conn = self.conn.lock();
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "UPDATE mcp_discovered_skills SET use_count = use_count + 1, last_used_at = ?1 WHERE id = ?2",
+            params![now, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn mcp_skill_count(&self) -> Result<i64, DbError> {
+        let conn = self.conn.lock();
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM mcp_discovered_skills WHERE active = 1", [], |row| row.get(0),
+        )?;
+        Ok(count)
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // FEDERATION STATE
+    // ═══════════════════════════════════════════════════════
+
+    pub fn upsert_federation_peer(&self, f: &FederationStateRow) -> Result<(), DbError> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "INSERT INTO federation_state (peer_id, peer_name, endpoint, trust_level, capabilities, federation_type, last_sync_version, last_seen, active_tasks, active) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) ON CONFLICT(peer_id) DO UPDATE SET peer_name=?2, endpoint=?3, trust_level=?4, capabilities=?5, last_sync_version=?7, last_seen=?8, active_tasks=?9, active=?10",
+            params![f.peer_id, f.peer_name, f.endpoint, f.trust_level, f.capabilities, f.federation_type, f.last_sync_version, f.last_seen, f.active_tasks, f.active as i32],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_federation_peers(&self) -> Result<Vec<FederationStateRow>, DbError> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(
+            "SELECT peer_id, peer_name, endpoint, trust_level, capabilities, federation_type, last_sync_version, last_seen, active_tasks, active FROM federation_state WHERE active = 1 ORDER BY last_seen DESC"
+        )?;
+        let iter = stmt.query_map([], |row| {
+            let active_i: i32 = row.get(9)?;
+            Ok(FederationStateRow {
+                peer_id: row.get(0)?, peer_name: row.get(1)?, endpoint: row.get(2)?,
+                trust_level: row.get(3)?, capabilities: row.get(4)?,
+                federation_type: row.get(5)?, last_sync_version: row.get(6)?,
+                last_seen: row.get(7)?, active_tasks: row.get(8)?, active: active_i != 0,
+            })
+        })?;
+        let mut rows = Vec::new();
+        for r in iter { rows.push(r?); }
+        Ok(rows)
+    }
+
+    pub fn update_federation_sync(&self, peer_id: &str, version: i64) -> Result<(), DbError> {
+        let conn = self.conn.lock();
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "UPDATE federation_state SET last_sync_version = ?1, last_seen = ?2 WHERE peer_id = ?3",
+            params![version, now, peer_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn federation_peer_count(&self) -> Result<i64, DbError> {
+        let conn = self.conn.lock();
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM federation_state WHERE active = 1", [], |row| row.get(0),
+        )?;
+        Ok(count)
     }
 
     pub fn list_pending_approvals(&self) -> Result<Vec<ApprovalRow>, DbError> {
