@@ -6,6 +6,20 @@ rust-version.workspace = true
 
 [dependencies]
 hydra-core = { workspace = true }
+hydra-native = { workspace = true }
+hydra-runtime = { workspace = true }
+hydra-db = { workspace = true }
+hydra-federation = { workspace = true }
+hydra-model = { workspace = true }
 ureq = { version = "2", features = ["json"] }
 serde_json = { workspace = true }
 serde = { workspace = true }
+parking_lot = { workspace = true }
+ratatui = "0.29"
+crossterm = { version = "0.28", features = ["event-stream"] }
+tokio = { workspace = true }
+unicode-width = "0.2"
+textwrap = "0.16"
+chrono = { workspace = true }
+uuid = { workspace = true }
+libc = "0.2"

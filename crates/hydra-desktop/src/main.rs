@@ -24,6 +24,7 @@ use hydra_native::profile::{load_profile, save_profile, PersistedProfile};
 use hydra_native::sisters::SistersHandle;
 use hydra_native::cognitive::{CognitiveLoopConfig, CognitiveUpdate, DecideEngine, InventionEngine, AgentSpawner, run_cognitive_loop};
 use hydra_native::proactive::ProactiveNotifier;
+use hydra_model::oauth::AnthropicOAuth;
 use hydra_native::persistence::ChatPersistence;
 use hydra_native::utils::markdown::markdown_to_html;
 use hydra_native::components::globe::{globe_params, globe_svg, derive_globe_state, GlobeSize};
@@ -184,6 +185,19 @@ fn App() -> Element {
     let mut settings_openai_key = use_signal(move || init_openai_key);
     let mut settings_google_key = use_signal(move || init_google_key);
     let mut settings_tab = use_signal(|| "general".to_string());
+
+    // ── Anthropic OAuth state ──
+    let mut oauth_status = use_signal(|| {
+        let oauth = AnthropicOAuth::new();
+        if oauth.is_authenticated() {
+            let email = oauth.account_email().unwrap_or("").to_string();
+            let tier = oauth.subscription_tier().unwrap_or("").to_string();
+            ("authenticated".to_string(), email, tier)
+        } else {
+            ("not_authenticated".to_string(), String::new(), String::new())
+        }
+    });
+    let mut oauth_loading = use_signal(|| false);
 
     // ── Mode state ──
     let mut current_mode = use_signal(move || init_mode_for_current);
@@ -447,6 +461,14 @@ fn App() -> Element {
             user_name,
             task_id: task_id.clone(),
             history,
+            anthropic_oauth_token: {
+                let (status, _, _) = oauth_status.read().clone();
+                if status == "authenticated" {
+                    AnthropicOAuth::new().access_token().map(|s| s.to_string())
+                } else {
+                    None
+                }
+            },
         };
 
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<CognitiveUpdate>();
@@ -499,6 +521,7 @@ fn App() -> Element {
                     CognitiveUpdate::ResetIdle => {
                         phase.set("Idle".into());
                         icon_state.set("idle".into());
+                        is_typing.set(false);
                         _active_progress.set(None);
                         phase_statuses.set(vec![]);
                     }
@@ -731,6 +754,105 @@ fn App() -> Element {
                             Some("Decide"),
                         );
                     }
+                    CognitiveUpdate::RepairStarted { spec, task } => {
+                        let now = chrono::Utc::now().to_rfc3339();
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Info,
+                            &format!("Self-repair started: {} ({})", task, spec),
+                            None,
+                            Some("Repair"),
+                        );
+                    }
+                    CognitiveUpdate::RepairCheckResult { name, passed } => {
+                        let now = chrono::Utc::now().to_rfc3339();
+                        let status = if passed { "PASS" } else { "FAIL" };
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Info,
+                            &format!("Repair check [{}]: {}", status, name),
+                            None,
+                            Some("Repair"),
+                        );
+                    }
+                    CognitiveUpdate::RepairIteration { iteration, passed, total } => {
+                        let now = chrono::Utc::now().to_rfc3339();
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Info,
+                            &format!("Repair iteration {} — {}/{} checks passed", iteration, passed, total),
+                            None,
+                            Some("Repair"),
+                        );
+                    }
+                    CognitiveUpdate::RepairCompleted { task, status, iterations } => {
+                        let now = chrono::Utc::now().to_rfc3339();
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Info,
+                            &format!("Repair {}: {} ({} iterations)", status, task, iterations),
+                            None,
+                            Some("Repair"),
+                        );
+                        if status == "Success" {
+                            celebration.set(Some(Celebration::small(&format!("Self-repair complete: {}", task))));
+                        }
+                    }
+                    CognitiveUpdate::OmniscienceAnalyzing { phase } => {
+                        let now = chrono::Utc::now().to_rfc3339();
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Info,
+                            &format!("Omniscience: {}", phase),
+                            None,
+                            Some("Omniscience"),
+                        );
+                    }
+                    CognitiveUpdate::OmniscienceGapFound { description, severity, category } => {
+                        let now = chrono::Utc::now().to_rfc3339();
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Info,
+                            &format!("Gap [{}|{}]: {}", severity, category, description),
+                            None,
+                            Some("Omniscience"),
+                        );
+                    }
+                    CognitiveUpdate::OmniscienceSpecGenerated { spec_name, task } => {
+                        let now = chrono::Utc::now().to_rfc3339();
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Info,
+                            &format!("Forge generated spec: {} — {}", spec_name, task),
+                            None,
+                            Some("Omniscience"),
+                        );
+                    }
+                    CognitiveUpdate::OmniscienceValidation { spec_name, safe, recommendation } => {
+                        let now = chrono::Utc::now().to_rfc3339();
+                        let status = if safe { "SAFE" } else { "BLOCKED" };
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Info,
+                            &format!("Aegis [{}]: {} — {}", status, spec_name, recommendation),
+                            None,
+                            Some("Omniscience"),
+                        );
+                    }
+                    CognitiveUpdate::OmniscienceScanComplete { gaps_found, specs_generated, health_score } => {
+                        let now = chrono::Utc::now().to_rfc3339();
+                        let health_pct = (health_score * 100.0) as u32;
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Info,
+                            &format!("Omniscience complete: {}% health, {} gaps, {} specs generated", health_pct, gaps_found, specs_generated),
+                            None,
+                            Some("Omniscience"),
+                        );
+                        if health_score >= 0.9 {
+                            celebration.set(Some(Celebration::small("Codebase health: excellent!")));
+                        }
+                    }
                 }
             }
         });
@@ -752,6 +874,7 @@ fn App() -> Element {
             default_mode: Some(settings_default_mode.read().clone()),
             sounds_enabled: *settings_sounds.read(),
             sound_volume: settings_volume.read().parse::<u8>().unwrap_or(70),
+            working_directory: std::env::current_dir().ok().map(|p| p.display().to_string()),
         };
         save_profile(&profile);
     };
@@ -824,6 +947,40 @@ fn App() -> Element {
                                     "Continue"
                                 }
                             },
+                            OnboardingStep::AskApiKey => rsx! {
+                                input {
+                                    class: "onboarding-input",
+                                    placeholder: "sk-ant-api03-... or sk-...",
+                                    value: "{input}",
+                                    oninput: move |e| input.set(e.value()),
+                                    onkeypress: move |e| {
+                                        if e.key() == Key::Enter && !input.read().trim().is_empty() {
+                                            onboarding.write().set_api_key(input.read().trim());
+                                            onboarding.write().advance();
+                                            input.set(String::new());
+                                        }
+                                    }
+                                }
+                                div {
+                                    class: "onboarding-buttons",
+                                    button {
+                                        class: "btn-primary",
+                                        onclick: move |_| {
+                                            if !input.read().trim().is_empty() {
+                                                onboarding.write().set_api_key(input.read().trim());
+                                                onboarding.write().advance();
+                                                input.set(String::new());
+                                            }
+                                        },
+                                        "Continue"
+                                    }
+                                    button {
+                                        class: "btn-secondary",
+                                        onclick: move |_| { onboarding.write().advance(); },
+                                        "Skip for now"
+                                    }
+                                }
+                            },
                             OnboardingStep::AskVoice => rsx! {
                                 div {
                                     class: "onboarding-buttons",
@@ -850,28 +1007,30 @@ fn App() -> Element {
                                 }
                             },
                         }
-                        // Step dots
+                        // Step dots (5 steps: Intro, AskName, AskApiKey, AskVoice, Complete)
                         div {
                             class: "step-dots",
                             {
                                 let step = onboarding.read().step;
-                                let c0: &str = if step == OnboardingStep::Intro { "step-dot active" } else { "step-dot done" };
-                                let c1: &str = match step {
-                                    OnboardingStep::Intro => "step-dot",
-                                    OnboardingStep::AskName => "step-dot active",
-                                    _ => "step-dot done",
-                                };
-                                let c2: &str = match step {
-                                    OnboardingStep::AskVoice => "step-dot active",
-                                    OnboardingStep::Complete => "step-dot done",
-                                    _ => "step-dot",
-                                };
-                                let c3: &str = if step == OnboardingStep::Complete { "step-dot active" } else { "step-dot" };
+                                let steps = [
+                                    OnboardingStep::Intro,
+                                    OnboardingStep::AskName,
+                                    OnboardingStep::AskApiKey,
+                                    OnboardingStep::AskVoice,
+                                    OnboardingStep::Complete,
+                                ];
+                                let current_idx = steps.iter().position(|s| *s == step).unwrap_or(0);
+                                let c0: &str = if current_idx == 0 { "step-dot active" } else { "step-dot done" };
+                                let c1: &str = if current_idx < 1 { "step-dot" } else if current_idx == 1 { "step-dot active" } else { "step-dot done" };
+                                let c2: &str = if current_idx < 2 { "step-dot" } else if current_idx == 2 { "step-dot active" } else { "step-dot done" };
+                                let c3: &str = if current_idx < 3 { "step-dot" } else if current_idx == 3 { "step-dot active" } else { "step-dot done" };
+                                let c4: &str = if current_idx < 4 { "step-dot" } else { "step-dot active" };
                                 rsx! {
                                     div { class: c0 }
                                     div { class: c1 }
                                     div { class: c2 }
                                     div { class: c3 }
+                                    div { class: c4 }
                                 }
                             }
                         }
@@ -1329,9 +1488,44 @@ fn App() -> Element {
                             class: "sidebar-footer",
                             button {
                                 class: "sidebar-settings-btn",
-                                onclick: move |_| { let c = *show_settings.read(); show_settings.set(!c); },
-                                title: "Settings (Cmd+,)",
-                                "\u{2699}"
+                                onclick: move |_| {
+                                    // Launch TUI in a new terminal window
+                                    // Try to find hydra-cli binary, fall back to cargo run
+                                    let hydra_cli = std::env::var("HOME")
+                                        .map(|h| format!("{}/.cargo/bin/hydra-cli", h))
+                                        .unwrap_or_default();
+
+                                    let cmd = if std::path::Path::new(&hydra_cli).exists() {
+                                        hydra_cli
+                                    } else {
+                                        // Fall back to cargo run from the project dir
+                                        // Use env!() at compile time for the project root
+                                        let project_root = env!("CARGO_MANIFEST_DIR")
+                                            .trim_end_matches("/crates/hydra-desktop");
+                                        format!("cd '{}' && cargo run -q --bin hydra-cli", project_root)
+                                    };
+
+                                    #[cfg(target_os = "macos")]
+                                    {
+                                        let _ = std::process::Command::new("osascript")
+                                            .args([
+                                                "-e",
+                                                &format!(
+                                                    "tell application \"Terminal\" to do script \"{}\"",
+                                                    cmd.replace('\\', "\\\\").replace('"', "\\\"")
+                                                ),
+                                            ])
+                                            .spawn();
+                                    }
+                                    #[cfg(not(target_os = "macos"))]
+                                    {
+                                        let _ = std::process::Command::new("sh")
+                                            .args(["-c", &format!("x-terminal-emulator -e '{}' &", cmd)])
+                                            .spawn();
+                                    }
+                                },
+                                title: "Open Terminal (TUI)",
+                                ">"  // terminal icon
                             }
                             div {
                                 class: "sidebar-status",
@@ -1535,6 +1729,74 @@ fn App() -> Element {
                                                 }
                                                 if !settings_anthropic_key.read().is_empty() {
                                                     span { class: "key-check", "\u{2713}" }
+                                                }
+                                            }
+                                            // ── OR: Sign in with Anthropic (OAuth / Claude Max subscription) ──
+                                            div { class: "oauth-section", style: "margin-top: 12px; padding: 12px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; background: rgba(255,255,255,0.03);",
+                                                {
+                                                    let (status, email, tier) = oauth_status.read().clone();
+                                                    if status == "authenticated" {
+                                                        rsx! {
+                                                            div { style: "display: flex; align-items: center; gap: 8px;",
+                                                                span { style: "color: #4ade80; font-size: 14px;", "\u{2713} Signed in via Anthropic" }
+                                                                if !email.is_empty() {
+                                                                    span { style: "color: rgba(255,255,255,0.5); font-size: 12px;", "({email})" }
+                                                                }
+                                                                if !tier.is_empty() {
+                                                                    span { style: "color: #a78bfa; font-size: 12px; font-weight: 600;", "{tier}" }
+                                                                }
+                                                            }
+                                                            button {
+                                                                class: "btn-secondary",
+                                                                style: "margin-top: 8px; font-size: 12px; padding: 4px 12px;",
+                                                                onclick: move |_| {
+                                                                    let mut oauth = AnthropicOAuth::new();
+                                                                    oauth.logout();
+                                                                    oauth_status.set(("not_authenticated".to_string(), String::new(), String::new()));
+                                                                },
+                                                                "Sign Out"
+                                                            }
+                                                        }
+                                                    } else {
+                                                        rsx! {
+                                                            p { style: "color: rgba(255,255,255,0.6); font-size: 13px; margin: 0 0 8px 0;",
+                                                                "Or use your Claude Pro/Max subscription ($200/mo credits):"
+                                                            }
+                                                            button {
+                                                                class: "btn-primary",
+                                                                style: "width: 100%; padding: 10px; font-size: 14px; font-weight: 600; border-radius: 6px; cursor: pointer;",
+                                                                disabled: *oauth_loading.read(),
+                                                                onclick: move |_| {
+                                                                    oauth_loading.set(true);
+                                                                    spawn(async move {
+                                                                        let mut oauth = AnthropicOAuth::new();
+                                                                        match oauth.login().await {
+                                                                            Ok(()) => {
+                                                                                let email = oauth.account_email().unwrap_or("").to_string();
+                                                                                let tier = oauth.subscription_tier().unwrap_or("").to_string();
+                                                                                oauth_status.set(("authenticated".to_string(), email, tier));
+                                                                            }
+                                                                            Err(e) => {
+                                                                                eprintln!("[hydra:oauth] Login failed: {}", e);
+                                                                                oauth_status.set(("failed".to_string(), e, String::new()));
+                                                                            }
+                                                                        }
+                                                                        oauth_loading.set(false);
+                                                                    });
+                                                                },
+                                                                if *oauth_loading.read() {
+                                                                    "Waiting for browser..."
+                                                                } else {
+                                                                    "Sign in with Anthropic"
+                                                                }
+                                                            }
+                                                            if status == "failed" {
+                                                                p { style: "color: #ef4444; font-size: 12px; margin-top: 6px;",
+                                                                    "Auth failed: {email}"
+                                                                }
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }

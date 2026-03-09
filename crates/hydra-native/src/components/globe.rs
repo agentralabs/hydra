@@ -67,13 +67,13 @@ pub enum GlobeIcon {
     Warning,
 }
 
-/// Get render parameters for a globe state (using terracotta design system palette).
+/// Get render parameters for a globe state (using Hydra blue design system palette).
 pub fn globe_params(state: GlobeState) -> GlobeRenderParams {
     match state {
         GlobeState::Idle => GlobeRenderParams {
             state,
-            fill: "#E8825B",          // warm terracotta accent
-            glow: "rgba(232, 130, 91, 0.25)",
+            fill: "#6495ED",          // Hydra blue accent
+            glow: "rgba(100, 149, 237, 0.25)",
             animation: "globe-breathe",
             ring_opacity: 0.0,
             scale: 1.0,
@@ -83,8 +83,8 @@ pub fn globe_params(state: GlobeState) -> GlobeRenderParams {
         },
         GlobeState::Listening => GlobeRenderParams {
             state,
-            fill: "#F09870",          // accent-hover (warm orange)
-            glow: "rgba(240, 152, 112, 0.4)",
+            fill: "#7BA8F0",          // accent-hover (lighter blue)
+            glow: "rgba(122, 168, 240, 0.4)",
             animation: "globe-pulse",
             ring_opacity: 0.6,
             scale: 1.05,
@@ -105,8 +105,8 @@ pub fn globe_params(state: GlobeState) -> GlobeRenderParams {
         },
         GlobeState::Speaking => GlobeRenderParams {
             state,
-            fill: "#E8825B",          // terracotta for speaking (brand voice)
-            glow: "rgba(232, 130, 91, 0.4)",
+            fill: "#6495ED",          // Hydra blue for speaking (brand voice)
+            glow: "rgba(100, 149, 237, 0.4)",
             animation: "globe-ring-out",
             ring_opacity: 0.5,
             scale: 1.02,
@@ -241,14 +241,14 @@ mod tests {
     }
 
     #[test]
-    fn test_globe_terracotta_palette() {
+    fn test_globe_hydra_blue_palette() {
         let idle = globe_params(GlobeState::Idle);
-        assert_eq!(idle.fill, "#E8825B"); // terracotta accent
+        assert_eq!(idle.fill, "#6495ED"); // Hydra blue accent
         assert_eq!(idle.icon, GlobeIcon::Waveform);
         assert_eq!(idle.animation, "globe-breathe");
 
         let listening = globe_params(GlobeState::Listening);
-        assert_eq!(listening.fill, "#F09870"); // accent-hover
+        assert_eq!(listening.fill, "#7BA8F0"); // accent-hover
 
         let processing = globe_params(GlobeState::Processing);
         assert_eq!(processing.fill, "#7B8CDE"); // blue-lavender

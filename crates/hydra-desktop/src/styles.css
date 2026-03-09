@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════
    Hydra Desktop — Design System
-   Claude Desktop quality. Clean. Minimal. Professional.
+   Hydra blue accent. Clean. Minimal. Professional.
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Reset ── */
@@ -16,9 +16,9 @@
   --text-0: #f5f5f5;
   --text-1: #a0a0a0;
   --text-2: #666666;
-  --accent: #d97757;
-  --accent-hover: #e08868;
-  --accent-subtle: rgba(217, 119, 87, 0.12);
+  --accent: #6495ED;
+  --accent-hover: #7BA8F0;
+  --accent-subtle: rgba(100, 149, 237, 0.12);
   --success: #4ade80;
   --warning: #fbbf24;
   --error: #f87171;
@@ -45,7 +45,7 @@
   --text-2: #888888;
   --border: rgba(0, 0, 0, 0.08);
   --border-strong: rgba(0, 0, 0, 0.15);
-  --accent-subtle: rgba(217, 119, 87, 0.08);
+  --accent-subtle: rgba(100, 149, 237, 0.08);
 }
 
 @media (prefers-color-scheme: light) {
@@ -60,7 +60,7 @@
     --text-2: #888888;
     --border: rgba(0, 0, 0, 0.08);
     --border-strong: rgba(0, 0, 0, 0.15);
-    --accent-subtle: rgba(217, 119, 87, 0.08);
+    --accent-subtle: rgba(100, 149, 237, 0.08);
   }
 }
 
@@ -181,9 +181,9 @@ html, body {
   flex-shrink: 0;
 }
 .sidebar-dot.pulse {
-  background: var(--success);
+  background: #DC5050;
   animation: dot-pulse 2s ease-in-out infinite;
-  box-shadow: 0 0 6px var(--success);
+  box-shadow: 0 0 6px #DC5050;
 }
 .sidebar-dot.done { background: var(--accent); opacity: 0.6; }
 
@@ -204,8 +204,8 @@ html, body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--success);
-  background: color-mix(in srgb, var(--success) 15%, transparent);
+  color: #DC5050;
+  background: rgba(220, 80, 80, 0.15);
   padding: 1px 6px;
   border-radius: 8px;
   flex-shrink: 0;
@@ -468,7 +468,7 @@ html, body {
 .welcome-globe {
   width: 64px; height: 64px;
   border-radius: 50%;
-  background: radial-gradient(circle at 40% 40%, var(--accent), #8b4513);
+  background: radial-gradient(circle at 40% 40%, var(--accent), #2A4A8E);
   opacity: 0.8;
   animation: pulse 3s ease-in-out infinite;
 }
@@ -494,9 +494,9 @@ html, body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--success);
-  background: color-mix(in srgb, var(--success) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+  color: #DC5050;
+  background: rgba(220, 80, 80, 0.12);
+  border: 1px solid rgba(220, 80, 80, 0.30);
   padding: 4px 14px;
   border-radius: 12px;
   animation: badge-appear 0.4s ease-out;
@@ -1445,7 +1445,7 @@ html, body {
 .onboarding-globe {
   width: 72px; height: 72px;
   border-radius: 50%;
-  background: radial-gradient(circle at 40% 40%, var(--accent), #8b4513);
+  background: radial-gradient(circle at 40% 40%, var(--accent), #2A4A8E);
   margin-bottom: 8px;
   animation: pulse 3s ease-in-out infinite;
 }
@@ -1709,7 +1709,7 @@ html, body {
 }
 
 .voice-globe svg {
-  filter: drop-shadow(0 0 20px rgba(217, 119, 87, 0.3));
+  filter: drop-shadow(0 0 20px rgba(100, 149, 237, 0.3));
 }
 
 /* Globe SVG animations */

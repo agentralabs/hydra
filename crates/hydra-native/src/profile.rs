@@ -18,6 +18,8 @@ pub struct PersistedProfile {
     pub default_mode: Option<String>,
     pub sounds_enabled: bool,
     pub sound_volume: u8,
+    #[serde(default)]
+    pub working_directory: Option<String>,
 }
 
 impl Default for PersistedProfile {
@@ -36,6 +38,7 @@ impl Default for PersistedProfile {
             default_mode: None,
             sounds_enabled: true,
             sound_volume: 70,
+            working_directory: None,
         }
     }
 }
@@ -93,6 +96,7 @@ mod tests {
             default_mode: Some("companion".into()),
             sounds_enabled: true,
             sound_volume: 80,
+            working_directory: Some("/tmp/test-project".into()),
         };
         let json = serde_json::to_string(&p).unwrap();
         let back: PersistedProfile = serde_json::from_str(&json).unwrap();

@@ -73,10 +73,10 @@ pub struct MetaCognition {
 #[derive(Debug, Clone)]
 struct DecisionRecord {
     id: String,
-    description: String,
+    _description: String,
     confidence: f64,
     outcome: Option<bool>,
-    reasoning: String,
+    _reasoning: String,
 }
 
 impl MetaCognition {
@@ -98,10 +98,10 @@ impl MetaCognition {
         let id = uuid::Uuid::new_v4().to_string();
         self.decisions.write().push(DecisionRecord {
             id: id.clone(),
-            description: description.into(),
+            _description: description.into(),
             confidence,
             outcome: None,
-            reasoning: reasoning.into(),
+            _reasoning: reasoning.into(),
         });
         id
     }

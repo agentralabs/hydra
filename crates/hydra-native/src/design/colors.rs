@@ -4,9 +4,9 @@
 pub struct DesignColors;
 
 impl DesignColors {
-    // Brand — warm terracotta
-    pub const ACCENT: &'static str = "#E8825B";
-    pub const ACCENT_HOVER: &'static str = "#F09870";
+    // Brand — Hydra blue
+    pub const ACCENT: &'static str = "#6495ED";
+    pub const ACCENT_HOVER: &'static str = "#7BA8F0";
 
     // Semantic
     pub const SUCCESS: &'static str = "#3DD68C";
@@ -28,7 +28,7 @@ impl DesignColors {
 
     // Borders
     pub const BORDER: &'static str = "rgba(255,255,255,0.06)";
-    pub const BORDER_FOCUS: &'static str = "rgba(232,130,91,0.4)";
+    pub const BORDER_FOCUS: &'static str = "rgba(100,149,237,0.4)";
 
     // Legacy aliases (kept for existing code references)
     pub const TRUST_BLUE: &'static str = "#4A9EFF";

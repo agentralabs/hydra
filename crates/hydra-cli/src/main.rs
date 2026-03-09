@@ -1,9 +1,13 @@
+#![allow(dead_code)]
+
 mod banner;
 mod client;
 mod colors;
 mod commands;
 mod output;
+mod repl;
 mod spinner;
+mod tui;
 
 use commands::config::ConfigAction;
 use commands::run::RunOptions;
@@ -12,7 +16,23 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() < 2 {
-        print_help();
+        // Launch full TUI by default
+        let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
+        match rt.block_on(tui::run()) {
+            Ok(()) => {}
+            Err(e) => {
+                eprintln!("TUI error: {}", e);
+                // Fallback to basic REPL
+                eprintln!("Falling back to basic REPL...");
+                repl::run();
+            }
+        }
+        return;
+    }
+
+    // Handle --repl flag for legacy REPL mode
+    if args[1] == "--repl" {
+        repl::run();
         return;
     }
 
@@ -432,6 +452,8 @@ fn main() {
             let shell = args.get(2).map(|s| s.as_str()).unwrap_or("bash");
             commands::completions::generate(shell);
         }
+        "trust" => commands::trust::execute(),
+        "inventions" => commands::inventions::execute(),
         "health" => cmd_health(),
         "help" | "--help" | "-h" => print_help(),
         "version" | "--version" | "-V" => print_version(),
@@ -611,6 +633,16 @@ fn print_help() {
         "    {}       {}",
         colors::blue("completions"),
         "Generate shell completions"
+    );
+    println!(
+        "    {}             {}",
+        colors::blue("trust"),
+        "Show trust & autonomy level"
+    );
+    println!(
+        "    {}        {}",
+        colors::blue("inventions"),
+        "Show cognitive invention stats"
     );
     println!(
         "    {}            {}",

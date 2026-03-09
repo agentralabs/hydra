@@ -81,7 +81,7 @@ impl Default for DispatchContext {
 pub struct SisterDispatcher {
     registry: Arc<SisterRegistry>,
     compiler: Arc<IntentCompiler>,
-    gate: Arc<ExecutionGate>,
+    _gate: Arc<ExecutionGate>,
     sisters_online: bool,
 }
 
@@ -94,7 +94,7 @@ impl SisterDispatcher {
         Self {
             registry,
             compiler,
-            gate,
+            _gate: gate,
             sisters_online: true,
         }
     }
@@ -133,37 +133,47 @@ impl SisterDispatcher {
         }
     }
 
-    /// Detect if the input involves code operations
-    fn involves_code(text: &str) -> bool {
-        let code_keywords = [
-            "code", "function", "class", "module", "file", "compile", "build",
-            "test", "debug", "refactor", "api", "endpoint", "implement",
-            "fix", "bug", "error", "import", "dependency", "crate", "package",
+    /// Check if the input involves code operations.
+    /// Prefers intent category from CycleInput context (set by micro-LLM classifier),
+    /// falls back to keyword heuristic when no intent is available.
+    fn involves_code(input: &CycleInput) -> bool {
+        // Check intent category from micro-LLM classifier first
+        if let Some(cat) = input.context.get("intent_category").and_then(|c| c.as_str()) {
+            return matches!(cat, "code_build" | "code_fix" | "code_explain" | "self_repair" | "self_scan");
+        }
+        // Fallback: keyword heuristic (only when no intent classification available)
+        let code_indicators = [
             ".rs", ".ts", ".py", ".js", ".go", ".java", "src/", "crates/",
+            "cargo ", "npm ", "compile", "build",
         ];
-        let lower = text.to_lowercase();
-        code_keywords.iter().any(|kw| lower.contains(kw))
+        let lower = input.text.to_lowercase();
+        code_indicators.iter().any(|kw| lower.contains(kw))
     }
 
-    /// Detect if the input involves visual content
-    fn involves_vision(text: &str) -> bool {
-        let vision_keywords = [
-            "screenshot", "image", "photo", "picture", "screen", "ui",
-            "layout", "design", "visual", "look", "display", "render",
-            ".png", ".jpg", ".svg", ".gif",
+    /// Check if the input involves visual content.
+    /// Prefers intent category from CycleInput context, falls back to keyword heuristic.
+    fn involves_vision(input: &CycleInput) -> bool {
+        if let Some(cat) = input.context.get("intent_category").and_then(|c| c.as_str()) {
+            return matches!(cat, "web_browse"); // Vision used for web browsing
+        }
+        let vision_indicators = [
+            "screenshot", "image", "photo", ".png", ".jpg", ".svg", ".gif",
         ];
-        let lower = text.to_lowercase();
-        vision_keywords.iter().any(|kw| lower.contains(kw))
+        let lower = input.text.to_lowercase();
+        vision_indicators.iter().any(|kw| lower.contains(kw))
     }
 
-    /// Detect if the input involves network/communication
-    fn involves_network(text: &str) -> bool {
-        let net_keywords = [
-            "send", "email", "message", "notify", "slack", "webhook",
-            "http", "api call", "request", "fetch", "download", "upload",
+    /// Check if the input involves network/communication.
+    /// Prefers intent category from CycleInput context, falls back to keyword heuristic.
+    fn involves_network(input: &CycleInput) -> bool {
+        if let Some(cat) = input.context.get("intent_category").and_then(|c| c.as_str()) {
+            return matches!(cat, "communicate" | "deploy");
+        }
+        let net_indicators = [
+            "send ", "email", "slack", "webhook", "http://", "https://",
         ];
-        let lower = text.to_lowercase();
-        net_keywords.iter().any(|kw| lower.contains(kw))
+        let lower = input.text.to_lowercase();
+        net_indicators.iter().any(|kw| lower.contains(kw))
     }
 }
 
@@ -177,8 +187,8 @@ impl PhaseHandler for SisterDispatcher {
         info!(phase = "perceive", "Gathering context from sisters");
 
         let text = &input.text;
-        let code = Self::involves_code(text);
-        let vision = Self::involves_vision(text);
+        let code = Self::involves_code(input);
+        let vision = Self::involves_vision(input);
 
         // Always-call sisters (parallel) — V3/V4 memory search alongside V2
         let (memory_ctx, longevity_ctx, time_ctx, cognition_ctx, reality_ctx) = tokio::join!(
@@ -215,7 +225,7 @@ impl PhaseHandler for SisterDispatcher {
         let codebase_ctx = if code {
             self.call_sister(
                 SisterId::Codebase,
-                "codebase_core",
+                "search_semantic",
                 json!({"query": text}),
             )
             .await
@@ -238,7 +248,7 @@ impl PhaseHandler for SisterDispatcher {
             "input": text,
             "involves_code": code,
             "involves_vision": vision,
-            "involves_network": Self::involves_network(text),
+            "involves_network": Self::involves_network(input),
             "memory": memory_ctx,
             "longevity": longevity_ctx,
             "temporal": time_ctx,
@@ -524,7 +534,7 @@ impl PhaseHandler for SisterDispatcher {
             let code_result = self
                 .call_sister(
                     SisterId::Codebase,
-                    "codebase_core",
+                    "search_semantic",
                     json!({
                         "operation": "execute",
                         "plan": thought.get("plan"),
@@ -944,25 +954,47 @@ mod tests {
 
     #[tokio::test]
     async fn test_involves_code_detection() {
-        assert!(SisterDispatcher::involves_code("Fix the bug in src/main.rs"));
-        assert!(SisterDispatcher::involves_code("Create a new function"));
-        assert!(SisterDispatcher::involves_code("Build the project"));
-        assert!(!SisterDispatcher::involves_code("What is the weather?"));
-        assert!(!SisterDispatcher::involves_code("Send a message"));
+        // With intent category from micro-LLM (preferred path)
+        let with_intent = CycleInput {
+            text: "fix it".into(),
+            context: json!({"intent_category": "code_fix"}),
+        };
+        assert!(SisterDispatcher::involves_code(&with_intent));
+
+        let no_code_intent = CycleInput {
+            text: "fix it".into(),
+            context: json!({"intent_category": "greeting"}),
+        };
+        assert!(!SisterDispatcher::involves_code(&no_code_intent));
+
+        // Fallback: keyword heuristic (no intent available)
+        assert!(SisterDispatcher::involves_code(&CycleInput::simple("Fix the bug in src/main.rs")));
+        assert!(SisterDispatcher::involves_code(&CycleInput::simple("cargo build")));
+        assert!(!SisterDispatcher::involves_code(&CycleInput::simple("What is the weather?")));
     }
 
     #[tokio::test]
     async fn test_involves_vision_detection() {
-        assert!(SisterDispatcher::involves_vision("Take a screenshot"));
-        assert!(SisterDispatcher::involves_vision("Show me the UI layout"));
-        assert!(!SisterDispatcher::involves_vision("List all files"));
+        let with_intent = CycleInput {
+            text: "go to google.com".into(),
+            context: json!({"intent_category": "web_browse"}),
+        };
+        assert!(SisterDispatcher::involves_vision(&with_intent));
+
+        assert!(SisterDispatcher::involves_vision(&CycleInput::simple("Take a screenshot")));
+        assert!(!SisterDispatcher::involves_vision(&CycleInput::simple("List all files")));
     }
 
     #[tokio::test]
     async fn test_involves_network_detection() {
-        assert!(SisterDispatcher::involves_network("Send an email"));
-        assert!(SisterDispatcher::involves_network("Make an API call"));
-        assert!(!SisterDispatcher::involves_network("Read the file"));
+        let with_intent = CycleInput {
+            text: "tell him".into(),
+            context: json!({"intent_category": "communicate"}),
+        };
+        assert!(SisterDispatcher::involves_network(&with_intent));
+
+        assert!(SisterDispatcher::involves_network(&CycleInput::simple("Send an email")));
+        assert!(!SisterDispatcher::involves_network(&CycleInput::simple("Read the file")));
     }
 
     #[tokio::test]

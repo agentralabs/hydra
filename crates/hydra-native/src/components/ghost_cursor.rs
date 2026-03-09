@@ -48,6 +48,31 @@ impl CursorMode {
 // CURSOR ACTION
 // ═══════════════════════════════════════════════════════════
 
+/// A structured cursor movement event used by the cognitive loop.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CursorMove {
+    pub x: f64,
+    pub y: f64,
+    pub label: Option<String>,
+    pub duration_ms: Option<u64>,
+}
+
+impl CursorMove {
+    pub fn new(x: f64, y: f64) -> Self {
+        Self { x, y, label: None, duration_ms: None }
+    }
+
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// Apply this move to a GhostCursorState.
+    pub fn apply(&self, state: &mut GhostCursorState) {
+        state.move_to(self.x, self.y, self.label.clone());
+    }
+}
+
 /// An action the ghost cursor can perform.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
@@ -605,15 +630,15 @@ pub fn cursor_svg(pupil_dx: f64, pupil_dy: f64) -> String {
     let rpy = 14.0 + pupil_dy;
     let mut svg = String::with_capacity(600);
     svg.push_str(r##"<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">"##);
-    svg.push_str(r##"<rect x="8" y="8" width="16" height="14" rx="3" fill="#ea580c"/>"##);
+    svg.push_str(r##"<rect x="8" y="8" width="16" height="14" rx="3" fill="#6495ED"/>"##);
     svg.push_str(r##"<circle cx="13" cy="14" r="2" fill="white"/>"##);
     svg.push_str(r##"<circle cx="19" cy="14" r="2" fill="white"/>"##);
     svg.push_str(&format!("<circle cx=\"{lpx:.1}\" cy=\"{lpy:.1}\" r=\"1\" fill=\"#111\"/>"));
     svg.push_str(&format!("<circle cx=\"{rpx:.1}\" cy=\"{rpy:.1}\" r=\"1\" fill=\"#111\"/>"));
-    svg.push_str(r##"<line x1="16" y1="8" x2="16" y2="3" stroke="#ea580c" stroke-width="2"/>"##);
-    svg.push_str(r##"<circle cx="16" cy="2" r="2" fill="#ea580c"/>"##);
-    svg.push_str(r##"<rect x="10" y="22" width="12" height="6" rx="2" fill="#ea580c" opacity="0.7"/>"##);
-    svg.push_str(r##"<polygon points="8,28 8,32 12,30" fill="#ea580c"/>"##);
+    svg.push_str(r##"<line x1="16" y1="8" x2="16" y2="3" stroke="#6495ED" stroke-width="2"/>"##);
+    svg.push_str(r##"<circle cx="16" cy="2" r="2" fill="#6495ED"/>"##);
+    svg.push_str(r##"<rect x="10" y="22" width="12" height="6" rx="2" fill="#6495ED" opacity="0.7"/>"##);
+    svg.push_str(r##"<polygon points="8,28 8,32 12,30" fill="#6495ED"/>"##);
     svg.push_str("</svg>");
     svg
 }
@@ -769,7 +794,7 @@ mod tests {
     fn test_cursor_svg_generation() {
         let svg = cursor_svg(0.5, -0.3);
         assert!(svg.contains("svg"));
-        assert!(svg.contains("ea580c"));
+        assert!(svg.contains("6495ED"));
         assert!(svg.contains("13.5")); // left pupil shifted
     }
 
