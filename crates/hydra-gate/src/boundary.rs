@@ -60,21 +60,48 @@ impl std::fmt::Display for BoundaryViolation {
 
 impl BoundaryEnforcer {
     pub fn new() -> Self {
+        let mut blocked_paths = vec![
+            // Cross-platform sensitive directories
+            "~/.ssh/".into(),
+            ".ssh/".into(),
+            "~/.gnupg/".into(),
+            ".gnupg/".into(),
+        ];
+
+        // Unix/macOS protected paths
+        #[cfg(unix)]
+        blocked_paths.extend([
+            "/etc/".into(),
+            "/System/".into(),
+            "/usr/bin/".into(),
+            "/usr/sbin/".into(),
+            "/sbin/".into(),
+            "/boot/".into(),
+            "/proc/".into(),
+            "/sys/".into(),
+        ]);
+
+        // Windows protected paths
+        #[cfg(windows)]
+        blocked_paths.extend([
+            "C:\\Windows\\".to_string(),
+            "C:\\Windows\\System32\\".to_string(),
+            "C:\\Program Files\\".to_string(),
+            "C:\\ProgramData\\".to_string(),
+        ]);
+
+        // Allow overriding additional blocked paths via env var (comma-separated)
+        if let Ok(extra) = std::env::var("HYDRA_BLOCKED_PATHS") {
+            for path in extra.split(',') {
+                let trimmed = path.trim();
+                if !trimmed.is_empty() {
+                    blocked_paths.push(trimmed.to_string());
+                }
+            }
+        }
+
         Self {
-            blocked_paths: vec![
-                "/etc/".into(),
-                "/System/".into(),
-                "/usr/bin/".into(),
-                "/usr/sbin/".into(),
-                "/sbin/".into(),
-                "/boot/".into(),
-                "/proc/".into(),
-                "/sys/".into(),
-                "~/.ssh/".into(),
-                ".ssh/".into(),
-                "~/.gnupg/".into(),
-                ".gnupg/".into(),
-            ],
+            blocked_paths,
             hard_boundaries: Vec::new(),
             blocked_patterns: vec![
                 BlockedPattern {

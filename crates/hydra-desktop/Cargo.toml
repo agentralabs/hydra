@@ -19,4 +19,5 @@ tracing = "0.1"
 hydra-runtime = { path = "../hydra-runtime" }
 hydra-db = { path = "../hydra-db" }
 hydra-federation = { path = "../hydra-federation" }
+hydra-model = { path = "../hydra-model" }
 chrono = { workspace = true }

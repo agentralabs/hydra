@@ -549,7 +549,7 @@ mod tests {
             Duration::from_secs(5)
         );
         assert_eq!(
-            bridge.timeout_for_tool("codebase_core"),
+            bridge.timeout_for_tool("search_semantic"),
             Duration::from_secs(30)
         );
         assert_eq!(

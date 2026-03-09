@@ -6,10 +6,19 @@ use crate::llm_config::LlmConfig;
 
 const ANTHROPIC_VERSION: &str = "2023-06-01";
 
+/// Authentication mode for the Anthropic API.
+#[derive(Debug, Clone)]
+pub enum AnthropicAuth {
+    /// Traditional API key (x-api-key header).
+    ApiKey(String),
+    /// OAuth bearer token (Authorization: Bearer header) — uses subscription credits.
+    OAuthToken(String),
+}
+
 /// Client for the Anthropic Messages API
 pub struct AnthropicClient {
     client: Client,
-    api_key: String,
+    auth: AnthropicAuth,
     base_url: String,
 }
 
@@ -64,12 +73,30 @@ struct AnthropicErrorDetail {
 
 impl AnthropicClient {
     pub fn new(config: &LlmConfig) -> Result<Self, LlmError> {
-        let api_key = config.anthropic_api_key.clone().ok_or(LlmError::NoApiKey)?;
+        let auth = if let Some(ref key) = config.anthropic_api_key {
+            if key.starts_with("sk-ant-") {
+                AnthropicAuth::ApiKey(key.clone())
+            } else {
+                // Treat non-sk-ant keys as OAuth tokens
+                AnthropicAuth::OAuthToken(key.clone())
+            }
+        } else {
+            return Err(LlmError::NoApiKey);
+        };
         Ok(Self {
             client: Client::new(),
-            api_key,
+            auth,
             base_url: config.anthropic_base_url.clone(),
         })
+    }
+
+    /// Create a client from an OAuth token directly.
+    pub fn from_oauth_token(token: &str) -> Self {
+        Self {
+            client: Client::new(),
+            auth: AnthropicAuth::OAuthToken(token.to_string()),
+            base_url: "https://api.anthropic.com".into(),
+        }
     }
 
     /// Map model profile IDs to actual Anthropic model IDs
@@ -88,6 +115,14 @@ impl AnthropicClient {
     ) -> Result<CompletionResponse, LlmError> {
         let api_model = Self::resolve_model(&request.model);
 
+        // Clamp max_tokens to model's actual API limit to prevent 400 errors
+        let clamped_max_tokens = match api_model {
+            "claude-opus-4-6" => std::cmp::min(request.max_tokens, 32_768),
+            "claude-sonnet-4-6" => std::cmp::min(request.max_tokens, 16_384),
+            "claude-haiku-4-5-20251001" => std::cmp::min(request.max_tokens, 8_192),
+            _ => std::cmp::min(request.max_tokens, 16_384), // safe default
+        };
+
         let body = AnthropicRequest {
             model: api_model.into(),
             messages: request
@@ -98,22 +133,26 @@ impl AnthropicClient {
                     content: m.content.clone(),
                 })
                 .collect(),
-            max_tokens: request.max_tokens,
+            max_tokens: clamped_max_tokens,
             temperature: request.temperature,
             system: request.system,
         };
 
         let url = format!("{}/v1/messages", self.base_url);
 
-        let resp = self
+        let mut req = self
             .client
             .post(&url)
-            .header("x-api-key", &self.api_key)
             .header("anthropic-version", ANTHROPIC_VERSION)
-            .header("content-type", "application/json")
-            .json(&body)
-            .send()
-            .await?;
+            .header("content-type", "application/json");
+
+        // Apply authentication based on mode
+        req = match &self.auth {
+            AnthropicAuth::ApiKey(key) => req.header("x-api-key", key),
+            AnthropicAuth::OAuthToken(token) => req.bearer_auth(token),
+        };
+
+        let resp = req.json(&body).send().await?;
 
         let status = resp.status().as_u16();
 

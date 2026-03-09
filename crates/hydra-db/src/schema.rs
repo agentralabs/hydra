@@ -123,6 +123,16 @@ mod tests {
     fn test_create_tables_contains_federation_state() {
         assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS federation_state"));
     }
+
+    #[test]
+    fn test_create_tables_contains_repair_runs() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS repair_runs"));
+    }
+
+    #[test]
+    fn test_create_tables_contains_repair_checks() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS repair_checks"));
+    }
 }
 
 pub const CREATE_TABLES: &str = r#"
@@ -436,4 +446,35 @@ CREATE TABLE IF NOT EXISTS federation_state (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_federation_peer ON federation_state(peer_id);
 CREATE INDEX IF NOT EXISTS idx_federation_active ON federation_state(active) WHERE active = 1;
+
+CREATE TABLE IF NOT EXISTS repair_runs (
+    id TEXT PRIMARY KEY,
+    spec_file TEXT NOT NULL,
+    task TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('running','success','failed','escalated')),
+    iteration INTEGER NOT NULL DEFAULT 0,
+    max_iterations INTEGER NOT NULL DEFAULT 5,
+    checks_total INTEGER NOT NULL DEFAULT 0,
+    checks_passed INTEGER NOT NULL DEFAULT 0,
+    failure_log TEXT,
+    started_at TEXT NOT NULL DEFAULT (datetime('now')),
+    completed_at TEXT,
+    duration_ms INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_repair_status ON repair_runs(status);
+CREATE INDEX IF NOT EXISTS idx_repair_spec ON repair_runs(spec_file);
+
+CREATE TABLE IF NOT EXISTS repair_checks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL REFERENCES repair_runs(id) ON DELETE CASCADE,
+    iteration INTEGER NOT NULL,
+    check_name TEXT NOT NULL,
+    check_command TEXT NOT NULL,
+    passed INTEGER NOT NULL DEFAULT 0,
+    output TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_repair_checks_run ON repair_checks(run_id);
 "#;

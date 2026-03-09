@@ -6,6 +6,7 @@ use tokio::sync::mpsc;
 
 use crate::client::HydraClient;
 use crate::tui::commands::CommandDropdown;
+use crate::tui::project::{self, ProjectInfo};
 use hydra_native::cognitive::{
     AgentSpawner, CognitiveLoopConfig, CognitiveUpdate, DecideEngine, InventionEngine,
     run_cognitive_loop,
@@ -172,6 +173,27 @@ pub struct App {
 
     // Slash command dropdown
     pub command_dropdown: CommandDropdown,
+
+    // Project awareness
+    pub project_info: Option<ProjectInfo>,
+
+    // Async command execution — child process handle for /test, /build, etc.
+    pub running_cmd: Option<RunningCommand>,
+}
+
+/// State for a running shell command (async, streamed output).
+pub struct RunningCommand {
+    pub label: String,
+    pub lines: Vec<String>,
+    pub rx: mpsc::UnboundedReceiver<CommandEvent>,
+    pub start: std::time::Instant,
+    pub exit_code: Option<i32>,
+}
+
+/// Events from an async command process.
+pub enum CommandEvent {
+    Line(String),
+    Done(Option<i32>),
 }
 
 impl App {
@@ -207,6 +229,9 @@ impl App {
             .or_else(|| std::env::var("USER").ok())
             .or_else(|| std::env::var("USERNAME").ok())
             .unwrap_or_else(|| "user".to_string());
+
+        // Detect project type from working directory
+        let detected_project = project::detect_project(std::path::Path::new(&working_dir));
 
         // Initialize DB (same path as Desktop)
         let db = {
@@ -273,6 +298,8 @@ impl App {
             is_thinking: false,
 
             command_dropdown: CommandDropdown::default(),
+            project_info: detected_project,
+            running_cmd: None,
         }
     }
 
@@ -320,10 +347,191 @@ impl App {
         });
     }
 
-    /// Periodic tick — refresh animations and drain cognitive updates.
+    /// Periodic tick — refresh animations, drain cognitive updates, advance idle timer.
     pub fn tick(&mut self) {
         self.tick_count = self.tick_count.wrapping_add(1);
         self.process_cognitive_updates();
+        self.process_running_command();
+
+        // Idle timer — tick_idle every ~1 second (4 ticks × 250ms).
+        // Mirrors Desktop's 10s idle timer but at finer granularity.
+        if self.tick_count % 4 == 0 {
+            self.invention_engine.tick_idle(1);
+            if self.tick_count % 40 == 0 {
+                // Every ~10 seconds, check for dream insights
+                if let Some(dream_text) = self.invention_engine.maybe_dream() {
+                    eprintln!("[hydra:tui:dream] {}", &dream_text[..dream_text.len().min(200)]);
+                }
+            }
+        }
+    }
+
+    /// Drain output from a running shell command.
+    fn process_running_command(&mut self) {
+        let (finished, new_lines) = {
+            match self.running_cmd.as_mut() {
+                Some(cmd) => {
+                    let mut lines = Vec::new();
+                    let mut done = false;
+                    loop {
+                        match cmd.rx.try_recv() {
+                            Ok(CommandEvent::Line(line)) => {
+                                cmd.lines.push(line.clone());
+                                lines.push(line);
+                            }
+                            Ok(CommandEvent::Done(code)) => {
+                                cmd.exit_code = code;
+                                done = true;
+                                break;
+                            }
+                            Err(mpsc::error::TryRecvError::Empty) => break,
+                            Err(mpsc::error::TryRecvError::Disconnected) => {
+                                done = true;
+                                break;
+                            }
+                        }
+                    }
+                    (done, lines)
+                }
+                None => return,
+            }
+        };
+
+        // Update the last message with new lines
+        if !new_lines.is_empty() || finished {
+            if let Some(cmd) = &self.running_cmd {
+                let elapsed = cmd.start.elapsed().as_secs_f64();
+                let status = if finished {
+                    let code = cmd.exit_code.unwrap_or(-1);
+                    if code == 0 {
+                        format!("completed successfully ({:.1}s)", elapsed)
+                    } else {
+                        format!("failed with exit code {} ({:.1}s)", code, elapsed)
+                    }
+                } else {
+                    format!("running ({:.1}s)...", elapsed)
+                };
+
+                // Build display: show last 40 lines max
+                let display_lines: Vec<&str> = cmd.lines.iter()
+                    .rev().take(40).collect::<Vec<_>>()
+                    .into_iter().rev()
+                    .map(|s| s.as_str())
+                    .collect();
+
+                let mut content = format!("$ {}\n", cmd.label);
+                for line in &display_lines {
+                    content.push_str(line);
+                    content.push('\n');
+                }
+                content.push_str(&format!("\n{}", status));
+
+                let timestamp = Local::now().format("%H:%M").to_string();
+                // Replace the last system message if it's the command output
+                if let Some(last) = self.messages.last_mut() {
+                    if last.role == MessageRole::System && last.content.starts_with(&format!("$ {}", cmd.label)) {
+                        last.content = content;
+                        last.timestamp = timestamp;
+                    } else {
+                        self.messages.push(Message {
+                            role: MessageRole::System,
+                            content,
+                            timestamp,
+                            phase: Some("Act".to_string()),
+                        });
+                    }
+                }
+                self.scroll_to_bottom();
+            }
+        }
+
+        if finished {
+            self.running_cmd = None;
+        }
+    }
+
+    /// Spawn a shell command asynchronously and stream its output.
+    fn spawn_command(&mut self, label: &str, program: &str, args: &[&str]) {
+        let timestamp = Local::now().format("%H:%M").to_string();
+
+        // Show initial message
+        self.messages.push(Message {
+            role: MessageRole::System,
+            content: format!("$ {}\nStarting...", label),
+            timestamp,
+            phase: Some("Act".to_string()),
+        });
+        self.scroll_to_bottom();
+
+        let (tx, rx) = mpsc::unbounded_channel::<CommandEvent>();
+        let program = program.to_string();
+        let args: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+        let work_dir = self.working_dir.clone();
+
+        tokio::spawn(async move {
+            use tokio::io::{AsyncBufReadExt, BufReader};
+            use tokio::process::Command;
+
+            let child = Command::new(&program)
+                .args(&args)
+                .current_dir(&work_dir)
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn();
+
+            match child {
+                Ok(mut child) => {
+                    // Read stdout
+                    let stdout = child.stdout.take();
+                    let stderr = child.stderr.take();
+                    let tx2 = tx.clone();
+
+                    let stdout_task = tokio::spawn(async move {
+                        if let Some(stdout) = stdout {
+                            let reader = BufReader::new(stdout);
+                            let mut lines = reader.lines();
+                            while let Ok(Some(line)) = lines.next_line().await {
+                                if tx2.send(CommandEvent::Line(line)).is_err() {
+                                    break;
+                                }
+                            }
+                        }
+                    });
+
+                    let tx3 = tx.clone();
+                    let stderr_task = tokio::spawn(async move {
+                        if let Some(stderr) = stderr {
+                            let reader = BufReader::new(stderr);
+                            let mut lines = reader.lines();
+                            while let Ok(Some(line)) = lines.next_line().await {
+                                if tx3.send(CommandEvent::Line(line)).is_err() {
+                                    break;
+                                }
+                            }
+                        }
+                    });
+
+                    let _ = stdout_task.await;
+                    let _ = stderr_task.await;
+
+                    let status = child.wait().await;
+                    let code = status.ok().and_then(|s| s.code());
+                    let _ = tx.send(CommandEvent::Done(code));
+                }
+                Err(e) => {
+                    let _ = tx.send(CommandEvent::Line(format!("Failed to start: {}", e)));
+                    let _ = tx.send(CommandEvent::Done(Some(1)));
+                }
+            }
+        });
+
+        self.running_cmd = Some(RunningCommand {
+            label: label.to_string(),
+            lines: Vec::new(),
+            rx,
+            start: std::time::Instant::now(),
+            exit_code: None,
+        });
     }
 
     /// Drain all pending CognitiveUpdate events from the channel.
@@ -389,6 +597,7 @@ impl App {
                     self.current_phase = None;
                     self.is_thinking = false;
                     self.progress = None;
+                    self.invention_engine.reset_idle();
                 }
                 CognitiveUpdate::AwaitApproval { approval_id, risk_level, action, description, .. } => {
                     match risk_level.as_str() {
@@ -730,9 +939,575 @@ impl App {
     fn handle_slash_command(&mut self, input: &str, timestamp: &str) {
         let parts: Vec<&str> = input.splitn(2, ' ').collect();
         let cmd = parts[0];
-        let _args = parts.get(1).copied().unwrap_or("");
+        let args = parts.get(1).copied().unwrap_or("");
 
         match cmd {
+            // ── Developer commands ──
+            "/files" => {
+                let dir = std::path::Path::new(&self.working_dir);
+                let depth: usize = args.parse().unwrap_or(2);
+                let entries = project::list_files(dir, depth);
+                let mut content = format!("Project files (depth {}):\n\n", depth);
+                if entries.is_empty() {
+                    content.push_str("  (no files found)");
+                } else {
+                    for entry in entries.iter().take(200) {
+                        content.push_str(entry);
+                        content.push('\n');
+                    }
+                    if entries.len() > 200 {
+                        content.push_str(&format!("  ... and {} more", entries.len() - 200));
+                    }
+                }
+                self.messages.push(Message {
+                    role: MessageRole::System,
+                    content,
+                    timestamp: timestamp.to_string(),
+                    phase: None,
+                });
+            }
+            "/open" => {
+                if args.is_empty() {
+                    self.messages.push(Message {
+                        role: MessageRole::System,
+                        content: "Usage: /open <file_path>".to_string(),
+                        timestamp: timestamp.to_string(),
+                        phase: None,
+                    });
+                } else {
+                    let file_path = if args.starts_with('/') {
+                        std::path::PathBuf::from(args)
+                    } else {
+                        std::path::Path::new(&self.working_dir).join(args)
+                    };
+                    match project::read_file_with_lines(&file_path) {
+                        Ok((content, language)) => {
+                            let line_count = content.lines().count();
+                            let display: String = content.lines()
+                                .take(100)
+                                .enumerate()
+                                .map(|(i, l)| format!("{:>4} | {}", i + 1, l))
+                                .collect::<Vec<_>>()
+                                .join("\n");
+                            let mut msg = format!(
+                                "--- {} ({}, {} lines) ---\n{}",
+                                file_path.display(), language, line_count, display
+                            );
+                            if line_count > 100 {
+                                msg.push_str(&format!("\n\n... {} more lines (use /open {} <offset>)", line_count - 100, args));
+                            }
+                            self.messages.push(Message {
+                                role: MessageRole::System,
+                                content: msg,
+                                timestamp: timestamp.to_string(),
+                                phase: None,
+                            });
+                        }
+                        Err(e) => {
+                            self.messages.push(Message {
+                                role: MessageRole::System,
+                                content: e,
+                                timestamp: timestamp.to_string(),
+                                phase: None,
+                            });
+                        }
+                    }
+                }
+            }
+            "/edit" => {
+                if args.is_empty() {
+                    self.messages.push(Message {
+                        role: MessageRole::System,
+                        content: "Usage: /edit <file_path>".to_string(),
+                        timestamp: timestamp.to_string(),
+                        phase: None,
+                    });
+                } else {
+                    let editor = std::env::var("EDITOR")
+                        .or_else(|_| std::env::var("VISUAL"))
+                        .unwrap_or_else(|_| "vim".to_string());
+                    let file_path = if args.starts_with('/') {
+                        args.to_string()
+                    } else {
+                        format!("{}/{}", self.working_dir, args)
+                    };
+                    self.messages.push(Message {
+                        role: MessageRole::System,
+                        content: format!("Opening {} in {}...", file_path, editor),
+                        timestamp: timestamp.to_string(),
+                        phase: None,
+                    });
+                    // Spawn the editor outside the TUI context
+                    // The TUI will need to suspend — for now just show instruction
+                    self.messages.push(Message {
+                        role: MessageRole::System,
+                        content: format!("Run: {} {}", editor, file_path),
+                        timestamp: timestamp.to_string(),
+                        phase: None,
+                    });
+                }
+            }
+            "/search" => {
+                if args.is_empty() {
+                    self.messages.push(Message {
+                        role: MessageRole::System,
+                        content: "Usage: /search <term>".to_string(),
+                        timestamp: timestamp.to_string(),
+                        phase: None,
+                    });
+                } else {
+                    // Fast grep search
+                    let dir = &self.working_dir;
+                    let output = std::process::Command::new("grep")
+                        .args(["-rn", "--include=*.rs", "--include=*.ts", "--include=*.tsx",
+                               "--include=*.js", "--include=*.py", "--include=*.go",
+                               "--include=*.toml", "--include=*.json",
+                               "-I", args, dir])
+                        .output();
+                    match output {
+                        Ok(o) if o.status.success() => {
+                            let results = String::from_utf8_lossy(&o.stdout);
+                            let lines: Vec<&str> = results.lines().take(50).collect();
+                            let mut content = format!("Search results for \"{}\":\n\n", args);
+                            for line in &lines {
+                                // Strip the working dir prefix for cleaner display
+                                let display = line.strip_prefix(dir).unwrap_or(line);
+                                let display = display.strip_prefix('/').unwrap_or(display);
+                                content.push_str(&format!("  {}\n", display));
+                            }
+                            let total: usize = results.lines().count();
+                            if total > 50 {
+                                content.push_str(&format!("\n  ... and {} more matches", total - 50));
+                            } else {
+                                content.push_str(&format!("\n  {} match{}", total, if total == 1 { "" } else { "es" }));
+                            }
+                            self.messages.push(Message {
+                                role: MessageRole::System,
+                                content,
+                                timestamp: timestamp.to_string(),
+                                phase: None,
+                            });
+                        }
+                        Ok(_) => {
+                            self.messages.push(Message {
+                                role: MessageRole::System,
+                                content: format!("No results for \"{}\"", args),
+                                timestamp: timestamp.to_string(),
+                                phase: None,
+                            });
+                        }
+                        Err(e) => {
+                            self.messages.push(Message {
+                                role: MessageRole::System,
+                                content: format!("Search failed: {}", e),
+                                timestamp: timestamp.to_string(),
+                                phase: None,
+                            });
+                        }
+                    }
+                }
+            }
+            "/symbols" => {
+                if args.is_empty() {
+                    self.messages.push(Message {
+                        role: MessageRole::System,
+                        content: "Usage: /symbols <file_path>".to_string(),
+                        timestamp: timestamp.to_string(),
+                        phase: None,
+                    });
+                } else {
+                    let file_path = if args.starts_with('/') {
+                        std::path::PathBuf::from(args)
+                    } else {
+                        std::path::Path::new(&self.working_dir).join(args)
+                    };
+                    match std::fs::read_to_string(&file_path) {
+                        Ok(content) => {
+                            let lang = project::detect_language(&file_path);
+                            let mut symbols = Vec::new();
+                            for (i, line) in content.lines().enumerate() {
+                                let trimmed = line.trim();
+                                let is_symbol = match lang.as_str() {
+                                    "Rust" => trimmed.starts_with("pub fn ")
+                                        || trimmed.starts_with("fn ")
+                                        || trimmed.starts_with("pub struct ")
+                                        || trimmed.starts_with("struct ")
+                                        || trimmed.starts_with("pub enum ")
+                                        || trimmed.starts_with("enum ")
+                                        || trimmed.starts_with("pub trait ")
+                                        || trimmed.starts_with("trait ")
+                                        || trimmed.starts_with("impl ")
+                                        || trimmed.starts_with("pub type ")
+                                        || trimmed.starts_with("pub const ")
+                                        || trimmed.starts_with("pub mod ")
+                                        || trimmed.starts_with("mod "),
+                                    "TypeScript" | "JavaScript" => trimmed.starts_with("function ")
+                                        || trimmed.starts_with("export function ")
+                                        || trimmed.starts_with("export const ")
+                                        || trimmed.starts_with("export class ")
+                                        || trimmed.starts_with("class ")
+                                        || trimmed.starts_with("interface ")
+                                        || trimmed.starts_with("export interface ")
+                                        || trimmed.starts_with("type ")
+                                        || trimmed.starts_with("export type "),
+                                    "Python" => trimmed.starts_with("def ")
+                                        || trimmed.starts_with("class ")
+                                        || trimmed.starts_with("async def "),
+                                    "Go" => trimmed.starts_with("func ")
+                                        || trimmed.starts_with("type "),
+                                    _ => false,
+                                };
+                                if is_symbol {
+                                    symbols.push(format!("{:>4} | {}", i + 1, trimmed));
+                                }
+                            }
+                            let mut msg = format!("Symbols in {} ({}):\n\n", args, lang);
+                            if symbols.is_empty() {
+                                msg.push_str("  (no symbols found)");
+                            } else {
+                                for s in &symbols {
+                                    msg.push_str(&format!("  {}\n", s));
+                                }
+                                msg.push_str(&format!("\n  {} symbol{}", symbols.len(), if symbols.len() == 1 { "" } else { "s" }));
+                            }
+                            self.messages.push(Message {
+                                role: MessageRole::System,
+                                content: msg,
+                                timestamp: timestamp.to_string(),
+                                phase: None,
+                            });
+                        }
+                        Err(e) => {
+                            self.messages.push(Message {
+                                role: MessageRole::System,
+                                content: format!("Cannot read {}: {}", args, e),
+                                timestamp: timestamp.to_string(),
+                                phase: None,
+                            });
+                        }
+                    }
+                }
+            }
+            "/impact" => {
+                if args.is_empty() {
+                    self.messages.push(Message {
+                        role: MessageRole::System,
+                        content: "Usage: /impact <file_path>".to_string(),
+                        timestamp: timestamp.to_string(),
+                        phase: None,
+                    });
+                } else {
+                    // Find what imports/uses this file
+                    let basename = std::path::Path::new(args)
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or(args);
+                    let dir = &self.working_dir;
+                    let output = std::process::Command::new("grep")
+                        .args(["-rn", "--include=*.rs", "--include=*.ts", "--include=*.tsx",
+                               "--include=*.js", "--include=*.py", "--include=*.go",
+                               "-I", basename, dir])
+                        .output();
+                    match output {
+                        Ok(o) if o.status.success() => {
+                            let results = String::from_utf8_lossy(&o.stdout);
+                            // Filter to only import/use lines
+                            let imports: Vec<&str> = results.lines()
+                                .filter(|l| {
+                                    let lower = l.to_lowercase();
+                                    lower.contains("use ") || lower.contains("mod ")
+                                        || lower.contains("import ") || lower.contains("require(")
+                                        || lower.contains("from ")
+                                })
+                                .take(30)
+                                .collect();
+                            let mut msg = format!("Impact analysis for \"{}\":\n\n", args);
+                            if imports.is_empty() {
+                                msg.push_str("  No imports/references found.");
+                            } else {
+                                for line in &imports {
+                                    let display = line.strip_prefix(dir).unwrap_or(line);
+                                    let display = display.strip_prefix('/').unwrap_or(display);
+                                    msg.push_str(&format!("  {}\n", display));
+                                }
+                                msg.push_str(&format!("\n  {} reference{}", imports.len(), if imports.len() == 1 { "" } else { "s" }));
+                            }
+                            self.messages.push(Message {
+                                role: MessageRole::System,
+                                content: msg,
+                                timestamp: timestamp.to_string(),
+                                phase: None,
+                            });
+                        }
+                        _ => {
+                            self.messages.push(Message {
+                                role: MessageRole::System,
+                                content: format!("No references found for \"{}\"", args),
+                                timestamp: timestamp.to_string(),
+                                phase: None,
+                            });
+                        }
+                    }
+                }
+            }
+            "/diff" => {
+                let dir = std::path::Path::new(&self.working_dir);
+                match project::git_diff(dir) {
+                    Some(diff) if !diff.is_empty() => {
+                        let lines: Vec<&str> = diff.lines().take(100).collect();
+                        let mut content = String::from("Uncommitted changes:\n\n");
+                        for line in &lines {
+                            content.push_str(line);
+                            content.push('\n');
+                        }
+                        let total = diff.lines().count();
+                        if total > 100 {
+                            content.push_str(&format!("\n... {} more lines", total - 100));
+                        }
+                        self.messages.push(Message {
+                            role: MessageRole::System,
+                            content,
+                            timestamp: timestamp.to_string(),
+                            phase: None,
+                        });
+                    }
+                    _ => {
+                        self.messages.push(Message {
+                            role: MessageRole::System,
+                            content: "No uncommitted changes.".to_string(),
+                            timestamp: timestamp.to_string(),
+                            phase: None,
+                        });
+                    }
+                }
+            }
+            "/git" => {
+                let dir = std::path::Path::new(&self.working_dir);
+                let subcmd = args.split_whitespace().next().unwrap_or("status");
+                match subcmd {
+                    "status" | "" => {
+                        match project::git_status(dir) {
+                            Some(s) => {
+                                self.messages.push(Message {
+                                    role: MessageRole::System,
+                                    content: format!("Git status:\n\n{}", s),
+                                    timestamp: timestamp.to_string(),
+                                    phase: None,
+                                });
+                            }
+                            None => {
+                                self.messages.push(Message {
+                                    role: MessageRole::System,
+                                    content: "Not a git repository.".to_string(),
+                                    timestamp: timestamp.to_string(),
+                                    phase: None,
+                                });
+                            }
+                        }
+                    }
+                    "log" => {
+                        let count: usize = args.split_whitespace().nth(1)
+                            .and_then(|s| s.parse().ok()).unwrap_or(10);
+                        match project::git_log(dir, count) {
+                            Some(s) => {
+                                self.messages.push(Message {
+                                    role: MessageRole::System,
+                                    content: format!("Git log (last {}):\n\n{}", count, s),
+                                    timestamp: timestamp.to_string(),
+                                    phase: None,
+                                });
+                            }
+                            None => {
+                                self.messages.push(Message {
+                                    role: MessageRole::System,
+                                    content: "No git history.".to_string(),
+                                    timestamp: timestamp.to_string(),
+                                    phase: None,
+                                });
+                            }
+                        }
+                    }
+                    "commit" => {
+                        let msg = args.strip_prefix("commit").unwrap_or("").trim();
+                        if msg.is_empty() {
+                            self.messages.push(Message {
+                                role: MessageRole::System,
+                                content: "Usage: /git commit <message>".to_string(),
+                                timestamp: timestamp.to_string(),
+                                phase: None,
+                            });
+                        } else {
+                            self.spawn_command(
+                                &format!("git commit -am \"{}\"", msg),
+                                "git",
+                                &["commit", "-am", msg],
+                            );
+                        }
+                    }
+                    "push" => {
+                        self.spawn_command("git push", "git", &["push"]);
+                    }
+                    "pull" => {
+                        self.spawn_command("git pull", "git", &["pull"]);
+                    }
+                    "branch" => {
+                        self.spawn_command("git branch", "git", &["branch", "-a"]);
+                    }
+                    _ => {
+                        self.messages.push(Message {
+                            role: MessageRole::System,
+                            content: format!("Git subcommands: status, log, commit, push, pull, branch"),
+                            timestamp: timestamp.to_string(),
+                            phase: None,
+                        });
+                    }
+                }
+            }
+            "/test" => {
+                if let Some(ref info) = self.project_info {
+                    let (prog, cmd_args) = info.kind.test_cmd();
+                    let label = format!("{} {}", prog, cmd_args.join(" "));
+                    self.spawn_command(&label, prog, cmd_args);
+                } else {
+                    self.messages.push(Message {
+                        role: MessageRole::System,
+                        content: "No project detected. Cannot determine test command.".to_string(),
+                        timestamp: timestamp.to_string(),
+                        phase: None,
+                    });
+                }
+            }
+            "/build" => {
+                if let Some(ref info) = self.project_info {
+                    let (prog, cmd_args) = info.kind.build_cmd();
+                    let label = format!("{} {}", prog, cmd_args.join(" "));
+                    self.spawn_command(&label, prog, cmd_args);
+                } else {
+                    self.messages.push(Message {
+                        role: MessageRole::System,
+                        content: "No project detected. Cannot determine build command.".to_string(),
+                        timestamp: timestamp.to_string(),
+                        phase: None,
+                    });
+                }
+            }
+            "/run" => {
+                if let Some(ref info) = self.project_info {
+                    let (prog, cmd_args) = info.kind.run_cmd();
+                    let label = format!("{} {}", prog, cmd_args.join(" "));
+                    self.spawn_command(&label, prog, cmd_args);
+                } else {
+                    self.messages.push(Message {
+                        role: MessageRole::System,
+                        content: "No project detected. Cannot determine run command.".to_string(),
+                        timestamp: timestamp.to_string(),
+                        phase: None,
+                    });
+                }
+            }
+            "/lint" => {
+                if let Some(ref info) = self.project_info {
+                    let (prog, cmd_args) = info.kind.lint_cmd();
+                    let label = format!("{} {}", prog, cmd_args.join(" "));
+                    self.spawn_command(&label, prog, cmd_args);
+                } else {
+                    self.messages.push(Message {
+                        role: MessageRole::System,
+                        content: "No project detected. Cannot determine lint command.".to_string(),
+                        timestamp: timestamp.to_string(),
+                        phase: None,
+                    });
+                }
+            }
+            "/fmt" => {
+                if let Some(ref info) = self.project_info {
+                    let (prog, cmd_args) = info.kind.fmt_cmd();
+                    let label = format!("{} {}", prog, cmd_args.join(" "));
+                    self.spawn_command(&label, prog, cmd_args);
+                } else {
+                    self.messages.push(Message {
+                        role: MessageRole::System,
+                        content: "No project detected. Cannot determine format command.".to_string(),
+                        timestamp: timestamp.to_string(),
+                        phase: None,
+                    });
+                }
+            }
+            "/deps" => {
+                if let Some(ref info) = self.project_info {
+                    let (prog, cmd_args) = info.kind.deps_cmd();
+                    let label = format!("{} {}", prog, cmd_args.join(" "));
+                    self.spawn_command(&label, prog, cmd_args);
+                } else {
+                    self.messages.push(Message {
+                        role: MessageRole::System,
+                        content: "No project detected. Cannot determine deps command.".to_string(),
+                        timestamp: timestamp.to_string(),
+                        phase: None,
+                    });
+                }
+            }
+            "/bench" => {
+                if let Some(ref info) = self.project_info {
+                    let (prog, cmd_args) = info.kind.bench_cmd();
+                    let label = format!("{} {}", prog, cmd_args.join(" "));
+                    self.spawn_command(&label, prog, cmd_args);
+                } else {
+                    self.messages.push(Message {
+                        role: MessageRole::System,
+                        content: "No project detected. Cannot determine bench command.".to_string(),
+                        timestamp: timestamp.to_string(),
+                        phase: None,
+                    });
+                }
+            }
+            "/doc" => {
+                if let Some(ref info) = self.project_info {
+                    let (prog, cmd_args) = info.kind.doc_cmd();
+                    let label = format!("{} {}", prog, cmd_args.join(" "));
+                    self.spawn_command(&label, prog, cmd_args);
+                } else {
+                    self.messages.push(Message {
+                        role: MessageRole::System,
+                        content: "No project detected. Cannot determine doc command.".to_string(),
+                        timestamp: timestamp.to_string(),
+                        phase: None,
+                    });
+                }
+            }
+            "/deploy" => {
+                self.messages.push(Message {
+                    role: MessageRole::System,
+                    content: "Deploy target not configured. Set HYDRA_DEPLOY_CMD env var or configure in /config.".to_string(),
+                    timestamp: timestamp.to_string(),
+                    phase: None,
+                });
+            }
+            "/init" => {
+                self.messages.push(Message {
+                    role: MessageRole::System,
+                    content: "Hydra project initialization: coming soon. For now, Hydra auto-detects your project.".to_string(),
+                    timestamp: timestamp.to_string(),
+                    phase: None,
+                });
+                if let Some(ref info) = self.project_info {
+                    self.messages.push(Message {
+                        role: MessageRole::System,
+                        content: format!(
+                            "Detected: {} {} ({})\nGit: {}{}",
+                            info.kind.icon(), info.name, info.kind.label(),
+                            info.git_branch.as_deref().unwrap_or("no git"),
+                            match (info.git_ahead, info.git_behind) {
+                                (Some(a), Some(b)) if a > 0 || b > 0 => format!(" (+{} -{} from remote)", a, b),
+                                _ => String::new(),
+                            }
+                        ),
+                        timestamp: timestamp.to_string(),
+                        phase: None,
+                    });
+                }
+            }
+
             // ── System ──
             "/sisters" => {
                 self.refresh_status();
@@ -882,38 +1657,83 @@ impl App {
                 self.conversation_history.clear();
             }
             "/compact" => {
-                // Keep only last 20 messages + conversation history
                 if self.messages.len() > 20 {
                     let drain_count = self.messages.len() - 20;
-                    self.messages.drain(0..drain_count);
+                    let archived: Vec<Message> = self.messages.drain(0..drain_count).collect();
+
+                    // Archive to file so user can review later with /history archive
+                    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+                    let archive_path = format!("{}/.hydra/conversation-archive.log", home);
+                    if let Ok(mut file) = std::fs::OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open(&archive_path)
+                    {
+                        use std::io::Write;
+                        let _ = writeln!(file, "--- Compacted {} messages at {} ---", drain_count, timestamp);
+                        for msg in &archived {
+                            let role = match msg.role {
+                                MessageRole::User => "you",
+                                MessageRole::Hydra => "hydra",
+                                MessageRole::System => "system",
+                            };
+                            let _ = writeln!(file, "[{}] {}: {}", msg.timestamp, role, msg.content);
+                        }
+                        let _ = writeln!(file, "--- End compact ---\n");
+                    }
+
                     self.messages.insert(0, Message {
                         role: MessageRole::System,
-                        content: format!("Compacted {} messages.", drain_count),
+                        content: format!(
+                            "Compacted {} messages (archived to ~/.hydra/conversation-archive.log).\n\
+                             Use /history archive to review.",
+                            drain_count
+                        ),
+                        timestamp: timestamp.to_string(),
+                        phase: None,
+                    });
+                } else {
+                    self.messages.push(Message {
+                        role: MessageRole::System,
+                        content: "Nothing to compact (< 20 messages).".to_string(),
                         timestamp: timestamp.to_string(),
                         phase: None,
                     });
                 }
-                // Also compact conversation history (keep last 20 turns)
+                // Compact conversation history too (keep last 20 turns)
                 if self.conversation_history.len() > 20 {
                     let drain_count = self.conversation_history.len() - 20;
                     self.conversation_history.drain(0..drain_count);
-                    self.messages.push(Message {
-                        role: MessageRole::System,
-                        content: format!("Compacted. {} history turns retained.", self.conversation_history.len()),
-                        timestamp: timestamp.to_string(),
-                        phase: None,
-                    });
-                } else if self.messages.len() <= 20 {
-                    self.messages.push(Message {
-                        role: MessageRole::System,
-                        content: "Nothing to compact.".to_string(),
-                        timestamp: timestamp.to_string(),
-                        phase: None,
-                    });
                 }
+                self.scroll_offset = 0;
             }
             "/history" => {
-                if self.history.is_empty() {
+                if args == "archive" {
+                    // Show archived/compacted messages from disk
+                    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+                    let archive_path = format!("{}/.hydra/conversation-archive.log", home);
+                    match std::fs::read_to_string(&archive_path) {
+                        Ok(content) => {
+                            // Show last 60 lines of archive
+                            let tail: Vec<&str> = content.lines().rev().take(60).collect();
+                            let display: String = tail.into_iter().rev().collect::<Vec<_>>().join("\n");
+                            self.messages.push(Message {
+                                role: MessageRole::System,
+                                content: format!("Conversation Archive (last 60 lines):\n\n{}", display),
+                                timestamp: timestamp.to_string(),
+                                phase: None,
+                            });
+                        }
+                        Err(_) => {
+                            self.messages.push(Message {
+                                role: MessageRole::System,
+                                content: "No archive yet. Use /compact to archive older messages.".to_string(),
+                                timestamp: timestamp.to_string(),
+                                phase: None,
+                            });
+                        }
+                    }
+                } else if self.history.is_empty() {
                     self.messages.push(Message {
                         role: MessageRole::System,
                         content: "No command history.".to_string(),
@@ -1073,22 +1893,28 @@ impl App {
 
             // ── Help ──
             "/help" | "/?" => {
-                use crate::tui::commands::COMMANDS;
+                use crate::tui::commands::{COMMANDS, CommandCategory};
                 let mut help = String::from("Hydra Commands:\n\n");
-                let mut current_cat = String::new();
-                for cmd in COMMANDS {
-                    let cat = format!("{:?}", cmd.category);
-                    if cat != current_cat {
-                        if !current_cat.is_empty() {
-                            help.push('\n');
+                let categories = [
+                    ("Developer", CommandCategory::Developer),
+                    ("System", CommandCategory::System),
+                    ("Conversation", CommandCategory::Conversation),
+                    ("Settings", CommandCategory::Settings),
+                    ("Control", CommandCategory::Control),
+                    ("Debug", CommandCategory::Debug),
+                ];
+                for (name, cat) in &categories {
+                    help.push_str(&format!("  {}:\n", name));
+                    for cmd in COMMANDS {
+                        if cmd.category == *cat {
+                            help.push_str(&format!("    {:<12} {}\n", cmd.name, cmd.description));
                         }
-                        current_cat = cat;
                     }
-                    help.push_str(&format!("  {:<12} {}\n", cmd.name, cmd.description));
+                    help.push('\n');
                 }
-                help.push_str("\nShortcuts:\n");
+                help.push_str("Shortcuts:\n");
                 help.push_str("  Ctrl+B  Toggle sidebar\n");
-                help.push_str("  Ctrl+K  Kill execution\n");
+                help.push_str("  Ctrl+K  Kill execution / stop command\n");
                 help.push_str("  Ctrl+L  Refresh status\n");
                 help.push_str("  Ctrl+C  Exit\n");
                 help.push_str("  Esc     Normal mode (j/k scroll)\n");
@@ -1216,6 +2042,10 @@ impl App {
         self.current_phase = None;
         self.is_thinking = false;
         self.cognitive_rx = None; // Drop the channel — loop will stop when tx fails
+        // Kill running shell command by dropping the receiver
+        if self.running_cmd.is_some() {
+            self.running_cmd = None;
+        }
         self.messages.push(Message {
             role: MessageRole::System,
             content: "Execution killed.".to_string(),
@@ -1225,23 +2055,42 @@ impl App {
         self.scroll_to_bottom();
     }
 
-    // Scroll
+    // Scroll — line-based offset from the bottom.
+    // 0 = pinned to bottom (auto-scroll), >0 = scrolled up by N lines.
     pub fn scroll_down(&mut self) {
-        if self.scroll_offset < self.messages.len().saturating_sub(1) {
-            self.scroll_offset += 1;
+        if self.scroll_offset > 0 {
+            self.scroll_offset = self.scroll_offset.saturating_sub(3);
         }
     }
 
     pub fn scroll_up(&mut self) {
-        self.scroll_offset = self.scroll_offset.saturating_sub(1);
+        self.scroll_offset += 3;
     }
 
     pub fn scroll_to_bottom(&mut self) {
-        self.scroll_offset = self.messages.len().saturating_sub(1);
+        self.scroll_offset = 0;
     }
 
     pub fn scroll_to_top(&mut self) {
-        self.scroll_offset = 0;
+        // Large number — renderer will clamp to actual line count
+        self.scroll_offset = usize::MAX / 2;
+    }
+
+    pub fn page_up(&mut self) {
+        self.scroll_offset += 20;
+    }
+
+    pub fn page_down(&mut self) {
+        if self.scroll_offset > 20 {
+            self.scroll_offset -= 20;
+        } else {
+            self.scroll_offset = 0;
+        }
+    }
+
+    /// Whether the conversation is pinned to the bottom (auto-scroll active).
+    pub fn is_at_bottom(&self) -> bool {
+        self.scroll_offset == 0
     }
 
     // History navigation
@@ -1373,10 +2222,16 @@ mod tests {
     #[test]
     fn scroll_bounds() {
         let mut app = App::new();
-        app.scroll_up();
-        assert_eq!(app.scroll_offset, 0);
+        // scroll_down on 0 stays at 0 (already at bottom)
         app.scroll_down();
         assert_eq!(app.scroll_offset, 0);
+        // scroll_up moves away from bottom
+        app.scroll_up();
+        assert!(app.scroll_offset > 0);
+        // scroll_to_bottom pins back to 0
+        app.scroll_to_bottom();
+        assert_eq!(app.scroll_offset, 0);
+        assert!(app.is_at_bottom());
     }
 
     #[test]

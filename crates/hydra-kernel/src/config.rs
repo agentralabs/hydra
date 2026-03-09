@@ -94,6 +94,22 @@ pub struct KernelConfig {
     pub token_budget: u64,
 }
 
+/// Read a u64 env var with a default fallback.
+fn env_u64(name: &str, default: u64) -> u64 {
+    std::env::var(name)
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(default)
+}
+
+/// Read a usize env var with a default fallback.
+fn env_usize(name: &str, default: usize) -> usize {
+    std::env::var(name)
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(default)
+}
+
 impl Default for KernelConfig {
     fn default() -> Self {
         let mut phase_configs = std::collections::HashMap::new();
@@ -106,11 +122,16 @@ impl Default for KernelConfig {
         ] {
             phase_configs.insert(phase, default_phase_config(phase));
         }
+
+        // Allow env var overrides for key parameters:
+        //   HYDRA_MAX_RECURSION_DEPTH (default: 5)
+        //   HYDRA_MAX_THINK_ITERATIONS (default: 10)
+        //   HYDRA_TOKEN_BUDGET (default: 100000)
         Self {
             phase_configs,
-            max_recursion_depth: 5,
-            max_think_iterations: 10,
-            token_budget: 100_000,
+            max_recursion_depth: env_usize("HYDRA_MAX_RECURSION_DEPTH", 5),
+            max_think_iterations: env_usize("HYDRA_MAX_THINK_ITERATIONS", 10),
+            token_budget: env_u64("HYDRA_TOKEN_BUDGET", 100_000),
         }
     }
 }

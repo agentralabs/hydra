@@ -52,6 +52,29 @@ pub struct SyncReport {
     pub strategy_used: String,
 }
 
+/// High-level federation sync handle used by the cognitive loop.
+/// Wraps the SyncProtocol with peer-awareness for multi-Hydra state synchronization.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FederationSync {
+    /// Current sync version from the protocol.
+    pub version: u64,
+    /// Number of peers participating in this sync round.
+    pub peers_synced: usize,
+    /// Entries that changed in the last sync cycle.
+    pub changed_keys: Vec<String>,
+}
+
+impl FederationSync {
+    pub fn from_protocol(protocol: &SyncProtocol, peers: usize) -> Self {
+        let state = protocol.state.read();
+        Self {
+            version: state.version,
+            peers_synced: peers,
+            changed_keys: state.entries.keys().cloned().collect(),
+        }
+    }
+}
+
 /// CRDT-based sync protocol
 pub struct SyncProtocol {
     state: parking_lot::RwLock<SyncState>,

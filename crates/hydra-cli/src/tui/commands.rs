@@ -13,6 +13,7 @@ pub struct SlashCommand {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum CommandCategory {
+    Developer,
     System,
     Conversation,
     Settings,
@@ -22,6 +23,26 @@ pub enum CommandCategory {
 
 /// All available slash commands.
 pub const COMMANDS: &[SlashCommand] = &[
+    // ── Developer ──
+    SlashCommand { name: "/files",    description: "List project files (tree view)",       category: CommandCategory::Developer },
+    SlashCommand { name: "/open",     description: "Read and display file content",        category: CommandCategory::Developer },
+    SlashCommand { name: "/edit",     description: "Open file in $EDITOR",                 category: CommandCategory::Developer },
+    SlashCommand { name: "/search",   description: "Search code (regex or semantic)",      category: CommandCategory::Developer },
+    SlashCommand { name: "/symbols",  description: "Show functions/structs/types in file", category: CommandCategory::Developer },
+    SlashCommand { name: "/impact",   description: "Show what depends on a file",          category: CommandCategory::Developer },
+    SlashCommand { name: "/diff",     description: "Show uncommitted changes",             category: CommandCategory::Developer },
+    SlashCommand { name: "/git",      description: "Git status/log/commit/push/pr",        category: CommandCategory::Developer },
+    SlashCommand { name: "/test",     description: "Run project tests",                    category: CommandCategory::Developer },
+    SlashCommand { name: "/build",    description: "Build the project",                    category: CommandCategory::Developer },
+    SlashCommand { name: "/run",      description: "Run the project",                      category: CommandCategory::Developer },
+    SlashCommand { name: "/lint",     description: "Run linter",                           category: CommandCategory::Developer },
+    SlashCommand { name: "/fmt",      description: "Format code",                          category: CommandCategory::Developer },
+    SlashCommand { name: "/deps",     description: "Show/update dependencies",             category: CommandCategory::Developer },
+    SlashCommand { name: "/bench",    description: "Run benchmarks",                       category: CommandCategory::Developer },
+    SlashCommand { name: "/doc",      description: "Generate/open docs",                   category: CommandCategory::Developer },
+    SlashCommand { name: "/deploy",   description: "Deploy to configured target",          category: CommandCategory::Developer },
+    SlashCommand { name: "/init",     description: "Initialize Hydra in a new project",    category: CommandCategory::Developer },
+
     // ── System ──
     SlashCommand { name: "/sisters",  description: "Show sister diagnostic table", category: CommandCategory::System },
     SlashCommand { name: "/fix",      description: "Repair offline sisters",       category: CommandCategory::System },
@@ -71,6 +92,8 @@ pub struct CommandDropdown {
     pub filtered: Vec<&'static SlashCommand>,
     /// Currently selected index in the filtered list.
     pub selected: usize,
+    /// Scroll offset — first visible item index.
+    pub scroll: usize,
 }
 
 impl Default for CommandDropdown {
@@ -79,11 +102,15 @@ impl Default for CommandDropdown {
             visible: false,
             filtered: Vec::new(),
             selected: 0,
+            scroll: 0,
         }
     }
 }
 
 impl CommandDropdown {
+    /// Max visible items in the dropdown.
+    const MAX_VISIBLE: usize = 12;
+
     /// Update the filtered list based on current input.
     /// Called on every keystroke when input starts with "/".
     pub fn update_filter(&mut self, input: &str) {
@@ -91,6 +118,7 @@ impl CommandDropdown {
             self.visible = false;
             self.filtered.clear();
             self.selected = 0;
+            self.scroll = 0;
             return;
         }
 
@@ -100,16 +128,21 @@ impl CommandDropdown {
             .collect();
 
         self.visible = !self.filtered.is_empty();
-        // Clamp selection
+        // Clamp selection and scroll
         if self.selected >= self.filtered.len() {
             self.selected = self.filtered.len().saturating_sub(1);
         }
+        self.clamp_scroll();
     }
 
     /// Move selection up.
     pub fn select_prev(&mut self) {
         if !self.filtered.is_empty() {
             self.selected = self.selected.saturating_sub(1);
+            // Scroll up if selection goes above visible window
+            if self.selected < self.scroll {
+                self.scroll = self.selected;
+            }
         }
     }
 
@@ -117,6 +150,10 @@ impl CommandDropdown {
     pub fn select_next(&mut self) {
         if !self.filtered.is_empty() && self.selected + 1 < self.filtered.len() {
             self.selected += 1;
+            // Scroll down if selection goes below visible window
+            if self.selected >= self.scroll + Self::MAX_VISIBLE {
+                self.scroll = self.selected + 1 - Self::MAX_VISIBLE;
+            }
         }
     }
 
@@ -130,10 +167,25 @@ impl CommandDropdown {
         self.visible = false;
         self.filtered.clear();
         self.selected = 0;
+        self.scroll = 0;
     }
 
-    /// Max items to show in dropdown.
+    /// Number of visible items to render.
     pub fn display_count(&self) -> usize {
-        self.filtered.len().min(10)
+        self.filtered.len().min(Self::MAX_VISIBLE)
+    }
+
+    /// The visible slice of items (accounts for scroll offset).
+    pub fn visible_items(&self) -> &[&'static SlashCommand] {
+        let end = (self.scroll + Self::MAX_VISIBLE).min(self.filtered.len());
+        &self.filtered[self.scroll..end]
+    }
+
+    /// Keep scroll in valid range.
+    fn clamp_scroll(&mut self) {
+        let max_scroll = self.filtered.len().saturating_sub(Self::MAX_VISIBLE);
+        if self.scroll > max_scroll {
+            self.scroll = max_scroll;
+        }
     }
 }

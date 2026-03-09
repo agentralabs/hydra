@@ -218,6 +218,32 @@ pub struct FederationStateRow {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RepairRunRow {
+    pub id: String,
+    pub spec_file: String,
+    pub task: String,
+    pub status: String,
+    pub iteration: i64,
+    pub max_iterations: i64,
+    pub checks_total: i64,
+    pub checks_passed: i64,
+    pub failure_log: Option<String>,
+    pub started_at: String,
+    pub completed_at: Option<String>,
+    pub duration_ms: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RepairCheckRow {
+    pub run_id: String,
+    pub iteration: i64,
+    pub check_name: String,
+    pub check_command: String,
+    pub passed: bool,
+    pub output: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunRow {
     pub id: String,
     pub intent: String,
@@ -1101,6 +1127,57 @@ impl HydraDb {
         Ok(count)
     }
 
+    // ═══════════════════════════════════════════════════════
+    // REPAIR RUNS & CHECKS
+    // ═══════════════════════════════════════════════════════
+
+    pub fn create_repair_run(&self, r: &RepairRunRow) -> Result<(), DbError> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "INSERT INTO repair_runs (id, spec_file, task, status, iteration, max_iterations, checks_total, checks_passed, failure_log, started_at, completed_at, duration_ms) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            params![r.id, r.spec_file, r.task, r.status, r.iteration, r.max_iterations, r.checks_total, r.checks_passed, r.failure_log, r.started_at, r.completed_at, r.duration_ms],
+        )?;
+        Ok(())
+    }
+
+    pub fn update_repair_run(&self, id: &str, status: &str, iteration: i64, checks_passed: i64, failure_log: Option<&str>) -> Result<(), DbError> {
+        let conn = self.conn.lock();
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "UPDATE repair_runs SET status = ?1, iteration = ?2, checks_passed = ?3, failure_log = ?4, completed_at = ?5 WHERE id = ?6",
+            params![status, iteration, checks_passed, failure_log, now, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_repair_runs(&self, limit: usize) -> Result<Vec<RepairRunRow>, DbError> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(
+            "SELECT id, spec_file, task, status, iteration, max_iterations, checks_total, checks_passed, failure_log, started_at, completed_at, duration_ms FROM repair_runs ORDER BY started_at DESC LIMIT ?1"
+        )?;
+        let iter = stmt.query_map(params![limit as i64], |row| {
+            Ok(RepairRunRow {
+                id: row.get(0)?, spec_file: row.get(1)?, task: row.get(2)?,
+                status: row.get(3)?, iteration: row.get(4)?, max_iterations: row.get(5)?,
+                checks_total: row.get(6)?, checks_passed: row.get(7)?,
+                failure_log: row.get(8)?, started_at: row.get(9)?,
+                completed_at: row.get(10)?, duration_ms: row.get(11)?,
+            })
+        })?;
+        let mut rows = Vec::new();
+        for r in iter { rows.push(r?); }
+        Ok(rows)
+    }
+
+    pub fn create_repair_check(&self, c: &RepairCheckRow) -> Result<(), DbError> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "INSERT INTO repair_checks (run_id, iteration, check_name, check_command, passed, output) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![c.run_id, c.iteration, c.check_name, c.check_command, c.passed as i32, c.output],
+        )?;
+        Ok(())
+    }
+
     pub fn list_pending_approvals(&self) -> Result<Vec<ApprovalRow>, DbError> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
@@ -1583,5 +1660,121 @@ mod tests {
         let guard = conn.lock();
         let v: u32 = guard.query_row("SELECT version FROM schema_version LIMIT 1", [], |row| row.get(0)).unwrap();
         assert_eq!(v, SCHEMA_VERSION);
+    }
+
+    // --- Belief CRUD ---
+
+    #[test]
+    fn test_belief_upsert_and_retrieve() {
+        let db = HydraDb::in_memory().unwrap();
+        let now = "2026-03-09T00:00:00Z".to_string();
+        let belief = BeliefRow {
+            id: "b1".into(),
+            category: "fact".into(),
+            subject: "PostgreSQL and Express for this project".into(),
+            content: "we're using PostgreSQL and Express for this project".into(),
+            confidence: 0.95,
+            source: "user_stated".into(),
+            confirmations: 0,
+            contradictions: 0,
+            active: true,
+            supersedes: None,
+            superseded_by: None,
+            created_at: now.clone(),
+            updated_at: now.clone(),
+        };
+        db.upsert_belief(&belief).unwrap();
+        let active = db.get_active_beliefs(10).unwrap();
+        assert_eq!(active.len(), 1);
+        assert_eq!(active[0].subject, "PostgreSQL and Express for this project");
+    }
+
+    #[test]
+    fn test_belief_supersede() {
+        let db = HydraDb::in_memory().unwrap();
+        let now = "2026-03-09T00:00:00Z".to_string();
+        // Store original belief
+        db.upsert_belief(&BeliefRow {
+            id: "b1".into(),
+            category: "fact".into(),
+            subject: "PostgreSQL and Express for this project".into(),
+            content: "we're using PostgreSQL and Express for this project".into(),
+            confidence: 0.95,
+            source: "user_stated".into(),
+            confirmations: 0, contradictions: 0, active: true,
+            supersedes: None, superseded_by: None,
+            created_at: now.clone(), updated_at: now.clone(),
+        }).unwrap();
+
+        // Supersede with correction
+        db.supersede_belief("b1", "b2").unwrap();
+        db.upsert_belief(&BeliefRow {
+            id: "b2".into(),
+            category: "correction".into(),
+            subject: "FastAPI instead of Express".into(),
+            content: "actually, we switched to FastAPI instead of Express".into(),
+            confidence: 0.99,
+            source: "corrected".into(),
+            confirmations: 0, contradictions: 0, active: true,
+            supersedes: Some("b1".into()), superseded_by: None,
+            created_at: now.clone(), updated_at: now.clone(),
+        }).unwrap();
+
+        // Old belief should be inactive
+        let active = db.get_active_beliefs(10).unwrap();
+        assert_eq!(active.len(), 1);
+        assert_eq!(active[0].id, "b2");
+        assert_eq!(active[0].confidence, 0.99);
+    }
+
+    #[test]
+    fn test_belief_keyword_search() {
+        let db = HydraDb::in_memory().unwrap();
+        let now = "2026-03-09T00:00:00Z".to_string();
+        db.upsert_belief(&BeliefRow {
+            id: "b1".into(),
+            category: "fact".into(),
+            subject: "PostgreSQL and Express for this project".into(),
+            content: "we're using PostgreSQL and Express for this project".into(),
+            confidence: 0.95,
+            source: "user_stated".into(),
+            confirmations: 0, contradictions: 0, active: true,
+            supersedes: None, superseded_by: None,
+            created_at: now.clone(), updated_at: now.clone(),
+        }).unwrap();
+
+        // Full subject search — should find
+        let results = db.get_beliefs_by_subject("PostgreSQL and Express for this project").unwrap();
+        assert_eq!(results.len(), 1);
+
+        // Keyword search "Express" — should find (LIKE match)
+        let results = db.get_beliefs_by_subject("Express").unwrap();
+        assert_eq!(results.len(), 1);
+
+        // Keyword search "FastAPI" — should NOT find (new tech not in old belief)
+        let results = db.get_beliefs_by_subject("FastAPI").unwrap();
+        assert_eq!(results.len(), 0);
+    }
+
+    #[test]
+    fn test_belief_confirm_increases_confidence() {
+        let db = HydraDb::in_memory().unwrap();
+        let now = "2026-03-09T00:00:00Z".to_string();
+        db.upsert_belief(&BeliefRow {
+            id: "b1".into(),
+            category: "fact".into(),
+            subject: "PostgreSQL".into(),
+            content: "we use PostgreSQL".into(),
+            confidence: 0.95,
+            source: "user_stated".into(),
+            confirmations: 0, contradictions: 0, active: true,
+            supersedes: None, superseded_by: None,
+            created_at: now.clone(), updated_at: now.clone(),
+        }).unwrap();
+
+        db.confirm_belief("b1").unwrap();
+        let active = db.get_active_beliefs(10).unwrap();
+        assert_eq!(active[0].confirmations, 1);
+        assert!((active[0].confidence - 0.97).abs() < 0.001);
     }
 }

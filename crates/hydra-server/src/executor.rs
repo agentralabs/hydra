@@ -83,6 +83,27 @@ pub async fn execute_run(state: Arc<AppState>, run_id: String, intent: String) {
     let input = CycleInput::simple(&intent);
     let output = kernel.run(input, &handler).await;
 
+    // Record trust outcome on the decide engine
+    if output.is_ok() {
+        state.decide_engine.record_success("low", "");
+    } else {
+        state.decide_engine.record_failure("low", "");
+    }
+
+    // Run proactive anticipation on the intent
+    {
+        let mut notifier = state.proactive_notifier.lock();
+        notifier.anticipate(&intent);
+    }
+
+    // Log compression stats if context is available
+    if let Some(reasoning) = output.result.get("reasoning").and_then(|v| v.as_str()) {
+        let (_compressed, ratio) = state.invention_engine.compress_context(reasoning);
+        if ratio > 0.1 {
+            tracing::debug!(compression_ratio = %ratio, "Context compression applied");
+        }
+    }
+
     // Get real token metrics from the inner LLM handler
     let total_tokens = handler.inner.total_tokens();
     let phase_metrics = handler.inner.phase_metrics();
@@ -257,6 +278,25 @@ impl EventEmittingHandler {
         ));
     }
 
+    fn emit_phase_progress(&self, phase: &str, phase_index: usize, detail: &str) {
+        let step_id = self
+            .step_ids
+            .lock()
+            .get(phase_index)
+            .cloned()
+            .unwrap_or_default();
+
+        self.state.event_bus.publish(SseEvent::new(
+            SseEventType::StepProgress,
+            serde_json::json!({
+                "run_id": self.run_id,
+                "step_id": step_id,
+                "phase": phase,
+                "detail": detail,
+            }),
+        ));
+    }
+
     fn emit_phase_completed(
         &self,
         phase: &str,
@@ -300,6 +340,7 @@ impl PhaseHandler for EventEmittingHandler {
     async fn perceive(&self, input: &CycleInput) -> Result<serde_json::Value, HydraError> {
         self.emit_phase_started("perceive", 0);
         let start = Instant::now();
+        self.emit_phase_progress("perceive", 0, "Parsing intent and gathering context");
 
         let result = self.inner.perceive(input).await?;
 
@@ -318,6 +359,7 @@ impl PhaseHandler for EventEmittingHandler {
     async fn think(&self, perceived: &serde_json::Value) -> Result<serde_json::Value, HydraError> {
         self.emit_phase_started("think", 1);
         let start = Instant::now();
+        self.emit_phase_progress("think", 1, "Reasoning about approach and constraints");
 
         let result = self.inner.think(perceived).await?;
 
@@ -337,6 +379,7 @@ impl PhaseHandler for EventEmittingHandler {
     async fn decide(&self, thought: &serde_json::Value) -> Result<serde_json::Value, HydraError> {
         self.emit_phase_started("decide", 2);
         let start = Instant::now();
+        self.emit_phase_progress("decide", 2, "Selecting actions and assessing risk");
 
         let result = self.inner.decide(thought).await?;
 
@@ -363,6 +406,7 @@ impl PhaseHandler for EventEmittingHandler {
     async fn act(&self, decision: &serde_json::Value) -> Result<serde_json::Value, HydraError> {
         self.emit_phase_started("act", 3);
         let start = Instant::now();
+        self.emit_phase_progress("act", 3, "Executing planned actions");
 
         let result = self.inner.act(decision).await?;
 
@@ -375,6 +419,7 @@ impl PhaseHandler for EventEmittingHandler {
     async fn learn(&self, result: &serde_json::Value) -> Result<serde_json::Value, HydraError> {
         self.emit_phase_started("learn", 4);
         let start = Instant::now();
+        self.emit_phase_progress("learn", 4, "Recording outcomes and updating knowledge");
 
         let learn_result = self.inner.learn(result).await?;
 

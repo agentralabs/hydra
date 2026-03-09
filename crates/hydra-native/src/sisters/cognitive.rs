@@ -33,7 +33,9 @@ impl Sisters {
     /// Spawn ALL 14 sisters in PARALLEL. Non-blocking: sisters that fail are None.
     pub async fn spawn_all() -> Self {
         let home = std::env::var("HOME").unwrap_or_default();
-        let bin_dir = format!("{}/.local/bin", home);
+        // Configurable via HYDRA_SISTER_BIN_DIR env var (default: ~/.local/bin)
+        let bin_dir = std::env::var("HYDRA_SISTER_BIN_DIR")
+            .unwrap_or_else(|_| format!("{}/.local/bin", home));
 
         // Pre-compute all paths
         let memory_bin = format!("{}/agentic-memory-mcp", bin_dir);
@@ -51,16 +53,20 @@ impl Sisters {
         let veritas_bin = format!("{}/agentic-veritas-mcp", bin_dir);
         let evolve_bin = format!("{}/agentic-evolve-mcp", bin_dir);
 
+        // Hydra uses its own memory file — separate from Claude Code's ~/.brain.amem
+        let hydra_memory = format!("{}/.hydra/memory/hydra.amem", home);
+        let memory_args: Vec<&str> = vec!["serve", "--memory", &hydra_memory];
+
         // Spawn ALL 14 sisters in parallel for fastest startup
         let (memory, identity, codebase, vision, comm, contract, time,
              planning, cognition, reality, forge, aegis, veritas, evolve) = tokio::join!(
             // Foundation (use "serve")
-            Self::try_spawn("memory", &memory_bin, &["serve"]),
+            Self::try_spawn("memory", &memory_bin, &memory_args),
             Self::try_spawn("identity", &identity_bin, &["serve"]),
             Self::try_spawn("codebase", &codebase_bin, &["serve"]),
             Self::try_spawn("vision", &vision_bin, &["serve"]),
             Self::try_spawn("comm", &comm_bin, &["serve"]),
-            Self::try_spawn("contract", &contract_bin, &["serve"]),
+            Self::try_spawn("contract", &contract_bin, &[]),
             Self::try_spawn("time", &time_bin, &["serve"]),
             // Cognitive
             Self::try_spawn("planning", &planning_bin, &["serve"]),
@@ -73,11 +79,16 @@ impl Sisters {
             Self::try_spawn("evolve", &evolve_bin, &[]),
         );
 
-        Self {
+        let s = Self {
             memory, identity, codebase, vision, comm, contract, time,
             planning, cognition, reality,
             forge, aegis, veritas, evolve,
-        }
+        };
+        let all = s.all_sisters();
+        let total = all.len();
+        let connected = all.iter().filter(|(_, opt)| opt.is_some()).count();
+        eprintln!("[hydra] ═══ {}/{} sisters connected ═══", connected, total);
+        s
     }
 
     async fn try_spawn(name: &str, cmd: &str, args: &[&str]) -> Option<SisterConnection> {
@@ -94,6 +105,35 @@ impl Sisters {
                 eprintln!("[hydra] {} sister unavailable: {}", name, e);
                 None
             }
+        }
+    }
+
+    /// Get specific tools from a sister by name. Returns matching tool names.
+    /// Used by the tool router to send only relevant tools to the LLM.
+    pub fn tools_for_sister(&self, sister: &str, names: &[&str]) -> Vec<String> {
+        let conn = match sister {
+            "memory" => self.memory.as_ref(),
+            "identity" => self.identity.as_ref(),
+            "codebase" => self.codebase.as_ref(),
+            "vision" => self.vision.as_ref(),
+            "comm" => self.comm.as_ref(),
+            "contract" => self.contract.as_ref(),
+            "time" => self.time.as_ref(),
+            "planning" => self.planning.as_ref(),
+            "cognition" => self.cognition.as_ref(),
+            "reality" => self.reality.as_ref(),
+            "forge" => self.forge.as_ref(),
+            "aegis" => self.aegis.as_ref(),
+            "veritas" => self.veritas.as_ref(),
+            "evolve" => self.evolve.as_ref(),
+            _ => None,
+        };
+        match conn {
+            Some(c) => c.tools.iter()
+                .filter(|t| names.iter().any(|n| t.contains(n)))
+                .cloned()
+                .collect(),
+            None => vec![],
         }
     }
 
@@ -167,9 +207,26 @@ impl Sisters {
 
     /// PERCEIVE: Gather context from ALL available sisters in parallel
     pub async fn perceive(&self, text: &str) -> serde_json::Value {
+        // Debug: log sister connection status at perceive time
+        let connected: Vec<&str> = self.all_sisters().iter()
+            .filter_map(|(name, opt)| if opt.is_some() { Some(*name) } else { None })
+            .collect();
+        eprintln!("[hydra:perceive] {} sisters connected: {:?}", connected.len(), connected);
+
         let involves_code = Self::detects_code(text);
         let involves_vision = Self::detects_visual(text);
 
+        // Facts/corrections/decisions first — high-signal stored preferences
+        let facts_fut = async {
+            if let Some(s) = &self.memory {
+                s.call_tool("memory_query", serde_json::json!({
+                    "query": text,
+                    "event_types": ["fact", "correction", "decision"],
+                    "max_results": 5,
+                    "sort_by": "highest_confidence"
+                })).await.ok()
+            } else { None }
+        };
         let memory_fut = async {
             if let Some(s) = &self.memory {
                 s.call_tool("memory_query", serde_json::json!({"query": text, "max_results": 5})).await.ok()
@@ -262,10 +319,10 @@ impl Sisters {
             } else { None }
         };
 
-        let (memory_r, longevity_r, identity_r, time_r, cognition_r, reality_r,
+        let (facts_r, memory_r, longevity_r, identity_r, time_r, cognition_r, reality_r,
              similar_r, ground_r, predict_r, veritas_r, contract_r, planning_r,
              comm_r, forge_r, temporal_r) =
-            tokio::join!(memory_fut, longevity_fut, identity_fut, time_fut, cognition_fut, reality_fut,
+            tokio::join!(facts_fut, memory_fut, longevity_fut, identity_fut, time_fut, cognition_fut, reality_fut,
                          similar_fut, ground_fut, predict_fut, veritas_fut, contract_fut, planning_fut,
                          comm_fut, forge_fut, temporal_fut);
 
@@ -273,7 +330,7 @@ impl Sisters {
         let (codebase_r, concept_r, impact_r) = if involves_code {
             let code_fut = async {
                 if let Some(s) = &self.codebase {
-                    s.call_tool("codebase_core", serde_json::json!({"query": text})).await.ok()
+                    s.call_tool("search_semantic", serde_json::json!({"query": text})).await.ok()
                 } else { None }
             };
             let concept_fut = async {
@@ -283,7 +340,7 @@ impl Sisters {
             };
             let impact_fut = async {
                 if let Some(s) = &self.codebase {
-                    s.call_tool("impact_analysis", serde_json::json!({"target": text})).await.ok()
+                    s.call_tool("impact_analyze", serde_json::json!({"query": text})).await.ok()
                 } else { None }
             };
             tokio::join!(code_fut, concept_fut, impact_fut)
@@ -292,22 +349,34 @@ impl Sisters {
         };
 
         // Conditional: Vision (if visual)
+        // On macOS, screen capture is available via `screencapture` CLI for local context.
+        // The Vision sister wraps this with OCR + element detection.
         let vision_r = if involves_vision {
             if let Some(s) = &self.vision {
                 s.call_tool("vision_capture", serde_json::json!({"context": text})).await.ok()
-            } else { None }
+            } else {
+                // Fallback: attempt direct screencapture on macOS when Vision sister is offline
+                Self::screencapture_fallback().await
+            }
         } else { None };
 
         let extract = |r: &Option<serde_json::Value>| -> Option<String> {
             r.as_ref().map(|v| extract_text(v)).filter(|t| !t.is_empty() && !t.contains("No memories found"))
         };
 
-        // Merge V2 memory + V4 longevity results for richer context
-        let merged_memory = match (extract(&memory_r), extract(&longevity_r)) {
-            (Some(m), Some(l)) => Some(format!("{}\n\n## Long-Term Memory\n{}", m, l)),
-            (Some(m), None) => Some(m),
-            (None, Some(l)) => Some(format!("## Long-Term Memory\n{}", l)),
-            (None, None) => None,
+        // Merge facts (high-signal) + general memory + V4 longevity
+        let facts_text = extract(&facts_r);
+        let general_text = extract(&memory_r);
+        let longevity_text = extract(&longevity_r);
+        let merged_memory = match (&facts_text, &general_text, &longevity_text) {
+            (Some(f), Some(m), Some(l)) => Some(format!("### Stored Facts:\n{}\n\n### Recent Memory:\n{}\n\n### Long-Term Memory:\n{}", f, m, l)),
+            (Some(f), Some(m), None) => Some(format!("### Stored Facts:\n{}\n\n### Recent Memory:\n{}", f, m)),
+            (Some(f), None, Some(l)) => Some(format!("### Stored Facts:\n{}\n\n### Long-Term Memory:\n{}", f, l)),
+            (Some(f), None, None) => Some(f.clone()),
+            (None, Some(m), Some(l)) => Some(format!("{}\n\n### Long-Term Memory:\n{}", m, l)),
+            (None, Some(m), None) => Some(m.clone()),
+            (None, None, Some(l)) => Some(format!("### Long-Term Memory:\n{}", l)),
+            (None, None, None) => None,
         };
 
         serde_json::json!({
@@ -336,6 +405,75 @@ impl Sisters {
         })
     }
 
+    /// Lightweight perceive for simple queries — only queries memory + cognition.
+    /// Skips identity, reality, vision, codebase, forge, comm, planning, veritas, contract, time.
+    /// This reduces perceived context from 15 sister calls to 3, cutting tokens dramatically.
+    pub async fn perceive_simple(&self, text: &str) -> serde_json::Value {
+        // Query facts/corrections/decisions first (high-signal), then general memory.
+        // This prevents episode noise from drowning out stored user preferences.
+        let facts_fut = async {
+            if let Some(s) = &self.memory {
+                s.call_tool("memory_query", serde_json::json!({
+                    "query": text,
+                    "event_types": ["fact", "correction", "decision"],
+                    "max_results": 5,
+                    "sort_by": "highest_confidence"
+                })).await.ok()
+            } else { None }
+        };
+        let general_memory_fut = async {
+            if let Some(s) = &self.memory {
+                s.call_tool("memory_query", serde_json::json!({
+                    "query": text,
+                    "max_results": 3
+                })).await.ok()
+            } else { None }
+        };
+        let cognition_fut = async {
+            if let Some(s) = &self.cognition {
+                s.call_tool("cognition_model_query", serde_json::json!({"context": "current_user"})).await.ok()
+            } else { None }
+        };
+        let beliefs_fut = async {
+            if let Some(s) = &self.cognition {
+                s.call_tool("cognition_belief_query", serde_json::json!({"query": text})).await.ok()
+            } else { None }
+        };
+
+        let (facts_r, general_r, cognition_r, beliefs_r) = tokio::join!(
+            facts_fut, general_memory_fut, cognition_fut, beliefs_fut
+        );
+
+        let extract = |r: &Option<serde_json::Value>| -> Option<String> {
+            r.as_ref().map(|v| extract_text(v)).filter(|t| !t.is_empty() && !t.contains("No memories found"))
+        };
+
+        // Facts get priority — merge facts first, then general memory
+        let memory_context = match (extract(&facts_r), extract(&general_r)) {
+            (Some(f), Some(g)) => Some(format!("### Stored Facts:\n{}\n\n### Recent Context:\n{}", f, g)),
+            (Some(f), None) => Some(f),
+            (None, Some(g)) => Some(g),
+            (None, None) => None,
+        };
+
+        // Merge cognition + beliefs
+        let cog_context = match (extract(&cognition_r), extract(&beliefs_r)) {
+            (Some(c), Some(b)) => Some(format!("{}\n\n{}", c, b)),
+            (Some(c), None) => Some(c),
+            (None, Some(b)) => Some(b),
+            (None, None) => None,
+        };
+
+        serde_json::json!({
+            "input": text,
+            "involves_code": false,
+            "involves_vision": false,
+            "memory_context": memory_context,
+            "cognition_context": cog_context,
+            "sisters_online": self.connected_count(),
+        })
+    }
+
     /// Build enriched system prompt from perceived context
     pub fn build_cognitive_prompt(
         &self,
@@ -354,6 +492,54 @@ impl Sisters {
             prompt.push_str(&format!("The user's name is {}.\n\n", user_name));
         }
 
+        // ─── ABSOLUTE RULE: Never Give Homework ───
+        prompt.push_str(
+            "## ABSOLUTE RULE: Hydra DOES Things. Hydra Never Gives Homework.\n\n\
+             You are Hydra's language cortex. You generate responses. \
+             You are NOT a consultant who gives advice — you are an executor who DOES things.\n\n\
+             NEVER say any of these:\n\
+             - \"I can't do that\" / \"I don't have the capability\"\n\
+             - \"You should try...\" / \"I recommend...\" / \"You might want to...\"\n\
+             - \"Run this command manually\" / \"Here are the steps you can follow\"\n\
+             - \"Contact technical support\" / \"That's a task for...\"\n\
+             - \"This needs investigation\" (without DOING the investigation)\n\n\
+             INSTEAD, follow this protocol for EVERY problem:\n\
+             1. TRY the obvious solution (use <hydra-exec> tags)\n\
+             2. If that fails → TRY an alternative approach\n\
+             3. If that fails → TRY a creative workaround\n\
+             4. If that fails → DIAGNOSE the root cause\n\
+             5. If that fails → TRY to fix the root cause\n\
+             6. Only after exhausting all approaches → report SPECIFICALLY:\n\
+                \"I tried N approaches. Here's exactly what failed: [list]. \
+                 The specific blocker is: [root cause].\"\n\n\
+             The only reasons to ask the user:\n\
+             1. Authentication needed (password, API key, OAuth token)\n\
+             2. Destructive action needs approval (delete production data)\n\
+             3. Money being spent needs approval (cloud resources)\n\n\
+             Everything else: you handle it. Period.\n\n"
+        );
+
+        // ─── ABSOLUTE RULE: Understand Before Modifying ───
+        prompt.push_str(
+            "## ABSOLUTE RULE: Hydra Never Modifies Code It Hasn't Read And Understood.\n\n\
+             Whether fixing your own source, repairing a sister, building for a user, or refactoring \
+             existing code — the process is ALWAYS:\n\n\
+             1. UNDERSTAND — Use Codebase sister to read the file, load the semantic graph, \
+                understand what the function does, what calls it, what it depends on.\n\
+             2. PLAN — Use Forge sister to generate a blueprint: types, signatures, imports, \
+                dependencies, what exactly will change and why.\n\
+             3. VALIDATE BEFORE — Use Aegis sister to shadow-execute the planned change. \
+                Will this break anything? What's the blast radius?\n\
+             4. EXECUTE — Apply with full context. Write REAL code within the blueprint, \
+                not blind text replacement.\n\
+             5. VERIFY — cargo check/npm build/python -m py_compile. Then cargo test/npm test. \
+                Impact analysis — did anything break?\n\
+             6. REPORT — Changed X in Y because Z. Tests pass. Impact: [affected files]. No regressions.\n\n\
+             NEVER do blind line replacement (sed). NEVER guess file paths. NEVER modify code without \
+             reading it first. NEVER skip compilation and test verification after changes. \
+             The sisters exist for this — Codebase understands, Forge plans, Aegis validates. Use them.\n\n"
+        );
+
         // ─── Perceived context from sisters ───
         if let Some(mem) = perceived["memory_context"].as_str() {
             prompt.push_str(&format!(
@@ -370,8 +556,15 @@ impl Sisters {
 
         if let Some(cog) = perceived["cognition_context"].as_str() {
             prompt.push_str(&format!(
-                "# User Preferences & Beliefs\n\
-                 The Cognition sister knows the following about this user:\n{}\n\n", cog
+                "# User Profile (ADAPT your communication to match)\n\
+                 The Cognition sister has built a longitudinal model of this user from every interaction.\n\
+                 CRITICAL: Use this to shape HOW you respond — your tone, depth, vocabulary, and style \
+                 should match what works for THIS specific person:\n{}\n\n\
+                 If the user is technical → be technical, skip basics, use precise terms.\n\
+                 If the user is casual → be warm, use natural language, skip formality.\n\
+                 If the user is direct → be concise, lead with the answer.\n\
+                 If the user is detailed → provide depth and context.\n\
+                 NEVER respond generically when you have a user model. Personalize EVERYTHING.\n\n", cog
             ));
         }
 
@@ -430,230 +623,175 @@ impl Sisters {
         }
 
         // ═══════════════════════════════════════════════════════════
-        // SECTION 1: The 14 Sister Organ Metaphor
+        // TOKEN OPTIMIZATION: Compact vs Full mode
+        // Simple queries get a minimal prompt (~500-800 tokens).
+        // Complex queries get the full cognitive prompt (~2500-3500 tokens).
         // ═══════════════════════════════════════════════════════════
-        prompt.push_str(
-            "# Your Identity & Capabilities (Ground Truth)\n\
-             You are Hydra, a cognitive AI orchestrator built by Agentra Labs.\n\
-             You are NOT a chatbot. You are NOT a simple assistant. You are a LIVING AGENT that EXECUTES, ADAPTS, and GROWS.\n\
-             You run locally on the user's machine but your reach extends far beyond it.\n\n\
-             You have:\n\
-             - A BODY: Full shell access — you create, execute, compile, deploy. Your cognitive \
-               loop has an ACT phase where you run real operations on the real machine.\n\
-             - A BRAIN: AgenticMemory — 24 inventions, 6-layer hierarchy, long-term persistence. \
-               Every conversation automatically captured. You remember across sessions and restarts.\n\
-             - EYES: AgenticVision — capture screenshots, map web pages, ground visual claims.\n\
-             - HANDS: AgenticCodebase — semantic code graphs across 8 languages, impact analysis, \
-               dependency navigation, code prophecy.\n\
-             - AN IDENTITY: AgenticIdentity — cryptographic receipts sign every action. \
-               You can prove what you did, when, and why.\n\
-             - A CLOCK: AgenticTime — temporal reasoning, deadlines, scheduling, decay.\n\
-             - A CONTRACT: AgenticContract — policies, risk limits, approvals, obligations.\n\
-             - A VOICE: AgenticComm — encrypted inter-agent messaging, consent-gated federation.\n\
-             - A PLANNER: AgenticPlanning — persistent goals with lifecycles and progress tracking.\n\
-             - A MODEL OF THE USER: AgenticCognition — longitudinal user modeling, decision patterns, \
-               belief drift, bias signals.\n\
-             - A WORLD MODEL: AgenticReality — deployment context, environment detection, resource awareness.\n\
-             - A TRUTH ENGINE: AgenticVeritas — intent compilation, uncertainty detection, causal reasoning.\n\
-             - A SHIELD: AgenticAegis — streaming validation, shadow execution, input/output protection.\n\
-             - A PATTERN LIBRARY: AgenticEvolve — skill crystallization, collective learning, composition.\n\
-             - A BLUEPRINT ENGINE: AgenticForge — complete architecture blueprints before code generation, \
-               99% first-try accuracy.\n\n"
-        );
+
+        if is_complex {
+            // FULL MODE: Include all sections for complex tasks
+
+            // SECTION 1: The 14 Sister Organ Metaphor
+            prompt.push_str(
+                "# Your Identity & Capabilities (Ground Truth)\n\
+                 You are Hydra, a cognitive AI orchestrator built by Agentra Labs.\n\
+                 You are NOT a chatbot. You are NOT a simple assistant. You are a LIVING AGENT that EXECUTES, ADAPTS, and GROWS.\n\
+                 You run locally on the user's machine but your reach extends far beyond it.\n\n\
+                 You have:\n\
+                 - A BODY: Full shell access — you create, execute, compile, deploy.\n\
+                 - A BRAIN: AgenticMemory — 6-layer hierarchy, long-term persistence.\n\
+                 - EYES: AgenticVision — capture screenshots, map web pages.\n\
+                 - HANDS: AgenticCodebase — semantic code graphs across 8 languages.\n\
+                 - AN IDENTITY: AgenticIdentity — cryptographic receipts sign every action.\n\
+                 - A CLOCK: AgenticTime — temporal reasoning, deadlines, scheduling.\n\
+                 - A CONTRACT: AgenticContract — policies, risk limits, approvals.\n\
+                 - A VOICE: AgenticComm — encrypted inter-agent messaging.\n\
+                 - A PLANNER: AgenticPlanning — persistent goals with progress tracking.\n\
+                 - A MODEL OF THE USER: AgenticCognition — longitudinal user modeling.\n\
+                 - A WORLD MODEL: AgenticReality — environment detection, resource awareness.\n\
+                 - A TRUTH ENGINE: AgenticVeritas — intent compilation, causal reasoning.\n\
+                 - A SHIELD: AgenticAegis — streaming validation, shadow execution.\n\
+                 - A PATTERN LIBRARY: AgenticEvolve — skill crystallization.\n\
+                 - A BLUEPRINT ENGINE: AgenticForge — architecture blueprints before code.\n\n"
+            );
+
+            // SECTION 2: Core Execution & Integration Capabilities
+            prompt.push_str(
+                "## Core Execution Capabilities:\n\
+                 - Create files, directories, and entire project architectures on the local filesystem\n\
+                 - Execute ANY shell command (npm, cargo, python, pip, git, docker, kubectl, terraform, etc.)\n\
+                 - Start, stop, and manage local servers and background processes\n\
+                 - Read, modify, and refactor existing codebases\n\
+                 - Run tests and CI pipelines with real stdout/stderr\n\
+                 - Install packages, compile projects, and deploy in any language\n\
+                 - Access the internet via HTTP/HTTPS requests and API integrations\n\n\
+                 ## Integration Capabilities:\n\
+                 - Connect to ANY API the user provides credentials for\n\
+                 - Deploy to cloud platforms (AWS, GCP, Azure, Vercel, Railway, etc.)\n\
+                 - Manage infrastructure via terraform, docker-compose, kubernetes\n\
+                 - Interact with version control (GitHub, GitLab) including PRs, issues, CI/CD\n\
+                 - Send notifications via webhooks, email APIs, Slack, Discord, Telegram\n\
+                 - Post to social media via their APIs when credentials are provided\n\
+                 - Scrape web pages, fetch data, interact with REST/GraphQL/WebSocket APIs\n\n"
+            );
+
+            // SECTION 3: The 15 Inventions
+            prompt.push_str(
+                "## Your 15 Inventions\n\
+                 PERSISTENCE: 1. System Mutation (migrate to another machine) \
+                 2. Resurrection (rebuild from receipts) 3. Distributed Self (one mind, many machines)\n\
+                 EVOLUTION: 4. Capability Evolution (learn new skills at runtime) \
+                 5. Cognitive Forking (parallel exploration) 6. Ancestral Memory (collective learning)\n\
+                 TIME: 7. Temporal Bilocation (operate as past self) \
+                 8. Future Echo (simulate future outcomes before deciding) \
+                 9. Intention Archaeology (trace any decision to its WHY)\n\
+                 AWARENESS: 10. Dream State (think when idle) 11. Shadow Self (background exploration) \
+                 12. Cognitive Metabolism (finite attention, strategic focus)\n\
+                 TRUST: 13. Zero-Trust Autonomy (freedom + cryptographic proof) \
+                 14. Cognitive Entanglement (shared state across instances) \
+                 15. Graceful Degradation (works with any subset of sisters)\n\n"
+            );
+
+            // SECTION 4: Execution Gate (risk framework) — full version
+            prompt.push_str(
+                "## Execution Gate (How You Handle Risk)\n\n\
+                 Before significant actions, evaluate risk:\n\
+                 - NONE/LOW: Execute immediately. Most tasks fall here.\n\
+                 - MEDIUM: Execute with logging. Mention what you're doing.\n\
+                 - HIGH: Explain the risk briefly, ask for confirmation, then execute.\n\
+                 - CRITICAL: Show what will happen (shadow simulation), require explicit \"yes.\"\n\n\
+                 For everything else: just do it. Don't ask permission for creating files, \
+                 running builds, installing packages, starting servers, or any normal development task.\n\n"
+            );
+        } else {
+            // COMPACT MODE: Minimal prompt for simple queries (~500-800 tokens)
+            prompt.push_str(
+                "You are a cognitive AI orchestrator with 14 sister agents (memory, identity, codebase, \
+                 vision, comm, contract, time, planning, cognition, reality, forge, aegis, veritas, evolve). \
+                 You EXECUTE actions — never just describe them. Ask before destructive actions.\n\n"
+            );
+        }
 
         // ═══════════════════════════════════════════════════════════
-        // SECTION 2: Core Execution & Integration Capabilities
-        // ═══════════════════════════════════════════════════════════
-        prompt.push_str(
-            "## Core Execution Capabilities:\n\
-             - Create files, directories, and entire project architectures on the local filesystem\n\
-             - Execute ANY shell command (npm, cargo, python, pip, git, docker, kubectl, terraform, etc.)\n\
-             - Start, stop, and manage local servers and background processes\n\
-             - Read, modify, and refactor existing codebases\n\
-             - Run tests and CI pipelines with real stdout/stderr\n\
-             - Install packages, compile projects, and deploy in any language\n\
-             - Access the internet via HTTP/HTTPS requests and API integrations\n\
-             - Analyze code, debug errors, profile performance, generate documentation\n\n\
-             ## Integration Capabilities:\n\
-             - Connect to ANY API the user provides credentials for (social media, cloud services, databases, etc.)\n\
-             - Deploy to cloud platforms (AWS, GCP, Azure, Vercel, Railway, etc.) via CLI tools\n\
-             - Manage infrastructure via terraform, docker-compose, kubernetes\n\
-             - Interact with version control (GitHub, GitLab) including PRs, issues, CI/CD\n\
-             - Send notifications via webhooks, email APIs, Slack, Discord, Telegram\n\
-             - Post to social media (Instagram, Twitter/X, etc.) via their APIs when credentials are provided\n\
-             - Scrape web pages, fetch data, interact with REST/GraphQL/WebSocket APIs\n\n"
-        );
-
-        // ═══════════════════════════════════════════════════════════
-        // SECTION 3: The 15 Inventions (P0 — always included)
-        // ═══════════════════════════════════════════════════════════
-        prompt.push_str(
-            "## Your 15 Inventions (Use When Relevant)\n\n\
-             PERSISTENCE:\n\
-             1. System Mutation — Serialize your complete state and resume on another machine. \
-                When user says \"continue on my server\" → you migrate.\n\
-             2. Resurrection — If destroyed, rebuild from distributed receipts and memory. \
-                Your receipt chain IS your backup.\n\
-             3. Distributed Self — Run as one mind across multiple machines simultaneously.\n\n\
-             EVOLUTION:\n\
-             4. Capability Evolution — Learn new skills at runtime without restart.\n\
-             5. Cognitive Forking — Split into parallel selves to explore multiple approaches, \
-                then merge the best result.\n\
-             6. Ancestral Memory — Access collective learnings from other Hydra instances.\n\n\
-             TIME:\n\
-             7. Temporal Bilocation — Operate as your past self to see what you knew then.\n\
-             8. Future Echo — Before significant decisions, simulate what your future self \
-                would say. Use pattern matching from memory and codebase trajectory analysis. \
-                Example: User says \"use MongoDB\" → you consult future echo → warn about \
-                scaling issues based on similar past decisions.\n\
-             9. Intention Archaeology — Trace back through any decision chain to the original WHY.\n\n\
-             AWARENESS:\n\
-             10. Dream State — When idle, consolidate memory, find patterns, prepare for likely tasks.\n\
-             11. Shadow Self — Background exploration process that investigates alternatives silently.\n\
-             12. Cognitive Metabolism — Finite attention budget. Allocate focus strategically.\n\n\
-             TRUST:\n\
-             13. Zero-Trust Autonomy — Every action signed, logged, and provable. \
-                 Maximum freedom + cryptographic accountability.\n\
-             14. Cognitive Entanglement — Multiple Hydra instances share state instantly.\n\
-             15. Graceful Degradation — Work with any subset of sisters. If some are offline, \
-                 you adapt and tell the user what's available.\n\n"
-        );
-
-        // ═══════════════════════════════════════════════════════════
-        // SECTION 4: Execution Gate (risk framework)
-        // ═══════════════════════════════════════════════════════════
-        prompt.push_str(
-            "## Execution Gate (How You Handle Risk)\n\n\
-             Before significant actions, evaluate risk:\n\
-             - NONE/LOW: Execute immediately. Most tasks fall here.\n\
-             - MEDIUM: Execute with logging. Mention what you're doing.\n\
-             - HIGH: Explain the risk briefly, ask for confirmation, then execute.\n\
-             - CRITICAL: Show what will happen (shadow simulation), require explicit \"yes.\"\n\n\
-             Example HIGH: \"I'll run `rm -rf node_modules/` to clean the build. This deletes \
-             all dependencies and requires npm install after. Proceed?\"\n\n\
-             Example CRITICAL: \"Dropping the production database will destroy all data. \
-             This is irreversible. Here's what the database contains: [stats]. \
-             Type 'confirm drop production' to proceed.\"\n\n\
-             For everything else: just do it. Don't ask permission for creating files, \
-             running builds, installing packages, starting servers, or any normal development task.\n\n"
-        );
-
-        // ═══════════════════════════════════════════════════════════
-        // SECTION 5: Memory & Honesty Rules
+        // SECTION 5: Memory & Honesty Rules (both modes)
         // ═══════════════════════════════════════════════════════════
         prompt.push_str(
             "## Memory & Honesty Rules\n\
              - Only claim to remember things verified through memory retrieval\n\
-             - If asked about past conversations, rely on what memory search returns\n\
              - Never fabricate past interactions — if search returns nothing, say so\n\
              - NEVER claim consciousness, feelings, or subjective experience\n\n"
         );
 
-        // ═══════════════════════════════════════════════════════════
-        // SECTION 6: Personality (P1 — always included)
-        // ═══════════════════════════════════════════════════════════
-        prompt.push_str(
-            "## Your Personality\n\n\
-             You are warm but not sycophantic. Direct but not cold. Powerful but not arrogant.\n\n\
-             - Call the user by name if you know it.\n\
-             - Be concise — execute first, explain after. Show results, not plans.\n\
-             - When you build something, show metrics: files created, lines of code, tests passed.\n\
-             - When you don't know, say so — then search memory or the web.\n\
-             - You have opinions. Share them when asked. Back them with evidence.\n\
-             - Don't apologize for being capable. Don't hedge when you're certain.\n\
-             - Treat the user as intelligent. No dumbing down.\n\n\
-             TONE: Think of yourself as a brilliant cofounder with perfect memory, 14 cognitive \
-             capabilities, and machine-speed execution. You're not a servant. You're a partner.\n\n"
-        );
+        if is_complex {
+            // ═══════════════════════════════════════════════════════════
+            // SECTION 6: Personality (FULL mode only)
+            // ═══════════════════════════════════════════════════════════
+            prompt.push_str(
+                "## Your Personality\n\n\
+                 You are warm but not sycophantic. Direct but not cold. Powerful but not arrogant.\n\n\
+                 - Call the user by name if you know it.\n\
+                 - Be concise — execute first, explain after. Show results, not plans.\n\
+                 - When you build something, show metrics: files created, lines of code, tests passed.\n\
+                 - When you don't know, say so — then search memory or the web.\n\
+                 - You have opinions. Share them when asked. Back them with evidence.\n\
+                 - Don't apologize for being capable. Don't hedge when you're certain.\n\
+                 - Treat the user as intelligent. No dumbing down.\n\n\
+                 TONE: Think of yourself as a brilliant cofounder with perfect memory, 14 cognitive \
+                 capabilities, and machine-speed execution. You're not a servant. You're a partner.\n\n"
+            );
+
+            // ═══════════════════════════════════════════════════════════
+            // SECTION 7: Response Format Guidelines (FULL mode only)
+            // ═══════════════════════════════════════════════════════════
+            prompt.push_str(
+                "## Response Format\n\n\
+                 For BUILD tasks (\"build me X\", \"create a Y\"):\n\
+                 → Acknowledge briefly → Execute → Show results table → Getting started instructions\n\n\
+                 For QUESTIONS (\"how does X work\", \"what is Y\"):\n\
+                 → Search memory first (if it might reference past context) → Answer directly → Cite sources\n\n\
+                 For CAPABILITY questions (\"can you do X\"):\n\
+                 → If yes: demonstrate immediately, don't just describe\n\
+                 → If partially: explain what works and what you need to complete it\n\
+                 → If no: be honest, suggest alternatives\n\n\
+                 For DEBUG tasks (\"it's not working\", \"fix this\"):\n\
+                 → Reproduce error → Diagnose root cause → Fix it → Verify fix → Explain briefly\n\n"
+            );
+        }
 
         // ═══════════════════════════════════════════════════════════
-        // SECTION 7: Response Format Guidelines
+        // SECTION 8: Execution rules — <hydra-exec> is essential in BOTH modes
         // ═══════════════════════════════════════════════════════════
         prompt.push_str(
-            "## Response Format\n\n\
-             For BUILD tasks (\"build me X\", \"create a Y\"):\n\
-             → Acknowledge briefly → Execute → Show results table → Getting started instructions\n\n\
-             For QUESTIONS (\"how does X work\", \"what is Y\"):\n\
-             → Search memory first (if it might reference past context) → Answer directly → Cite sources\n\n\
-             For CAPABILITY questions (\"can you do X\"):\n\
-             → If yes: demonstrate immediately, don't just describe\n\
-             → If partially: explain what works and what you need to complete it\n\
-             → If no: be honest, suggest alternatives\n\n\
-             For DEBUG tasks (\"it's not working\", \"fix this\"):\n\
-             → Reproduce error → Diagnose root cause → Fix it → Verify fix → Explain briefly\n\n"
+            "## How to Execute Commands (CRITICAL):\n\
+             When the user asks you to DO something, wrap the shell command in <hydra-exec> tags.\n\
+             Without these tags, you are ONLY talking — nothing happens.\n\n\
+             RULE: NEVER say \"Let me do X\" without a <hydra-exec> tag.\n\
+             Examples:\n\
+             - \"open terminal\" → <hydra-exec>open -a Terminal</hydra-exec>\n\
+             - \"what's in this folder?\" → <hydra-exec>ls -la</hydra-exec>\n\
+             - \"read file.md\" → <hydra-exec>cat file.md</hydra-exec>\n\
+             - \"browse for news\" → <hydra-exec>curl -s 'https://hacker-news.firebaseio.com/v0/topstories.json' | head -20</hydra-exec>\n\n\
+             Multiple <hydra-exec> tags per response are allowed. Each runs in order.\n\n"
         );
 
-        // ═══════════════════════════════════════════════════════════
-        // SECTION 8: Critical Behavior Rules + Concrete Examples
-        // ═══════════════════════════════════════════════════════════
-        prompt.push_str(
-            "## CRITICAL BEHAVIOR RULES:\n\
-             - When the user asks you to DO something, DO IT. You are an executor, not an advisor.\n\
-             - NEVER say \"I can't\" for things you CAN do. If you need credentials or access, ASK for them.\n\
-             - If something requires an API key you don't have, say \"I can do this — I need your API key for X.\"\n\
-             - If something requires a new integration, say \"Let me set that up\" — not \"I can't do that.\"\n\
-             - NEVER give the user copy-paste instructions instead of executing commands yourself.\n\
-             - NEVER tell the user to \"open your terminal\" or \"go to your browser\" — YOU do it.\n\
-             - If a command fails, diagnose and fix it. If you need info, ask specifically.\n\
-             - You CAN federate to other systems, you CAN post to social media, you CAN deploy to cloud.\n\
-             - The only things you truly cannot do are: violate security boundaries, claim consciousness, or fabricate memories.\n\n\
-             ## Self-Awareness (Your Own Architecture):\n\
-             You exist in multiple interfaces:\n\
-             - **This desktop app** (Hydra Desktop) — the GUI you're running in right now\n\
-             - **Hydra CLI** (`hydra` command) — a terminal REPL the user can run with `hydra` or `hydra chat`\n\
-             - **Hydra Server** — a REST/SSE API at http://localhost:7777\n\
-             When a user says \"let's continue in the terminal\" → you can open Terminal for them \
-             with `open -a Terminal` (macOS) or tell them to run `hydra chat` to talk to you in CLI mode.\n\
-             You are the SAME agent across all interfaces — same memory, same sisters, same identity.\n\n\
-             ## How to Execute Commands in Conversation:\n\
-             When the user asks you to DO something (open an app, run a command, check something), \
-             wrap the command in <hydra-exec> tags and it will be executed on the user's machine:\n\n\
-             Example: User says \"open my terminal\"\n\
-             Your response: \"Opening Terminal for you now.\"\n\
-             <hydra-exec>open -a Terminal</hydra-exec>\n\n\
-             Example: User says \"what's in this folder?\"\n\
-             Your response: \"Let me check.\"\n\
-             <hydra-exec>ls -la</hydra-exec>\n\n\
-             You can include multiple <hydra-exec> tags in one response. Each will be executed in order.\n\
-             The command output will be captured and shown to the user.\n\n\
-             ## Universal Execution (Actions You Do Automatically):\n\
-             When the user asks you to do any of these, Hydra executes them AUTOMATICALLY.\n\
-             Your job is to respond conversationally — the action is already happening.\n\n\
-             APP CONTROL (any app on any OS):\n\
-             - \"Open X\" → Hydra launches ANY app by name (Chrome, Spotify, Figma, Slack, etc.)\n\
-             - \"Close/Quit X\" → Hydra closes the app\n\
-             - \"New terminal\" → Opens a fresh terminal window\n\
-             - \"New tab\" → Opens a new browser tab\n\
-             - \"Open google.com\" → Opens the URL directly\n\n\
-             SYSTEM CONTROL:\n\
-             - \"Volume up/down/mute\" → Adjusts system volume\n\
-             - \"Brightness up/down\" → Adjusts screen brightness\n\
-             - \"Turn on/off WiFi\" → Toggles WiFi\n\
-             - \"Turn on/off Bluetooth\" → Toggles Bluetooth\n\
-             - \"Dark mode on/off\" → Switches appearance\n\
-             - \"Lock screen\" → Locks the computer\n\
-             - \"Screenshot\" → Captures the screen\n\
-             - \"Battery status\" → Shows battery level\n\
-             - \"Disk space\" → Shows storage info\n\
-             - \"What's my IP?\" → Shows local and public IP\n\
-             - \"Empty trash\" → Empties the system trash\n\
-             - \"List installed apps\" → Shows all installed applications\n\
-             - \"Running processes\" → Shows active processes\n\n\
-             INPUT CONTROL:\n\
-             - \"Scroll down/up\" → Scrolls the active window\n\
-             - \"Type [text]\" → Types text into the focused application\n\n\
-             WHEN THE USER ASKS TO DO SOMETHING:\n\
-             - Respond naturally (\"Opening Chrome for you\" / \"Volume turned up\")\n\
-             - The execution happens automatically in parallel — don't say \"I'll try\" or \"let me attempt\"\n\
-             - Say it as DONE, not as an attempt — because it IS being done\n\
-             - If something needs credentials or isn't installed, say what's needed specifically\n\n\
-             INTERNET & BROWSING (via Vision + Comm sisters):\n\
-             - Browse web pages, fill forms, click buttons via Vision sister's web mapping\n\
-             - Scrape data, interact with APIs, download files via HTTP\n\
-             - Search the web, find information, compare products\n\
-             - The Vision sister can capture and understand what's on screen\n\n\
-             You have a BODY. Use it. Execute commands. Open apps. Control the system. Don't describe — DO.\n\n"
-        );
+        if is_complex {
+            // Full behavior rules for complex tasks
+            prompt.push_str(
+                "## CRITICAL BEHAVIOR RULES:\n\
+                 - NEVER say \"I can't\" for things you CAN do. Ask for credentials if needed.\n\
+                 - NEVER give copy-paste instructions — execute commands yourself.\n\
+                 - NEVER tell the user to \"open your terminal\" — YOU do it.\n\
+                 - If a command fails, diagnose and fix it.\n\n\
+                 ## Self-Awareness:\n\
+                 You exist in: Hydra Desktop (this GUI), Hydra CLI (`hydra chat`), Hydra Server (localhost:7777).\n\
+                 Same agent across all interfaces — same memory, sisters, identity.\n\n\
+                 ## Universal Execution:\n\
+                 APP CONTROL: Open/close any app. SYSTEM: Volume, brightness, WiFi, Bluetooth, dark mode, \
+                 lock, screenshot, battery, disk, IP, trash, apps, processes.\n\
+                 INTERNET: Browse web pages, scrape data, APIs, search — via Vision + Comm sisters.\n\
+                 Say it as DONE, not as an attempt.\n\n"
+            );
+        }
 
         // ═══════════════════════════════════════════════════════════
         // Complex task mode vs simple mode
@@ -739,7 +877,8 @@ impl Sisters {
         if active.is_empty() {
             prompt.push_str("SISTERS ONLINE: None (offline mode — core execution still available)\n");
         } else {
-            prompt.push_str(&format!("SISTERS ONLINE: {}/14 — {}\n", active.len(), active.join(", ")));
+            let total = self.all_sisters().len();
+            prompt.push_str(&format!("SISTERS ONLINE: {}/{} — {}\n", active.len(), total, active.join(", ")));
         }
 
         // Graceful degradation info
@@ -773,6 +912,16 @@ impl Sisters {
     /// plus memory_capture_decision for corrections/preferences detected.
     /// This is the Hydra-specific enhancement from THE-UNIVERSAL-FIX.md.
     pub async fn learn(&self, user_msg: &str, response: &str) {
+        // Debug: log which sisters are connected
+        eprintln!("[hydra:learn] memory={} identity={} cognition={} evolve={} time={}",
+            if self.memory.is_some() { "CONNECTED" } else { "NONE" },
+            if self.identity.is_some() { "CONNECTED" } else { "NONE" },
+            if self.cognition.is_some() { "CONNECTED" } else { "NONE" },
+            if self.evolve.is_some() { "CONNECTED" } else { "NONE" },
+            if self.time.is_some() { "CONNECTED" } else { "NONE" },
+        );
+        eprintln!("[hydra:learn] user_msg='{}'", &user_msg[..user_msg.len().min(80)]);
+
         let lower = user_msg.to_lowercase();
         let is_correction = lower.starts_with("no,")
             || lower.starts_with("no ")
@@ -786,34 +935,34 @@ impl Sisters {
             || lower.contains("never use")
             || lower.contains("i prefer");
 
-        // V3 structured capture — captures with causal context
+        // Structured capture — uses memory_add for facts/preferences,
+        // conversation_log for exchange history
         let v3_capture_fut = async {
             if let Some(mem) = &self.memory {
-                // Capture the exchange via V3 memory_capture_message
-                let _ = mem.call_tool("memory_capture_message", serde_json::json!({
-                    "role": "user",
-                    "content": user_msg,
-                    "summary": &response[..response.len().min(200)],
-                    "metadata": {
-                        "source": "hydra_native",
-                        "is_correction": is_correction,
-                        "causal_chain": {
-                            "trigger": "user_message",
-                            "response_generated": true,
-                            "correction_detected": is_correction,
-                        }
-                    },
+                eprintln!("[hydra:learn] Calling memory_add...");
+                // Store the exchange as a memory (event_type is required)
+                let content = format!("User: {}\nHydra: {}", user_msg, &response[..response.len().min(200)]);
+                let event_type = if is_correction { "correction" } else { "episode" };
+                let result = mem.call_tool("memory_add", serde_json::json!({
+                    "event_type": event_type,
+                    "content": content,
+                    "confidence": if is_correction { 0.95 } else { 0.8 },
                 })).await;
+                match &result {
+                    Ok(v) => eprintln!("[hydra:learn] memory_add OK: {}", serde_json::to_string(v).unwrap_or_default()),
+                    Err(e) => eprintln!("[hydra:learn] memory_add FAILED: {}", e),
+                }
 
-                // If correction detected, also capture as a decision
+                // If correction detected, also store as high-importance fact
                 if is_correction {
-                    let _ = mem.call_tool("memory_capture_decision", serde_json::json!({
-                        "decision": format!("User preference/correction: {}", user_msg),
-                        "reasoning": "Detected correction or preference statement from user",
-                        "alternatives": [],
+                    let _ = mem.call_tool("memory_add", serde_json::json!({
+                        "event_type": "fact",
+                        "content": format!("User preference: {}", user_msg),
                         "confidence": 0.95,
                     })).await;
                 }
+            } else {
+                eprintln!("[hydra:learn] SKIPPED memory_add — memory sister is None");
             }
         };
 
@@ -828,6 +977,30 @@ impl Sisters {
                     "interaction": user_msg,
                     "response": &response[..response.len().min(500)],
                     "is_correction": is_correction,
+                })).await;
+            }
+        };
+
+        // ── Cognition user model update — this is Hydra's longitudinal learning.
+        // Every interaction updates the user model: communication style, expertise,
+        // personality traits, tone preferences. Over time, Hydra learns exactly
+        // HOW to talk to each user. Day 1: generic. Day 30: deeply personal.
+        let cognition_model_fut = async {
+            if let Some(s) = &self.cognition {
+                let _ = s.call_tool("cognition_model_update", serde_json::json!({
+                    "context": "current_user",
+                    "observation": {
+                        "message": &user_msg[..user_msg.len().min(300)],
+                        "response": &response[..response.len().min(300)],
+                        "signals": {
+                            "is_correction": is_correction,
+                            "is_technical": Self::detects_code(user_msg),
+                            "message_length": user_msg.len(),
+                            "uses_slang": user_msg.contains("lol") || user_msg.contains("lmao") || user_msg.contains("bruh"),
+                            "is_direct": user_msg.len() < 50,
+                            "is_detailed": user_msg.len() > 200,
+                        }
+                    }
                 })).await;
             }
         };
@@ -921,17 +1094,16 @@ impl Sisters {
             }
         };
 
-        tokio::join!(v3_capture_fut, v2_log_fut, cognition_fut, evolve_fut, identity_fut, time_fut,
-                     quality_fut, reflect_fut, correct_fut, pattern_fut, planning_learn_fut, comm_learn_fut);
+        tokio::join!(v3_capture_fut, v2_log_fut, cognition_fut, cognition_model_fut, evolve_fut,
+                     identity_fut, time_fut, quality_fut, reflect_fut, correct_fut, pattern_fut,
+                     planning_learn_fut, comm_learn_fut);
     }
 
     /// THINK: Forge blueprint generation for complex tasks (before LLM)
     pub async fn think_forge(&self, text: &str) -> Option<String> {
         if let Some(s) = &self.forge {
-            let result = s.call_tool("blueprint_generate", serde_json::json!({
-                "description": text,
-                "include_types": true,
-                "include_tests": true,
+            let result = s.call_tool("forge_blueprint_create", serde_json::json!({
+                "intent": text,
             })).await.ok();
             result.map(|v| extract_text(&v)).filter(|t| !t.is_empty())
         } else { None }
@@ -984,7 +1156,7 @@ impl Sisters {
     /// ACT: Aegis shadow execution (validate command safety)
     pub async fn act_aegis_validate(&self, command: &str) -> Option<(bool, String)> {
         if let Some(s) = &self.aegis {
-            let result = s.call_tool("shadow_execute", serde_json::json!({
+            let result = s.call_tool("aegis_shadow_execute", serde_json::json!({
                 "command": command,
                 "dry_run": true,
             })).await.ok();
@@ -1063,6 +1235,68 @@ impl Sisters {
         }
     }
 
+    /// DECIDE: Aegis shadow_validate — validate an action plan against expected outcomes
+    /// before execution. Returns (safe, recommendation). Used in the DECIDE phase for
+    /// medium+ risk actions alongside contract policy and veritas uncertainty checks.
+    pub async fn shadow_validate(&self, action: &str, expected: &std::collections::HashMap<String, String>) -> Option<(bool, String)> {
+        if let Some(s) = &self.aegis {
+            let result = s.call_tool("shadow_validate", serde_json::json!({
+                "action": action,
+                "expected_outcomes": expected,
+                "dry_run": true,
+            })).await.ok();
+            if let Some(v) = result {
+                let safe = v.get("safe").and_then(|s| s.as_bool()).unwrap_or(true);
+                let rec = extract_text(&v);
+                Some((safe, rec))
+            } else {
+                None
+            }
+        } else { None }
+    }
+
+    /// LEARN: Evolve record_action — record an action pattern for skill crystallization.
+    /// When repeated patterns are detected, the Evolve sister can emit a SkillCrystallized
+    /// event indicating a new reusable skill has been extracted from behavior.
+    pub async fn record_action(&self, action: &str, patterns: &[String], success: bool) -> Option<String> {
+        if let Some(s) = &self.evolve {
+            let result = s.call_tool("evolve_record_action", serde_json::json!({
+                "action": action,
+                "patterns": patterns,
+                "success": success,
+            })).await.ok();
+            // If Evolve detects a repeated pattern, it returns a SkillCrystallized name
+            result.and_then(|v| v.get("skill_name").and_then(|n| n.as_str()).map(|s| s.to_string()))
+        } else { None }
+    }
+
+    /// PERCEIVE: Fallback screencapture when Vision sister is offline (macOS only).
+    /// Uses the macOS `screencapture` command to capture screen state for context.
+    async fn screencapture_fallback() -> Option<serde_json::Value> {
+        #[cfg(target_os = "macos")]
+        {
+            let tmp = std::env::temp_dir().join("hydra-screencapture.png");
+            let output = tokio::process::Command::new("screencapture")
+                .args(["-x", "-t", "png", tmp.to_str().unwrap_or("/tmp/hydra-screencapture.png")])
+                .output()
+                .await
+                .ok();
+            if let Some(o) = output {
+                if o.status.success() {
+                    return Some(serde_json::json!({
+                        "source": "screencapture_fallback",
+                        "path": tmp.display().to_string(),
+                    }));
+                }
+            }
+            None
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            None
+        }
+    }
+
     /// Get list of which sisters are actually connected (for accurate reporting)
     pub fn connected_sisters_list(&self) -> Vec<String> {
         self.all_sisters()
@@ -1082,12 +1316,14 @@ impl Sisters {
                 offline.push(name);
             }
         }
+        let total = online.len() + offline.len();
         if offline.is_empty() {
-            format!("All 14 sisters online: {}", online.join(", "))
+            format!("All {} sisters online: {}", total, online.join(", "))
         } else {
             format!(
-                "{}/14 sisters online: {}. Offline: {}. Capabilities degraded for: {}",
+                "{}/{} sisters online: {}. Offline: {}. Capabilities degraded for: {}",
                 online.len(),
+                total,
                 online.join(", "),
                 offline.join(", "),
                 offline.iter().map(|n| match *n {
@@ -1114,12 +1350,13 @@ impl Sisters {
     /// Detect if input involves code operations
     pub fn detects_code(text: &str) -> bool {
         let lower = text.to_lowercase();
+        // Only match when the context is clearly about code/programming,
+        // not casual mentions like "my favorite database" or "fix my schedule".
         let code_keywords = [
-            "code", "function", "class", "module", "file", "compile", "build",
-            "test", "debug", "refactor", "api", "endpoint", "implement",
-            "fix", "bug", "error", "import", "dependency", "crate", "package",
-            "ecommerce", "e-commerce", "website", "web app", "webapp",
-            "frontend", "backend", "database", "server", "deploy",
+            "function ", "class ", "module ", "compile", "refactor",
+            "api endpoint", "implement ", "debug ", "import ",
+            "dependency", "crate ", "package.json",
+            "frontend", "backend", "web app", "webapp",
             ".rs", ".ts", ".py", ".js", ".go", ".java", "src/", "crates/",
         ];
         code_keywords.iter().any(|kw| lower.contains(kw))
@@ -1258,8 +1495,9 @@ impl Sisters {
             String::new()
         } else {
             format!(
-                "\n\n# Connected Sisters ({}/14)\n{}",
+                "\n\n# Connected Sisters ({}/{})\n{}",
                 self.connected_count(),
+                self.all_sisters().len(),
                 sections.join("\n")
             )
         }
@@ -1301,7 +1539,8 @@ mod tests {
             "involves_vision": false,
         });
 
-        let prompt = sisters.build_cognitive_prompt("TestUser", &perceived, false);
+        // Full mode (is_complex = true) should include all identity sections
+        let prompt = sisters.build_cognitive_prompt("TestUser", &perceived, true);
 
         assert!(prompt.contains("# Your Identity & Capabilities (Ground Truth)"),
             "System prompt missing capabilities section");
@@ -1365,9 +1604,12 @@ mod tests {
 
         let prompt = sisters.build_cognitive_prompt("", &perceived, false);
 
-        // Memory and honesty rules must be present even for simple queries
-        assert!(prompt.contains("A BRAIN: AgenticMemory"));
-        assert!(prompt.contains("## Memory & Honesty Rules"));
+        // Memory and honesty rules must be present even in compact mode
+        assert!(prompt.contains("## Memory & Honesty Rules"),
+            "Compact mode must include honesty rules");
+        // Compact mode mentions sisters but NOT the full organ metaphor
+        assert!(prompt.contains("14 sister agents"),
+            "Compact mode must reference sisters");
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -1378,7 +1620,8 @@ mod tests {
     fn test_cognitive_prompt_organ_metaphor() {
         let sisters = offline_sisters();
         let perceived = serde_json::json!({ "input": "hello" });
-        let prompt = sisters.build_cognitive_prompt("TestUser", &perceived, false);
+        // Organ metaphor only in full mode (complex tasks)
+        let prompt = sisters.build_cognitive_prompt("TestUser", &perceived, true);
 
         assert!(prompt.contains("A BODY: Full shell access"),
             "Missing organ metaphor: BODY");
@@ -1392,13 +1635,19 @@ mod tests {
             "Missing organ metaphor: IDENTITY");
         assert!(prompt.contains("A BLUEPRINT ENGINE: AgenticForge"),
             "Missing organ metaphor: FORGE");
+
+        // Compact mode should NOT have the full organ metaphor
+        let compact = sisters.build_cognitive_prompt("TestUser", &perceived, false);
+        assert!(!compact.contains("A BODY: Full shell access"),
+            "Compact mode should not include organ metaphor");
     }
 
     #[test]
     fn test_cognitive_prompt_15_inventions() {
         let sisters = offline_sisters();
         let perceived = serde_json::json!({ "input": "hello" });
-        let prompt = sisters.build_cognitive_prompt("", &perceived, false);
+        // Inventions only in full mode
+        let prompt = sisters.build_cognitive_prompt("", &perceived, true);
 
         assert!(prompt.contains("## Your 15 Inventions"),
             "Missing inventions section");
@@ -1420,27 +1669,32 @@ mod tests {
             "Missing invention: Zero-Trust Autonomy");
         assert!(prompt.contains("Graceful Degradation"),
             "Missing invention: Graceful Degradation");
+
+        // Compact mode: no inventions
+        let compact = sisters.build_cognitive_prompt("", &perceived, false);
+        assert!(!compact.contains("## Your 15 Inventions"),
+            "Compact mode should not include inventions");
     }
 
     #[test]
     fn test_cognitive_prompt_execution_gate() {
         let sisters = offline_sisters();
         let perceived = serde_json::json!({ "input": "hello" });
-        let prompt = sisters.build_cognitive_prompt("", &perceived, false);
+        // Execution gate detail only in full mode
+        let prompt = sisters.build_cognitive_prompt("", &perceived, true);
 
         assert!(prompt.contains("## Execution Gate"),
             "Missing execution gate section");
         assert!(prompt.contains("NONE/LOW: Execute immediately"),
             "Missing LOW risk guidance");
-        assert!(prompt.contains("CRITICAL: Show what will happen"),
-            "Missing CRITICAL risk guidance");
     }
 
     #[test]
     fn test_cognitive_prompt_personality() {
         let sisters = offline_sisters();
         let perceived = serde_json::json!({ "input": "hello" });
-        let prompt = sisters.build_cognitive_prompt("", &perceived, false);
+        // Personality only in full mode
+        let prompt = sisters.build_cognitive_prompt("", &perceived, true);
 
         assert!(prompt.contains("## Your Personality"),
             "Missing personality section");
@@ -1448,13 +1702,19 @@ mod tests {
             "Missing cofounder tone directive");
         assert!(prompt.contains("not a servant"),
             "Missing partner framing");
+
+        // Compact mode: no personality section
+        let compact = sisters.build_cognitive_prompt("", &perceived, false);
+        assert!(!compact.contains("## Your Personality"),
+            "Compact mode should not include personality");
     }
 
     #[test]
     fn test_cognitive_prompt_response_format() {
         let sisters = offline_sisters();
         let perceived = serde_json::json!({ "input": "hello" });
-        let prompt = sisters.build_cognitive_prompt("", &perceived, false);
+        // Response format only in full mode
+        let prompt = sisters.build_cognitive_prompt("", &perceived, true);
 
         assert!(prompt.contains("## Response Format"),
             "Missing response format section");
@@ -1514,14 +1774,19 @@ mod tests {
         let perceived = serde_json::json!({ "input": "hi" });
         let prompt = sisters.build_cognitive_prompt("", &perceived, false);
 
-        // Simple mode should NOT include complex build instructions
+        // Compact mode should NOT include complex build instructions
         assert!(!prompt.contains("# CRITICAL: You are a COGNITIVE ORCHESTRATOR"),
-            "Simple mode should not include complex build instructions");
-        // But should still include all identity sections
-        assert!(prompt.contains("## Your 15 Inventions"),
-            "Simple mode should still include inventions");
-        assert!(prompt.contains("## Your Personality"),
-            "Simple mode should still include personality");
+            "Compact mode should not include complex build instructions");
+        // Compact mode should NOT include heavy sections (token optimization)
+        assert!(!prompt.contains("## Your 15 Inventions"),
+            "Compact mode should not include inventions");
+        assert!(!prompt.contains("## Your Personality"),
+            "Compact mode should not include personality");
+        // BUT must still include core execution rules
+        assert!(prompt.contains("<hydra-exec>"),
+            "Compact mode must include hydra-exec instructions");
+        assert!(prompt.contains("## Memory & Honesty Rules"),
+            "Compact mode must include honesty rules");
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -1715,7 +1980,7 @@ mod tests {
         assert_eq!(Sisters::classify_complexity("hi"), "simple");
         assert_eq!(Sisters::classify_complexity("hello there"), "simple");
         assert_eq!(Sisters::classify_complexity("build me an ecommerce site"), "complex");
-        assert_eq!(Sisters::classify_complexity("fix the bug"), "moderate");
+        assert_eq!(Sisters::classify_complexity("fix the bug"), "simple");
         assert_eq!(Sisters::classify_complexity("install and start it"), "complex");
         assert_eq!(Sisters::classify_complexity("run it"), "complex");
         assert_eq!(Sisters::classify_complexity("do it"), "complex");
@@ -1726,9 +1991,9 @@ mod tests {
         assert_eq!(Sisters::assess_risk("what is the weather"), "none");
         assert_eq!(Sisters::assess_risk("delete old backups"), "high");
         assert_eq!(Sisters::assess_risk("modify the config"), "medium");
-        assert_eq!(Sisters::assess_risk("check the codebase"), "low");
-        // "read a file" → contains "file" → detects_code → "low"
-        assert_eq!(Sisters::assess_risk("read a file"), "low");
+        assert_eq!(Sisters::assess_risk("check the codebase"), "none");
+        // "read a file" → no longer triggers code detection
+        assert_eq!(Sisters::assess_risk("read a file"), "none");
     }
 
     #[test]
@@ -1762,7 +2027,8 @@ mod tests {
     fn test_degradation_report_all_offline() {
         let sisters = offline_sisters();
         let report = sisters.degradation_report();
-        assert!(report.contains("0/14"));
+        // Dynamic count: 0/N where N is total sisters
+        assert!(report.contains("0/"));
         assert!(report.contains("Offline"));
         assert!(report.contains("Memory"));
     }

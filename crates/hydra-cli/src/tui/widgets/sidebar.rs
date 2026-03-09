@@ -30,9 +30,13 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(block, area);
 
     // Split sidebar into sections
+    let has_project = app.project_info.is_some();
+    let project_height = if has_project { 5 } else { 0 };
+
     let chunks = Layout::default()
         .direction(ratatui::layout::Direction::Vertical)
         .constraints([
+            Constraint::Length(project_height), // Project info
             Constraint::Length(4),  // Sisters summary
             Constraint::Length(8),  // Metrics
             Constraint::Length(1),  // Separator
@@ -41,11 +45,65 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
         ])
         .split(inner);
 
-    render_sisters_summary(frame, app, chunks[0]);
-    render_metrics(frame, app, chunks[1]);
-    render_separator(frame, chunks[2]);
-    render_recent_tasks(frame, app, chunks[3]);
-    render_phase(frame, app, chunks[4]);
+    if has_project {
+        render_project_info(frame, app, chunks[0]);
+    }
+    render_sisters_summary(frame, app, chunks[1]);
+    render_metrics(frame, app, chunks[2]);
+    render_separator(frame, chunks[3]);
+    render_recent_tasks(frame, app, chunks[4]);
+    render_phase(frame, app, chunks[5]);
+}
+
+fn render_project_info(frame: &mut Frame, app: &App, area: Rect) {
+    if let Some(ref info) = app.project_info {
+        let mut lines = vec![
+            Line::from(vec![
+                Span::styled("Project  ", theme::sidebar_label()),
+                Span::styled(
+                    &info.name,
+                    Style::default()
+                        .fg(theme::HYDRA_BLUE)
+                        .add_modifier(Modifier::BOLD),
+                ),
+            ]),
+            Line::from(vec![
+                Span::styled("Type     ", theme::sidebar_label()),
+                Span::styled(
+                    format!("{} {}", info.kind.icon(), info.kind.label()),
+                    theme::sidebar_value(),
+                ),
+                if let Some(count) = info.crate_count {
+                    Span::styled(format!(" ({})", count), theme::dim())
+                } else {
+                    Span::raw("")
+                },
+            ]),
+        ];
+
+        if let Some(ref branch) = info.git_branch {
+            let mut git_spans = vec![
+                Span::styled("Git      ", theme::sidebar_label()),
+                Span::styled(branch.clone(), Style::default().fg(theme::HYDRA_GREEN)),
+            ];
+            match (info.git_ahead, info.git_behind) {
+                (Some(a), _) if a > 0 => {
+                    git_spans.push(Span::styled(format!(" +{}", a), theme::dim()));
+                }
+                _ => {}
+            }
+            lines.push(Line::from(git_spans));
+        }
+
+        // Separator
+        lines.push(Line::from(Span::styled(
+            "─".repeat(area.width as usize),
+            theme::border(),
+        )));
+
+        let para = Paragraph::new(lines);
+        frame.render_widget(para, area);
+    }
 }
 
 fn render_sisters_summary(frame: &mut Frame, app: &App, area: Rect) {

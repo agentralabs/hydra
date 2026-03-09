@@ -223,11 +223,11 @@ pub fn codebase_bridge() -> McpSisterBridge {
         "0.3.0",
         &[
             // Core operations
-            "codebase_core",
+            "search_semantic",
             "codebase_session",
             "concept_find",
             "concept_map",
-            "impact_analysis",
+            "impact_analyze",
             "pattern_extract",
             "genetics_dna",
             "omniscience_search",
@@ -643,7 +643,7 @@ mod tests {
     #[test]
     fn test_codebase_bridge_capabilities() {
         let b = codebase_bridge();
-        assert!(b.caps.contains(&"codebase_core".to_string()));
+        assert!(b.caps.contains(&"search_semantic".to_string()));
         assert!(b.caps.contains(&"omniscience_search".to_string()));
         assert!(b.caps.contains(&"analysis_log".to_string()));
     }

@@ -66,8 +66,8 @@ impl ActionRisk {
     /// Minimum autonomy level needed to perform this action without asking
     pub fn required_autonomy(&self) -> AutonomyLevel {
         match self {
-            Self::None => AutonomyLevel::Apprentice,
-            Self::Low => AutonomyLevel::Assistant,
+            Self::None => AutonomyLevel::Observer,
+            Self::Low => AutonomyLevel::Apprentice,
             Self::Medium => AutonomyLevel::Partner,
             Self::High => AutonomyLevel::Autonomous,
             Self::Critical => AutonomyLevel::Autonomous, // Always checked even at max

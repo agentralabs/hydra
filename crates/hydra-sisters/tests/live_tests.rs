@@ -147,7 +147,7 @@ async fn test_codebase_core() {
     let bridge = live_bridge(SisterId::Codebase, port_for(SisterId::Codebase));
     let result = bridge
         .call(SisterAction::new(
-            "codebase_core",
+            "search_semantic",
             serde_json::json!({
                 "path": ".",
             }),
@@ -585,7 +585,7 @@ macro_rules! error_test {
 
 error_test!(test_error_memory, SisterId::Memory, "memory_add");
 error_test!(test_error_vision, SisterId::Vision, "vision_capture");
-error_test!(test_error_codebase, SisterId::Codebase, "codebase_core");
+error_test!(test_error_codebase, SisterId::Codebase, "search_semantic");
 error_test!(test_error_identity, SisterId::Identity, "identity_create");
 error_test!(test_error_time, SisterId::Time, "time_deadline_add");
 error_test!(test_error_contract, SisterId::Contract, "contract_create");
@@ -725,7 +725,7 @@ async fn test_cross_vision_codebase_analysis() {
     // Analyze codebase
     let code_result = codebase
         .call(SisterAction::new(
-            "codebase_core",
+            "search_semantic",
             serde_json::json!({
                 "path": ".",
             }),

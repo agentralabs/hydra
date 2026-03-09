@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
+use tracing::{debug, warn};
 
 #[derive(Debug, Serialize)]
 pub(crate) struct JsonRpcRequest {
@@ -33,6 +34,16 @@ pub(crate) struct McpProcess {
     pub request_id: u64,
 }
 
+/// Default timeout for sister MCP calls (seconds).
+/// Overridable via HYDRA_SISTER_TIMEOUT_SECS env var.
+fn sister_timeout() -> std::time::Duration {
+    let secs = std::env::var("HYDRA_SISTER_TIMEOUT_SECS")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(15);
+    std::time::Duration::from_secs(secs)
+}
+
 /// A connection to a single sister MCP server
 pub struct SisterConnection {
     pub name: String,
@@ -51,12 +62,34 @@ impl SisterConnection {
             .args(args)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped())
             .spawn()
             .map_err(|e| format!("Failed to spawn {}: {}", name, e))?;
 
         let stdin = child.stdin.take().ok_or("No stdin")?;
         let stdout = child.stdout.take().ok_or("No stdout")?;
+
+        // Capture stderr in background so sister errors are visible
+        if let Some(stderr) = child.stderr.take() {
+            let sister_name = name.to_string();
+            tokio::spawn(async move {
+                let mut reader = BufReader::new(stderr);
+                let mut line = String::new();
+                loop {
+                    line.clear();
+                    match reader.read_line(&mut line).await {
+                        Ok(0) => break, // EOF
+                        Ok(_) => {
+                            let trimmed = line.trim();
+                            if !trimmed.is_empty() {
+                                debug!(sister = %sister_name, "[sister:{}] {}", sister_name, trimmed);
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+            });
+        }
 
         let proc = McpProcess {
             _child: child,
@@ -94,10 +127,13 @@ impl SisterConnection {
         }
 
         // Discover tools
-        let tools_result = conn
-            .send("tools/list", Some(serde_json::json!({})))
-            .await
-            .unwrap_or_default();
+        let tools_result = match conn.send("tools/list", Some(serde_json::json!({}))).await {
+            Ok(result) => result,
+            Err(e) => {
+                warn!(sister = name, "Tool discovery failed for {}: {}", name, e);
+                serde_json::Value::Null
+            }
+        };
 
         let tool_names: Vec<String> = tools_result
             .get("tools")
@@ -160,7 +196,7 @@ impl SisterConnection {
         loop {
             line.clear();
             let read_result = tokio::time::timeout(
-                std::time::Duration::from_secs(15),
+                sister_timeout(),
                 proc.stdout.read_line(&mut line),
             )
             .await

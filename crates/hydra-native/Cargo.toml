@@ -3,7 +3,14 @@ name = "hydra-native"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Native desktop UI for agentic-hydra (Dioxus + Tauri architecture)"
+description = "Core engine library for Hydra — cognitive loop, sisters, intent router, self-repair"
+# ┌──────────────────────────────────────────────────────────────────┐
+# │  THIS IS A LIBRARY CRATE — NOT THE DESKTOP APP.                │
+# │  The desktop binary lives at: crates/hydra-desktop/             │
+# │  Run desktop with: cargo run --bin hydra-desktop                │
+# │  DO NOT add [[bin]] targets here. DO NOT create main.rs here.   │
+# └──────────────────────────────────────────────────────────────────┘
+autobins = false
 
 [features]
 default = []
@@ -35,3 +42,4 @@ dioxus = { version = "0.6", features = ["desktop"], optional = true }
 [dev-dependencies]
 tokio-test = { workspace = true }
 pretty_assertions = { workspace = true }
+tempfile = "3"

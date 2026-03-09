@@ -1490,37 +1490,49 @@ fn App() -> Element {
                                 class: "sidebar-settings-btn",
                                 onclick: move |_| {
                                     // Launch TUI in a new terminal window
-                                    // Try to find hydra-cli binary, fall back to cargo run
-                                    let hydra_cli = std::env::var("HOME")
-                                        .map(|h| format!("{}/.cargo/bin/hydra-cli", h))
-                                        .unwrap_or_default();
-
-                                    let cmd = if std::path::Path::new(&hydra_cli).exists() {
-                                        hydra_cli
-                                    } else {
-                                        // Fall back to cargo run from the project dir
-                                        // Use env!() at compile time for the project root
-                                        let project_root = env!("CARGO_MANIFEST_DIR")
-                                            .trim_end_matches("/crates/hydra-desktop");
-                                        format!("cd '{}' && cargo run -q --bin hydra-cli", project_root)
-                                    };
+                                    let project_root = env!("CARGO_MANIFEST_DIR")
+                                        .trim_end_matches("/crates/hydra-desktop");
 
                                     #[cfg(target_os = "macos")]
                                     {
+                                        // Use open -a Terminal with a shell script
+                                        let script = format!(
+                                            "cd {} && cargo run -q --bin hydra-cli",
+                                            project_root
+                                        );
                                         let _ = std::process::Command::new("osascript")
-                                            .args([
-                                                "-e",
-                                                &format!(
-                                                    "tell application \"Terminal\" to do script \"{}\"",
-                                                    cmd.replace('\\', "\\\\").replace('"', "\\\"")
-                                                ),
-                                            ])
+                                            .arg("-e")
+                                            .arg(format!(
+                                                "tell application \"Terminal\"\n\
+                                                    set hydraRunning to false\n\
+                                                    repeat with w in windows\n\
+                                                        repeat with t in tabs of w\n\
+                                                            if processes of t contains \"hydra-cli\" then\n\
+                                                                set hydraRunning to true\n\
+                                                                set selected tab of w to t\n\
+                                                                set frontmost of w to true\n\
+                                                            end if\n\
+                                                        end repeat\n\
+                                                    end repeat\n\
+                                                    if not hydraRunning then\n\
+                                                        do script \"{}\"\n\
+                                                    end if\n\
+                                                    activate\n\
+                                                end tell",
+                                                script
+                                            ))
                                             .spawn();
                                     }
                                     #[cfg(not(target_os = "macos"))]
                                     {
                                         let _ = std::process::Command::new("sh")
-                                            .args(["-c", &format!("x-terminal-emulator -e '{}' &", cmd)])
+                                            .args([
+                                                "-c",
+                                                &format!(
+                                                    "x-terminal-emulator -e 'cd {} && cargo run -q --bin hydra-cli' &",
+                                                    project_root
+                                                ),
+                                            ])
                                             .spawn();
                                     }
                                 },

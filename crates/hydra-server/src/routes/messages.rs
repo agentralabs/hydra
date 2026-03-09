@@ -7,8 +7,9 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use hydra_db::{Conversation, DbError, Message, MessageRole};
+use hydra_db::{Conversation, DbError, Message, MessageRole, RunRow, RunStatus};
 
+use crate::executor;
 use crate::state::AppState;
 
 /// Route definitions for conversation and message management.
@@ -158,7 +159,7 @@ pub async fn delete_conversation(
     Ok(Json(DeletedResponse { deleted: true }))
 }
 
-/// POST /api/conversations/:id/messages — send a message
+/// POST /api/conversations/:id/messages — send a message and trigger cognitive loop
 pub async fn send_message(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -170,16 +171,68 @@ pub async fn send_message(
         .get_conversation_info(&id)
         .map_err(map_db_err)?;
 
+    let role = req.role.unwrap_or(MessageRole::User);
+    let run_id = if role == MessageRole::User {
+        Some(Uuid::new_v4().to_string())
+    } else {
+        None
+    };
+
     let msg = Message {
         id: Uuid::new_v4().to_string(),
-        conversation_id: id,
-        role: req.role.unwrap_or(MessageRole::User),
-        content: req.content,
+        conversation_id: id.clone(),
+        role: role.clone(),
+        content: req.content.clone(),
         created_at: Utc::now().to_rfc3339(),
-        run_id: None,
+        run_id: run_id.clone(),
         metadata: req.metadata,
     };
     state.message_store.add_message(&msg).map_err(map_db_err)?;
+
+    // If this is a user message, spawn a cognitive loop to process it
+    if role == MessageRole::User {
+        let rid = run_id.clone().unwrap();
+        let now = Utc::now().to_rfc3339();
+
+        let run = RunRow {
+            id: rid.clone(),
+            intent: req.content.clone(),
+            status: RunStatus::Pending,
+            created_at: now.clone(),
+            updated_at: now,
+            completed_at: None,
+            parent_run_id: None,
+            metadata: Some(
+                serde_json::json!({
+                    "conversation_id": id,
+                    "message_id": msg.id,
+                    "source": "conversation",
+                })
+                .to_string(),
+            ),
+        };
+
+        if let Err(e) = state.db.create_run(&run) {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to create run: {e}"),
+            ));
+        }
+
+        // Spawn the cognitive loop in the background
+        let state_arc = Arc::new(AppState::new_from_shared(
+            state.db.clone(),
+            state.event_bus.clone(),
+            state.ledger.clone(),
+            state.server_mode,
+            state.auth_token.clone(),
+        ));
+        let intent = req.content;
+        tokio::spawn(async move {
+            executor::execute_run(state_arc, rid, intent).await;
+        });
+    }
+
     Ok((StatusCode::CREATED, Json(msg)))
 }
 

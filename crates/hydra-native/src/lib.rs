@@ -1,3 +1,6 @@
+// NOTE: This is a LIBRARY crate. The desktop binary is at crates/hydra-desktop/.
+// Run desktop with: cargo run --bin hydra-desktop
+
 pub mod app;
 pub mod audio;
 pub mod cognitive;

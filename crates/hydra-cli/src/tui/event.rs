@@ -80,6 +80,23 @@ pub fn handle_key_event(app: &mut App, key: KeyEvent) {
             app.refresh_status();
             return;
         }
+        // Scroll works in ANY mode — no need to switch to Normal
+        (_, KeyCode::PageUp) => {
+            app.page_up();
+            return;
+        }
+        (_, KeyCode::PageDown) => {
+            app.page_down();
+            return;
+        }
+        (KeyModifiers::SHIFT, KeyCode::Up) => {
+            app.scroll_up();
+            return;
+        }
+        (KeyModifiers::SHIFT, KeyCode::Down) => {
+            app.scroll_down();
+            return;
+        }
         _ => {}
     }
 

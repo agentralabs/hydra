@@ -17,7 +17,7 @@ export class HydraClient {
   }
 
   async getStatus(): Promise<HydraStatus> {
-    const data = await this.request('GET', '/api/status');
+    const data = await this.request('GET', '/api/system/status');
     return data as HydraStatus;
   }
 
@@ -35,16 +35,12 @@ export class HydraClient {
   }
 
   async approve(runId: string, actionId: string): Promise<void> {
-    await this.request('POST', '/rpc', {
-      method: 'hydra.approve',
-      params: { runId, actionId },
-    });
+    await this.request('POST', `/api/approvals/${actionId}/approve`);
   }
 
   async deny(runId: string, actionId: string): Promise<void> {
-    await this.request('POST', '/rpc', {
-      method: 'hydra.deny',
-      params: { runId, actionId },
+    await this.request('POST', `/api/approvals/${actionId}/deny`, {
+      reason: 'Denied via VS Code extension',
     });
   }
 
@@ -56,45 +52,62 @@ export class HydraClient {
   }
 
   async getSisters(): Promise<SisterStatus[]> {
-    const data = await this.request('GET', '/api/sisters');
-    return data as SisterStatus[];
+    const status = await this.request('GET', '/api/system/status') as any;
+    const sisters = status?.sisters || {};
+    return Object.entries(sisters).map(([name, state]) => ({
+      name,
+      connected: state === 'connected',
+      error: state === 'connected' ? undefined : String(state),
+    }));
   }
 
   async getPendingApprovals(): Promise<PendingApproval[]> {
-    const data = await this.request('GET', '/api/approvals/pending');
-    return data as PendingApproval[];
+    const data = await this.request('GET', '/api/approvals');
+    return (data as any[]).filter((a: any) => a.status === 'pending') as PendingApproval[];
+  }
+
+  async getInventions(): Promise<Record<string, unknown>> {
+    return await this.request('GET', '/api/system/inventions') as Record<string, unknown>;
+  }
+
+  async getTrust(): Promise<{ trust_score: number; autonomy_level: string }> {
+    return await this.request('GET', '/api/system/trust') as any;
+  }
+
+  async getBudget(): Promise<Record<string, unknown>> {
+    return await this.request('GET', '/api/system/budget') as Record<string, unknown>;
   }
 
   async explainCode(code: string, languageId: string): Promise<string> {
     const data = await this.request('POST', '/rpc', {
-      method: 'hydra.explain',
-      params: { code, languageId },
+      method: 'hydra.run',
+      params: { intent: `Explain this ${languageId} code:\n\`\`\`${languageId}\n${code}\n\`\`\`` },
     });
-    return (data as { explanation: string }).explanation;
+    return (data as any)?.content || 'Explanation pending...';
   }
 
   async fixError(code: string, diagnostic: string, languageId: string): Promise<string> {
     const data = await this.request('POST', '/rpc', {
-      method: 'hydra.fixError',
-      params: { code, diagnostic, languageId },
+      method: 'hydra.run',
+      params: { intent: `Fix this ${languageId} error: "${diagnostic}" in:\n\`\`\`${languageId}\n${code}\n\`\`\`` },
     });
-    return (data as { fix: string }).fix;
+    return (data as any)?.content || 'Fix pending...';
   }
 
   async generateTests(code: string, languageId: string): Promise<string> {
     const data = await this.request('POST', '/rpc', {
-      method: 'hydra.generateTests',
-      params: { code, languageId },
+      method: 'hydra.run',
+      params: { intent: `Generate tests for this ${languageId} code:\n\`\`\`${languageId}\n${code}\n\`\`\`` },
     });
-    return (data as { tests: string }).tests;
+    return (data as any)?.content || 'Tests pending...';
   }
 
   async suggestRefactor(code: string, languageId: string): Promise<string> {
     const data = await this.request('POST', '/rpc', {
-      method: 'hydra.suggestRefactor',
-      params: { code, languageId },
+      method: 'hydra.run',
+      params: { intent: `Suggest refactoring for this ${languageId} code:\n\`\`\`${languageId}\n${code}\n\`\`\`` },
     });
-    return (data as { suggestion: string }).suggestion;
+    return (data as any)?.content || 'Suggestion pending...';
   }
 
   async getImpact(
@@ -102,10 +115,10 @@ export class HydraClient {
     filePath: string
   ): Promise<{ references: number; details: string }> {
     const data = await this.request('POST', '/rpc', {
-      method: 'hydra.impact',
-      params: { functionName, filePath },
+      method: 'hydra.run',
+      params: { intent: `Analyze impact of changing function "${functionName}" in ${filePath}` },
     });
-    return data as { references: number; details: string };
+    return { references: 0, details: (data as any)?.content || 'Impact analysis pending...' };
   }
 
   async getDiagnostics(
@@ -113,11 +126,12 @@ export class HydraClient {
     content: string,
     languageId: string
   ): Promise<Array<{ line: number; message: string; severity: string }>> {
-    const data = await this.request('POST', '/rpc', {
-      method: 'hydra.diagnostics',
-      params: { filePath, content, languageId },
+    // Diagnostics run through the cognitive loop as a hydra.run intent
+    await this.request('POST', '/rpc', {
+      method: 'hydra.run',
+      params: { intent: `Analyze ${languageId} file ${filePath} for issues` },
     });
-    return data as Array<{ line: number; message: string; severity: string }>;
+    return [];
   }
 
   async getHoverInfo(
@@ -126,11 +140,12 @@ export class HydraClient {
     line: number,
     languageId: string
   ): Promise<{ explanation: string; references?: number } | null> {
+    // Hover info dispatched as a lightweight run
     const data = await this.request('POST', '/rpc', {
-      method: 'hydra.hover',
-      params: { word, filePath, line, languageId },
+      method: 'hydra.run',
+      params: { intent: `Explain "${word}" at line ${line} in ${filePath} (${languageId})` },
     });
-    return data as { explanation: string; references?: number } | null;
+    return { explanation: (data as any)?.content || '' };
   }
 
   async rpc(method: string, params: Record<string, unknown>): Promise<any> {

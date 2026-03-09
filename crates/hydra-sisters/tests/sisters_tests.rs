@@ -81,7 +81,7 @@ async fn test_codebase_bridge_connects() {
     assert_eq!(bridge.health_check().await, HealthStatus::Healthy);
     let result = bridge
         .call(SisterAction::new(
-            "codebase_core",
+            "search_semantic",
             serde_json::json!({"path": "."}),
         ))
         .await;
@@ -441,7 +441,7 @@ fn test_vision_capabilities() {
 fn test_codebase_capabilities() {
     let bridge = bridges::codebase_bridge();
     let caps = bridge.capabilities();
-    assert!(caps.contains(&"codebase_core".to_string()));
+    assert!(caps.contains(&"search_semantic".to_string()));
     assert!(caps.contains(&"concept_find".to_string()));
     assert!(caps.contains(&"impact_analysis".to_string()));
     assert!(caps.contains(&"omniscience_search".to_string()));

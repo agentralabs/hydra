@@ -10,6 +10,7 @@ use hydra_runtime::{EventBus, TaskManager};
 use parking_lot::Mutex;
 
 use hydra_ledger::ReceiptLedger;
+use hydra_native::{AgentSpawner, DecideEngine, InventionEngine, ProactiveNotifier};
 
 /// Shared server state
 pub struct AppState {
@@ -21,6 +22,10 @@ pub struct AppState {
     pub approval_manager: ApprovalManager,
     pub kill_switch: KillSwitch,
     pub degradation_manager: DegradationManager,
+    pub decide_engine: Arc<DecideEngine>,
+    pub invention_engine: Arc<InventionEngine>,
+    pub proactive_notifier: Arc<Mutex<ProactiveNotifier>>,
+    pub agent_spawner: Arc<AgentSpawner>,
     pub profile_path: PathBuf,
     pub server_mode: bool,
     pub auth_token: Option<String>,
@@ -40,6 +45,10 @@ impl AppState {
             approval_manager: ApprovalManager::with_default_timeout(),
             kill_switch: KillSwitch::new(),
             degradation_manager: DegradationManager::with_defaults(),
+            decide_engine: Arc::new(DecideEngine::new()),
+            invention_engine: Arc::new(InventionEngine::new()),
+            proactive_notifier: Arc::new(Mutex::new(ProactiveNotifier::new())),
+            agent_spawner: Arc::new(AgentSpawner::new(100)),
             profile_path: hydra_runtime::profile::ProfileStorage::default_path(),
             server_mode,
             auth_token,
@@ -66,6 +75,10 @@ impl AppState {
             approval_manager: ApprovalManager::with_default_timeout(),
             kill_switch: KillSwitch::new(),
             degradation_manager: DegradationManager::with_defaults(),
+            decide_engine: Arc::new(DecideEngine::new()),
+            invention_engine: Arc::new(InventionEngine::new()),
+            proactive_notifier: Arc::new(Mutex::new(ProactiveNotifier::new())),
+            agent_spawner: Arc::new(AgentSpawner::new(100)),
             profile_path: hydra_runtime::profile::ProfileStorage::default_path(),
             server_mode,
             auth_token,

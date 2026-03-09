@@ -177,4 +177,25 @@ pub fn api_routes() -> Router<Arc<AppState>> {
             SystemRoutes::deny(),
             post(system::deny_approval),
         )
+        // ── Sprint 1-3 engines ───────────────────────────────
+        .route(
+            SystemRoutes::trust(),
+            get(system::get_trust),
+        )
+        .route(
+            SystemRoutes::inventions(),
+            get(system::get_inventions),
+        )
+        .route(
+            SystemRoutes::budget(),
+            get(system::get_budget),
+        )
+        .route(
+            SystemRoutes::receipts(),
+            get(system::get_receipts),
+        )
+        .route(
+            SystemRoutes::offline(),
+            get(system::get_offline),
+        )
 }

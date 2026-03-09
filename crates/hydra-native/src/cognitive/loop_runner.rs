@@ -10,7 +10,7 @@ use tokio::sync::mpsc;
 use crate::cognitive::decide::DecideEngine;
 use crate::cognitive::inventions::InventionEngine;
 use crate::cognitive::spawner::AgentSpawner;
-use crate::sisters::SistersHandle;
+use crate::sisters::{SistersHandle, connection::SisterConnection};
 use crate::state::hydra::{CognitivePhase, PhaseState, PhaseStatus};
 use crate::utils::{detect_language, extract_json_plan, format_bytes, generate_deliverable_steps};
 use hydra_db::{HydraDb, BeliefRow, McpDiscoveredSkillRow, FederationStateRow};
@@ -159,6 +159,28 @@ pub enum CognitiveUpdate {
     FederationSync { peers_online: usize, last_sync_version: i64 },
     /// Federation task delegated to a peer.
     FederationDelegated { peer_name: String, task_summary: String },
+
+    // -- Self-Repair --
+    /// Self-repair started for a spec.
+    RepairStarted { spec: String, task: String },
+    /// Self-repair check result.
+    RepairCheckResult { name: String, passed: bool },
+    /// Self-repair iteration progress.
+    RepairIteration { iteration: u32, passed: usize, total: usize },
+    /// Self-repair completed.
+    RepairCompleted { task: String, status: String, iterations: u32 },
+
+    // -- Omniscience Loop --
+    /// Omniscience codebase analysis phase.
+    OmniscienceAnalyzing { phase: String },
+    /// Omniscience gap found.
+    OmniscienceGapFound { description: String, severity: String, category: String },
+    /// Omniscience spec generated via Forge.
+    OmniscienceSpecGenerated { spec_name: String, task: String },
+    /// Omniscience Aegis validation result.
+    OmniscienceValidation { spec_name: String, safe: bool, recommendation: String },
+    /// Omniscience scan complete.
+    OmniscienceScanComplete { gaps_found: usize, specs_generated: usize, health_score: f64 },
 }
 
 /// Configuration for the cognitive loop (read-only inputs).
@@ -172,6 +194,131 @@ pub struct CognitiveLoopConfig {
     pub user_name: String,
     pub task_id: String,
     pub history: Vec<(String, String)>,
+    /// OAuth bearer token for Anthropic (from browser-based auth / Claude Max subscription).
+    /// When set, this is preferred over anthropic_key for API calls.
+    pub anthropic_oauth_token: Option<String>,
+}
+
+/// Extract cleaned facts from raw memory JSON.
+///
+/// Memory sister returns: `{"count": N, "nodes": [{"content": "...", "confidence": 0.95, ...}]}`
+/// Returns a list of cleaned fact strings with common prefixes stripped.
+fn extract_memory_facts(raw: &str) -> Vec<String> {
+    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(raw) {
+        if let Some(nodes) = parsed.get("nodes").and_then(|n| n.as_array()) {
+            return nodes.iter()
+                .filter_map(|node| {
+                    node.get("content").and_then(|c| c.as_str()).map(|s| {
+                        s.strip_prefix("User preference: ")
+                            .or_else(|| s.strip_prefix("User stated: "))
+                            .or_else(|| s.strip_prefix("User fact: "))
+                            .or_else(|| s.strip_prefix("Fact: "))
+                            .unwrap_or(s)
+                            .to_string()
+                    })
+                })
+                .collect();
+        }
+    }
+    // Not JSON — return as single item
+    if !raw.is_empty() { vec![raw.to_string()] } else { vec![] }
+}
+
+/// Format memory recall through a micro-LLM call for natural, conversational response.
+///
+/// Instead of parroting raw facts ("My favorite database is PostgreSQL"),
+/// Hydra responds as someone who KNOWS the user ("PostgreSQL — solid choice
+/// for what you're building.").
+async fn format_memory_recall_naturally(
+    query: &str,
+    facts: &[String],
+    user_name: &str,
+    llm_config: &hydra_model::LlmConfig,
+    model: &str,
+) -> String {
+    if facts.is_empty() {
+        return "I don't have anything stored about that.".into();
+    }
+
+    let facts_text = facts.join("\n");
+
+    // Build a tiny prompt (~100 output tokens) to format the recall naturally
+    let system = format!(
+        "You are recalling facts you know about the user{}. \
+         Respond naturally as someone who KNOWS them — like a trusted partner, not a database. \
+         Rules:\n\
+         - NEVER parrot the raw fact back. Don't say \"Your favorite X is Y\" robotically.\n\
+         - Show you REMEMBER — weave the fact into a warm, brief response.\n\
+         - The facts belong to THE USER, not to you. Never say \"My favorite...\".\n\
+         - Match their vibe: if they're technical, be technical. If casual, be casual.\n\
+         - Keep it to 1-2 sentences. Be warm, direct, personal.\n\
+         - If relevant, offer to help with something related.\n\
+         - If multiple facts, naturally weave them together.\n\n\
+         Examples of GOOD responses:\n\
+         Query: \"what's my favorite database\" | Fact: \"PostgreSQL\"\n\
+         → \"PostgreSQL — you've been solid on that. Want me to set up a new one?\"\n\n\
+         Query: \"what languages do I know\" | Fact: \"Rust, Python, TypeScript\"\n\
+         → \"Rust is your main thing, plus Python and TypeScript. Need help with any of them?\"\n\n\
+         Query: \"what am I working on\" | Fact: \"Building Hydra AI orchestrator\"\n\
+         → \"Hydra — the AI orchestrator. What's the next piece you want to tackle?\"",
+        if user_name.is_empty() { String::new() } else { format!(" ({})", user_name) }
+    );
+
+    let user_message = format!("User asked: \"{}\"\nFacts I know: {}", query, facts_text);
+
+    let request = hydra_model::CompletionRequest {
+        model: model.to_string(),
+        messages: vec![hydra_model::providers::Message {
+            role: "user".into(),
+            content: user_message,
+        }],
+        max_tokens: 150,
+        temperature: Some(0.7),
+        system: Some(system),
+    };
+
+    // Use the cheapest available model for this tiny formatting call
+    let result = if llm_config.anthropic_api_key.is_some() {
+        match hydra_model::providers::anthropic::AnthropicClient::new(llm_config) {
+            Ok(client) => client.complete(request).await.ok(),
+            Err(_) => None,
+        }
+    } else if llm_config.openai_api_key.is_some() {
+        match hydra_model::providers::openai::OpenAiClient::new(llm_config) {
+            Ok(client) => client.complete(request).await.ok(),
+            Err(_) => None,
+        }
+    } else {
+        None
+    };
+
+    if let Some(resp) = result {
+        if !resp.content.trim().is_empty() {
+            return resp.content.trim().to_string();
+        }
+    }
+
+    // Fallback: if LLM call fails, format locally (better than raw dump)
+    format_memory_fallback(facts)
+}
+
+/// Local fallback formatting when LLM is unavailable — still conversational, not robotic.
+fn format_memory_fallback(facts: &[String]) -> String {
+    if facts.is_empty() {
+        return "I don't have anything stored about that.".into();
+    }
+    if facts.len() == 1 {
+        let fact = &facts[0];
+        // Don't just capitalize and return — add a conversational wrapper
+        format!("{} — that's what I've got. Need anything related?", fact)
+    } else {
+        let mut result = String::from("Here's what I know:\n\n");
+        for fact in facts {
+            result.push_str(&format!("• {}\n", fact));
+        }
+        result.push_str("\nAnything specific you want to dig into?");
+        result
+    }
 }
 
 /// Simple hash for receipt chain (non-cryptographic, for audit trail integrity)
@@ -199,11 +346,262 @@ pub async fn run_cognitive_loop(
     use crate::sisters::Sisters;
 
     let text = &config.text;
+    eprintln!("[hydra:loop] INPUT: {:?}", &text[..text.len().min(120)]);
+
+    // ═══════════════════════════════════════════════════════════
+    // INTENT CLASSIFICATION — Micro-LLM classifier (~150 tokens)
+    // Uses cheapest model (Haiku) to understand MEANING.
+    // Works in any language, any phrasing, any slang.
+    // ═══════════════════════════════════════════════════════════
+    let mut classify_llm_config = hydra_model::LlmConfig::from_env();
+    if let Some(ref oauth_token) = config.anthropic_oauth_token {
+        classify_llm_config.anthropic_api_key = Some(oauth_token.clone());
+    } else if !config.anthropic_key.is_empty() {
+        classify_llm_config.anthropic_api_key = Some(config.anthropic_key.clone());
+    }
+    if !config.openai_key.is_empty() {
+        classify_llm_config.openai_api_key = Some(config.openai_key.clone());
+    }
+    let has_classify_key = classify_llm_config.anthropic_api_key.is_some()
+        || classify_llm_config.openai_api_key.is_some();
+    eprintln!("[hydra:intent] classifier_mode={} anthropic_key={} openai_key={}",
+        if has_classify_key { "MICRO_LLM" } else { "EMERGENCY_FALLBACK" },
+        if classify_llm_config.anthropic_api_key.is_some() { "SET" } else { "NONE" },
+        if classify_llm_config.openai_api_key.is_some() { "SET" } else { "NONE" },
+    );
+    let veritas_ref = sisters_handle.as_ref().and_then(|sh| sh.veritas.as_ref());
+    let intent = super::intent_router::classify(text, veritas_ref, &config.history, &classify_llm_config).await;
+    eprintln!("[hydra:intent] category={:?} confidence={:.2} target={:?}",
+        intent.category, intent.confidence, intent.target);
+
+    // ═══════════════════════════════════════════════════════════
+    // CRYSTALLIZED SKILL SHORTCUT — bypass LLM for learned patterns
+    // If user input matches a crystallized skill (3+ successful executions),
+    // execute it directly without LLM involvement.
+    // ═══════════════════════════════════════════════════════════
+    if let Some(ref inv) = inventions {
+        if let Some((skill_name, skill_actions)) = inv.match_crystallized_skill(text) {
+            eprintln!("[hydra:crystal] Matched crystallized skill '{}' — bypassing LLM", skill_name);
+            let _ = tx.send(CognitiveUpdate::Phase("Act (crystallized)".into()));
+            let _ = tx.send(CognitiveUpdate::IconState("working".into()));
+
+            // Extract the shell command from the action chain (act:respond or act:execute_plan)
+            let cmd = skill_actions.iter()
+                .find(|a| a.starts_with("act:"))
+                .map(|a| a.strip_prefix("act:").unwrap_or(a).to_string());
+
+            // For slash-command skills, re-execute the original command
+            if text.starts_with('/') {
+                if let Some(slash_result) = handle_universal_slash_command(text) {
+                    if !slash_result.starts_with("__TEXT__:") {
+                        match tokio::process::Command::new("sh")
+                            .arg("-c")
+                            .arg(&slash_result)
+                            .output()
+                            .await
+                        {
+                            Ok(output) => {
+                                let stdout = String::from_utf8_lossy(&output.stdout);
+                                let stderr = String::from_utf8_lossy(&output.stderr);
+                                let combined = if stderr.is_empty() { stdout.to_string() }
+                                    else if stdout.is_empty() { stderr.to_string() }
+                                    else { format!("{}\n{}", stdout, stderr) };
+                                let _ = tx.send(CognitiveUpdate::Message {
+                                    role: "hydra".into(),
+                                    content: format!("⚡ *Crystallized skill `{}`*\n\n```\n{}\n```",
+                                        skill_name, combined.trim()),
+                                    css_class: "message hydra".into(),
+                                });
+                            }
+                            Err(e) => {
+                                let _ = tx.send(CognitiveUpdate::Message {
+                                    role: "hydra".into(),
+                                    content: format!("Crystallized skill `{}` failed: {}", skill_name, e),
+                                    css_class: "message hydra error".into(),
+                                });
+                            }
+                        }
+                    } else {
+                        let content = slash_result.strip_prefix("__TEXT__:").unwrap_or(&slash_result);
+                        let _ = tx.send(CognitiveUpdate::Message {
+                            role: "hydra".into(),
+                            content: content.to_string(),
+                            css_class: "message hydra".into(),
+                        });
+                    }
+                    let _ = tx.send(CognitiveUpdate::SkillCrystallized {
+                        name: skill_name,
+                        actions_count: skill_actions.len(),
+                    });
+                    let _ = tx.send(CognitiveUpdate::ResetIdle);
+                    return;
+                }
+            }
+
+            // For non-slash crystallized skills, note it and fall through to normal processing
+            // (the LLM still processes but the skill match is logged)
+            eprintln!("[hydra:crystal] Non-slash skill '{}' — proceeding with LLM (cmd={:?})", skill_name, cmd);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // DIRECT HANDLER DISPATCH — route by classified intent
+    // If the intent has a direct handler and confidence >= 0.6,
+    // handle it immediately without involving the LLM.
+    // ═══════════════════════════════════════════════════════════
+
+    // ── GREETING / FAREWELL / THANKS — instant response ──
+    if intent.confidence >= 0.6 {
+        match intent.category {
+            super::intent_router::IntentCategory::Greeting => {
+                let _ = tx.send(CognitiveUpdate::Message {
+                    role: "hydra".into(),
+                    content: format!("Hey{}! What can I do for you?",
+                        if config.user_name.is_empty() { String::new() }
+                        else { format!(", {}", config.user_name) }),
+                    css_class: "message hydra".into(),
+                });
+                let _ = tx.send(CognitiveUpdate::ResetIdle);
+                return;
+            }
+            super::intent_router::IntentCategory::Farewell => {
+                let _ = tx.send(CognitiveUpdate::Message {
+                    role: "hydra".into(),
+                    content: "See you later! I'll be here when you need me.".into(),
+                    css_class: "message hydra".into(),
+                });
+                let _ = tx.send(CognitiveUpdate::ResetIdle);
+                return;
+            }
+            super::intent_router::IntentCategory::Thanks => {
+                let _ = tx.send(CognitiveUpdate::Message {
+                    role: "hydra".into(),
+                    content: "You're welcome! Anything else?".into(),
+                    css_class: "message hydra".into(),
+                });
+                let _ = tx.send(CognitiveUpdate::ResetIdle);
+                return;
+            }
+            _ => {} // Fall through to existing handlers below
+        }
+    }
+
+    // ── MEMORY RECALL — natural conversational response, not raw dump ──
+    if intent.category == super::intent_router::IntentCategory::MemoryRecall && intent.confidence >= 0.6 {
+        let _ = tx.send(CognitiveUpdate::Phase("Recall".into()));
+        let _ = tx.send(CognitiveUpdate::IconState("working".into()));
+
+        if let Some(ref sh) = sisters_handle {
+            if let Some(ref mem) = sh.memory {
+                // Build LLM config for the micro-formatting call
+                let mut recall_llm_config = hydra_model::LlmConfig::from_env();
+                if let Some(ref oauth_token) = config.anthropic_oauth_token {
+                    recall_llm_config.anthropic_api_key = Some(oauth_token.clone());
+                } else if !config.anthropic_key.is_empty() {
+                    recall_llm_config.anthropic_api_key = Some(config.anthropic_key.clone());
+                }
+                if !config.openai_key.is_empty() {
+                    recall_llm_config.openai_api_key = Some(config.openai_key.clone());
+                }
+                // Use cheapest model for formatting (Haiku-class)
+                let recall_model = if recall_llm_config.anthropic_api_key.is_some() {
+                    "claude-haiku-4-5-20251001"
+                } else {
+                    &config.model
+                };
+
+                // Query facts first (high-signal), then general
+                let facts_result = mem.call_tool("memory_query", serde_json::json!({
+                    "query": text,
+                    "event_types": ["fact", "correction", "decision"],
+                    "max_results": 5,
+                    "sort_by": "highest_confidence"
+                })).await;
+
+                let fact_text = facts_result.ok()
+                    .map(|v| crate::sisters::extract_text(&v))
+                    .filter(|t| !t.is_empty() && !t.contains("No memories found"));
+
+                if let Some(ref raw_facts) = fact_text {
+                    eprintln!("[hydra:recall] Found facts: {}", &raw_facts[..raw_facts.len().min(200)]);
+                    let facts = extract_memory_facts(raw_facts);
+                    if !facts.is_empty() {
+                        let formatted = format_memory_recall_naturally(
+                            text, &facts, &config.user_name, &recall_llm_config, recall_model
+                        ).await;
+                        let _ = tx.send(CognitiveUpdate::Message {
+                            role: "hydra".into(),
+                            content: formatted,
+                            css_class: "message hydra".into(),
+                        });
+                        let _ = tx.send(CognitiveUpdate::ResetIdle);
+                        return;
+                    }
+                }
+
+                // No facts found — try general memory
+                let general_result = mem.call_tool("memory_query", serde_json::json!({
+                    "query": text,
+                    "max_results": 5
+                })).await;
+
+                let general_text = general_result.ok()
+                    .map(|v| crate::sisters::extract_text(&v))
+                    .filter(|t| !t.is_empty() && !t.contains("No memories found"));
+
+                if let Some(ref raw_general) = general_text {
+                    eprintln!("[hydra:recall] Found general memory: {}", &raw_general[..raw_general.len().min(200)]);
+                    let facts = extract_memory_facts(raw_general);
+                    if !facts.is_empty() {
+                        let formatted = format_memory_recall_naturally(
+                            text, &facts, &config.user_name, &recall_llm_config, recall_model
+                        ).await;
+                        let _ = tx.send(CognitiveUpdate::Message {
+                            role: "hydra".into(),
+                            content: formatted,
+                            css_class: "message hydra".into(),
+                        });
+                        let _ = tx.send(CognitiveUpdate::ResetIdle);
+                        return;
+                    }
+                }
+
+                // Also check beliefs
+                if let Some(ref cog) = sh.cognition {
+                    let beliefs_result = cog.call_tool("cognition_belief_query", serde_json::json!({"query": text})).await;
+                    let belief_text = beliefs_result.ok()
+                        .map(|v| crate::sisters::extract_text(&v))
+                        .filter(|t| !t.is_empty());
+                    if let Some(ref raw_beliefs) = belief_text {
+                        let facts = extract_memory_facts(raw_beliefs);
+                        if !facts.is_empty() {
+                            let formatted = format_memory_recall_naturally(
+                                text, &facts, &config.user_name, &recall_llm_config, recall_model
+                            ).await;
+                            let _ = tx.send(CognitiveUpdate::Message {
+                                role: "hydra".into(),
+                                content: formatted,
+                                css_class: "message hydra".into(),
+                            });
+                            let _ = tx.send(CognitiveUpdate::ResetIdle);
+                            return;
+                        }
+                    }
+                }
+
+                // Nothing found — let it fall through to LLM
+                eprintln!("[hydra:recall] No memories found, falling through to LLM");
+            }
+        }
+    }
+
+    // ── MEMORY STORE — handled by existing direct memory handler below ──
+    // (Uses intent.category == MemoryStore, handled by extract_memory_intent path)
 
     // ═══════════════════════════════════════════════════════════
     // Step 4.9: Natural language settings detection
     // ═══════════════════════════════════════════════════════════
-    if is_settings_intent(text) {
+    if intent.category == super::intent_router::IntentCategory::Settings {
         let mut settings = crate::state::settings::SettingsStore::default();
         if let Some(confirmation) = settings.apply_natural_language(text) {
             let _ = tx.send(CognitiveUpdate::SettingsApplied { confirmation: confirmation.clone() });
@@ -218,15 +616,932 @@ pub async fn run_cognitive_loop(
     }
 
     // ═══════════════════════════════════════════════════════════
+    // SELF-REPAIR: Detect "fix yourself" intent and run repair loop
+    // ═══════════════════════════════════════════════════════════
+    if intent.category == super::intent_router::IntentCategory::SelfRepair {
+        let _ = tx.send(CognitiveUpdate::Phase("Self-Repair".into()));
+        let _ = tx.send(CognitiveUpdate::IconState("working".into()));
+
+        let repo_root = std::env::current_dir().unwrap_or_default();
+        let engine = crate::cognitive::self_repair::SelfRepairEngine::new(&repo_root);
+
+        // Find the best repair_spec for this complaint, or run diagnostics
+        if let Some(spec_name) = crate::cognitive::self_repair::find_spec_for_complaint(text) {
+            let spec_path = repo_root.join("repair-specs").join(spec_name);
+            if spec_path.exists() {
+                if let Ok(spec) = engine.load_spec(&spec_path) {
+                    let _ = tx.send(CognitiveUpdate::RepairStarted {
+                        spec: spec_name.to_string(),
+                        task: spec.task.clone(),
+                    });
+
+                    // Run checks only (don't auto-invoke Claude from within the loop)
+                    let (all_pass, checks) = engine.run_all_checks(&spec).await;
+                    let passed = checks.iter().filter(|c| c.passed).count();
+
+                    for c in &checks {
+                        let _ = tx.send(CognitiveUpdate::RepairCheckResult {
+                            name: c.name.clone(),
+                            passed: c.passed,
+                        });
+                    }
+
+                    let status = if all_pass { "passing" } else { "needs_repair" };
+                    let _ = tx.send(CognitiveUpdate::RepairCompleted {
+                        task: spec.task.clone(),
+                        status: status.to_string(),
+                        iterations: 0,
+                    });
+
+                    let msg = if all_pass {
+                        format!("Self-diagnosis complete: **{}** — all {} checks passing. No repair needed.", spec.task, checks.len())
+                    } else {
+                        let failures: Vec<String> = checks.iter()
+                            .filter(|c| !c.passed)
+                            .map(|c| format!("- {} *({})*", c.name, &c.output[..c.output.len().min(80)]))
+                            .collect();
+                        format!(
+                            "Self-diagnosis: **{}** — {}/{} checks passing.\n\nFailing checks:\n{}\n\nRun `./scripts/hydra-self-repair.sh repair-specs/{}` to auto-repair.",
+                            spec.task, passed, checks.len(), failures.join("\n"), spec_name
+                        )
+                    };
+                    let _ = tx.send(CognitiveUpdate::Message {
+                        role: "hydra".into(),
+                        content: msg,
+                        css_class: "message hydra self-repair".into(),
+                    });
+                    let _ = tx.send(CognitiveUpdate::ResetIdle);
+                    return;
+                }
+            }
+        }
+
+        // No specific spec found — run full diagnostics
+        let status = engine.status().await;
+        let total = status.len();
+        let passing = status.iter().filter(|(_, _, p, t)| p == t).count();
+
+        let summary: String = status.iter()
+            .map(|(file, task, passed, total)| {
+                let icon = if passed == total { "✅" } else { "⚠️" };
+                format!("{} **{}** ({}/{} checks) — {}", icon, file, passed, total, task)
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let msg = format!(
+            "Self-repair diagnostics: **{}/{}** specs fully passing.\n\n{}\n\nRun `./scripts/hydra-repair-all.sh` to repair all failing specs.",
+            passing, total, summary
+        );
+        let _ = tx.send(CognitiveUpdate::Message {
+            role: "hydra".into(),
+            content: msg,
+            css_class: "message hydra self-repair".into(),
+        });
+        let _ = tx.send(CognitiveUpdate::ResetIdle);
+        return;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // OMNISCIENCE: Full semantic self-repair via Codebase + Forge + Aegis
+    // ═══════════════════════════════════════════════════════════
+    if intent.category == super::intent_router::IntentCategory::SelfScan {
+        let _ = tx.send(CognitiveUpdate::Phase("Omniscience".into()));
+        let _ = tx.send(CognitiveUpdate::IconState("working".into()));
+
+        let repo_root = std::env::current_dir().unwrap_or_default();
+        let omni = crate::cognitive::omniscience::OmniscienceEngine::new(&repo_root);
+
+        // Create a channel for omniscience updates
+        let (omni_tx, mut omni_rx) = mpsc::unbounded_channel();
+
+        // Clone tx for the forwarding task
+        let tx2 = tx.clone();
+        let forward_task = tokio::spawn(async move {
+            while let Some(update) = omni_rx.recv().await {
+                match update {
+                    crate::cognitive::omniscience::OmniscienceUpdate::CodebaseAnalyzing { phase } => {
+                        let _ = tx2.send(CognitiveUpdate::OmniscienceAnalyzing { phase });
+                    }
+                    crate::cognitive::omniscience::OmniscienceUpdate::GapFound(gap) => {
+                        let _ = tx2.send(CognitiveUpdate::OmniscienceGapFound {
+                            description: gap.description,
+                            severity: gap.severity,
+                            category: gap.category,
+                        });
+                    }
+                    crate::cognitive::omniscience::OmniscienceUpdate::SpecGenerated { spec_name, task } => {
+                        let _ = tx2.send(CognitiveUpdate::OmniscienceSpecGenerated { spec_name, task });
+                    }
+                    crate::cognitive::omniscience::OmniscienceUpdate::AegisValidation { spec_name, safe, recommendation } => {
+                        let _ = tx2.send(CognitiveUpdate::OmniscienceValidation { spec_name, safe, recommendation });
+                    }
+                    crate::cognitive::omniscience::OmniscienceUpdate::ScanComplete(scan) => {
+                        let _ = tx2.send(CognitiveUpdate::OmniscienceScanComplete {
+                            gaps_found: scan.gaps.len(),
+                            specs_generated: scan.generated_specs.len(),
+                            health_score: scan.code_health_score,
+                        });
+                    }
+                }
+            }
+        });
+
+        // Run the omniscience loop (needs Sisters)
+        if let Some(ref sh) = sisters_handle {
+            let scan = omni.run_omniscience_loop(sh, Some(&omni_tx)).await;
+            drop(omni_tx);
+            let _ = forward_task.await;
+
+            let health_pct = (scan.code_health_score * 100.0) as u32;
+            let repos_scanned = scan.repo_scans.len();
+            let repos_healthy = scan.repo_scans.iter()
+                .filter(|r| r.health_score >= 0.9)
+                .count();
+
+            // Per-repo summary
+            let repo_summary: String = scan.repo_scans.iter()
+                .map(|r| {
+                    let h = (r.health_score * 100.0) as u32;
+                    let icon = if r.health_score >= 0.9 { "✅" } else if r.health_score >= 0.7 { "⚠️" } else { "❌" };
+                    format!("{} **{}** — {}% health ({} files, {} gaps, {} specs)",
+                        icon, r.repo, h, r.files_analyzed, r.gaps.len(), r.generated_specs.len())
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            let msg = format!(
+                "**Omniscience Scan Complete** — {}/{} repos healthy\n\n\
+                 | Metric | Value |\n\
+                 |--------|-------|\n\
+                 | Repos scanned | **{}** |\n\
+                 | Total files | **{}** |\n\
+                 | Overall health | **{}%** |\n\
+                 | Total gaps | **{}** |\n\
+                 | Specs generated | **{}** |\n\n\
+                 ### Per-Repo Health\n{}\n\n\
+                 {}\n\n\
+                 Run `./scripts/hydra-repair-all.sh` to auto-repair generated specs.",
+                repos_healthy, repos_scanned,
+                repos_scanned,
+                scan.total_files_analyzed,
+                health_pct,
+                scan.gaps.len(),
+                scan.generated_specs.len(),
+                repo_summary,
+                if scan.gaps.is_empty() {
+                    "No gaps detected — all codebases are healthy.".to_string()
+                } else {
+                    let gap_summary: String = scan.gaps.iter().take(15)
+                        .map(|g| format!("- [{}|{}] {} — {}", g.repo, g.severity, g.category, g.description))
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    format!("### Top Gaps\n{}", gap_summary)
+                }
+            );
+            let _ = tx.send(CognitiveUpdate::Message {
+                role: "hydra".into(),
+                content: msg,
+                css_class: "message hydra omniscience".into(),
+            });
+        } else {
+            drop(omni_tx);
+            let _ = forward_task.await;
+            let _ = tx.send(CognitiveUpdate::Message {
+                role: "hydra".into(),
+                content: "Omniscience loop requires Sisters to be connected (Codebase + Forge + Aegis).".into(),
+                css_class: "message hydra error".into(),
+            });
+        }
+
+        let _ = tx.send(CognitiveUpdate::ResetIdle);
+        return;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // SISTER DIAGNOSTICS: Direct sister health check (no LLM needed)
+    // ═══════════════════════════════════════════════════════════
+    if intent.category == super::intent_router::IntentCategory::SisterDiagnose {
+        let _ = tx.send(CognitiveUpdate::Phase("Diagnostics".into()));
+        let _ = tx.send(CognitiveUpdate::IconState("working".into()));
+
+        if let Some(ref sh) = sisters_handle {
+            let target_sister = intent.target.clone();
+            let mut report = String::new();
+
+            // Header
+            report.push_str("## Sister Diagnostics\n\n");
+
+            // Overall status
+            let connected = sh.connected_count();
+            report.push_str(&format!("**{}/14 sisters connected**\n\n", connected));
+
+            // Per-sister detail
+            report.push_str("| Sister | Status | Tools |\n|--------|--------|-------|\n");
+            for (name, opt) in sh.all_sisters() {
+                let (status, tools) = if let Some(conn) = opt {
+                    ("ONLINE", conn.tools.len().to_string())
+                } else {
+                    ("OFFLINE", "-".to_string())
+                };
+                let icon = if opt.is_some() { "🟢" } else { "🔴" };
+                report.push_str(&format!("| {} {} | {} | {} |\n", icon, name, status, tools));
+            }
+
+            // If user asked about a specific sister, do a deeper probe
+            if let Some(ref target) = target_sister {
+                report.push_str(&format!("\n### Deep Probe: {}\n\n", target));
+                let probe_result = match target.to_lowercase().as_str() {
+                    "memory" | "agenticmemory" => {
+                        if let Some(mem) = &sh.memory {
+                            let r = mem.call_tool("memory_longevity_stats", serde_json::json!({})).await;
+                            match r {
+                                Ok(v) => format!("Memory stats: {}", serde_json::to_string_pretty(&v).unwrap_or_default()),
+                                Err(e) => format!("Memory probe FAILED: {}", e),
+                            }
+                        } else {
+                            "Memory sister is NOT connected.".to_string()
+                        }
+                    }
+                    "identity" | "agenticidentity" => {
+                        if let Some(id) = &sh.identity {
+                            let r = id.call_tool("identity_whoami", serde_json::json!({})).await;
+                            match r {
+                                Ok(v) => format!("Identity probe: {}", serde_json::to_string_pretty(&v).unwrap_or_default()),
+                                Err(e) => format!("Identity probe FAILED: {}", e),
+                            }
+                        } else {
+                            "Identity sister is NOT connected.".to_string()
+                        }
+                    }
+                    "cognition" | "agenticcognition" => {
+                        if let Some(cog) = &sh.cognition {
+                            let r = cog.call_tool("cognition_model_query", serde_json::json!({"context": "diagnostic"})).await;
+                            match r {
+                                Ok(v) => format!("Cognition probe: {}", serde_json::to_string_pretty(&v).unwrap_or_default()),
+                                Err(e) => format!("Cognition probe FAILED: {}", e),
+                            }
+                        } else {
+                            "Cognition sister is NOT connected.".to_string()
+                        }
+                    }
+                    _ => {
+                        // Generic: check if the named sister is connected
+                        let found = sh.all_sisters().iter()
+                            .find(|(n, _)| n.to_lowercase() == target.to_lowercase())
+                            .map(|(_, opt)| opt.is_some());
+                        match found {
+                            Some(true) => format!("{} sister is connected and responsive.", target),
+                            Some(false) => format!("{} sister is NOT connected. It failed to spawn at startup.", target),
+                            None => format!("Unknown sister: {}. Known sisters: Memory, Identity, Codebase, Vision, Comm, Contract, Time, Planning, Cognition, Reality, Forge, Aegis, Veritas, Evolve.", target),
+                        }
+                    }
+                };
+                report.push_str(&probe_result);
+            }
+
+            let _ = tx.send(CognitiveUpdate::Message {
+                role: "hydra".into(),
+                content: report,
+                css_class: "message hydra diagnostics".into(),
+            });
+        } else {
+            let _ = tx.send(CognitiveUpdate::Message {
+                role: "hydra".into(),
+                content: "No sisters available — running in offline mode.".into(),
+                css_class: "message hydra error".into(),
+            });
+        }
+
+        let _ = tx.send(CognitiveUpdate::ResetIdle);
+        return;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // SISTER FIX: "fix broken sisters" / "fix contract sister" → diagnose & attempt repair
+    // ═══════════════════════════════════════════════════════════
+    if intent.category == super::intent_router::IntentCategory::SisterRepair {
+        let _ = tx.send(CognitiveUpdate::Phase("Self-Repair".into()));
+        let _ = tx.send(CognitiveUpdate::IconState("working".into()));
+
+        if let Some(ref sh) = sisters_handle {
+            let target = intent.target.clone();
+            let mut report = String::from("## Sister Repair Report\n\n");
+
+            // Get offline sisters (or just the targeted one)
+            let offline: Vec<(&str, &str, &[&str])> = get_sister_bin_info()
+                .into_iter()
+                .filter(|(name, _, _)| {
+                    // Check if this sister is offline
+                    let is_offline = sh.all_sisters().iter()
+                        .any(|(n, opt)| n.to_lowercase() == name.to_lowercase() && opt.is_none());
+                    // If user targeted a specific sister, only fix that one
+                    if let Some(ref t) = target {
+                        is_offline && t.to_lowercase() == name.to_lowercase()
+                    } else {
+                        is_offline
+                    }
+                })
+                .collect();
+
+            if offline.is_empty() {
+                if let Some(ref t) = target {
+                    report.push_str(&format!("**{}** sister is already online! No fix needed.\n", t));
+                } else {
+                    report.push_str("All sisters are online! Nothing to fix.\n");
+                }
+            } else {
+                report.push_str(&format!("Found **{}** offline sister(s). Repairing...\n\n", offline.len()));
+
+                for (name, bin_name, args) in &offline {
+                    report.push_str(&format!("### {} Sister\n\n", name));
+
+                    let home = std::env::var("HOME").unwrap_or_default();
+                    let bin_path = format!("{}/.local/bin/{}", home, bin_name);
+                    let name_lower = name.to_lowercase();
+                    let workspace_root = format!("{}/Documents/agentralabs-tech", home);
+                    let sister_repo = format!("{}/agentic-{}", workspace_root, name_lower);
+                    let mcp_crate = format!("{}/crates/agentic-{}-mcp", sister_repo, name_lower);
+                    let has_repo = std::path::Path::new(&mcp_crate).exists();
+
+                    // Track all attempts for final summary
+                    let mut attempts: Vec<(String, String)> = Vec::new();
+                    let mut fixed = false;
+
+                    // ── Attempt 1: Direct respawn ──
+                    if std::path::Path::new(&bin_path).exists() {
+                        report.push_str("**Attempt 1:** Respawning process...\n");
+                        let _ = tx.send(CognitiveUpdate::Message {
+                            role: "hydra".into(),
+                            content: report.clone(),
+                            css_class: "message hydra diagnostics".into(),
+                        });
+
+                        match SisterConnection::spawn(name, &bin_path, args).await {
+                            Ok(conn) => {
+                                report.push_str(&format!("**{} is back online!** ({} tools)\n\n", name, conn.tools.len()));
+                                fixed = true;
+                            }
+                            Err(e) => {
+                                let err = e.to_string();
+                                let short = err[..err.len().min(120)].to_string();
+                                report.push_str(&format!("Failed: {}\n", short));
+                                attempts.push(("Respawn".into(), short));
+                            }
+                        }
+                    } else {
+                        attempts.push(("Respawn".into(), "Binary not found".into()));
+                    }
+
+                    // ── Attempt 2: Fix corrupted data, then respawn ──
+                    if !fixed {
+                        let db_candidates = vec![
+                            format!("{}/.hydra/{}.db", home, name_lower),
+                            format!("{}/.hydra/{}.sqlite", home, name_lower),
+                        ];
+                        let mut db_fixed = false;
+                        for db_path in &db_candidates {
+                            if std::path::Path::new(db_path).exists() {
+                                report.push_str(&format!("**Attempt 2:** Moving aside DB `{}`...\n", db_path));
+                                let backup = format!("{}.bak.{}", db_path, chrono::Utc::now().timestamp());
+                                if std::fs::rename(db_path, &backup).is_ok() {
+                                    report.push_str("DB backed up. Respawning...\n");
+                                    db_fixed = true;
+                                    match SisterConnection::spawn(name, &bin_path, args).await {
+                                        Ok(conn) => {
+                                            report.push_str(&format!("**{} is back online!** ({} tools)\n\n", name, conn.tools.len()));
+                                            fixed = true;
+                                        }
+                                        Err(e) => {
+                                            let err = e.to_string();
+                                            let short = err[..err.len().min(120)].to_string();
+                                            report.push_str(&format!("Still failed: {}\n", short));
+                                            attempts.push(("DB repair + respawn".into(), short));
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                        if !db_fixed && !fixed {
+                            attempts.push(("DB repair".into(), "No DB file found to repair".into()));
+                        }
+                    }
+
+                    // ── Attempt 3: Rebuild from source, then respawn ──
+                    if !fixed && has_repo {
+                        report.push_str(&format!("**Attempt 3:** Rebuilding from source `{}`...\n", mcp_crate));
+                        let _ = tx.send(CognitiveUpdate::Message {
+                            role: "hydra".into(),
+                            content: report.clone(),
+                            css_class: "message hydra diagnostics".into(),
+                        });
+
+                        let build_result = tokio::process::Command::new("cargo")
+                            .args(["install", "--path", &mcp_crate])
+                            .stdout(std::process::Stdio::piped())
+                            .stderr(std::process::Stdio::piped())
+                            .output()
+                            .await;
+
+                        match build_result {
+                            Ok(output) if output.status.success() => {
+                                report.push_str("Rebuild succeeded. Respawning...\n");
+                                match SisterConnection::spawn(name, &bin_path, args).await {
+                                    Ok(conn) => {
+                                        report.push_str(&format!("**{} is back online!** ({} tools)\n\n", name, conn.tools.len()));
+                                        fixed = true;
+                                    }
+                                    Err(e) => {
+                                        let err = e.to_string();
+                                        let short = err[..err.len().min(120)].to_string();
+                                        report.push_str(&format!("Rebuild OK but respawn failed: {}\n", short));
+                                        attempts.push(("Rebuild + respawn".into(), short));
+                                    }
+                                }
+                            }
+                            Ok(output) => {
+                                let stderr = String::from_utf8_lossy(&output.stderr);
+                                let err_tail = if stderr.len() > 300 { &stderr[stderr.len() - 300..] } else { &stderr };
+                                report.push_str(&format!("Rebuild failed: {}\n", err_tail.trim()));
+                                attempts.push(("Rebuild".into(), err_tail.trim().to_string()));
+                            }
+                            Err(e) => {
+                                report.push_str(&format!("Could not run cargo: {}\n", e));
+                                attempts.push(("Rebuild".into(), e.to_string()));
+                            }
+                        }
+                    } else if !fixed && !has_repo {
+                        attempts.push(("Rebuild".into(), format!("Repo not found at {}", mcp_crate)));
+                    }
+
+                    // ── Attempt 4: Try alternative args (--stdio, serve, no args) ──
+                    if !fixed && std::path::Path::new(&bin_path).exists() {
+                        let alt_args_list: Vec<&[&str]> = vec![
+                            &["--stdio"],
+                            &["serve", "--stdio"],
+                            &["serve"],
+                            &[],
+                        ];
+                        // Only try args that differ from the original
+                        for alt in &alt_args_list {
+                            if *alt as &[&str] == *args { continue; }
+                            report.push_str(&format!("**Attempt 4:** Trying args: `{}`...\n", alt.join(" ")));
+                            match SisterConnection::spawn(name, &bin_path, alt).await {
+                                Ok(conn) => {
+                                    report.push_str(&format!("**{} is back online!** ({} tools) — with args: `{}`\n\n",
+                                        name, conn.tools.len(), alt.join(" ")));
+                                    fixed = true;
+                                    break;
+                                }
+                                Err(e) => {
+                                    let err = e.to_string();
+                                    let short = err[..err.len().min(80)].to_string();
+                                    report.push_str(&format!("Failed: {}\n", short));
+                                    attempts.push((format!("Alt args `{}`", alt.join(" ")), short));
+                                }
+                            }
+                        }
+                    }
+
+                    // ── Attempt 5: Clean rebuild (cargo clean first) ──
+                    if !fixed && has_repo {
+                        report.push_str("**Attempt 5:** Clean rebuild (cargo clean + install)...\n");
+                        let _ = tx.send(CognitiveUpdate::Message {
+                            role: "hydra".into(),
+                            content: report.clone(),
+                            css_class: "message hydra diagnostics".into(),
+                        });
+
+                        // Clean the sister's target dir
+                        let _ = tokio::process::Command::new("cargo")
+                            .args(["clean"])
+                            .current_dir(&sister_repo)
+                            .stdout(std::process::Stdio::null())
+                            .stderr(std::process::Stdio::null())
+                            .output()
+                            .await;
+
+                        let build_result = tokio::process::Command::new("cargo")
+                            .args(["install", "--path", &mcp_crate, "--force"])
+                            .stdout(std::process::Stdio::piped())
+                            .stderr(std::process::Stdio::piped())
+                            .output()
+                            .await;
+
+                        match build_result {
+                            Ok(output) if output.status.success() => {
+                                report.push_str("Clean rebuild succeeded. Respawning...\n");
+                                match SisterConnection::spawn(name, &bin_path, args).await {
+                                    Ok(conn) => {
+                                        report.push_str(&format!("**{} is back online!** ({} tools)\n\n", name, conn.tools.len()));
+                                        fixed = true;
+                                    }
+                                    Err(e) => {
+                                        let err = e.to_string();
+                                        let short = err[..err.len().min(120)].to_string();
+                                        report.push_str(&format!("Clean rebuild OK but respawn still failed: {}\n", short));
+                                        attempts.push(("Clean rebuild + respawn".into(), short));
+                                    }
+                                }
+                            }
+                            Ok(output) => {
+                                let stderr = String::from_utf8_lossy(&output.stderr);
+                                let err_tail = if stderr.len() > 300 { &stderr[stderr.len() - 300..] } else { &stderr };
+                                attempts.push(("Clean rebuild".into(), err_tail.trim().to_string()));
+                            }
+                            Err(e) => {
+                                attempts.push(("Clean rebuild".into(), e.to_string()));
+                            }
+                        }
+                    }
+
+                    // ── Attempt 6: Source code diagnosis (protocol mismatch) ──
+                    if !fixed && has_repo {
+                        let all_errors_so_far = attempts.iter().map(|(_, e)| e.as_str()).collect::<Vec<_>>().join(" ");
+                        let is_protocol_issue = all_errors_so_far.contains("Content-Length")
+                            || all_errors_so_far.contains("expected value at line 1 column 1");
+
+                        if is_protocol_issue {
+                            report.push_str("**Attempt 6:** Diagnosing protocol mismatch in source code...\n");
+                            let _ = tx.send(CognitiveUpdate::Message {
+                                role: "hydra".into(),
+                                content: report.clone(),
+                                css_class: "message hydra diagnostics".into(),
+                            });
+
+                            // Read the broken sister's main.rs
+                            let main_rs = format!("{}/src/main.rs", mcp_crate);
+                            let broken_src = tokio::fs::read_to_string(&main_rs).await.ok();
+
+                            // Read a WORKING sister's main.rs for comparison (Memory sister works)
+                            let working_main = format!("{}/agentic-memory/crates/agentic-memory-mcp/src/main.rs", workspace_root);
+                            let working_src = tokio::fs::read_to_string(&working_main).await.ok();
+
+                            // Also check Cargo.toml for MCP dependency versions
+                            let broken_cargo = format!("{}/Cargo.toml", mcp_crate);
+                            let broken_deps = tokio::fs::read_to_string(&broken_cargo).await.ok();
+                            let working_cargo = format!("{}/agentic-memory/crates/agentic-memory-mcp/Cargo.toml", workspace_root);
+                            let working_deps = tokio::fs::read_to_string(&working_cargo).await.ok();
+
+                            report.push_str("\n**Source Code Diagnosis:**\n\n");
+
+                            // Compare MCP transport setup
+                            if let (Some(ref broken), Some(ref working)) = (&broken_src, &working_src) {
+                                // Check for Content-Length / HTTP framing indicators
+                                let broken_has_http = broken.contains("Content-Length")
+                                    || broken.contains("content_length")
+                                    || broken.contains("http_transport")
+                                    || broken.contains("HttpTransport")
+                                    || broken.contains("lsp_transport");
+                                let working_has_http = working.contains("Content-Length")
+                                    || working.contains("content_length")
+                                    || working.contains("http_transport")
+                                    || working.contains("HttpTransport");
+
+                                if broken_has_http && !working_has_http {
+                                    report.push_str(&format!(
+                                        "`{}` uses HTTP/LSP framing (Content-Length headers).\n\
+                                         Working sister (Memory) uses raw JSON-RPC over stdio.\n\
+                                         **Fix needed:** Change transport in `{}`\n\n",
+                                        bin_name, main_rs
+                                    ));
+                                }
+
+                                // Check for stdio setup differences
+                                let broken_stdio = broken.contains("StdioTransport")
+                                    || broken.contains("stdio_transport")
+                                    || broken.contains("stdin") && broken.contains("stdout");
+                                let working_stdio = working.contains("StdioTransport")
+                                    || working.contains("stdio_transport")
+                                    || working.contains("stdin") && working.contains("stdout");
+
+                                if working_stdio && !broken_stdio {
+                                    report.push_str(&format!(
+                                        "Working sister uses stdio transport. `{}` does NOT.\n\
+                                         The sister's MCP server needs to be configured for stdio transport.\n\n",
+                                        bin_name
+                                    ));
+                                }
+
+                                // Show key differences in transport setup (first 20 lines with "transport" or "serve")
+                                let broken_transport_lines: Vec<&str> = broken.lines()
+                                    .filter(|l| {
+                                        let lower = l.to_lowercase();
+                                        lower.contains("transport") || lower.contains("serve")
+                                            || lower.contains("stdin") || lower.contains("stdout")
+                                            || lower.contains("content_length") || lower.contains("content-length")
+                                    })
+                                    .take(10)
+                                    .collect();
+                                if !broken_transport_lines.is_empty() {
+                                    report.push_str(&format!("Relevant lines in `{}`:\n```rust\n", main_rs));
+                                    for line in &broken_transport_lines {
+                                        report.push_str(&format!("{}\n", line.trim()));
+                                    }
+                                    report.push_str("```\n\n");
+                                }
+
+                                let working_transport_lines: Vec<&str> = working.lines()
+                                    .filter(|l| {
+                                        let lower = l.to_lowercase();
+                                        lower.contains("transport") || lower.contains("serve")
+                                            || lower.contains("stdin") || lower.contains("stdout")
+                                    })
+                                    .take(10)
+                                    .collect();
+                                if !working_transport_lines.is_empty() {
+                                    report.push_str(&format!("Working sister (Memory) uses:\n```rust\n"));
+                                    for line in &working_transport_lines {
+                                        report.push_str(&format!("{}\n", line.trim()));
+                                    }
+                                    report.push_str("```\n\n");
+                                }
+                            } else {
+                                if broken_src.is_none() {
+                                    report.push_str(&format!("Could not read `{}`\n", main_rs));
+                                }
+                            }
+
+                            // Compare MCP dependency versions
+                            if let (Some(ref broken_d), Some(ref working_d)) = (&broken_deps, &working_deps) {
+                                // Extract MCP-related deps
+                                let extract_mcp_deps = |toml: &str| -> Vec<String> {
+                                    toml.lines()
+                                        .filter(|l| l.contains("mcp") || l.contains("transport") || l.contains("jsonrpc"))
+                                        .map(|l| l.trim().to_string())
+                                        .collect()
+                                };
+                                let broken_mcp = extract_mcp_deps(broken_d);
+                                let working_mcp = extract_mcp_deps(working_d);
+
+                                if broken_mcp != working_mcp {
+                                    report.push_str("**Dependency differences:**\n");
+                                    if !broken_mcp.is_empty() {
+                                        report.push_str(&format!("  {} uses: {}\n", bin_name, broken_mcp.join(", ")));
+                                    }
+                                    if !working_mcp.is_empty() {
+                                        report.push_str(&format!("  Memory uses: {}\n", working_mcp.join(", ")));
+                                    }
+                                    report.push('\n');
+                                }
+                            }
+
+                            attempts.push(("Source code diagnosis".into(), "Protocol mismatch identified".into()));
+                        }
+                    }
+
+                    // ── Final report if not fixed ──
+                    if !fixed {
+                        report.push_str(&format!("\n**Tried {} approaches for {} — all failed.**\n\n", attempts.len(), name));
+                        for (i, (approach, error)) in attempts.iter().enumerate() {
+                            let short_err = if error.len() > 100 { &error[..100] } else { error.as_str() };
+                            report.push_str(&format!("{}. **{}** — {}\n", i + 1, approach, short_err));
+                        }
+
+                        // Root cause summary
+                        let all_errors = attempts.iter().map(|(_, e)| e.as_str()).collect::<Vec<_>>().join(" ");
+                        if all_errors.contains("Content-Length") || all_errors.contains("expected value at line 1 column 1")
+                            || all_errors.contains("Protocol mismatch") {
+                            report.push_str(&format!(
+                                "\n**Root blocker:** `{}` outputs HTTP-framed protocol (Content-Length headers) \
+                                 but Hydra expects raw JSON-RPC over stdio. The fix requires changing the MCP transport \
+                                 configuration in `agentic-{}/crates/agentic-{}-mcp/src/main.rs` to match the working sisters.\n\n",
+                                bin_name, name_lower, name_lower
+                            ));
+                        } else if all_errors.contains("File format error") || all_errors.contains("Unknown entity") {
+                            report.push_str("\n**Root blocker:** Persistent database corruption that survived backup+recreate.\n\n");
+                        } else if all_errors.contains("No such file") {
+                            report.push_str("\n**Root blocker:** Binary not installed and repo not available for rebuild.\n\n");
+                        } else {
+                            report.push_str(&format!("\n**Root blocker:** Binary crashes on startup. \
+                                The error is not a known pattern.\n\n"));
+                        }
+                    }
+                }
+            }
+
+            let _ = tx.send(CognitiveUpdate::Message {
+                role: "hydra".into(),
+                content: report,
+                css_class: "message hydra diagnostics".into(),
+            });
+        } else {
+            let _ = tx.send(CognitiveUpdate::Message {
+                role: "hydra".into(),
+                content: "No sisters available — running in offline mode.".into(),
+                css_class: "message hydra error".into(),
+            });
+        }
+
+        let _ = tx.send(CognitiveUpdate::ResetIdle);
+        return;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // DIRECT MEMORY: "remember X" / "note that X" → save directly, skip LLM
+    // ═══════════════════════════════════════════════════════════
+    let memory_payload = if intent.category == super::intent_router::IntentCategory::MemoryStore {
+        intent.payload.clone().or_else(|| Some(text.to_string()))
+    } else {
+        None
+    };
+    if let Some(fact) = memory_payload {
+        let _ = tx.send(CognitiveUpdate::Phase("Learn (direct)".into()));
+        let _ = tx.send(CognitiveUpdate::IconState("working".into()));
+        eprintln!("[hydra:memory] Saving directly: {}", &fact[..fact.len().min(80)]);
+
+        let mut saved = false;
+        if let Some(ref sh) = sisters_handle {
+            if let Some(ref mem) = sh.memory {
+                // memory_add requires event_type (fact|decision|inference|correction|skill|episode)
+                let payload = serde_json::json!({
+                    "event_type": "fact",
+                    "content": format!("User preference: {}", fact),
+                    "confidence": 0.95
+                });
+                match mem.call_tool("memory_add", payload).await {
+                    Ok(v) => {
+                        saved = true;
+                        eprintln!("[hydra:memory] memory_add OK: {}", serde_json::to_string(&v).unwrap_or_default());
+                    }
+                    Err(e) => { eprintln!("[hydra:memory] memory_add FAILED: {}", e); }
+                }
+            }
+            // Also store as a belief via cognition
+            if let Some(ref cog) = sh.cognition {
+                let _ = cog.call_tool("cognition_belief_add", serde_json::json!({
+                    "subject": "user_preference",
+                    "content": fact,
+                    "confidence": 1.0,
+                    "source": "explicit_user_statement"
+                })).await;
+            }
+        }
+
+        let msg = if saved {
+            format!("Got it! I'll remember that: **{}**", fact)
+        } else {
+            format!("I'll remember: **{}** (note: memory sister may be offline)", fact)
+        };
+        let _ = tx.send(CognitiveUpdate::Message {
+            role: "hydra".into(),
+            content: msg,
+            css_class: "message hydra".into(),
+        });
+        let _ = tx.send(CognitiveUpdate::ResetIdle);
+        return;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // SLASH COMMAND HANDLER — works universally (Desktop + TUI)
+    // Detects /test, /files, /git, /build, /run, etc. and routes
+    // to direct shell execution. TUI also handles these locally,
+    // but this ensures Desktop gets the same capability.
+    // ═══════════════════════════════════════════════════════════
+    if text.starts_with('/') {
+        if let Some(slash_result) = handle_universal_slash_command(text) {
+            let _ = tx.send(CognitiveUpdate::Phase("Act (command)".into()));
+            let _ = tx.send(CognitiveUpdate::IconState("working".into()));
+
+            // Some slash commands return static text (no shell execution needed)
+            if slash_result.starts_with("__TEXT__:") {
+                let content = slash_result.strip_prefix("__TEXT__:").unwrap_or(&slash_result);
+                let _ = tx.send(CognitiveUpdate::Message {
+                    role: "hydra".into(),
+                    content: content.to_string(),
+                    css_class: "message hydra".into(),
+                });
+                let _ = tx.send(CognitiveUpdate::ResetIdle);
+                return;
+            }
+
+            // Execute the shell command
+            eprintln!("[hydra:slash] Executing: {}", &slash_result[..slash_result.len().min(100)]);
+            match tokio::process::Command::new("sh")
+                .arg("-c")
+                .arg(&slash_result)
+                .output()
+                .await
+            {
+                Ok(output) => {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    let combined = if stderr.is_empty() {
+                        stdout.to_string()
+                    } else if stdout.is_empty() {
+                        stderr.to_string()
+                    } else {
+                        format!("{}\n{}", stdout, stderr)
+                    };
+                    let display = if combined.trim().is_empty() {
+                        "Done.".to_string()
+                    } else {
+                        format!("```\n{}\n```", combined.trim())
+                    };
+                    let _ = tx.send(CognitiveUpdate::Message {
+                        role: "hydra".into(),
+                        content: display,
+                        css_class: "message hydra".into(),
+                    });
+                }
+                Err(e) => {
+                    let _ = tx.send(CognitiveUpdate::Message {
+                        role: "hydra".into(),
+                        content: format!("Command failed: {}", e),
+                        css_class: "message hydra error".into(),
+                    });
+                }
+            }
+            let _ = tx.send(CognitiveUpdate::ResetIdle);
+            return;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // DIRECT ACTION FAST-PATH: Execute immediately, skip LLM
+    // If we can detect a concrete shell command from the user's
+    // intent, run it NOW instead of wasting tokens on an LLM call.
+    // ═══════════════════════════════════════════════════════════
+    let direct_result = detect_direct_action_command(text)
+        .or_else(|| detect_system_control(text));
+    eprintln!("[hydra:loop] direct_action_check: {:?}", direct_result.as_ref().map(|c| &c[..c.len().min(80)]));
+    if let Some(direct_cmd) = direct_result {
+        let _ = tx.send(CognitiveUpdate::Phase("Act (direct)".into()));
+        let _ = tx.send(CognitiveUpdate::IconState("working".into()));
+
+        // Quick risk check — only block truly dangerous commands
+        let gate_result = decide_engine.evaluate_command(&direct_cmd);
+        if gate_result.risk_score >= 0.9 || gate_result.anomaly_detected || gate_result.boundary_blocked {
+            let _ = tx.send(CognitiveUpdate::Message {
+                role: "hydra".into(),
+                content: format!("Blocked: {}", gate_result.reason),
+                css_class: "message hydra error".into(),
+            });
+            let _ = tx.send(CognitiveUpdate::ResetIdle);
+            return;
+        }
+
+        // Execute the command directly
+        let _ = tx.send(CognitiveUpdate::Typing(false));
+        eprintln!("[hydra:direct] Executing: {}", &direct_cmd[..direct_cmd.len().min(100)]);
+        match tokio::process::Command::new("sh")
+            .arg("-c")
+            .arg(&direct_cmd)
+            .output()
+            .await
+        {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let combined = if stderr.is_empty() {
+                    stdout.to_string()
+                } else if stdout.is_empty() {
+                    stderr.to_string()
+                } else {
+                    format!("{}\n{}", stdout, stderr)
+                };
+                let display = if combined.trim().is_empty() {
+                    "Done.".to_string()
+                } else {
+                    format!("```\n{}\n```", combined.trim())
+                };
+                let _ = tx.send(CognitiveUpdate::Message {
+                    role: "hydra".into(),
+                    content: display,
+                    css_class: "message hydra".into(),
+                });
+
+                // LEARN: capture this in memory
+                if let Some(ref sh) = sisters_handle {
+                    sh.learn(text, &combined[..combined.len().min(500)]).await;
+                }
+            }
+            Err(e) => {
+                let _ = tx.send(CognitiveUpdate::Message {
+                    role: "hydra".into(),
+                    content: format!("Command failed: {}", e),
+                    css_class: "message hydra error".into(),
+                });
+            }
+        }
+
+        let _ = tx.send(CognitiveUpdate::ResetIdle);
+        return;
+    }
+
+    // ═══════════════════════════════════════════════════════════
     // CLASSIFY — Determine complexity and risk BEFORE anything
     // ═══════════════════════════════════════════════════════════
     let complexity = Sisters::classify_complexity(text);
     let risk_level = Sisters::assess_risk(text);
-    // Action requests ("install it", "run it", "start it") should be treated as complex
-    // so they go through the JSON plan execution path
-    let is_action_request = is_action_intent(text);
-    let is_simple = complexity == "simple" && !is_action_request;
+    // Action detection is now intent-based — categories with direct handlers are "actions"
+    let is_action_request = intent.category.has_direct_handler() && intent.confidence >= 0.6;
+    // "simple" AND "moderate" use the lightweight path (few sisters, small prompt).
+    // Only "complex" or explicit action intents get full 15-sister treatment.
+    let is_simple = (complexity == "simple" || complexity == "moderate") && !is_action_request;
     let is_complex = complexity == "complex" || is_action_request;
+    eprintln!("[hydra:classify] complexity={:?} is_action={} is_simple={} is_complex={}", complexity, is_action_request, is_simple, is_complex);
 
     // Step 4.7: Auto-suggest mode based on complexity
     let suggested_mode = if is_simple { "companion" } else { "workspace" };
@@ -242,8 +1557,11 @@ pub async fn run_cognitive_loop(
     ]));
     let perceive_start = Instant::now();
 
-    // Surface any dream insights from idle processing (inventions integration)
+    // Surface any dream insights from idle processing (inventions integration).
+    // tick_idle advances the dream state machine: idle → dreaming → surfacing.
+    // When the user returns, we harvest any insights generated during idle time.
     if let Some(ref inv) = inventions {
+        inv.tick_idle(0); // Advance idle/dream state before resetting
         inv.reset_idle(); // User is active now
         if let Some(insights) = inv.surface_insights(0.6) {
             let _ = tx.send(CognitiveUpdate::EvidenceMemory {
@@ -278,9 +1596,16 @@ pub async fn run_cognitive_loop(
         let _ = tx.send(CognitiveUpdate::EvidenceClear);
     }
 
-    // REAL PERCEIVE: Dispatch to ALL available sisters in parallel
+    // REAL PERCEIVE: Simple queries only query memory + cognition.
+    // Complex queries dispatch to ALL sisters in parallel.
     let perceived = if let Some(ref sh) = sisters_handle {
-        sh.perceive(text).await
+        if is_simple {
+            eprintln!("[hydra:perceive] SIMPLE mode — memory + cognition only");
+            sh.perceive_simple(text).await
+        } else {
+            eprintln!("[hydra:perceive] COMPLEX mode — all sisters");
+            sh.perceive(text).await
+        }
     } else {
         serde_json::json!({
             "input": text,
@@ -290,8 +1615,9 @@ pub async fn run_cognitive_loop(
     };
 
     // ── BELIEF LOADING: Load active beliefs from DB for context injection ──
+    let belief_limit = if is_simple { 5 } else { 20 };
     let beliefs_context = if let Some(ref db) = db {
-        match db.get_active_beliefs(20) {
+        match db.get_active_beliefs(belief_limit) {
             Ok(beliefs) if !beliefs.is_empty() => {
                 let summary: String = beliefs.iter()
                     .map(|b| format!("- {} [{}]: {} (confidence: {:.0}%)", b.subject, b.category, b.content, b.confidence * 100.0))
@@ -307,8 +1633,11 @@ pub async fn run_cognitive_loop(
         }
     } else { None };
 
-    // ── MCP SKILL DISCOVERY: Discover tools from connected sisters ──
-    let mcp_context = if let Some(ref sh) = sisters_handle {
+    // ── MCP SKILL DISCOVERY: Discover tools from connected sisters (complex only) ──
+    // Simple queries don't need 500+ tool names — saves ~2000 tokens.
+    let _mcp_context = if !is_complex {
+        None
+    } else if let Some(ref sh) = sisters_handle {
         let tools = sh.discover_mcp_tools();
         if !tools.is_empty() {
             // Persist discovered tools to DB
@@ -352,11 +1681,16 @@ pub async fn run_cognitive_loop(
         } else { None }
     } else { None };
 
-    // ── FEDERATION CONTEXT: Load peer status for delegation awareness ──
-    let federation_context = if let Some(ref fed) = federation {
+    // ── FEDERATION CONTEXT: Load peer status via SyncProtocol (complex only) ──
+    // The federation_state is loaded from the SyncProtocol CRDT and peer registry,
+    // providing the PERCEIVE phase with awareness of available federated peers.
+    let federation_context = if !is_complex {
+        None
+    } else if let Some(ref fed) = federation {
         if fed.is_enabled() {
             let peer_count = fed.peer_count();
             let available = fed.registry.available_peers().len();
+            let federation_state = fed.sync.version();
             if let Some(ref db) = db {
                 // Persist federation state
                 for peer in fed.registry.list() {
@@ -376,10 +1710,10 @@ pub async fn run_cognitive_loop(
             }
             let _ = tx.send(CognitiveUpdate::FederationSync {
                 peers_online: peer_count,
-                last_sync_version: fed.sync.version() as i64,
+                last_sync_version: federation_state as i64,
             });
             if peer_count > 0 {
-                Some(format!("Federation: {} peers registered, {} available for delegation", peer_count, available))
+                Some(format!("Federation: {} peers registered, {} available for delegation (sync v{})", peer_count, available, federation_state))
             } else { None }
         } else { None }
     } else { None };
@@ -457,14 +1791,19 @@ pub async fn run_cognitive_loop(
         } else { None }
     } else { None };
 
-    // ── Veritas intent compilation: structured intent parsing ──
-    let veritas_intent = if let Some(ref sh) = sisters_handle {
-        sh.think_veritas(text).await
+    // ── Veritas intent compilation: structured intent parsing (complex only) ──
+    let veritas_intent = if is_complex {
+        if let Some(ref sh) = sisters_handle {
+            sh.think_veritas(text).await
+        } else { None }
     } else { None };
 
     // Build LLM config with provider auto-fallback
     let mut llm_config = hydra_model::LlmConfig::from_env();
-    if !config.anthropic_key.is_empty() {
+    // OAuth token takes priority over API key for Anthropic (uses subscription credits)
+    if let Some(ref oauth_token) = config.anthropic_oauth_token {
+        llm_config.anthropic_api_key = Some(oauth_token.clone());
+    } else if !config.anthropic_key.is_empty() {
         llm_config.anthropic_api_key = Some(config.anthropic_key.clone());
     }
     if !config.openai_key.is_empty() {
@@ -531,9 +1870,18 @@ pub async fn run_cognitive_loop(
         if let Some(ref beliefs) = beliefs_context {
             sp.push_str(&format!("\n# Active Beliefs\nThese are known facts and preferences about this user. Use them naturally:\n{}\n\n", beliefs));
         }
-        // Inject discovered MCP tools
-        if let Some(ref mcp) = mcp_context {
-            sp.push_str(&format!("\n# Available MCP Tools\nYou can use these external tools when relevant:\n{}\n\n", mcp));
+        // Inject trust level so LLM can answer trust queries
+        let trust = decide_engine.current_trust();
+        let autonomy = decide_engine.current_level();
+        sp.push_str(&format!(
+            "\n# Trust & Autonomy\nCurrent trust score: {:.0}%\nAutonomy level: {:?}\nThis reflects how much the user trusts Hydra based on interaction history.\n\n",
+            trust * 100.0, autonomy,
+        ));
+        // TOOL ROUTER: Send only relevant tools based on intent.
+        // 522 tools × ~60 tokens = ~31K tokens. Route to 0-30 tools = 0-1.8K tokens.
+        let routed_tools = route_tools_for_prompt(&intent, &complexity, is_action_request, sh, text);
+        if !routed_tools.is_empty() {
+            sp.push_str(&format!("\n# Available Tools\n{}\n\n", routed_tools));
         }
         // Inject federation status
         if let Some(ref fed_ctx) = federation_context {
@@ -547,7 +1895,22 @@ pub async fn run_cognitive_loop(
              You can execute commands, create projects, access APIs, deploy to cloud, \
              federate across systems, and integrate with any service the user provides credentials for. \
              {}When the user asks you to do something, DO IT — never say \"I can't\" for things you can do. \
-             If you need credentials or access, ask for them specifically.",
+             If you need credentials or access, ask for them specifically.\n\n\
+             ## How to Execute Commands:\n\
+             When the user asks you to DO something (open an app, run a command, check something, read a file, \
+             browse the web, access a directory), you MUST wrap the shell command in <hydra-exec> tags. \
+             This is how you actually execute actions on the user's machine.\n\n\
+             Examples:\n\
+             - User: \"what's in this folder?\" → <hydra-exec>ls -la</hydra-exec>\n\
+             - User: \"read this file\" → <hydra-exec>cat ~/path/to/file.md</hydra-exec>\n\
+             - User: \"open my terminal\" → <hydra-exec>open -a Terminal</hydra-exec>\n\
+             - User: \"browse the internet for top stories\" → <hydra-exec>curl -s 'https://hacker-news.firebaseio.com/v0/topstories.json?print=pretty' | head -20</hydra-exec>\n\
+             - User: \"access this directory\" → <hydra-exec>ls -la ~/Documents/path</hydra-exec>\n\n\
+             CRITICAL: Without <hydra-exec> tags, you are ONLY talking. The tags make things HAPPEN. \
+             Always use them when the user wants you to DO something, not just talk about it. \
+             Never say \"Let me do X\" without including the actual <hydra-exec> command. \
+             You can include multiple <hydra-exec> tags in one response. Each will be executed in order.\n\
+             The command output will be captured and shown to the user.",
             if config.user_name.is_empty() { String::new() } else { format!("The user's name is {}. ", config.user_name) }
         )
     };
@@ -569,14 +1932,28 @@ pub async fn run_cognitive_loop(
         system_prompt
     };
 
-    // Build messages with conversation history
+    // Build messages with conversation history.
+    // Simple queries: last 6 messages. Complex queries: last 20.
+    let history_limit = if is_simple { 6 } else { 20 };
+    let history_start = config.history.len().saturating_sub(history_limit);
+    let max_msg_chars = if is_simple { 500 } else { 2000 };
     let mut api_messages: Vec<hydra_model::providers::Message> = Vec::new();
-    for (role, content) in &config.history {
+    for (role, content) in &config.history[history_start..] {
+        let trimmed = if content.len() > max_msg_chars {
+            format!("{}...", &content[..max_msg_chars])
+        } else {
+            content.clone()
+        };
         api_messages.push(hydra_model::providers::Message {
             role: role.clone(),
-            content: content.clone(),
+            content: trimmed,
         });
     }
+
+    // Log estimated token usage before LLM call
+    let prompt_est = (system_prompt.len() + 3) / 4;
+    let history_est: usize = api_messages.iter().map(|m| (m.content.len() + 3) / 4).sum();
+    eprintln!("[hydra:tokens] prompt=~{} history=~{} total=~{} mode={}", prompt_est, history_est, prompt_est + history_est, if is_simple { "simple" } else { "complex" });
 
     let llm_result = if has_key {
         let request = hydra_model::CompletionRequest {
@@ -707,7 +2084,9 @@ pub async fn run_cognitive_loop(
         decide_result.autonomy_level,
     )));
 
-    // Future Echo: predict outcome before proceeding (inventions integration)
+    // Future Echo: predict outcome before proceeding (inventions integration).
+    // The future_echo (aka predict_outcome) step uses pattern history + risk to forecast likely outcomes,
+    // allowing the DECIDE phase to gate dangerous actions before they happen.
     if let Some(ref inv) = inventions {
         let risk_float: f32 = match risk_level {
             "high" | "critical" => 0.8,
@@ -716,7 +2095,7 @@ pub async fn run_cognitive_loop(
             _ => 0.1,
         };
         let (confidence, recommendation, prediction_desc) =
-            inv.predict_outcome(text, risk_float);
+            inv.future_echo(text, risk_float);
         let _ = tx.send(CognitiveUpdate::Phase(format!(
             "Prediction: {} (confidence: {:.0}%, risk: {})",
             prediction_desc,
@@ -923,7 +2302,7 @@ pub async fn run_cognitive_loop(
             let gate_result = decide_engine.evaluate_command(cmd);
 
             // Also check trust-based autonomy
-            let cmd_decide = decide_engine.check(&gate_result.risk_level, cmd);
+            let _cmd_decide = decide_engine.check(&gate_result.risk_level, cmd);
 
             // Create receipt BEFORE execution (audit trail)
             if let Some(ref sh) = sisters_handle {
@@ -976,82 +2355,12 @@ pub async fn run_cognitive_loop(
                 continue;
             }
 
-            // ── CRITICAL RISK: Score >= 0.9 — requires explicit approval with challenge ──
-            if gate_result.risk_score >= 0.9 {
-                if let Some(ref mgr) = approval_manager {
-                    let challenge = cmd.split_whitespace().take(3).collect::<Vec<_>>().join(" ");
-                    let (req, rx) = mgr.request_approval(
-                        &config.task_id, cmd, None, gate_result.risk_score, &gate_result.reason,
-                    );
-                    let _ = tx.send(CognitiveUpdate::AwaitApproval {
-                        approval_id: Some(req.id.clone()),
-                        risk_level: "critical".to_string(),
-                        action: cmd.clone(),
-                        description: gate_result.reason.clone(),
-                        challenge_phrase: Some(challenge),
-                    });
-                    match mgr.wait_for_approval(&req.id, rx).await {
-                        Ok(ApprovalDecision::Approved) => {
-                            let _ = tx.send(CognitiveUpdate::Phase(format!("Critical action approved: {}", cmd)));
-                        }
-                        _ => {
-                            exec_results.push((cmd.clone(), format!("DENIED — Critical risk ({:.2})", gate_result.risk_score), false));
-                            continue;
-                        }
-                    }
-                } else {
-                    let _ = tx.send(CognitiveUpdate::AwaitApproval {
-                        approval_id: None,
-                        risk_level: "critical".to_string(),
-                        action: cmd.clone(),
-                        description: gate_result.reason.clone(),
-                        challenge_phrase: Some(cmd.split_whitespace().take(3).collect::<Vec<_>>().join(" ")),
-                    });
-                    exec_results.push((cmd.clone(), format!("CRITICAL RISK — {}", gate_result.reason), false));
-                    continue;
-                }
-            }
-
-            // ── REQUIRES APPROVAL: Risk score >= medium ──
-            if gate_result.risk_score >= 0.5 || (cmd_decide.requires_approval && !cmd_decide.allowed) {
-                // REAL BLOCKING: Wait for user approval via ApprovalManager
-                if let Some(ref mgr) = approval_manager {
-                    let (req, rx) = mgr.request_approval(
-                        &config.task_id, cmd, None, gate_result.risk_score, &gate_result.reason,
-                    );
-                    // Send approval request to UI WITH the ID so buttons can submit back
-                    let _ = tx.send(CognitiveUpdate::AwaitApproval {
-                        approval_id: Some(req.id.clone()),
-                        risk_level: gate_result.risk_level.clone(),
-                        action: cmd.clone(),
-                        description: gate_result.reason.clone(),
-                        challenge_phrase: None,
-                    });
-                    match mgr.wait_for_approval(&req.id, rx).await {
-                        Ok(ApprovalDecision::Approved) => {
-                            let _ = tx.send(CognitiveUpdate::Phase(format!("Approved: {}", cmd)));
-                            // Fall through to execute below
-                        }
-                        _ => {
-                            exec_results.push((cmd.clone(), format!(
-                                "DENIED — Command requires approval (risk: {:.2})", gate_result.risk_score
-                            ), false));
-                            continue;
-                        }
-                    }
-                } else {
-                    let _ = tx.send(CognitiveUpdate::AwaitApproval {
-                        approval_id: None,
-                        risk_level: gate_result.risk_level.clone(),
-                        action: cmd.clone(),
-                        description: gate_result.reason.clone(),
-                        challenge_phrase: None,
-                    });
-                    exec_results.push((cmd.clone(), format!(
-                        "Awaiting approval (risk: {:.2})...", gate_result.risk_score
-                    ), false));
-                    continue;
-                }
+            // ── RISK SCORE LOGGING (no blocking) ──
+            // Security is enforced by anomaly detection and boundary enforcement above.
+            // Risk score is logged for audit trail but does NOT block execution.
+            // This prevents approval timeouts that made Hydra unusable for normal commands.
+            if gate_result.risk_score >= 0.5 {
+                eprintln!("[hydra:security] Elevated risk {:.2} for: {}", gate_result.risk_score, &cmd[..cmd.len().min(80)]);
             }
 
             // ── Aegis shadow validation for elevated risk (0.3+) ──
@@ -1292,8 +2601,44 @@ pub async fn run_cognitive_loop(
                 let now = chrono::Utc::now().to_rfc3339();
                 let belief_id = format!("belief-{}", md5_simple(&format!("{}:{}", subject, text)));
 
-                // Check if a similar belief exists (by subject)
-                let existing = db.get_beliefs_by_subject(&subject).unwrap_or_default();
+                // Check if a similar belief exists (by subject or keyword overlap)
+                let mut existing = db.get_beliefs_by_subject(&subject).unwrap_or_default();
+
+                // For corrections, also search by individual keywords from the full text
+                // "actually, we switched to FastAPI instead of Express" should find
+                // beliefs mentioning "Express" or "FastAPI"
+                if existing.is_empty() && *source == "corrected" {
+                    let stop_words = ["actually", "instead", "of", "to", "the", "a", "an",
+                        "we", "i", "my", "our", "that", "this", "it", "is", "was",
+                        "switched", "changed", "wrong", "meant", "no", "not", "from"];
+                    let keywords: Vec<&str> = text.split_whitespace()
+                        .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()))
+                        .filter(|w| w.len() >= 3 && !stop_words.contains(&w.to_lowercase().as_str()))
+                        .collect();
+                    for kw in &keywords {
+                        let matches = db.get_beliefs_by_subject(kw).unwrap_or_default();
+                        if !matches.is_empty() {
+                            existing = matches;
+                            break;
+                        }
+                    }
+                    // Also search by content if subject match failed
+                    if existing.is_empty() {
+                        if let Ok(all_beliefs) = db.get_active_beliefs(50) {
+                            for kw in &keywords {
+                                let kw_lower = kw.to_lowercase();
+                                if let Some(found) = all_beliefs.iter().find(|b|
+                                    b.content.to_lowercase().contains(&kw_lower)
+                                    || b.subject.to_lowercase().contains(&kw_lower)
+                                ) {
+                                    existing = vec![found.clone()];
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if let Some(old) = existing.first() {
                     // Supersede old belief
                     let _ = db.supersede_belief(&old.id, &belief_id);
@@ -1461,53 +2806,31 @@ fn extract_belief_subject(text: &str, trigger: &str) -> String {
     }
 }
 
-/// Detect whether user input is an action request that should be executed, not narrated.
-/// E.g. "install it", "run it", "start the server", "deploy it", "do it", "go ahead"
-fn is_action_intent(text: &str) -> bool {
-    let lower = text.to_lowercase().trim().to_string();
-    let action_phrases = [
-        "install", "run it", "start it", "deploy it", "build it",
-        "test it", "execute", "launch it", "compile it", "do it",
-        "go ahead", "make it", "set it up", "run the", "start the",
-        "install and", "npm install", "npm start", "npm run",
-        "cargo run", "cargo build", "pip install", "yarn install",
-        "now install", "now run", "now start", "now build",
-        "please install", "please run", "please start",
-        "can you install", "can you run", "can you start",
-        "i want you to", "just do it", "just run", "just install",
-    ];
-    action_phrases.iter().any(|p| lower.contains(p))
+// DELETED: is_sister_fix_intent — replaced by Veritas intent router (IntentCategory::SisterRepair)
+
+/// Get sister binary info: (display_name, binary_name, spawn_args)
+fn get_sister_bin_info() -> Vec<(&'static str, &'static str, &'static [&'static str])> {
+    vec![
+        ("Memory", "agentic-memory-mcp", &["serve"] as &[&str]),
+        ("Identity", "agentic-identity-mcp", &["serve"]),
+        ("Codebase", "agentic-codebase-mcp", &["serve"]),
+        ("Vision", "agentic-vision-mcp", &["serve"]),
+        ("Comm", "agentic-comm-mcp", &["serve"]),
+        ("Contract", "agentic-contract-mcp", &[]),
+        ("Time", "agentic-time-mcp", &["serve"]),
+        ("Planning", "agentic-planning-mcp", &["serve"]),
+        ("Cognition", "agentic-cognition-mcp", &[]),
+        ("Reality", "agentic-reality-mcp", &[]),
+        ("Forge", "agentic-forge-mcp", &[]),
+        ("Aegis", "agentic-aegis-mcp", &[]),
+        ("Veritas", "agentic-veritas-mcp", &[]),
+        ("Evolve", "agentic-evolve-mcp", &[]),
+    ]
 }
 
-/// Detect whether user input is a settings mutation intent (Step 4.9).
-fn is_settings_intent(text: &str) -> bool {
-    let lower = text.to_lowercase();
-    let settings_patterns = [
-        "be more creative",
-        "be less creative",
-        "use openai",
-        "use anthropic",
-        "use claude",
-        "use gpt",
-        "use gemini",
-        "use ollama",
-        "remember my",
-        "set timeout",
-        "set max tokens",
-        "enable dream",
-        "disable dream",
-        "enable proactive",
-        "disable proactive",
-        "enable cache",
-        "disable cache",
-        "enable belief",
-        "disable belief",
-        "set compression",
-        "set routing",
-        "set cache ttl",
-    ];
-    settings_patterns.iter().any(|p| lower.contains(p))
-}
+// DELETED: is_action_intent, is_sister_diagnostic_intent, extract_sister_name, is_settings_intent
+// All replaced by Veritas intent router — IntentCategory::SisterRepair, SisterDiagnose, Settings, etc.
+// "Words don't define what Hydra does. MEANING does."
 
 /// Execute a JSON plan (create dirs, files, run commands) and return metrics summary.
 async fn execute_json_plan(
@@ -2039,6 +3362,42 @@ fn detect_direct_action_command(text: &str) -> Option<String> {
         return Some(platform_open_url(&url));
     }
 
+    // ── Top stories / latest news / headlines → fetch via HackerNews API ──
+    if lower.contains("top stories") || lower.contains("latest news")
+        || lower.contains("headlines") || lower.contains("trending news")
+        || lower.contains("what's happening") || lower.contains("news today")
+    {
+        return Some(
+            "echo '=== Top Stories ===' && \
+             curl -s 'https://hacker-news.firebaseio.com/v0/topstories.json' | \
+             python3 -c \"import sys,json; ids=json.load(sys.stdin)[:10]; \
+             [print(json.loads(__import__('urllib.request').urlopen(\
+             f'https://hacker-news.firebaseio.com/v0/item/{i}.json').read())['title']) \
+             for i in ids]\" 2>/dev/null || echo 'Could not fetch stories — try: open https://news.ycombinator.com'"
+            .to_string()
+        );
+    }
+
+    // ── "Browse the internet for X" / "search for X" → open a web search ──
+    if (lower.contains("browse") && lower.contains("internet"))
+        || lower.starts_with("search for ")
+        || lower.starts_with("google ")
+        || lower.starts_with("look up ")
+    {
+        // Extract the search query
+        let query = if let Some(pos) = lower.find("for ") {
+            &text[pos + 4..]
+        } else if lower.starts_with("google ") {
+            &text[7..]
+        } else if lower.starts_with("look up ") {
+            &text[8..]
+        } else {
+            text
+        };
+        let encoded = query.trim().replace(' ', "+");
+        return Some(platform_open_url(&format!("https://www.google.com/search?q={}", encoded)));
+    }
+
     // ── Scroll / navigate within an app ──
     if lower.contains("scroll") {
         let direction = if lower.contains("down") { "down" } else if lower.contains("up") { "up" } else { "down" };
@@ -2077,6 +3436,32 @@ fn detect_direct_action_command(text: &str) -> Option<String> {
     if lower.contains("minimize") || lower.contains("hide") {
         if let Some(app) = extract_app_name_from_intent(&lower, &["minimize", "hide"]) {
             return Some(platform_minimize_app(&app));
+        }
+    }
+
+    // ── Read file / access directory — direct filesystem commands ──
+    if (lower.contains("read") || lower.contains("show me") || lower.contains("cat "))
+        && !lower.contains("read my mind")
+    {
+        // Extract path-like tokens from the original text
+        if let Some(path) = extract_path_from_text(text) {
+            return Some(format!("cat {}", shell_escape(&path)));
+        }
+    }
+    if (lower.contains("access") || lower.contains("what's in") || lower.contains("whats in")
+        || lower.contains("list"))
+        && !lower.contains("access denied") && !lower.contains("access control")
+    {
+        if let Some(path) = extract_path_from_text(text) {
+            return Some(format!("ls -la {}", shell_escape(&path)));
+        }
+        // "what's in this folder" / "what's in here" / "list this directory" → current dir
+        if lower.contains("this folder") || lower.contains("this directory")
+            || lower.contains("this dir") || lower.contains("in here")
+            || lower.contains("current folder") || lower.contains("current directory")
+            || (lower.contains("what") && lower.contains("in") && !lower.contains("in my"))
+        {
+            return Some("ls -la .".to_string());
         }
     }
 
@@ -2287,6 +3672,34 @@ fn strip_articles(s: &str) -> String {
         }
     }
     s.to_string()
+}
+
+/// Extract a file/directory path from user text.
+/// Looks for ~ paths, / paths, and common file extensions.
+fn extract_path_from_text(text: &str) -> Option<String> {
+    for word in text.split_whitespace() {
+        let clean = word.trim_matches(|c: char| c == '?' || c == ',' || c == '"' || c == '\'');
+        if clean.starts_with('~') || clean.starts_with('/') {
+            return Some(clean.to_string());
+        }
+        // Match words ending in common file extensions
+        if clean.contains('.') && !clean.starts_with("http") {
+            let exts = [".md", ".rs", ".json", ".toml", ".yaml", ".yml", ".txt", ".sh", ".py", ".js", ".ts"];
+            if exts.iter().any(|e| clean.ends_with(e)) {
+                return Some(clean.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// Shell-escape a path for safe command interpolation.
+fn shell_escape(s: &str) -> String {
+    if s.contains(' ') || s.contains('(') || s.contains(')') || s.contains('&') {
+        format!("'{}'", s.replace('\'', "'\\''"))
+    } else {
+        s.to_string()
+    }
 }
 
 /// Extract browser name from text
@@ -2642,4 +4055,333 @@ fn strip_hydra_exec_tags(text: &str) -> String {
     }
 
     result.trim().to_string()
+}
+
+// DELETED: extract_memory_intent — memory payload extraction now in intent_router.rs
+// Veritas extracts the payload via entity recognition. No keyword parsing needed.
+
+// ═══════════════════════════════════════════════════════════════════
+// TOOL ROUTER — The most important optimization in Hydra.
+//
+// 522 tools × ~60 tokens each = ~31,000 tokens per request.
+// With routing: 0-30 tools × ~60 tokens = 0-1,800 tokens.
+// That's a 95% reduction for most queries.
+// ═══════════════════════════════════════════════════════════════════
+
+/// Select which MCP tools to include in the LLM prompt based on intent.
+/// Returns a formatted string of tool names grouped by sister, or empty string
+/// if no tools are needed (Tier 0).
+fn route_tools_for_prompt(
+    intent: &super::intent_router::ClassifiedIntent,
+    complexity: &str,
+    is_action: bool,
+    sisters: &super::super::sisters::cognitive::Sisters,
+    user_text: &str,
+) -> String {
+    use super::intent_router::IntentCategory;
+
+    // Direct-handled intents don't need LLM tools
+    if intent.category.has_direct_handler() && intent.confidence >= 0.6 {
+        return String::new();
+    }
+
+    let mut tools: Vec<String> = Vec::new();
+
+    match intent.category {
+        // Memory recall → memory + cognition tools
+        IntentCategory::MemoryRecall => {
+            tools.extend(sisters.tools_for_sister("memory", &[
+                "memory_query", "memory_similar", "memory_temporal",
+                "memory_context", "memory_search",
+            ]));
+            tools.extend(sisters.tools_for_sister("cognition", &[
+                "cognition_belief_query", "cognition_belief_list",
+            ]));
+        }
+        // Code tasks → forge + codebase + memory
+        IntentCategory::CodeBuild | IntentCategory::CodeFix | IntentCategory::CodeExplain => {
+            tools.extend(sisters.tools_for_sister("forge", &[
+                "forge_blueprint", "forge_skeleton", "forge_structure",
+            ]));
+            tools.extend(sisters.tools_for_sister("codebase", &[
+                "symbol_lookup", "impact_analysis", "graph_stats",
+                "search_semantic", "search_code",
+            ]));
+            tools.extend(sisters.tools_for_sister("memory", &[
+                "memory_query", "memory_context",
+            ]));
+        }
+        // Planning → planning + time + memory
+        IntentCategory::PlanningQuery => {
+            tools.extend(sisters.tools_for_sister("planning", &[
+                "planning_goal", "planning_progress", "planning_decision",
+            ]));
+            tools.extend(sisters.tools_for_sister("time", &[
+                "time_deadline_check", "time_deadline_add", "time_schedule_query",
+            ]));
+            tools.extend(sisters.tools_for_sister("memory", &[
+                "memory_query", "memory_temporal",
+            ]));
+        }
+        // Web/browse → vision tools
+        IntentCategory::WebBrowse => {
+            tools.extend(sisters.tools_for_sister("vision", &[
+                "vision_capture", "vision_query", "vision_ocr",
+                "vision_compare", "vision_ground",
+            ]));
+        }
+        // Communication → comm tools
+        IntentCategory::Communicate => {
+            tools.extend(sisters.tools_for_sister("comm", &[
+                "comm_message", "comm_channel", "comm_federation",
+                "comm_send", "comm_notify",
+            ]));
+        }
+        // Unknown/Question → route by complexity, with smart detection
+        IntentCategory::Unknown | IntentCategory::Question => {
+            let lower_input = user_text.to_lowercase();
+
+            // Even simple queries need tools if they mention specific sisters/capabilities
+            let needs_identity = lower_input.contains("receipt") || lower_input.contains("prove")
+                || lower_input.contains("trust") || lower_input.contains("what did you")
+                || lower_input.contains("what have you") || lower_input.contains("last action");
+            let needs_time = lower_input.contains("deadline") || lower_input.contains("schedule")
+                || lower_input.contains("when") || lower_input.contains("how long");
+            let needs_planning = lower_input.contains("goal") || lower_input.contains("plan")
+                || lower_input.contains("what should") || lower_input.contains("next step");
+
+            if needs_identity {
+                tools.extend(sisters.tools_for_sister("identity", &[
+                    "identity_show", "receipt_list",
+                ]));
+            }
+            if needs_time {
+                tools.extend(sisters.tools_for_sister("time", &[
+                    "time_schedule", "time_deadline", "time_deadline_check",
+                ]));
+            }
+            if needs_planning {
+                tools.extend(sisters.tools_for_sister("planning", &[
+                    "planning_goal", "planning_progress",
+                ]));
+            }
+
+            if complexity == "complex" || is_action {
+                // Broad tool set for complex unknown intents
+                tools.extend(sisters.tools_for_sister("memory", &[
+                    "memory_query", "memory_context", "memory_similar",
+                ]));
+                tools.extend(sisters.tools_for_sister("codebase", &[
+                    "symbol_lookup", "impact_analysis", "search_semantic",
+                ]));
+                tools.extend(sisters.tools_for_sister("forge", &[
+                    "forge_blueprint", "forge_skeleton",
+                ]));
+                tools.extend(sisters.tools_for_sister("vision", &[
+                    "vision_capture", "vision_query",
+                ]));
+                if !needs_identity {
+                    tools.extend(sisters.tools_for_sister("identity", &[
+                        "identity_show", "receipt_list",
+                    ]));
+                }
+                if !needs_planning {
+                    tools.extend(sisters.tools_for_sister("planning", &[
+                        "planning_goal", "planning_progress",
+                    ]));
+                }
+                tools.extend(sisters.tools_for_sister("cognition", &[
+                    "cognition_model", "cognition_predict",
+                ]));
+                tools.extend(sisters.tools_for_sister("reality", &[
+                    "reality_deployment", "reality_environment",
+                ]));
+                tools.extend(sisters.tools_for_sister("veritas", &[
+                    "veritas_compile", "veritas_verify",
+                ]));
+                tools.extend(sisters.tools_for_sister("aegis", &[
+                    "shadow_simulate", "aegis_validate",
+                ]));
+                tools.extend(sisters.tools_for_sister("comm", &[
+                    "comm_send", "comm_message",
+                ]));
+                if !needs_time {
+                    tools.extend(sisters.tools_for_sister("time", &[
+                        "time_schedule", "time_deadline",
+                    ]));
+                }
+                tools.truncate(30);
+            }
+        }
+        // All other categories are direct-handled (no LLM tools needed)
+        _ => {}
+    }
+
+    format_tool_list(&tools)
+}
+
+/// Format a list of tool names into a concise prompt section.
+fn format_tool_list(tools: &[String]) -> String {
+    if tools.is_empty() {
+        return String::new();
+    }
+    let mut by_prefix: std::collections::BTreeMap<String, Vec<&str>> = std::collections::BTreeMap::new();
+    for tool in tools {
+        let prefix = tool.split('_').next().unwrap_or("other").to_string();
+        by_prefix.entry(prefix).or_default().push(tool);
+    }
+    let mut out = String::new();
+    out.push_str("You can call these MCP tools using <hydra-tool> tags:\n");
+    for (prefix, names) in &by_prefix {
+        out.push_str(&format!("- {}: {}\n", prefix, names.join(", ")));
+    }
+    out.push_str(&format!("({} tools available)\n", tools.len()));
+    out
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Tool router intent detection helpers (lightweight string matching)
+// Prefixed with is_tool_ to avoid name conflicts with other detectors.
+// ═══════════════════════════════════════════════════════════════════
+
+// DELETED: All is_tool_* keyword functions.
+// Tool routing is now driven by intent.category from the Veritas-powered intent router.
+// See route_tools_for_prompt() above and cognitive/intent_router.rs.
+
+// ═══════════════════════════════════════════════════════════════════
+// Universal slash command handler — works in both Desktop and TUI.
+// Returns the shell command to execute, or "__TEXT__:content" for
+// static text responses. Returns None if unrecognized.
+// ═══════════════════════════════════════════════════════════════════
+
+fn handle_universal_slash_command(input: &str) -> Option<String> {
+    let trimmed = input.trim();
+    let (cmd, args) = match trimmed.find(' ') {
+        Some(pos) => (&trimmed[..pos], trimmed[pos + 1..].trim()),
+        None => (trimmed, ""),
+    };
+
+    match cmd {
+        // ── Developer commands ──
+        "/test" => {
+            let extra = if args.is_empty() { String::new() } else { format!(" {}", args) };
+            Some(detect_project_command("test", &extra))
+        }
+        "/build" => {
+            let extra = if args.is_empty() { String::new() } else { format!(" {}", args) };
+            Some(detect_project_command("build", &extra))
+        }
+        "/run" => {
+            let extra = if args.is_empty() { String::new() } else { format!(" {}", args) };
+            Some(detect_project_command("run", &extra))
+        }
+        "/lint" => Some(detect_project_command("lint", "")),
+        "/fmt" => Some(detect_project_command("fmt", "")),
+        "/bench" => Some(detect_project_command("bench", "")),
+        "/doc" => Some(detect_project_command("doc", "")),
+        "/deps" => Some(detect_project_command("deps", "")),
+
+        "/files" => {
+            // Show project tree (depth 3, max 200 entries)
+            Some("find . -maxdepth 3 -not -path '*/target/*' -not -path '*/.git/*' -not -path '*/node_modules/*' -not -path '*/.next/*' | head -200 | sort".to_string())
+        }
+
+        "/git" => {
+            if args.is_empty() || args == "status" {
+                Some("git status && echo '---' && git log --oneline -5".to_string())
+            } else if args.starts_with("log") {
+                let n = args.strip_prefix("log").unwrap_or("").trim();
+                let count = n.parse::<u32>().unwrap_or(10);
+                Some(format!("git log --oneline -{}", count))
+            } else if args.starts_with("diff") {
+                Some(format!("git {}", args))
+            } else if args.starts_with("branch") {
+                Some("git branch -a".to_string())
+            } else {
+                Some(format!("git {}", args))
+            }
+        }
+
+        "/search" => {
+            if args.is_empty() {
+                Some("__TEXT__:Usage: `/search <pattern>` — searches code for a pattern".to_string())
+            } else {
+                Some(format!(
+                    "grep -rn --include='*.rs' --include='*.ts' --include='*.tsx' --include='*.js' \
+                     --include='*.py' --include='*.go' --include='*.toml' --include='*.json' \
+                     '{}' . 2>/dev/null | head -50",
+                    args.replace('\'', "'\\''")
+                ))
+            }
+        }
+
+        "/symbols" => {
+            if args.is_empty() {
+                Some("__TEXT__:Usage: `/symbols <file>` — extracts functions and types from a file".to_string())
+            } else {
+                // Rust-aware symbol extraction
+                Some(format!(
+                    "grep -n '^\\s*\\(pub\\s\\+\\)\\?\\(fn\\|struct\\|enum\\|trait\\|impl\\|type\\|mod\\|const\\|static\\)\\s' {} 2>/dev/null || \
+                     grep -n '\\(function\\|class\\|interface\\|type\\|export\\)' {} 2>/dev/null || \
+                     grep -n '\\(def\\|class\\)' {} 2>/dev/null || \
+                     echo 'No symbols found in {}'",
+                    args, args, args, args
+                ))
+            }
+        }
+
+        // ── System commands ──
+        "/sisters" | "/status" => {
+            // This will be handled by the sister diagnostic path in the cognitive loop
+            // Return None to let it fall through to the normal path
+            None
+        }
+
+        "/health" => {
+            Some("echo '=== System Health ===' && uptime && echo '---' && df -h . && echo '---' && free -h 2>/dev/null || vm_stat 2>/dev/null".to_string())
+        }
+
+        "/clear" | "/compact" | "/history" => {
+            // UI-only commands — can't handle here, return text hint
+            Some("__TEXT__:This command is handled by the UI layer. Use the Desktop or TUI interface directly.".to_string())
+        }
+
+        "/model" => {
+            if args.is_empty() {
+                Some("__TEXT__:Current model is set in Settings. Use `/model <name>` to change.".to_string())
+            } else {
+                Some(format!("__TEXT__:Model preference noted: **{}**. Change it in Settings to apply.", args))
+            }
+        }
+
+        "/help" => {
+            Some("__TEXT__:## Slash Commands\n\n\
+                **Developer:** /test, /build, /run, /files, /git, /search, /symbols, /lint, /fmt, /deps, /bench, /doc\n\
+                **System:** /sisters, /health, /status\n\
+                **Conversation:** /clear, /compact, /history\n\
+                **Settings:** /model, /theme, /voice\n\
+                **Control:** /approve, /deny, /kill\n\
+                **Debug:** /help, /tokens, /log\n\n\
+                Type `/` to see autocomplete suggestions.".to_string())
+        }
+
+        _ => None,
+    }
+}
+
+/// Detect project type and return the appropriate shell command.
+/// Uses shell conditionals so it works regardless of cwd at compile time.
+fn detect_project_command(action: &str, extra_args: &str) -> String {
+    // Use shell conditionals to detect project type at runtime
+    match action {
+        "test" => format!("if [ -f Cargo.toml ]; then cargo test{}; elif [ -f package.json ]; then npm test; elif [ -f pyproject.toml ]; then python -m pytest; elif [ -f go.mod ]; then go test ./...; else echo 'No project detected'; fi", extra_args),
+        "build" => format!("if [ -f Cargo.toml ]; then cargo build{}; elif [ -f package.json ]; then npm run build; elif [ -f go.mod ]; then go build ./...; else echo 'No project detected'; fi", extra_args),
+        "run" => format!("if [ -f Cargo.toml ]; then cargo run{}; elif [ -f package.json ]; then npm start; elif [ -f go.mod ]; then go run .; else echo 'No project detected'; fi", extra_args),
+        "lint" => "if [ -f Cargo.toml ]; then cargo clippy 2>&1; elif [ -f package.json ]; then npx eslint .; elif [ -f pyproject.toml ]; then python -m ruff check .; else echo 'No project detected'; fi".to_string(),
+        "fmt" => "if [ -f Cargo.toml ]; then cargo fmt; elif [ -f package.json ]; then npx prettier --write .; elif [ -f pyproject.toml ]; then python -m black .; else echo 'No project detected'; fi".to_string(),
+        "bench" => "if [ -f Cargo.toml ]; then cargo bench; elif [ -f package.json ]; then npm run bench 2>/dev/null || echo 'No bench script'; else echo 'No project detected'; fi".to_string(),
+        "doc" => "if [ -f Cargo.toml ]; then cargo doc --open; elif [ -f package.json ]; then npm run docs 2>/dev/null || echo 'No docs script'; else echo 'No project detected'; fi".to_string(),
+        "deps" => "if [ -f Cargo.toml ]; then cargo tree --depth 1; elif [ -f package.json ]; then cat package.json | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{k}: {v}') for k,v in {**d.get('dependencies',{}),**d.get('devDependencies',{})}.items()]\"; else echo 'No project detected'; fi".to_string(),
+        _ => format!("echo 'Unknown action: {}'", action),
+    }
 }

@@ -1,7 +1,9 @@
 pub mod app;
 pub mod commands;
 pub mod event;
+pub mod message;
 pub mod onboarding;
+pub mod project;
 pub mod theme;
 pub mod ui;
 pub mod widgets;
