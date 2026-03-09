@@ -14,3 +14,8 @@ hydra-native = { path = "../hydra-native", features = ["desktop"] }
 cpal = "0.15"
 reqwest = { version = "0.12", features = ["json", "multipart", "rustls-tls"] }
 serde_json = "1.0"
+parking_lot = "0.12"
+tracing = "0.1"
+hydra-runtime = { path = "../hydra-runtime" }
+hydra-db = { path = "../hydra-db" }
+chrono = { workspace = true }

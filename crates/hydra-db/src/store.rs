@@ -112,6 +112,68 @@ impl ApprovalStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReceiptRow {
+    pub id: String,
+    pub receipt_type: String,
+    pub action: String,
+    pub actor: String,
+    pub tokens_used: i64,
+    pub risk_level: Option<String>,
+    pub hash: String,
+    pub prev_hash: Option<String>,
+    pub sequence: i64,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShadowValidationRow {
+    pub action_description: String,
+    pub safe: bool,
+    pub divergence_count: i32,
+    pub critical_divergences: i32,
+    pub recommendation: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnomalyEventRow {
+    pub event_type: String,
+    pub command: String,
+    pub detail: Option<String>,
+    pub severity: String,
+    pub kill_switch_engaged: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrustScoreRow {
+    pub domain: String,
+    pub score: f64,
+    pub total_actions: i64,
+    pub successful_actions: i64,
+    pub failed_actions: i64,
+    pub autonomy_level: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CursorSessionRow {
+    pub id: String,
+    pub task_id: String,
+    pub mode: String,
+    pub started_at: String,
+    pub ended_at: Option<String>,
+    pub event_count: i64,
+    pub total_duration_ms: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CursorEventRow {
+    pub timestamp_ms: i64,
+    pub event_type: String,
+    pub x: f64,
+    pub y: f64,
+    pub payload: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunRow {
     pub id: String,
     pub intent: String,
@@ -552,6 +614,239 @@ impl HydraDb {
     /// Expose the shared connection for subsystems (e.g. MessageStore)
     pub fn connection(&self) -> Arc<Mutex<Connection>> {
         Arc::clone(&self.conn)
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // RECEIPTS
+    // ═══════════════════════════════════════════════════════
+
+    pub fn create_receipt(&self, r: &ReceiptRow) -> Result<(), DbError> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "INSERT INTO receipts (id, receipt_type, action, actor, tokens_used, risk_level, hash, prev_hash, sequence, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![r.id, r.receipt_type, r.action, r.actor, r.tokens_used, r.risk_level, r.hash, r.prev_hash, r.sequence, r.created_at],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_receipts(&self, limit: usize) -> Result<Vec<ReceiptRow>, DbError> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(
+            "SELECT id, receipt_type, action, actor, tokens_used, risk_level, hash, prev_hash, sequence, created_at FROM receipts ORDER BY sequence DESC LIMIT ?1"
+        )?;
+        let iter = stmt.query_map(params![limit as i64], |row| {
+            Ok(ReceiptRow {
+                id: row.get(0)?,
+                receipt_type: row.get(1)?,
+                action: row.get(2)?,
+                actor: row.get(3)?,
+                tokens_used: row.get(4)?,
+                risk_level: row.get(5)?,
+                hash: row.get(6)?,
+                prev_hash: row.get(7)?,
+                sequence: row.get(8)?,
+                created_at: row.get(9)?,
+            })
+        })?;
+        let mut rows = Vec::new();
+        for r in iter { rows.push(r?); }
+        Ok(rows)
+    }
+
+    pub fn last_receipt_hash(&self) -> Result<Option<String>, DbError> {
+        let conn = self.conn.lock();
+        let result: Option<String> = conn.query_row(
+            "SELECT hash FROM receipts ORDER BY sequence DESC LIMIT 1", [], |row| row.get(0),
+        ).ok();
+        Ok(result)
+    }
+
+    pub fn next_receipt_sequence(&self) -> Result<i64, DbError> {
+        let conn = self.conn.lock();
+        let max: Option<i64> = conn.query_row(
+            "SELECT MAX(sequence) FROM receipts", [], |row| row.get(0),
+        ).ok().flatten();
+        Ok(max.unwrap_or(0) + 1)
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // SHADOW VALIDATIONS
+    // ═══════════════════════════════════════════════════════
+
+    pub fn create_shadow_validation(&self, sv: &ShadowValidationRow) -> Result<(), DbError> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "INSERT INTO shadow_validations (action_description, safe, divergence_count, critical_divergences, recommendation) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![sv.action_description, sv.safe as i32, sv.divergence_count, sv.critical_divergences, sv.recommendation],
+        )?;
+        Ok(())
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // ANOMALY EVENTS
+    // ═══════════════════════════════════════════════════════
+
+    pub fn create_anomaly_event(&self, ae: &AnomalyEventRow) -> Result<(), DbError> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "INSERT INTO anomaly_events (event_type, command, detail, severity, kill_switch_engaged) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![ae.event_type, ae.command, ae.detail, ae.severity, ae.kill_switch_engaged as i32],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_anomaly_events(&self, limit: usize) -> Result<Vec<AnomalyEventRow>, DbError> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(
+            "SELECT event_type, command, detail, severity, kill_switch_engaged FROM anomaly_events ORDER BY created_at DESC LIMIT ?1"
+        )?;
+        let iter = stmt.query_map(params![limit as i64], |row| {
+            let ks: i32 = row.get(4)?;
+            Ok(AnomalyEventRow {
+                event_type: row.get(0)?,
+                command: row.get(1)?,
+                detail: row.get(2)?,
+                severity: row.get(3)?,
+                kill_switch_engaged: ks != 0,
+            })
+        })?;
+        let mut rows = Vec::new();
+        for r in iter { rows.push(r?); }
+        Ok(rows)
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // TRUST SCORES
+    // ═══════════════════════════════════════════════════════
+
+    pub fn upsert_trust_score(&self, ts: &TrustScoreRow) -> Result<(), DbError> {
+        let conn = self.conn.lock();
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "INSERT INTO trust_scores (domain, score, total_actions, successful_actions, failed_actions, autonomy_level, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) ON CONFLICT(domain) DO UPDATE SET score=?2, total_actions=?3, successful_actions=?4, failed_actions=?5, autonomy_level=?6, updated_at=?7",
+            params![ts.domain, ts.score, ts.total_actions, ts.successful_actions, ts.failed_actions, ts.autonomy_level, now],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_trust_score(&self, domain: &str) -> Result<Option<TrustScoreRow>, DbError> {
+        let conn = self.conn.lock();
+        let result = conn.query_row(
+            "SELECT domain, score, total_actions, successful_actions, failed_actions, autonomy_level FROM trust_scores WHERE domain = ?1",
+            params![domain],
+            |row| Ok(TrustScoreRow {
+                domain: row.get(0)?,
+                score: row.get(1)?,
+                total_actions: row.get(2)?,
+                successful_actions: row.get(3)?,
+                failed_actions: row.get(4)?,
+                autonomy_level: row.get(5)?,
+            }),
+        );
+        match result {
+            Ok(ts) => Ok(Some(ts)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(DbError::Sqlite(e)),
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // CURSOR SESSIONS & EVENTS
+    // ═══════════════════════════════════════════════════════
+
+    pub fn create_cursor_session(&self, id: &str, task_id: &str, mode: &str) -> Result<(), DbError> {
+        let conn = self.conn.lock();
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "INSERT INTO cursor_sessions (id, task_id, mode, started_at) VALUES (?1, ?2, ?3, ?4)",
+            params![id, task_id, mode, now],
+        )?;
+        Ok(())
+    }
+
+    pub fn finish_cursor_session(&self, id: &str, event_count: i64, duration_ms: i64) -> Result<(), DbError> {
+        let conn = self.conn.lock();
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "UPDATE cursor_sessions SET ended_at = ?1, event_count = ?2, total_duration_ms = ?3 WHERE id = ?4",
+            params![now, event_count, duration_ms, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn record_cursor_event(
+        &self,
+        session_id: &str,
+        timestamp_ms: i64,
+        event_type: &str,
+        x: f64,
+        y: f64,
+        payload: Option<&str>,
+    ) -> Result<(), DbError> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "INSERT INTO cursor_events (session_id, timestamp_ms, event_type, x, y, payload) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![session_id, timestamp_ms, event_type, x, y, payload],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_cursor_sessions(&self, task_id: Option<&str>, limit: usize) -> Result<Vec<CursorSessionRow>, DbError> {
+        let conn = self.conn.lock();
+        let mut rows = Vec::new();
+        if let Some(tid) = task_id {
+            let mut stmt = conn.prepare(
+                "SELECT id, task_id, mode, started_at, ended_at, event_count, total_duration_ms FROM cursor_sessions WHERE task_id = ?1 ORDER BY started_at DESC LIMIT ?2"
+            )?;
+            let iter = stmt.query_map(params![tid, limit as i64], |row| {
+                Ok(CursorSessionRow {
+                    id: row.get(0)?,
+                    task_id: row.get(1)?,
+                    mode: row.get(2)?,
+                    started_at: row.get(3)?,
+                    ended_at: row.get(4)?,
+                    event_count: row.get(5)?,
+                    total_duration_ms: row.get(6)?,
+                })
+            })?;
+            for r in iter { rows.push(r?); }
+        } else {
+            let mut stmt = conn.prepare(
+                "SELECT id, task_id, mode, started_at, ended_at, event_count, total_duration_ms FROM cursor_sessions ORDER BY started_at DESC LIMIT ?1"
+            )?;
+            let iter = stmt.query_map(params![limit as i64], |row| {
+                Ok(CursorSessionRow {
+                    id: row.get(0)?,
+                    task_id: row.get(1)?,
+                    mode: row.get(2)?,
+                    started_at: row.get(3)?,
+                    ended_at: row.get(4)?,
+                    event_count: row.get(5)?,
+                    total_duration_ms: row.get(6)?,
+                })
+            })?;
+            for r in iter { rows.push(r?); }
+        }
+        Ok(rows)
+    }
+
+    pub fn get_cursor_events(&self, session_id: &str) -> Result<Vec<CursorEventRow>, DbError> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(
+            "SELECT timestamp_ms, event_type, x, y, payload FROM cursor_events WHERE session_id = ?1 ORDER BY timestamp_ms"
+        )?;
+        let iter = stmt.query_map(params![session_id], |row| {
+            Ok(CursorEventRow {
+                timestamp_ms: row.get(0)?,
+                event_type: row.get(1)?,
+                x: row.get(2)?,
+                y: row.get(3)?,
+                payload: row.get(4)?,
+            })
+        })?;
+        let mut rows = Vec::new();
+        for r in iter { rows.push(r?); }
+        Ok(rows)
     }
 
     pub fn list_pending_approvals(&self) -> Result<Vec<ApprovalRow>, DbError> {

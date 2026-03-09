@@ -22,9 +22,15 @@ use hydra_native::components::timeline_panel::{TimelinePanel, TimelineEventKind}
 use hydra_native::components::evidence_panel::EvidencePanel;
 use hydra_native::profile::{load_profile, save_profile, PersistedProfile};
 use hydra_native::sisters::SistersHandle;
-use hydra_native::cognitive::{CognitiveLoopConfig, CognitiveUpdate, run_cognitive_loop};
+use hydra_native::cognitive::{CognitiveLoopConfig, CognitiveUpdate, DecideEngine, InventionEngine, AgentSpawner, run_cognitive_loop};
+use hydra_native::proactive::ProactiveNotifier;
+use hydra_native::persistence::ChatPersistence;
 use hydra_native::utils::markdown::markdown_to_html;
 use hydra_native::components::globe::{globe_params, globe_svg, derive_globe_state, GlobeSize};
+use hydra_native::components::ghost_cursor::{GhostCursorState, CursorMode, cursor_svg};
+use hydra_db::HydraDb;
+use hydra_runtime::approval::{ApprovalDecision, ApprovalManager};
+use hydra_runtime::undo::UndoStack;
 
 const CSS: &str = include_str!("styles.css");
 
@@ -47,6 +53,57 @@ fn App() -> Element {
     // ── Load persisted profile ──
     let persisted = load_profile();
     let onboarding_done = persisted.as_ref().map_or(false, |p| p.onboarding_complete);
+
+    let chat_db = Arc::new(ChatPersistence::init().unwrap_or_else(|e| {
+        eprintln!("[hydra] Chat persistence failed: {}", e);
+        ChatPersistence::init().expect("chat persistence fallback failed")
+    }));
+
+    // ── Init graduated autonomy engine ──
+    let decide_engine: Arc<DecideEngine> = use_hook(|| Arc::new(DecideEngine::new()));
+
+    let invention_engine: Arc<InventionEngine> = use_hook(|| {
+        let engine = Arc::new(InventionEngine::new());
+        let inv = engine.clone();
+        spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                inv.tick_idle(10);
+                if let Some(dream_insights) = inv.maybe_dream() {
+                    tracing::info!("[hydra] Dream insights: {}", dream_insights);
+                }
+            }
+        });
+        engine
+    });
+    let proactive_notifier: Arc<parking_lot::Mutex<ProactiveNotifier>> =
+        use_hook(|| Arc::new(parking_lot::Mutex::new(ProactiveNotifier::new())));
+    let agent_spawner: Arc<AgentSpawner> = use_hook(|| Arc::new(AgentSpawner::new(100)));
+    let undo_stack: Arc<parking_lot::Mutex<UndoStack>> = use_hook(|| Arc::new(parking_lot::Mutex::new(UndoStack::new(100))));
+    let approval_manager: Arc<ApprovalManager> = use_hook(|| Arc::new(ApprovalManager::with_default_timeout()));
+    // ── Initialize security database ──
+    let hydra_db: Option<Arc<HydraDb>> = use_hook(|| {
+        let db_path = std::env::var("HOME")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|_| std::path::PathBuf::from("."))
+            .join(".hydra")
+            .join("security.db");
+        match HydraDb::init(&db_path) {
+            Ok(db) => {
+                tracing::info!("[hydra] Security DB initialized at {:?}", db_path);
+                Some(Arc::new(db))
+            }
+            Err(e) => {
+                tracing::warn!("[hydra] Failed to init security DB: {}", e);
+                None
+            }
+        }
+    });
+
+    // Clone for each UI consumer that captures approval_manager
+    let send_msg_approval_mgr = approval_manager.clone();
+    let palette_approval_mgr = approval_manager.clone();
+    let card_approval_mgr = approval_manager.clone();
 
     // ── Init sisters (MCP connections) ──
     let sisters: Signal<Option<SistersHandle>> = use_signal(|| None);
@@ -89,7 +146,9 @@ fn App() -> Element {
 
     // ── Core state signals ──
     let mut input = use_signal(|| String::new());
-    let mut messages = use_signal(|| Vec::<(String, String, String)>::new());
+    let chat_db_init = chat_db.clone();
+    let mut messages = use_signal(move || chat_db_init.load_messages());
+    let chat_db_sig: Signal<Arc<ChatPersistence>> = use_signal(|| chat_db.clone());
     let mut connected = use_signal(|| false);
     let mut phase = use_signal(|| "Idle".to_string());
     let mut icon_state = use_signal(|| "idle".to_string());
@@ -137,7 +196,12 @@ fn App() -> Element {
 
     // ── Approval, progress, error ──
     let mut pending_approval = use_signal(|| Option::<ApprovalCard>::None);
+    let mut pending_approval_id = use_signal(|| Option::<String>::None);
     let mut challenge_input = use_signal(|| String::new());
+
+    // ── Ghost Cursor state ──
+    let mut ghost_cursor = use_signal(|| GhostCursorState::new());
+    let mut ghost_click_rings: Signal<Vec<(f64, f64, u64)>> = use_signal(|| Vec::new());
     let mut _active_progress = use_signal(|| Option::<ProgressJourney>::None);
     let mut celebration = use_signal(|| Option::<Celebration>::None);
     let mut celebration_dismiss_scheduled = use_signal(|| false);
@@ -162,12 +226,19 @@ fn App() -> Element {
     // Store messages per session: session_id -> Vec<(role, content, css)>
     let mut session_store = use_signal(|| HashMap::<String, Vec<(String, String, String)>>::new());
 
+    // ── Undo/Redo state ──
+    let mut can_undo = use_signal(|| false);
+    let mut can_redo = use_signal(|| false);
+    let mut last_undo_action = use_signal(|| Option::<String>::None);
+    let undo_sig: Signal<Arc<parking_lot::Mutex<UndoStack>>> = use_signal(|| undo_stack.clone());
+
     // ── Workspace panels ──
     let mut plan_panel = use_signal(|| PlanPanel::default());
     let mut timeline_panel = use_signal(|| TimelinePanel::new());
     let mut evidence_panel = use_signal(|| EvidencePanel::new());
 
     // ── Global keyboard shortcuts via JS document listener ──
+    let kb_approval_mgr = approval_manager.clone();
     use_hook(|| {
         spawn(async move {
             let mut eval = document::eval(r#"
@@ -179,7 +250,7 @@ fn App() -> Element {
                             if (e.shiftKey && k === 'k') {
                                 e.preventDefault();
                                 queue.push('shift+k');
-                            } else if (['k','b','n','f',',','1','2','3','4'].indexOf(k) !== -1) {
+                            } else if (['k','b','n','f',',','z','1','2','3','4'].indexOf(k) !== -1) {
                                 e.preventDefault();
                                 queue.push(k);
                             }
@@ -202,10 +273,12 @@ fn App() -> Element {
                         match key.as_str() {
                             "shift+k" => {
                                 // Kill switch — emergency halt all activity
+                                kb_approval_mgr.cancel_all();
                                 is_typing.set(false);
                                 phase.set("Idle".into());
                                 icon_state.set("idle".into());
                                 pending_approval.set(None);
+                                pending_approval_id.set(None);
                                 phase_statuses.set(vec![]);
                                 active_error.set(Some(FriendlyError {
                                     message: "Kill Switch Activated".into(),
@@ -240,6 +313,8 @@ fn App() -> Element {
                                 for id in task_ids {
                                     sidebar.write().complete_task(&id);
                                 }
+                                // Create new DB conversation
+                                let _conv_id = chat_db_sig.read().new_conversation();
                                 // Create new session
                                 let count = *session_counter.read() + 1;
                                 session_counter.set(count);
@@ -256,6 +331,7 @@ fn App() -> Element {
                                 timeline_panel.write().clear();
                                 evidence_panel.write().clear();
                                 pending_approval.set(None);
+                                pending_approval_id.set(None);
                                 celebration.set(None);
                                 active_error.set(None);
                                 phase_statuses.set(vec![]);
@@ -270,6 +346,16 @@ fn App() -> Element {
                             "2" => { current_mode.set("workspace".into()); show_sidebar.set(true); }
                             "3" => { current_mode.set("immersive".into()); }
                             "4" => { current_mode.set("invisible".into()); }
+                            "z" => {
+                                let stack = undo_sig.read();
+                                let mut s = stack.lock();
+                                if s.can_undo() {
+                                    let _ = s.undo();
+                                    can_undo.set(s.can_undo());
+                                    can_redo.set(s.can_redo());
+                                    last_undo_action.set(s.last_action_description().map(String::from));
+                                }
+                            }
                             "escape" => {
                                 show_command_palette.set(false);
                                 show_settings.set(false);
@@ -294,6 +380,14 @@ fn App() -> Element {
     let greeting = if user_name.is_empty() { "Hi there!".to_string() } else { format!("Hi {}!", user_name) };
 
     // ── Send message handler ──
+    // Wrap Arc in Signal so the closure captures only Copy types (Signal is Copy)
+    let decide_sig: Signal<Arc<DecideEngine>> = use_signal(|| decide_engine.clone());
+    let inv_sig: Signal<Arc<InventionEngine>> = use_signal(|| invention_engine.clone());
+    let notifier_sig: Signal<Arc<parking_lot::Mutex<ProactiveNotifier>>> = use_signal(|| proactive_notifier.clone());
+    let spawner_sig: Signal<Arc<AgentSpawner>> = use_signal(|| agent_spawner.clone());
+    let approval_sig: Signal<Arc<ApprovalManager>> = use_signal(|| send_msg_approval_mgr.clone());
+    let db_sig: Signal<Option<Arc<HydraDb>>> = use_signal(|| hydra_db.clone());
+
     let mut send_message = move |text: String| {
         let validation = validate_input(&text, 10_000);
         if !validation.valid {
@@ -305,6 +399,7 @@ fn App() -> Element {
 
         let is_first_message = messages.read().is_empty();
         messages.write().push(("user".into(), text.clone(), "message".into()));
+        chat_db_sig.read().save_message("user", &text);
         connected.set(true);
         input.set(String::new());
         new_session_flash.set(false);
@@ -353,8 +448,15 @@ fn App() -> Element {
 
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<CognitiveUpdate>();
 
-        spawn(async move { run_cognitive_loop(loop_config, sisters_handle, tx).await; });
+        let decide = decide_sig.read().clone();
+        let inv = inv_sig.read().clone();
+        let notifier = notifier_sig.read().clone();
+        let spawner = spawner_sig.read().clone();
+        let approval_mgr = approval_sig.read().clone();
+        let db_handle = db_sig.read().clone();
+        spawn(async move { run_cognitive_loop(loop_config, sisters_handle, tx, decide, Some(undo_sig.read().clone()), Some(inv), Some(notifier), Some(spawner), Some(approval_mgr), db_handle).await; });
 
+        let chat_db_rx = chat_db_sig.read().clone();
         spawn(async move {
             while let Some(update) = rx.recv().await {
                 match update {
@@ -385,6 +487,7 @@ fn App() -> Element {
                     }
                     CognitiveUpdate::TimelineClear => { timeline_panel.write().clear(); }
                     CognitiveUpdate::Message { role, content, css_class } => {
+                        chat_db_rx.save_message(&role, &content);
                         messages.write().push((role, content, css_class));
                     }
                     CognitiveUpdate::SidebarCompleteTask(id) => { sidebar.write().complete_task(&id); }
@@ -396,20 +499,189 @@ fn App() -> Element {
                         phase_statuses.set(vec![]);
                     }
                     CognitiveUpdate::SuggestMode(mode) => { current_mode.set(mode); }
-                    CognitiveUpdate::AwaitApproval { risk_level, action, description, challenge_phrase } => {
-                        let card = match risk_level.as_str() {
-                            "critical" => ApprovalCard::critical(&action, &description, challenge_phrase.as_deref().unwrap_or("")),
-                            "high" => ApprovalCard::high(&action, &description, &action),
-                            "medium" => ApprovalCard::medium(&action, &description),
-                            _ => ApprovalCard::low(&action, &description),
-                        };
-                        pending_approval.set(Some(card));
+                    CognitiveUpdate::AwaitApproval { approval_id, risk_level, action, description, challenge_phrase } => {
+                        // Store the approval ID so buttons can submit decisions back
+                        pending_approval_id.set(approval_id);
+                        // Only show approval card for medium+ risk actions.
+                        // None/low risk actions proceed silently — no user interruption.
+                        match risk_level.as_str() {
+                            "critical" => {
+                                let card = ApprovalCard::critical(&action, &description, challenge_phrase.as_deref().unwrap_or(""));
+                                pending_approval.set(Some(card));
+                            }
+                            "high" => {
+                                let card = ApprovalCard::high(&action, &description, &action);
+                                pending_approval.set(Some(card));
+                            }
+                            "medium" => {
+                                let card = ApprovalCard::medium(&action, &description);
+                                pending_approval.set(Some(card));
+                            }
+                            _ => {
+                                // none/low risk: auto-approve silently, no UI interruption
+                                tracing::debug!("Auto-approved {} risk action: {}", risk_level, action);
+                            }
+                        }
                     }
                     CognitiveUpdate::SettingsApplied { .. } => {}
                     CognitiveUpdate::SistersCalled { .. } => {}
                     CognitiveUpdate::TokenUsage { .. } => {}
                     CognitiveUpdate::StreamChunk { .. } => {}
                     CognitiveUpdate::StreamComplete => {}
+                    CognitiveUpdate::UndoStatus { can_undo: cu, can_redo: cr, last_action } => {
+                        can_undo.set(cu);
+                        can_redo.set(cr);
+                        last_undo_action.set(last_action);
+                    }
+                    CognitiveUpdate::ProactiveAlert { title, message, priority } => {
+                        let kind = match priority.as_str() {
+                            "High" => TimelineEventKind::Error,
+                            "Medium" => TimelineEventKind::Info,
+                            _ => TimelineEventKind::Info,
+                        };
+                        let now = chrono::Local::now().format("%H:%M:%S").to_string();
+                        timeline_panel.write().push_event(
+                            &now,
+                            kind,
+                            &format!("[{}] {}", priority, title),
+                            Some(&message),
+                            None,
+                        );
+                    }
+                    CognitiveUpdate::SkillCrystallized { name, actions_count } => {
+                        tracing::info!("[hydra] Skill crystallized: {} ({} actions)", name, actions_count);
+                        let now = chrono::Local::now().format("%H:%M:%S").to_string();
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Info,
+                            &format!("Skill crystallized: {}", name),
+                            Some(&format!("{} actions learned → reusable skill", actions_count)),
+                            None,
+                        );
+                    }
+                    CognitiveUpdate::ReflectionInsight { insight } => {
+                        tracing::info!("[hydra] Reflection: {}", insight);
+                        let now = chrono::Local::now().format("%H:%M:%S").to_string();
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Info,
+                            "Metacognition insight",
+                            Some(&insight),
+                            None,
+                        );
+                    }
+                    CognitiveUpdate::CompressionApplied { original_tokens, compressed_tokens, ratio } => {
+                        tracing::info!("[hydra] Context compressed: {} → {} tokens ({:.0}% reduction)", original_tokens, compressed_tokens, (1.0 - ratio) * 100.0);
+                        let now = chrono::Local::now().format("%H:%M:%S").to_string();
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Info,
+                            &format!("Token compression: {} → {}", original_tokens, compressed_tokens),
+                            Some(&format!("{:.0}% reduction", (1.0 - ratio) * 100.0)),
+                            None,
+                        );
+                    }
+                    CognitiveUpdate::DreamInsight { category, description, confidence } => {
+                        tracing::info!("[hydra] Dream insight [{}]: {} ({:.0}%)", category, description, confidence * 100.0);
+                        let now = chrono::Local::now().format("%H:%M:%S").to_string();
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Info,
+                            &format!("Dream insight ({})", category),
+                            Some(&description),
+                            None,
+                        );
+                    }
+                    CognitiveUpdate::ShadowValidation { safe, recommendation } => {
+                        tracing::info!("[hydra] Shadow validation: safe={}, {}", safe, recommendation);
+                        let now = chrono::Local::now().format("%H:%M:%S").to_string();
+                        let kind = if safe { TimelineEventKind::Info } else { TimelineEventKind::Error };
+                        timeline_panel.write().push_event(
+                            &now,
+                            kind,
+                            &format!("Shadow validation: {}", if safe { "SAFE" } else { "WARNING" }),
+                            Some(&recommendation),
+                            None,
+                        );
+                    }
+                    CognitiveUpdate::PredictionResult { action, confidence, recommendation } => {
+                        tracing::info!("[hydra] Prediction: {} ({:.0}% confidence, {})", action, confidence * 100.0, recommendation);
+                        let now = chrono::Local::now().format("%H:%M:%S").to_string();
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Info,
+                            &format!("Future Echo: {:.0}% confidence", confidence * 100.0),
+                            Some(&format!("{} — {}", recommendation, action)),
+                            None,
+                        );
+                    }
+                    CognitiveUpdate::PatternEvolved { summary } => {
+                        tracing::info!("[hydra] Pattern evolution: {}", summary);
+                        let now = chrono::Local::now().format("%H:%M:%S").to_string();
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Info,
+                            "Pattern evolution",
+                            Some(&summary),
+                            None,
+                        );
+                    }
+                    CognitiveUpdate::TemporalStored { category, content } => {
+                        tracing::info!("[hydra] Temporal memory stored [{}]: {}", category, content);
+                    }
+                    // ── Ghost Cursor events ──
+                    CognitiveUpdate::CursorMove { x, y, label } => {
+                        ghost_cursor.write().move_to(x, y, label);
+                    }
+                    CognitiveUpdate::CursorClick => {
+                        let gc = ghost_cursor.read();
+                        let cx = gc.x;
+                        let cy = gc.y;
+                        drop(gc);
+                        ghost_cursor.write().click();
+                        // Add click ring effect
+                        let now = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_millis() as u64;
+                        ghost_click_rings.write().push((cx, cy, now));
+                        // Reset to idle after click animation
+                        let mut gc_sig = ghost_cursor.clone();
+                        spawn(async move {
+                            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                            gc_sig.write().idle();
+                        });
+                    }
+                    CognitiveUpdate::CursorTyping { active } => {
+                        if active {
+                            ghost_cursor.write().start_typing();
+                        } else {
+                            ghost_cursor.write().idle();
+                        }
+                    }
+                    CognitiveUpdate::CursorVisibility { visible } => {
+                        if visible {
+                            ghost_cursor.write().show();
+                        } else {
+                            ghost_cursor.write().hide();
+                        }
+                    }
+                    CognitiveUpdate::CursorModeChange { mode } => {
+                        let m = match mode.as_str() {
+                            "fast" => CursorMode::Fast,
+                            "invisible" => CursorMode::Invisible,
+                            "replay" => CursorMode::Replay,
+                            _ => CursorMode::Visible,
+                        };
+                        ghost_cursor.write().set_mode(m);
+                    }
+                    CognitiveUpdate::CursorPaused { paused } => {
+                        if paused {
+                            ghost_cursor.write().pause();
+                        } else {
+                            ghost_cursor.write().resume();
+                        }
+                    }
                 }
             }
         });
@@ -592,10 +864,12 @@ fn App() -> Element {
                                                 "clear-chat" => messages.write().clear(),
                                                 "view-features" => show_features.set(true),
                                                 "toggle-kill-switch" => {
+                                                    palette_approval_mgr.cancel_all();
                                                     is_typing.set(false);
                                                     phase.set("Idle".into());
                                                     icon_state.set("idle".into());
                                                     pending_approval.set(None);
+                                                    pending_approval_id.set(None);
                                                     phase_statuses.set(vec![]);
                                                     active_error.set(Some(FriendlyError {
                                                         message: "Kill Switch Activated".into(),
@@ -624,6 +898,8 @@ fn App() -> Element {
                                                     for id in task_ids {
                                                         sidebar.write().complete_task(&id);
                                                     }
+                                                    // Create new DB conversation
+                                                    let _conv_id = chat_db_sig.read().new_conversation();
                                                     let count = *session_counter.read() + 1;
                                                     session_counter.set(count);
                                                     let new_id = format!("session-{}", count);
@@ -807,6 +1083,8 @@ fn App() -> Element {
                                     for id in task_ids {
                                         sidebar.write().complete_task(&id);
                                     }
+                                    // Create new DB conversation
+                                    let _conv_id = chat_db_sig.read().new_conversation();
                                     // Create new session
                                     let count = *session_counter.read() + 1;
                                     session_counter.set(count);
@@ -867,8 +1145,14 @@ fn App() -> Element {
                                                         session_store.write().insert(cur_id.clone(), cur_msgs);
                                                         // Deactivate old, activate new in sidebar
                                                         sidebar.write().complete_task(&cur_id);
-                                                        // Load target session messages
-                                                        let stored = session_store.read().get(&switch_id).cloned().unwrap_or_default();
+                                                        // Switch DB conversation (switch_id maps to a conversation)
+                                                        let db_msgs = chat_db_sig.read().switch_conversation(&switch_id);
+                                                        // Load target session messages (prefer DB, fall back to in-memory)
+                                                        let stored = if !db_msgs.is_empty() {
+                                                            db_msgs
+                                                        } else {
+                                                            session_store.read().get(&switch_id).cloned().unwrap_or_default()
+                                                        };
                                                         *messages.write() = stored.clone();
                                                         connected.set(!stored.is_empty());
                                                         active_session_id.set(switch_id.clone());
@@ -949,7 +1233,13 @@ fn App() -> Element {
                                                             let cur_msgs = messages.read().clone();
                                                             session_store.write().insert(cur_id.clone(), cur_msgs);
                                                             sidebar.write().complete_task(&cur_id);
-                                                            let stored = session_store.read().get(&switch_id).cloned().unwrap_or_default();
+                                                            // Switch DB conversation
+                                                            let db_msgs = chat_db_sig.read().switch_conversation(&switch_id);
+                                                            let stored = if !db_msgs.is_empty() {
+                                                                db_msgs
+                                                            } else {
+                                                                session_store.read().get(&switch_id).cloned().unwrap_or_default()
+                                                            };
                                                             *messages.write() = stored.clone();
                                                             connected.set(!stored.is_empty());
                                                             active_session_id.set(switch_id.clone());
@@ -1979,6 +2269,10 @@ fn App() -> Element {
                                     let primary = card.primary_action.clone();
                                     let secondary = card.secondary_action.clone();
                                     let countdown_val = *approval_countdown.read();
+                                    let approve_mgr = card_approval_mgr.clone();
+                                    let deny_mgr = card_approval_mgr.clone();
+                                    let key_approve_mgr = card_approval_mgr.clone();
+                                    let key_deny_mgr = card_approval_mgr.clone();
                                     rsx! {
                                         div {
                                             class: "approval-card",
@@ -1986,10 +2280,16 @@ fn App() -> Element {
                                             onkeydown: move |e| {
                                                 match e.key() {
                                                     Key::Character(ref c) if c == "y" || c == "Y" => {
-                                                        pending_approval.set(None); approval_countdown.set(0);
+                                                        if let Some(id) = pending_approval_id.read().clone() {
+                                                            let _ = key_approve_mgr.submit_decision(&id, ApprovalDecision::Approved);
+                                                        }
+                                                        pending_approval.set(None); pending_approval_id.set(None); approval_countdown.set(0);
                                                     }
                                                     Key::Character(ref c) if c == "n" || c == "N" => {
-                                                        pending_approval.set(None); approval_countdown.set(0);
+                                                        if let Some(id) = pending_approval_id.read().clone() {
+                                                            let _ = key_deny_mgr.submit_decision(&id, ApprovalDecision::Denied { reason: "User denied via keyboard".into() });
+                                                        }
+                                                        pending_approval.set(None); pending_approval_id.set(None); approval_countdown.set(0);
                                                     }
                                                     _ => {}
                                                 }
@@ -2022,13 +2322,23 @@ fn App() -> Element {
                                             div { class: "approval-actions",
                                                 button {
                                                     class: "btn-primary",
-                                                    onclick: move |_| { pending_approval.set(None); approval_countdown.set(0); },
+                                                    onclick: move |_| {
+                                                        if let Some(id) = pending_approval_id.read().clone() {
+                                                            let _ = approve_mgr.submit_decision(&id, ApprovalDecision::Approved);
+                                                        }
+                                                        pending_approval.set(None); pending_approval_id.set(None); approval_countdown.set(0);
+                                                    },
                                                     "{primary} "
                                                     span { class: "kbd", "Y" }
                                                 }
                                                 button {
                                                     class: "btn-secondary",
-                                                    onclick: move |_| { pending_approval.set(None); approval_countdown.set(0); },
+                                                    onclick: move |_| {
+                                                        if let Some(id) = pending_approval_id.read().clone() {
+                                                            let _ = deny_mgr.submit_decision(&id, ApprovalDecision::Denied { reason: "User denied".into() });
+                                                        }
+                                                        pending_approval.set(None); pending_approval_id.set(None); approval_countdown.set(0);
+                                                    },
                                                     "{secondary} "
                                                     span { class: "kbd", "N" }
                                                 }
@@ -2214,6 +2524,97 @@ fn App() -> Element {
                                     }
                                 }
                                 p { class: "input-hint", "Enter to send \u{00B7} \u{2318}K commands \u{00B7} \u{2318}B sidebar" }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════
+            // GHOST CURSOR OVERLAY
+            // ═══════════════════════════════════════════════════════
+            {
+                let gc = ghost_cursor.read();
+                let cursor_class = gc.css_class();
+                let cursor_style = gc.transform_style();
+                let label = gc.action_label.clone().unwrap_or_default();
+                let has_label = gc.action_label.is_some();
+                let (pdx, pdy) = gc.pupil_offset();
+                let svg_html = cursor_svg(pdx, pdy);
+                let is_visible = gc.visible;
+                let mode_label = gc.mode.label();
+                let show_mode_badge = gc.mode != CursorMode::Visible && is_visible;
+                let is_replay = gc.mode == CursorMode::Replay;
+                let replay_pct = (gc.replay_progress * 100.0) as u32;
+                let trail_dots: Vec<(f64, f64, f64)> = gc.trail.iter().map(|d| {
+                    let opacity = 1.0 - (d.age_ms as f64 / 1000.0);
+                    (d.x, d.y, opacity.max(0.0))
+                }).collect();
+                drop(gc);
+
+                rsx! {
+                    div {
+                        class: "ghost-cursor-overlay",
+
+                        // Trail dots
+                        for (i, (tx_pos, ty_pos, opacity)) in trail_dots.iter().enumerate() {
+                            div {
+                                key: "trail-{i}",
+                                class: "ghost-trail-dot",
+                                style: format!("left: {}px; top: {}px; opacity: {};", tx_pos + 4.0, ty_pos + 4.0, opacity),
+                            }
+                        }
+
+                        // Click rings
+                        for (i, (rx, ry, _ts)) in ghost_click_rings.read().iter().enumerate() {
+                            div {
+                                key: "ring-{i}",
+                                class: "ghost-click-ring",
+                                style: format!("left: {}px; top: {}px;", rx, ry),
+                            }
+                        }
+
+                        // Robot cursor
+                        div {
+                            class: "{cursor_class}",
+                            style: "{cursor_style}",
+                            dangerous_inner_html: "{svg_html}",
+                        }
+
+                        // Action label
+                        if has_label && is_visible {
+                            div {
+                                class: "ghost-cursor-label visible",
+                                style: "{cursor_style}",
+                                "{label}"
+                            }
+                        }
+
+                        // Mode badge
+                        if show_mode_badge {
+                            div {
+                                class: "ghost-mode-badge active",
+                                "Cursor: {mode_label}"
+                            }
+                        }
+
+                        // Replay controls
+                        if is_replay {
+                            div {
+                                class: "ghost-replay-bar",
+                                button {
+                                    onclick: move |_| {
+                                        ghost_cursor.write().set_mode(CursorMode::Visible);
+                                    },
+                                    "Stop"
+                                }
+                                div { class: "replay-progress",
+                                    div {
+                                        class: "replay-fill",
+                                        style: format!("width: {}%", replay_pct),
+                                    }
+                                }
+                                span { class: "replay-label", "{replay_pct}%" }
                             }
                         }
                     }

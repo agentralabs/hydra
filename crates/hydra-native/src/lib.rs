@@ -1,5 +1,3 @@
-#[cfg(feature = "desktop")]
-pub mod desktop;
 pub mod app;
 pub mod audio;
 pub mod cognitive;
@@ -15,6 +13,7 @@ pub mod design {
     pub use theme::DesignTheme;
     pub use typography::{Radius, Spacing, Typography};
 }
+pub mod federation;
 pub mod modes;
 pub mod profile;
 pub mod shortcuts;
@@ -22,6 +21,8 @@ pub mod sisters;
 pub mod update;
 pub mod state;
 pub mod styles;
+pub mod persistence;
+pub mod proactive;
 pub mod utils;
 
 pub use app::{AppSection, AppViewModel, WindowConfig};
@@ -36,7 +37,7 @@ pub use state::runs::RunTracker;
 pub use state::sessions::{Session, SessionStatus, SessionStore};
 pub use state::user::UserPreferences;
 pub use utils::{detect_language, extract_json_plan, format_bytes, generate_deliverable_steps};
-pub use cognitive::{CognitiveLoopConfig, CognitiveUpdate, run_cognitive_loop};
+pub use cognitive::{AgentSpawner, CognitiveLoopConfig, CognitiveUpdate, DecideEngine, DecideResult, InventionEngine, run_cognitive_loop};
 pub use components::command_palette::CommandPalette;
 pub use components::diff_viewer::FileDiff;
 pub use components::receipts::ReceiptAuditView;
@@ -55,6 +56,9 @@ pub use cognitive::streaming::{StreamBuffer, StreamingConfig, StreamState};
 pub use state::settings::SettingsStore;
 pub use utils::markdown::markdown_to_html;
 pub use components::drag_drop::{DropZoneState, DroppedFile, FileType};
+pub use components::ghost_cursor::{GhostCursorState, CursorMode, CursorAction, CursorSession, CursorVisualState, OsAutomation, cursor_svg, interpolate_arc};
 pub use components::undo_wiring::{UndoToast, UndoWiring};
 pub use components::onboarding::OnboardingFlow;
 pub use components::globe::{GlobeRenderParams, GlobeSize, derive_globe_state, globe_params, globe_svg};
+pub use proactive::{ProactiveAlert, AlertPriority, ProactiveNotifier};
+pub use federation::FederationManager;

@@ -13,6 +13,7 @@ pub mod drag_drop;
 pub mod error_display;
 pub mod evidence_panel;
 pub mod federation;
+pub mod ghost_cursor;
 pub mod globe;
 pub mod icon;
 pub mod input;

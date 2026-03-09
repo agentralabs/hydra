@@ -48,6 +48,66 @@ mod tests {
     fn test_create_tables_has_status_checks() {
         assert!(CREATE_TABLES.contains("CHECK(status IN"));
     }
+
+    #[test]
+    fn test_create_tables_contains_skills() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS skills"));
+    }
+
+    #[test]
+    fn test_create_tables_contains_patterns() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS patterns"));
+    }
+
+    #[test]
+    fn test_create_tables_contains_reflections() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS reflections"));
+    }
+
+    #[test]
+    fn test_create_tables_contains_temporal_memories() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS temporal_memories"));
+    }
+
+    #[test]
+    fn test_create_tables_contains_compression_logs() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS compression_logs"));
+    }
+
+    #[test]
+    fn test_create_tables_contains_receipts() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS receipts"));
+    }
+
+    #[test]
+    fn test_create_tables_contains_anomaly_events() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS anomaly_events"));
+    }
+
+    #[test]
+    fn test_create_tables_contains_cursor_sessions() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS cursor_sessions"));
+    }
+
+    #[test]
+    fn test_create_tables_contains_cursor_events() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS cursor_events"));
+    }
+
+    #[test]
+    fn test_create_tables_contains_budget_usage() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS budget_usage"));
+    }
+
+    #[test]
+    fn test_create_tables_contains_evolution_log() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS evolution_log"));
+    }
+
+    #[test]
+    fn test_create_tables_contains_mutation_log() {
+        assert!(CREATE_TABLES.contains("CREATE TABLE IF NOT EXISTS mutation_log"));
+    }
 }
 
 pub const CREATE_TABLES: &str = r#"
@@ -98,8 +158,215 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS skills (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    actions TEXT NOT NULL,
+    trigger_pattern TEXT,
+    confidence REAL DEFAULT 0.5,
+    executions INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS patterns (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    actions TEXT NOT NULL,
+    success_count INTEGER DEFAULT 0,
+    failure_count INTEGER DEFAULT 0,
+    avg_duration_ms REAL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS reflections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    reflection_type TEXT NOT NULL,
+    content TEXT NOT NULL,
+    severity REAL DEFAULT 0.0,
+    suggestion TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS trust_scores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    domain TEXT NOT NULL,
+    score REAL NOT NULL DEFAULT 0.5,
+    total_actions INTEGER DEFAULT 0,
+    successful_actions INTEGER DEFAULT 0,
+    failed_actions INTEGER DEFAULT 0,
+    autonomy_level TEXT NOT NULL DEFAULT 'Observer',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS dream_insights (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL,
+    description TEXT NOT NULL,
+    confidence REAL NOT NULL DEFAULT 0.5,
+    surfaced INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS shadow_validations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    action_description TEXT NOT NULL,
+    safe INTEGER NOT NULL DEFAULT 1,
+    divergence_count INTEGER DEFAULT 0,
+    critical_divergences INTEGER DEFAULT 0,
+    recommendation TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS predictions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    action_name TEXT NOT NULL,
+    confidence REAL NOT NULL DEFAULT 0.5,
+    risk_recommendation TEXT,
+    description TEXT,
+    actual_outcome INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS proactive_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    priority TEXT NOT NULL DEFAULT 'Low',
+    delivered INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS agent_sessions (
+    id TEXT PRIMARY KEY,
+    parent_task TEXT NOT NULL,
+    subtask_count INTEGER NOT NULL DEFAULT 0,
+    completed_count INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    completed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS federation_peers (
+    id TEXT PRIMARY KEY,
+    address TEXT NOT NULL,
+    trust_level REAL NOT NULL DEFAULT 0.5,
+    capabilities TEXT,
+    last_seen TEXT NOT NULL DEFAULT (datetime('now')),
+    active_tasks INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS temporal_memories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    content TEXT NOT NULL,
+    category TEXT NOT NULL,
+    importance REAL NOT NULL DEFAULT 0.5,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS compression_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    original_tokens INTEGER NOT NULL,
+    compressed_tokens INTEGER NOT NULL,
+    ratio REAL NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS mutation_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pattern_name TEXT NOT NULL,
+    mutation_type TEXT NOT NULL,
+    fitness_before REAL,
+    fitness_after REAL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS evolution_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    generation INTEGER NOT NULL,
+    patterns_count INTEGER NOT NULL,
+    best_fitness REAL NOT NULL,
+    avg_fitness REAL NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS receipts (
+    id TEXT PRIMARY KEY,
+    receipt_type TEXT NOT NULL,
+    action TEXT NOT NULL,
+    actor TEXT NOT NULL DEFAULT 'hydra',
+    tokens_used INTEGER DEFAULT 0,
+    risk_level TEXT,
+    hash TEXT NOT NULL,
+    prev_hash TEXT,
+    sequence INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS budget_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT,
+    phase TEXT NOT NULL,
+    tokens_spent INTEGER NOT NULL,
+    tokens_remaining INTEGER NOT NULL,
+    conservation_mode INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);
 CREATE INDEX IF NOT EXISTS idx_runs_created ON runs(created_at);
 CREATE INDEX IF NOT EXISTS idx_steps_run ON steps(run_id);
 CREATE INDEX IF NOT EXISTS idx_approvals_pending ON approvals(status) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_skills_name ON skills(name);
+CREATE INDEX IF NOT EXISTS idx_patterns_name ON patterns(name);
+CREATE INDEX IF NOT EXISTS idx_reflections_type ON reflections(reflection_type);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_trust_domain ON trust_scores(domain);
+CREATE INDEX IF NOT EXISTS idx_dreams_category ON dream_insights(category);
+CREATE INDEX IF NOT EXISTS idx_alerts_priority ON proactive_alerts(priority);
+CREATE INDEX IF NOT EXISTS idx_agent_sessions_status ON agent_sessions(status);
+CREATE INDEX IF NOT EXISTS idx_temporal_category ON temporal_memories(category);
+CREATE INDEX IF NOT EXISTS idx_compression_created ON compression_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_receipts_type ON receipts(receipt_type);
+CREATE INDEX IF NOT EXISTS idx_receipts_sequence ON receipts(sequence);
+CREATE INDEX IF NOT EXISTS idx_budget_run ON budget_usage(run_id);
+CREATE INDEX IF NOT EXISTS idx_evolution_gen ON evolution_log(generation);
+
+CREATE TABLE IF NOT EXISTS anomaly_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type TEXT NOT NULL,
+    command TEXT NOT NULL,
+    detail TEXT,
+    severity TEXT NOT NULL DEFAULT 'medium',
+    kill_switch_engaged INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_anomaly_type ON anomaly_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_anomaly_severity ON anomaly_events(severity);
+
+CREATE TABLE IF NOT EXISTS cursor_sessions (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'visible',
+    started_at TEXT NOT NULL DEFAULT (datetime('now')),
+    ended_at TEXT,
+    event_count INTEGER NOT NULL DEFAULT 0,
+    total_duration_ms INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS cursor_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL REFERENCES cursor_sessions(id) ON DELETE CASCADE,
+    timestamp_ms INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    x REAL NOT NULL DEFAULT 0,
+    y REAL NOT NULL DEFAULT 0,
+    payload TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_cursor_sessions_task ON cursor_sessions(task_id);
+CREATE INDEX IF NOT EXISTS idx_cursor_events_session ON cursor_events(session_id);
+CREATE INDEX IF NOT EXISTS idx_cursor_events_ts ON cursor_events(timestamp_ms);
 "#;
