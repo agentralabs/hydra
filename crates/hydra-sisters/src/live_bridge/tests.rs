@@ -47,14 +47,16 @@ mod tests {
             vec![],
             BridgeConfig::default(),
         );
+        // Simple tools get default timeout
         assert_eq!(
             bridge.timeout_for_tool("memory_add"),
             Duration::from_secs(5)
         );
         assert_eq!(
             bridge.timeout_for_tool("search_semantic"),
-            Duration::from_secs(30)
+            Duration::from_secs(5)
         );
+        // Complex tools (containing "omniscience", "crystallize", etc.) get complex timeout
         assert_eq!(
             bridge.timeout_for_tool("omniscience_search"),
             Duration::from_secs(30)
