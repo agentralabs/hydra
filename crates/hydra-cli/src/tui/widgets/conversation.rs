@@ -122,18 +122,16 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
         .wrap(Wrap { trim: false });
     frame.render_widget(para, inner);
 
-    // Scroll indicator
+    // Scroll indicator — show when not pinned to bottom
     if app.scroll_offset > 0 && total_lines > visible_height {
-        let lines_above = app.scroll_offset.min(max_scroll);
-        let indicator = format!(" ▼ {} more below — Shift+Down or PageDown ", lines_above);
-        let indicator_width = indicator.len().min(inner.width as usize);
-        let x = inner.x + inner.width.saturating_sub(indicator_width as u16);
+        let indicator = " ↓ End to jump to latest ";
+        let iw = indicator.len().min(inner.width as usize);
+        let x = inner.x + inner.width.saturating_sub(iw as u16);
         let y = inner.y + inner.height.saturating_sub(1);
-        let indicator_area = Rect::new(x, y, indicator_width as u16, 1);
         let badge = Paragraph::new(Line::from(Span::styled(
-            &indicator[..indicator_width],
-            Style::default().fg(theme::HYDRA_BG).bg(theme::HYDRA_YELLOW),
+            &indicator[..iw],
+            Style::default().fg(theme::HYDRA_BG).bg(theme::HYDRA_CYAN),
         )));
-        frame.render_widget(badge, indicator_area);
+        frame.render_widget(badge, Rect::new(x, y, iw as u16, 1));
     }
 }

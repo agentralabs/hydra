@@ -84,7 +84,8 @@ pub const COMMANDS: &[SlashCommand] = &[
     SlashCommand { name: "/deps",     description: "Show/update dependencies",         category: CommandCategory::Developer },
     SlashCommand { name: "/bench",    description: "Run benchmarks",                   category: CommandCategory::Developer },
     SlashCommand { name: "/doc",      description: "Generate/open docs",               category: CommandCategory::Developer },
-    SlashCommand { name: "/deploy",   description: "Deploy to configured target",      category: CommandCategory::Developer },
+    SlashCommand { name: "/deploy",    description: "Deploy to configured target",      category: CommandCategory::Developer },
+    SlashCommand { name: "/test-repo", description: "Run full repo test suite",        category: CommandCategory::Developer },
 
     // ── Integrations (Claude Code Parity §5.5) ──
     SlashCommand { name: "/mcp",                description: "Manage MCP server connections",  category: CommandCategory::Integration },

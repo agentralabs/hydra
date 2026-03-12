@@ -2568,18 +2568,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hydra-collective"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
 name = "hydra-compiler"
 version = "0.1.0"
 dependencies = [
@@ -2591,17 +2579,6 @@ dependencies = [
  "tokio-test",
  "tracing",
  "uuid",
-]
-
-[[package]]
-name = "hydra-consolidation"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -2655,17 +2632,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hydra-enterprise"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "serde",
- "serde_json",
- "tracing",
- "uuid",
-]
-
-[[package]]
 name = "hydra-federation"
 version = "0.1.0"
 dependencies = [
@@ -2687,7 +2653,6 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "hydra-core",
- "hydra-gate-advanced",
  "parking_lot",
  "pretty_assertions",
  "serde",
@@ -2696,17 +2661,6 @@ dependencies = [
  "tokio-test",
  "tracing",
  "uuid",
-]
-
-[[package]]
-name = "hydra-gate-advanced"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "hydra-core",
- "serde",
- "serde_json",
- "tracing",
 ]
 
 [[package]]
@@ -2952,15 +2906,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hydra-omniscience"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tracing",
-]
-
-[[package]]
 name = "hydra-protocol"
 version = "0.1.0"
 dependencies = [
@@ -2993,16 +2938,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hydra-replay"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "serde",
- "serde_json",
- "tracing",
-]
-
-[[package]]
 name = "hydra-router"
 version = "0.1.0"
 dependencies = [
@@ -3023,18 +2958,13 @@ dependencies = [
  "chrono",
  "dashmap",
  "hydra-belief",
- "hydra-collective",
- "hydra-consolidation",
  "hydra-core",
- "hydra-enterprise",
  "hydra-gate",
  "hydra-intent",
  "hydra-kernel",
  "hydra-ledger",
  "hydra-model",
- "hydra-omniscience",
  "hydra-protocol",
- "hydra-replay",
  "hydra-sisters",
  "hydra-ux",
  "parking_lot",

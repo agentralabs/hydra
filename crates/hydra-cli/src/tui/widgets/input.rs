@@ -50,12 +50,14 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
         if !mode_label.is_empty() {
             left.push(Span::styled("▸▸ ", accent));
             left.push(Span::styled(mode_label, accent));
-            left.push(Span::styled(" (shift+tab to cycle) · esc to interrupt", hint_style));
+            left.push(Span::styled(" · shift+tab to cycle · ctrl+c to exit", hint_style));
         } else if app.is_thinking {
-            left.push(Span::styled("esc to interrupt", hint_style));
+            left.push(Span::styled("ctrl+c to cancel · esc to interrupt", hint_style));
         } else if app.search_mode {
             left.push(Span::styled("reverse-search: ", accent));
             left.push(Span::styled(&app.search_query, hint_style));
+        } else if app.input.is_empty() {
+            left.push(Span::styled("! for bash · / for commands · \\ + enter for newline", hint_style));
         }
 
         // Right side: PR status or token usage

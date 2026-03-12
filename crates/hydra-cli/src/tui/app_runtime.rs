@@ -43,8 +43,11 @@ impl App {
     /// Periodic tick — refresh animations, drain cognitive updates, advance idle timer.
     pub fn tick(&mut self) {
         self.tick_count = self.tick_count.wrapping_add(1);
+        // Auto-scroll: if pinned to bottom before updates, stay pinned after
+        let was_at_bottom = self.is_at_bottom();
         self.process_cognitive_updates();
         self.process_running_command();
+        if was_at_bottom { self.scroll_offset = 0; }
 
         // Idle timer — tick_idle every ~1 second (4 ticks × 250ms).
         if self.tick_count % 4 == 0 {
@@ -170,15 +173,17 @@ impl App {
 
         // Input syntax: @file, !command, #memory (§4.2)
         if input.starts_with('!') {
-            // Direct shell execution — treat as intent
-            let cmd = &input[1..];
+            // Direct shell execution (Claude Code parity: ! prefix = raw bash)
+            let cmd = input[1..].trim();
             self.messages.push(Message {
                 role: MessageRole::User,
                 content: format!("!{}", cmd),
                 timestamp: timestamp.clone(),
                 phase: None,
             });
-            self.execute_intent(&format!("run shell command: {}", cmd), &timestamp);
+            if !cmd.is_empty() {
+                self.spawn_command(cmd, "sh", &["-c", cmd]);
+            }
             self.scroll_to_bottom();
             return;
         }

@@ -37,8 +37,9 @@ impl App {
             "/deps"    => self.slash_cmd_deps(timestamp),
             "/bench"   => self.slash_cmd_bench(timestamp),
             "/doc"     => self.slash_cmd_doc(timestamp),
-            "/deploy"  => self.slash_cmd_deploy(timestamp),
-            "/init"    => self.slash_cmd_init(timestamp),
+            "/deploy"    => self.slash_cmd_deploy(timestamp),
+            "/init"      => self.slash_cmd_init(timestamp),
+            "/test-repo" => self.execute_intent(&format!("/test-repo {}", args).trim(), timestamp),
 
             // ── System ──
             "/sisters"  => self.slash_cmd_sisters(timestamp),

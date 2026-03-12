@@ -17,6 +17,25 @@ fn char_len(s: &str) -> usize {
     s.chars().count()
 }
 
+/// Find word boundary going backward from char position.
+fn word_boundary_back(s: &str, pos: usize) -> usize {
+    let chars: Vec<char> = s.chars().collect();
+    let mut i = pos;
+    while i > 0 && !chars[i - 1].is_alphanumeric() { i -= 1; }
+    while i > 0 && chars[i - 1].is_alphanumeric() { i -= 1; }
+    i
+}
+
+/// Find word boundary going forward from char position.
+fn word_boundary_fwd(s: &str, pos: usize) -> usize {
+    let chars: Vec<char> = s.chars().collect();
+    let len = chars.len();
+    let mut i = pos;
+    while i < len && !chars[i].is_alphanumeric() { i += 1; }
+    while i < len && chars[i].is_alphanumeric() { i += 1; }
+    i
+}
+
 /// Terminal events.
 #[derive(Debug)]
 pub enum Event {
@@ -59,105 +78,96 @@ impl EventHandler {
 
 /// Handle a key event and update app state.
 pub fn handle_key_event(app: &mut App, key: KeyEvent) {
+    // Ctrl+C must ALWAYS work regardless of event kind (Press/Release/Repeat)
+    if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('c') {
+        if app.is_thinking || app.running_cmd.is_some() {
+            app.kill_current();
+            app.is_thinking = false;
+        } else {
+            app.should_quit = true;
+        }
+        return;
+    }
     // Only handle key press events — ignore Release/Repeat to prevent double-fire
     if key.kind != crossterm::event::KeyEventKind::Press {
         return;
     }
     // Global keybindings (work in any mode)
     match (key.modifiers, key.code) {
-        (KeyModifiers::CONTROL, KeyCode::Char('c')) => {
-            // Ctrl+C = cancel/interrupt only, NEVER quit.
-            // Use Ctrl+D or /quit to exit.
-            if app.is_thinking || app.running_cmd.is_some() {
-                app.kill_current();
-                app.is_thinking = false;
-            } else if !app.input.is_empty() {
-                app.input.clear();
-                app.cursor_pos = 0;
-            }
-            return;
-        }
-        (KeyModifiers::CONTROL, KeyCode::Char('d')) => {
-            // Exit session (Claude Code parity)
-            app.should_quit = true;
-            return;
-        }
-        (KeyModifiers::CONTROL, KeyCode::Char('k')) => {
-            // Kill switch — stop current execution
-            app.kill_current();
-            return;
-        }
-        (KeyModifiers::CONTROL, KeyCode::Char('s')) => {
-            // Toggle sidebar (Hydra-exclusive: Ctrl+S)
-            app.sidebar_visible = !app.sidebar_visible;
-            return;
-        }
-        (KeyModifiers::CONTROL, KeyCode::Char('b')) => {
-            // Background current operation (CC §6.3: Ctrl+B)
-            // If a command is running, it's already async; inform user
-            if app.running_cmd.is_some() {
-                app.messages.push(super::app::Message {
-                    role: super::app::MessageRole::System,
-                    content: "Operation running in background. Use /bashes to check status.".to_string(),
-                    timestamp: String::new(),
-                    phase: None,
-                });
-            }
-            return;
+        // ── Readline shortcuts (Claude Code parity) ──
+        (KeyModifiers::CONTROL, KeyCode::Char('a')) => {
+            app.cursor_pos = 0; return;
         }
         (KeyModifiers::CONTROL, KeyCode::Char('e')) => {
-            // Quick environment check (Hydra §6.5: Ctrl+E)
-            let ts = String::new();
-            app.slash_cmd_env("", &ts);
+            app.cursor_pos = char_len(&app.input); return;
+        }
+        (KeyModifiers::CONTROL, KeyCode::Char('k')) => {
+            // Delete from cursor to end → kill ring
+            let byte_idx = char_to_byte(&app.input, app.cursor_pos);
+            app.kill_ring = app.input[byte_idx..].to_string();
+            app.input.truncate(byte_idx);
             return;
         }
-        (KeyModifiers::CONTROL, KeyCode::Char('t')) => {
-            // Toggle task list (CC §6.3: Ctrl+T)
-            let ts = String::new();
-            app.slash_cmd_tasks(&ts);
+        (KeyModifiers::CONTROL, KeyCode::Char('u')) => {
+            // Delete entire line → kill ring
+            app.kill_ring = app.input.clone();
+            app.input.clear();
+            app.cursor_pos = 0;
             return;
         }
-        (KeyModifiers::CONTROL, KeyCode::Char('g')) => {
-            // Open external editor for input (CC §6.4: Ctrl+G)
-            app.messages.push(super::app::Message {
-                role: super::app::MessageRole::System,
-                content: "External editor: use /edit <file> to open $EDITOR.".to_string(),
-                timestamp: String::new(),
-                phase: None,
-            });
+        (KeyModifiers::CONTROL, KeyCode::Char('w')) => {
+            // Delete word backward
+            if app.cursor_pos > 0 {
+                let old_pos = app.cursor_pos;
+                let new_pos = word_boundary_back(&app.input, app.cursor_pos);
+                let b0 = char_to_byte(&app.input, new_pos);
+                let b1 = char_to_byte(&app.input, old_pos);
+                app.kill_ring = app.input[b0..b1].to_string();
+                app.input.replace_range(b0..b1, "");
+                app.cursor_pos = new_pos;
+            }
             return;
         }
-        (KeyModifiers::CONTROL, KeyCode::Char('f')) => {
-            // Kill all background agents (CC §6.4: Ctrl+F)
-            app.kill_current();
-            app.messages.push(super::app::Message {
-                role: super::app::MessageRole::System,
-                content: "All background agents killed.".to_string(),
-                timestamp: String::new(),
-                phase: None,
-            });
+        (KeyModifiers::CONTROL, KeyCode::Char('y')) => {
+            // Yank (paste from kill ring)
+            if !app.kill_ring.is_empty() {
+                let byte_idx = char_to_byte(&app.input, app.cursor_pos);
+                app.input.insert_str(byte_idx, &app.kill_ring.clone());
+                app.cursor_pos += app.kill_ring.chars().count();
+            }
             return;
         }
-        (KeyModifiers::CONTROL, KeyCode::Char('r')) => {
-            // Reverse search through input history (§4.3, §6.2)
-            app.search_mode = true;
-            app.search_query.clear();
-            return;
+        (KeyModifiers::ALT, KeyCode::Char('b')) => {
+            app.cursor_pos = word_boundary_back(&app.input, app.cursor_pos); return;
         }
-        (KeyModifiers::CONTROL, KeyCode::Char('o')) => {
-            // Toggle tool output expand/collapse (Visual Overhaul Rule 5: ctrl+o)
-            app.tool_output_expanded = !app.tool_output_expanded;
+        (KeyModifiers::ALT, KeyCode::Char('f')) => {
+            app.cursor_pos = word_boundary_fwd(&app.input, app.cursor_pos); return;
+        }
+        // ── Session controls ──
+        (KeyModifiers::CONTROL, KeyCode::Char('d')) => {
+            if !app.input.is_empty() { app.input.clear(); app.cursor_pos = 0; }
             return;
         }
         (KeyModifiers::CONTROL, KeyCode::Char('l')) => {
-            // Refresh
-            app.refresh_status();
+            // Clear conversation (Claude Code parity)
+            app.messages.clear();
+            app.scroll_offset = 0;
             return;
         }
+        (KeyModifiers::CONTROL, KeyCode::Char('r')) => {
+            app.search_mode = true; app.search_query.clear(); return;
+        }
+        (KeyModifiers::CONTROL, KeyCode::Char('o')) => {
+            app.tool_output_expanded = !app.tool_output_expanded; return;
+        }
+        (KeyModifiers::CONTROL, KeyCode::Char('t')) => {
+            let ts = String::new(); app.slash_cmd_tasks(&ts); return;
+        }
+        (KeyModifiers::CONTROL, KeyCode::Char('s')) => {
+            app.sidebar_visible = !app.sidebar_visible; return;
+        }
         (KeyModifiers::SHIFT, KeyCode::BackTab) => {
-            // Shift+Tab: Cycle permission mode (Normal → Auto-Accept → Plan)
-            app.permission_mode = app.permission_mode.next();
-            return;
+            app.permission_mode = app.permission_mode.next(); return;
         }
         // Scroll works in ANY mode — no need to switch to Normal
         (_, KeyCode::PageUp) => {
@@ -169,11 +179,11 @@ pub fn handle_key_event(app: &mut App, key: KeyEvent) {
             return;
         }
         (KeyModifiers::SHIFT, KeyCode::Up) => {
-            app.scroll_up();
+            app.scroll_up_n(3);
             return;
         }
         (KeyModifiers::SHIFT, KeyCode::Down) => {
-            app.scroll_down();
+            app.scroll_down_n(3);
             return;
         }
         _ => {}
@@ -256,7 +266,7 @@ fn handle_insert_mode(app: &mut App, key: KeyEvent) {
             app.cursor_pos += 1;
         }
         KeyCode::Enter => {
-            // If dropdown is visible, select the highlighted command first
+            // If dropdown is visible, select the highlighted command
             if app.command_dropdown.visible {
                 if let Some(name) = app.command_dropdown.selected_command() {
                     app.input = name.to_string();
@@ -265,7 +275,19 @@ fn handle_insert_mode(app: &mut App, key: KeyEvent) {
                 }
                 return;
             }
+            // Backslash-Enter: replace trailing \ with newline (Claude Code parity)
+            if app.cursor_pos > 0 {
+                let prev_byte = char_to_byte(&app.input, app.cursor_pos - 1);
+                if app.input.as_bytes().get(prev_byte) == Some(&b'\\') {
+                    app.input.replace_range(prev_byte..prev_byte + 1, "\n");
+                    return;
+                }
+            }
+            // Debounce: ignore Enter if fired within 3 ticks of last submit
+            let now = app.tick_count;
+            if now.saturating_sub(app.last_submit_tick) < 3 { return; }
             if !app.input.is_empty() {
+                app.last_submit_tick = now;
                 let input = app.input.clone();
                 app.input.clear();
                 app.cursor_pos = 0;
@@ -308,17 +330,24 @@ fn handle_insert_mode(app: &mut App, key: KeyEvent) {
             }
         }
         KeyCode::Home => {
-            app.cursor_pos = 0;
+            if app.input.is_empty() {
+                app.scroll_to_top();
+            } else {
+                app.cursor_pos = 0;
+            }
         }
         KeyCode::End => {
-            app.cursor_pos = app.input.len();
+            if app.input.is_empty() {
+                app.scroll_to_bottom();
+            } else {
+                app.cursor_pos = app.input.len();
+            }
         }
         KeyCode::Up => {
             if app.command_dropdown.visible {
                 app.command_dropdown.select_prev();
             } else if app.input.is_empty() {
-                // Empty input → scroll conversation (like Claude Code)
-                app.scroll_up();
+                app.scroll_up_n(3);
             } else {
                 app.history_prev();
             }
@@ -327,8 +356,7 @@ fn handle_insert_mode(app: &mut App, key: KeyEvent) {
             if app.command_dropdown.visible {
                 app.command_dropdown.select_next();
             } else if app.input.is_empty() {
-                // Empty input → scroll conversation (like Claude Code)
-                app.scroll_down();
+                app.scroll_down_n(3);
             } else {
                 app.history_next();
             }

@@ -7,13 +7,20 @@ impl App {
     // Scroll — line-based offset from the bottom.
     // 0 = pinned to bottom (auto-scroll), >0 = scrolled up by N lines.
     pub fn scroll_down(&mut self) {
-        if self.scroll_offset > 0 {
-            self.scroll_offset = self.scroll_offset.saturating_sub(3);
-        }
+        self.scroll_offset = self.scroll_offset.saturating_sub(1);
     }
 
     pub fn scroll_up(&mut self) {
-        self.scroll_offset += 3;
+        self.scroll_offset += 1;
+    }
+
+    /// Scroll by N lines (for keyboard: 3 lines per arrow key).
+    pub fn scroll_down_n(&mut self, n: usize) {
+        self.scroll_offset = self.scroll_offset.saturating_sub(n);
+    }
+
+    pub fn scroll_up_n(&mut self, n: usize) {
+        self.scroll_offset += n;
     }
 
     pub fn scroll_to_bottom(&mut self) {
@@ -21,7 +28,6 @@ impl App {
     }
 
     pub fn scroll_to_top(&mut self) {
-        // Large number — renderer will clamp to actual line count
         self.scroll_offset = usize::MAX / 2;
     }
 
@@ -30,14 +36,9 @@ impl App {
     }
 
     pub fn page_down(&mut self) {
-        if self.scroll_offset > 20 {
-            self.scroll_offset -= 20;
-        } else {
-            self.scroll_offset = 0;
-        }
+        self.scroll_offset = self.scroll_offset.saturating_sub(20);
     }
 
-    /// Whether the conversation is pinned to the bottom (auto-scroll active).
     pub fn is_at_bottom(&self) -> bool {
         self.scroll_offset == 0
     }

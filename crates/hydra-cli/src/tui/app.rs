@@ -78,36 +78,18 @@ impl PermissionMode {
     }
 }
 
-/// Focus area for Tab cycling.
 #[derive(Clone, Debug, PartialEq)]
-pub enum FocusArea {
-    Conversation,
-    Sidebar,
-}
+pub enum FocusArea { Conversation, Sidebar }
 
-/// Recent task for sidebar display.
 #[derive(Clone, Debug)]
-pub struct RecentTask {
-    pub summary: String,
-    pub status: TaskStatus,
-}
+pub struct RecentTask { pub summary: String, pub status: TaskStatus }
 
 #[derive(Clone, Debug, PartialEq)]
 #[allow(dead_code)]
-pub enum TaskStatus {
-    Complete,
-    Running,
-    Failed,
-}
+pub enum TaskStatus { Complete, Running, Failed }
 
-/// Boot state — tracks initialization progress.
 #[derive(Clone, Debug, PartialEq)]
-pub enum BootState {
-    /// Sisters are being spawned — show progress bar.
-    Booting,
-    /// Fully initialized and ready.
-    Ready,
-}
+pub enum BootState { Booting, Ready }
 
 /// Pending approval state for TUI y/n prompt.
 #[derive(Clone, Debug)]
@@ -222,11 +204,12 @@ pub struct App {
     pub pr_status: Option<PrStatus>,
     pub pr_check_tick: u64,
 
-    // Reverse search (Ctrl+R, spec §4.3)
     pub search_mode: bool,
     pub search_query: String,
-    // Double Ctrl+C detection
     pub last_ctrlc_tick: u64,
+    pub last_submit_tick: u64,
+    /// Kill ring for Ctrl+K/Ctrl+U/Ctrl+Y (readline parity).
+    pub kill_ring: String,
 }
 
 /// PR status for the footer indicator (spec §11).
@@ -378,6 +361,8 @@ impl App {
             search_mode: false,
             search_query: String::new(),
             last_ctrlc_tick: 0,
+            last_submit_tick: 0,
+            kill_ring: String::new(),
         }
     }
 

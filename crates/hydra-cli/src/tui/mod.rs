@@ -28,7 +28,10 @@ use std::io;
 use std::os::unix::io::AsRawFd;
 
 use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture},
+    event::{
+        DisableMouseCapture, EnableMouseCapture,
+        KeyboardEnhancementFlags, PushKeyboardEnhancementFlags, PopKeyboardEnhancementFlags,
+    },
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -159,19 +162,10 @@ fn draw_splash(
     });
 }
 
-/// Launch the full TUI interface.
-///
-/// Startup sequence:
-/// 1. Redirect stderr to log file — BEFORE anything else
-/// 2. Enter raw mode + alternate screen — TUI owns terminal from first pixel
-/// 3. Draw welcome screen with progress bar at 0%
-/// 4. Spawn sisters in background — progress bar animates
-/// 5. When done: transition to full TUI with 14/14
-/// Restore terminal to sane state. Safe to call multiple times.
 fn cleanup_terminal() {
     let _ = disable_raw_mode();
+    let _ = execute!(io::stdout(), PopKeyboardEnhancementFlags);
     let _ = execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture);
-    // Show cursor in case it was hidden
     let _ = execute!(io::stdout(), crossterm::cursor::Show);
 }
 
@@ -186,12 +180,17 @@ pub async fn run() -> io::Result<()> {
         default_hook(info);
     }));
 
-    // STEP 2: Take over terminal IMMEDIATELY
+    // STEP 2: Take over terminal IMMEDIATELY — suppress ALL output before splash
     enable_raw_mode()?;
     let mut stdout = io::stdout();
+    let _ = execute!(stdout, PushKeyboardEnhancementFlags(
+        KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+    ));
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
+    // Draw splash immediately — first thing user sees is clean progress bar at 0%
+    draw_splash(&mut terminal, "Starting Hydra...", 0);
 
     // STEP 3: Onboarding — if first-time user, run wizard before anything else
     if onboarding::needs_onboarding() {
@@ -249,10 +248,7 @@ pub async fn run() -> io::Result<()> {
         return Err(io::Error::new(io::ErrorKind::AlreadyExists, e.to_string()));
     }
 
-    // STEP 5: Draw splash with 0% — user sees clean welcome from first pixel
-    draw_splash(&mut terminal, "Starting Hydra...", 0);
-
-    // STEP 6: Spawn sisters in background
+    // STEP 5: Spawn sisters in background
     let (sisters_tx, mut sisters_rx) = mpsc::unbounded_channel::<SistersHandle>();
     tokio::spawn(async move {
         let handle = hydra_native::sisters::init_sisters().await;
@@ -349,32 +345,20 @@ pub async fn run() -> io::Result<()> {
     }
 }
 
-/// Print full session to stdout after TUI exits — welcome frame + conversation.
 fn print_conversation(app: &App) {
-    let version = env!("CARGO_PKG_VERSION");
-    let w = 80usize;
-
-    // Welcome frame header
-    let title = format!(" Hydra v{} ", version);
-    let ld = 3;
-    let rd = w.saturating_sub(ld + title.len() + 2);
-    println!("\n┌{}{}{}┐", "─".repeat(ld), title, "─".repeat(rd));
-
-    // Key info
-    println!("│  Welcome back {}!{}", app.user_name, " ".repeat(w.saturating_sub(20 + app.user_name.len())));
-    println!("│  {} · {}{}", app.model_name, app.working_dir,
-        " ".repeat(w.saturating_sub(6 + app.model_name.len() + app.working_dir.len()).min(40)));
-    println!("│  {}/{} sisters · {}+ tools · {}%{}",
-        app.connected_count, app.total_sisters, app.tool_count, app.health_pct,
-        " ".repeat(30));
+    let (v, w) = (env!("CARGO_PKG_VERSION"), 80usize);
+    let title = format!(" Hydra v{} ", v);
+    let rd = w.saturating_sub(3 + title.len() + 2);
+    println!("\n┌{}{}{}┐", "─".repeat(3), title, "─".repeat(rd));
+    println!("│  Welcome back {}!", app.user_name);
+    println!("│  {} · {}", app.model_name, app.working_dir);
+    println!("│  {}/{} sisters · {}+ tools · {}%",
+        app.connected_count, app.total_sisters, app.tool_count, app.health_pct);
     println!("└{}┘\n", "─".repeat(w.saturating_sub(2)));
-
-    // All messages
     for msg in &app.messages {
         match msg.role {
             app::MessageRole::User => println!("> {}\n", msg.content),
-            app::MessageRole::Hydra => println!("  {}\n", msg.content),
-            app::MessageRole::System => println!("  {}\n", msg.content),
+            _ => println!("  {}\n", msg.content),
         }
     }
 }
