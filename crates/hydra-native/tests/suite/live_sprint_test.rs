@@ -32,6 +32,7 @@ async fn run_offline(text: &str) -> Vec<CognitiveUpdate> {
         user_name: "TestUser".to_string(),
         task_id: format!("test-{}", uuid::Uuid::new_v4()),
         history: vec![],
+        session_count: 0,
         anthropic_oauth_token: None,
     };
 

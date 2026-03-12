@@ -37,13 +37,13 @@ impl SettingsTab {
     pub fn icon(&self) -> &'static str {
         match self {
             Self::General => "\u{2699}",       // gear
-            Self::Models => "\u{1F4BB}",       // cpu (laptop as proxy)
-            Self::Sisters => "\u{1F517}",      // link
-            Self::Voice => "\u{1F3A4}",        // mic
-            Self::Policies => "\u{1F6E1}",     // shield
-            Self::Behavior => "\u{1F9E0}",     // brain
-            Self::Notifications => "\u{1F514}", // bell
-            Self::Advanced => "\u{1F527}",     // wrench
+            Self::Models => "\u{2B21}",        // hexagon (model)
+            Self::Sisters => "\u{2726}",       // four-pointed star (sisters)
+            Self::Voice => "\u{266A}",         // eighth note (voice)
+            Self::Policies => "\u{26E8}",      // black cross on shield
+            Self::Behavior => "\u{2699}",      // gear (behavior)
+            Self::Notifications => "\u{25CF}", // black circle (notification)
+            Self::Advanced => "\u{2318}",      // place of interest (advanced)
         }
     }
 

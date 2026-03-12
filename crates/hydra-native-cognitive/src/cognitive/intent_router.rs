@@ -34,6 +34,7 @@ pub enum IntentCategory {
     // Sister management
     SisterDiagnose,  // "check sisters", "sister status"
     SisterRepair,    // "fix broken sisters", "repair contract"
+    SisterImprove,   // "improve the memory sister", "make codebase better"
 
     // Self management
     SelfRepair,      // "fix yourself", "run self-repair"
@@ -67,6 +68,9 @@ pub enum IntentCategory {
     // Settings/Preferences
     Settings,        // "change theme", "settings"
 
+    // Threat intelligence
+    ThreatQuery,     // "what's the threat level?", "show threats"
+
     // Opinion/Factual (needs LLM)
     Question,        // General question that needs LLM
 
@@ -90,6 +94,7 @@ impl IntentCategory {
             "memory_recall" => Self::MemoryRecall,
             "sister_diagnose" => Self::SisterDiagnose,
             "sister_repair" => Self::SisterRepair,
+            "sister_improve" => Self::SisterImprove,
             "self_repair" => Self::SelfRepair,
             "self_scan" => Self::SelfScan,
             "self_implement" => Self::SelfImplement,
@@ -104,6 +109,7 @@ impl IntentCategory {
             "communication" | "communicate" => Self::Communicate,
             "deploy" => Self::Deploy,
             "settings" => Self::Settings,
+            "threat" | "threat_query" => Self::ThreatQuery,
             "conversation" | "question" => Self::Question,
             _ => Self::Unknown,
         }
@@ -145,6 +151,7 @@ Return ONLY a JSON object, nothing else.\n\n\
 Categories:\n\
 - sister_diagnose: checking status/health of a sister/component\n\
 - sister_repair: fixing/restarting/healing a sister/component\n\
+- sister_improve: improving/enhancing/upgrading a sister's capabilities\n\
 - self_scan: analyzing own code/health/problems\n\
 - self_repair: fixing own issues\n\
 - self_implement: implementing a spec/feature on itself, building capabilities\n\
@@ -162,6 +169,7 @@ Categories:\n\
 - communication: sending messages/posting/emailing\n\
 - deploy: deploying/publishing/shipping\n\
 - settings: changing preferences/theme/config\n\
+- threat_query: threat level/security status/attack detection\n\
 - greeting: hi/hello/hey\n\
 - farewell: bye/goodbye/see you\n\
 - thanks: thank you/thanks/ty\n\

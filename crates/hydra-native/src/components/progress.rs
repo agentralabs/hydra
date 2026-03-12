@@ -124,7 +124,7 @@ impl Celebration {
         Self {
             size: CelebrationSize::Small,
             message: message.to_owned(),
-            emoji: "\u{2705}".into(), // white check
+            emoji: "\u{2713}".into(), // check mark
             stats: None,
         }
     }
@@ -134,17 +134,17 @@ impl Celebration {
         Self {
             size: CelebrationSize::Medium,
             message: message.to_owned(),
-            emoji: "\u{1F389}".into(), // party popper
+            emoji: "\u{2605}".into(), // black star
             stats: Some(stats),
         }
     }
 
-    /// Big celebration with party emoji and stats.
+    /// Big celebration with star and stats.
     pub fn big(message: &str, stats: CelebrationStats) -> Self {
         Self {
             size: CelebrationSize::Big,
             message: message.to_owned(),
-            emoji: "\u{1F38A}".into(), // confetti ball
+            emoji: "\u{2736}".into(), // six-pointed star
             stats: Some(stats),
         }
     }

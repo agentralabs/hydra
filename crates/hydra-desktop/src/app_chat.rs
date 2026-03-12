@@ -100,7 +100,7 @@
                                                                     span { class: "evidence-icon", "{EvidencePanel::evidence_icon(item.kind)}" }
                                                                     span { class: "evidence-title", "{item.title}" }
                                                                     if item.pinned {
-                                                                        span { class: "evidence-pin", "\u{1F4CC}" }
+                                                                        span { class: "evidence-pin", "Pin" }
                                                                     }
                                                                 }
                                                                 {

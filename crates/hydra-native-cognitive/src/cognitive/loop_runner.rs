@@ -211,6 +211,7 @@ pub struct CognitiveLoopConfig {
     pub user_name: String,
     pub task_id: String,
     pub history: Vec<(String, String)>,
+    pub session_count: u32,
     /// OAuth bearer token for Anthropic (from browser-based auth / Claude Max subscription).
     /// When set, this is preferred over anthropic_key for API calls.
     pub anthropic_oauth_token: Option<String>,
@@ -288,18 +289,14 @@ pub async fn run_cognitive_loop(
     // Self-implement — self-modification pipeline (Forge first, LLM fallback)
     if sister_ops::handle_self_implement(text, &intent, &config, &sisters_handle, &approval_manager, &tx).await { return; }
 
-    // Sister diagnostics — direct health check
     if sister_ops::handle_sister_diagnose(text, &intent, &sisters_handle, &tx).await { return; }
-
-    // Sister repair — "fix broken sisters"
     if sister_ops::handle_sister_repair(text, &intent, &sisters_handle, &tx).await { return; }
-
-    // Direct memory store — "remember X" / "note that X"
+    if sister_ops::handle_sister_improve(text, &intent, &tx).await { return; }
+    if sister_ops::handle_threat_query(text, &intent, &tx) { return; }
     if dispatch::handle_memory_store(text, &intent, &sisters_handle, &tx).await { return; }
-
+    if dispatch::handle_project_exec_natural(text, &tx).await { return; }
     // Slash commands — /test, /files, /git, /build, /run, etc.
     if dispatch::handle_slash_command(text, &tx).await { return; }
-
     // Direct action fast-path — execute immediately, skip LLM
     if dispatch::handle_direct_action(text, &sisters_handle, &decide_engine, &tx).await { return; }
 

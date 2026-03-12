@@ -5,7 +5,7 @@
         "voice" => rsx! {
             h2 { class: "settings-title", "Voice & Audio" }
             div { class: "settings-section",
-                h3 { class: "settings-section-title", "Voice" }
+                h3 { class: "settings-section-title", "Speech" }
                 div { class: "settings-row",
                     div { class: "settings-label-group",
                         span { class: "settings-label", "Voice Mode" }
@@ -17,12 +17,92 @@
                             onclick: move |_| { let c = *settings_voice.read(); settings_voice.set(!c); },
                             span { class: "toggle-knob" }
                         }
-                        {
-                            let label = if *settings_voice.read() { "On" } else { "Off" };
-                            rsx! { span { class: "toggle-label", "{label}" } }
+                        { let label = if *settings_voice.read() { "On" } else { "Off" };
+                          rsx! { span { class: "toggle-label", "{label}" } } }
+                    }
+                }
+                div { class: "settings-row",
+                    span { class: "settings-label", "TTS Voice" }
+                    select {
+                        class: "model-select",
+                        value: "{settings_tts_voice}",
+                        onchange: move |e| settings_tts_voice.set(e.value()),
+                        optgroup { label: "Piper (Local)",
+                            option { value: "nova", "Nova \u{2014} Warm, conversational" }
+                            option { value: "amy", "Amy \u{2014} Clear, professional" }
+                            option { value: "ryan", "Ryan \u{2014} Neutral, calm" }
+                            option { value: "jenny", "Jenny \u{2014} Friendly, bright" }
+                            option { value: "lessac", "Lessac \u{2014} Precise, articulate" }
+                        }
+                        optgroup { label: "System",
+                            option { value: "system-default", "System Default" }
                         }
                     }
                 }
+                div { class: "settings-row",
+                    span { class: "settings-label", "STT Language" }
+                    select {
+                        class: "model-select",
+                        value: "{settings_stt_lang}",
+                        onchange: move |e| settings_stt_lang.set(e.value()),
+                        option { value: "en", "English" }
+                        option { value: "es", "Spanish" }
+                        option { value: "fr", "French" }
+                        option { value: "de", "German" }
+                        option { value: "ja", "Japanese" }
+                        option { value: "zh", "Chinese (Mandarin)" }
+                        option { value: "ko", "Korean" }
+                        option { value: "pt", "Portuguese" }
+                        option { value: "auto", "Auto-detect" }
+                    }
+                }
+                div { class: "settings-row",
+                    span { class: "settings-label", "Audio Input" }
+                    select {
+                        class: "model-select",
+                        value: "{settings_audio_input}",
+                        onchange: move |e| settings_audio_input.set(e.value()),
+                        option { value: "default", "System Default" }
+                        option { value: "builtin", "Built-in Microphone" }
+                        option { value: "external", "External Microphone" }
+                    }
+                }
+            }
+            div { class: "settings-section",
+                h3 { class: "settings-section-title", "Listening" }
+                div { class: "settings-row",
+                    div { class: "settings-label-group",
+                        span { class: "settings-label", "Wake Word" }
+                        span { class: "settings-desc", "Say \"Hey Hydra\" to activate voice input" }
+                    }
+                    div { class: "toggle-group",
+                        button {
+                            class: if *settings_wake_word.read() { "toggle-track on" } else { "toggle-track" },
+                            onclick: move |_| { let c = *settings_wake_word.read(); settings_wake_word.set(!c); },
+                            span { class: "toggle-knob" }
+                        }
+                        { let l = if *settings_wake_word.read() { "On" } else { "Off" };
+                          rsx! { span { class: "toggle-label", "{l}" } } }
+                    }
+                }
+                div { class: "settings-row",
+                    div { class: "settings-label-group",
+                        span { class: "settings-label", "Auto-listen after response" }
+                        span { class: "settings-desc", "Keep microphone active after Hydra speaks" }
+                    }
+                    div { class: "toggle-group",
+                        button {
+                            class: if *settings_auto_listen.read() { "toggle-track on" } else { "toggle-track" },
+                            onclick: move |_| { let c = *settings_auto_listen.read(); settings_auto_listen.set(!c); },
+                            span { class: "toggle-knob" }
+                        }
+                        { let l = if *settings_auto_listen.read() { "On" } else { "Off" };
+                          rsx! { span { class: "toggle-label", "{l}" } } }
+                    }
+                }
+            }
+            div { class: "settings-section",
+                h3 { class: "settings-section-title", "Effects" }
                 div { class: "settings-row",
                     div { class: "settings-label-group",
                         span { class: "settings-label", "Sound Effects" }
@@ -34,264 +114,156 @@
                             onclick: move |_| { let c = *settings_sounds.read(); settings_sounds.set(!c); },
                             span { class: "toggle-knob" }
                         }
-                        {
-                            let label = if *settings_sounds.read() { "On" } else { "Off" };
-                            rsx! { span { class: "toggle-label", "{label}" } }
-                        }
+                        { let l = if *settings_sounds.read() { "On" } else { "Off" };
+                          rsx! { span { class: "toggle-label", "{l}" } } }
                     }
                 }
                 div { class: "settings-row",
                     span { class: "settings-label", "Volume" }
                     input {
-                        class: "settings-slider",
-                        r#type: "range",
-                        min: "0", max: "100",
-                        value: "{settings_volume}",
+                        class: "settings-slider", r#type: "range",
+                        min: "0", max: "100", value: "{settings_volume}",
                         oninput: move |e| settings_volume.set(e.value()),
                     }
                 }
             }
-            p { class: "settings-info", "STT: Whisper (local). TTS: Piper (local). Wake word detection supported." }
+            p { class: "settings-info", "All voice processing runs locally. STT: Whisper. TTS: Piper. No audio leaves your machine." }
         },
         "policies" => rsx! {
             h2 { class: "settings-title", "Safety & Policies" }
             div { class: "settings-section",
-                h3 { class: "settings-section-title", "Execution Gate" }
-                div { class: "settings-row",
-                    div { class: "settings-label-group",
-                        span { class: "settings-label", "Auto-approve low-risk actions" }
-                        span { class: "settings-desc", "Skip approval for actions classified as low risk" }
-                    }
-                    div { class: "toggle-group",
-                        button {
-                            class: if *settings_auto_approve.read() { "toggle-track on" } else { "toggle-track" },
-                            onclick: move |_| { let c = *settings_auto_approve.read(); settings_auto_approve.set(!c); },
-                            span { class: "toggle-knob" }
-                        }
-                        {
-                            let label = if *settings_auto_approve.read() { "On" } else { "Off" };
-                            rsx! { span { class: "toggle-label", "{label}" } }
-                        }
-                    }
-                }
-            }
-            div { class: "settings-section",
-                h3 { class: "settings-section-title", "Safety Stack" }
-                p { class: "settings-info",
-                    "Execution Gate evaluates risk before every action. Kill Switch provides emergency stop (Cmd+Shift+K). Boundary Enforcer sets hard limits on file system, network, and process access."
-                }
-            }
-        },
-        "behavior" => rsx! {
-            h2 { class: "settings-title", "Behavior" }
-            div { class: "settings-section",
-                h3 { class: "settings-section-title", "Intent Cache" }
-                div { class: "settings-row",
-                    div { class: "settings-label-group",
-                        span { class: "settings-label", "Enable intent caching" }
-                        span { class: "settings-desc", "Cache classified intents to skip re-classification" }
-                    }
-                    div { class: "toggle-group",
-                        button {
-                            class: "toggle-track on",
-                            span { class: "toggle-knob" }
-                        }
-                        span { class: "toggle-label", "On" }
-                    }
+                h3 { class: "settings-section-title", "Risk Threshold" }
+                p { class: "settings-desc", style: "margin-bottom: 12px;",
+                    "Control how much autonomy Hydra has. Higher thresholds mean fewer approval prompts."
                 }
                 div { class: "settings-row",
-                    span { class: "settings-label", "Cache TTL" }
+                    span { class: "settings-label", "Auto-approve up to" }
                     div { class: "segmented-control",
-                        button { class: "segment", "15m" }
-                        button { class: "segment active", "1h" }
-                        button { class: "segment", "4h" }
-                        button { class: "segment", "24h" }
-                    }
-                }
-            }
-            div { class: "settings-section",
-                h3 { class: "settings-section-title", "Belief Revision" }
-                div { class: "settings-row",
-                    div { class: "settings-label-group",
-                        span { class: "settings-label", "Learn from corrections" }
-                        span { class: "settings-desc", "When you correct Hydra, it remembers for next time" }
-                    }
-                    div { class: "toggle-group",
-                        button {
-                            class: "toggle-track on",
-                            span { class: "toggle-knob" }
-                        }
-                        span { class: "toggle-label", "On" }
-                    }
-                }
-                div { class: "settings-row",
-                    span { class: "settings-label", "Belief persistence" }
-                    div { class: "segmented-control",
-                        button { class: "segment", "Session" }
-                        button { class: "segment active", "7 days" }
-                        button { class: "segment", "30 days" }
-                        button { class: "segment", "Forever" }
-                    }
-                }
-            }
-            div { class: "settings-section",
-                h3 { class: "settings-section-title", "Context Compression" }
-                div { class: "settings-row",
-                    span { class: "settings-label", "Compression strategy" }
-                    div { class: "segmented-control",
-                        button { class: "segment", "Minimal" }
-                        button { class: "segment active", "Balanced" }
-                        button { class: "segment", "Aggressive" }
-                    }
-                }
-            }
-            div { class: "settings-section",
-                h3 { class: "settings-section-title", "Sister Routing" }
-                div { class: "settings-row",
-                    span { class: "settings-label", "Dispatch mode" }
-                    div { class: "segmented-control",
-                        button { class: "segment active", "Parallel" }
-                        button { class: "segment", "Sequential" }
-                    }
-                }
-                div { class: "settings-row",
-                    span { class: "settings-label", "Sister timeout" }
-                    div { class: "segmented-control",
-                        button { class: "segment", "5s" }
-                        button { class: "segment active", "10s" }
-                        button { class: "segment", "30s" }
-                        button { class: "segment", "60s" }
+                        { let opts = ["none", "low", "medium", "high"]; rsx! {
+                            for o in opts.iter() {
+                                button {
+                                    class: if *settings_risk_threshold.read() == *o { "segment active" } else { "segment" },
+                                    onclick: { let v = o.to_string(); move |_| settings_risk_threshold.set(v.clone()) },
+                                    { match *o { "none" => "None", "low" => "Low", "medium" => "Medium", _ => "High" } }
+                                }
+                            }
+                        } }
                     }
                 }
                 div { class: "settings-row",
                     div { class: "settings-label-group",
-                        span { class: "settings-label", "Retry on failure" }
-                        span { class: "settings-desc", "Retry failed sister calls once before giving up" }
+                        span { class: "settings-label", "Always approve critical actions" }
+                        span { class: "settings-desc", "Destructive operations always require confirmation" }
                     }
                     div { class: "toggle-group",
                         button {
-                            class: "toggle-track on",
+                            class: if *settings_require_approval_critical.read() { "toggle-track on" } else { "toggle-track" },
+                            onclick: move |_| { let c = *settings_require_approval_critical.read(); settings_require_approval_critical.set(!c); },
                             span { class: "toggle-knob" }
                         }
-                        span { class: "toggle-label", "On" }
+                        { let l = if *settings_require_approval_critical.read() { "On" } else { "Off" };
+                          rsx! { span { class: "toggle-label", "{l}" } } }
                     }
                 }
             }
             div { class: "settings-section",
-                h3 { class: "settings-section-title", "Proactive Behavior" }
+                h3 { class: "settings-section-title", "Permissions" }
                 div { class: "settings-row",
                     div { class: "settings-label-group",
-                        span { class: "settings-label", "Dream state" }
-                        span { class: "settings-desc", "Process and consolidate knowledge during idle time" }
+                        span { class: "settings-label", "File writes" }
+                        span { class: "settings-desc", "Allow Hydra to create, edit, and delete files" }
                     }
                     div { class: "toggle-group",
                         button {
-                            class: "toggle-track on",
+                            class: if *settings_file_write.read() { "toggle-track on" } else { "toggle-track" },
+                            onclick: move |_| { let c = *settings_file_write.read(); settings_file_write.set(!c); },
                             span { class: "toggle-knob" }
                         }
-                        span { class: "toggle-label", "On" }
+                        { let l = if *settings_file_write.read() { "On" } else { "Off" };
+                          rsx! { span { class: "toggle-label", "{l}" } } }
                     }
                 }
                 div { class: "settings-row",
                     div { class: "settings-label-group",
-                        span { class: "settings-label", "Proactive insights" }
-                        span { class: "settings-desc", "Surface relevant information before you ask" }
+                        span { class: "settings-label", "Network access" }
+                        span { class: "settings-desc", "Allow outbound HTTP requests and API calls" }
                     }
                     div { class: "toggle-group",
                         button {
-                            class: "toggle-track on",
+                            class: if *settings_network_access.read() { "toggle-track on" } else { "toggle-track" },
+                            onclick: move |_| { let c = *settings_network_access.read(); settings_network_access.set(!c); },
                             span { class: "toggle-knob" }
                         }
-                        span { class: "toggle-label", "On" }
+                        { let l = if *settings_network_access.read() { "On" } else { "Off" };
+                          rsx! { span { class: "toggle-label", "{l}" } } }
+                    }
+                }
+                div { class: "settings-row",
+                    div { class: "settings-label-group",
+                        span { class: "settings-label", "Shell execution" }
+                        span { class: "settings-desc", "Allow running terminal commands" }
+                    }
+                    div { class: "toggle-group",
+                        button {
+                            class: if *settings_shell_exec.read() { "toggle-track on" } else { "toggle-track" },
+                            onclick: move |_| { let c = *settings_shell_exec.read(); settings_shell_exec.set(!c); },
+                            span { class: "toggle-knob" }
+                        }
+                        { let l = if *settings_shell_exec.read() { "On" } else { "Off" };
+                          rsx! { span { class: "toggle-label", "{l}" } } }
+                    }
+                }
+            }
+            div { class: "settings-section",
+                h3 { class: "settings-section-title", "Limits" }
+                div { class: "settings-row",
+                    span { class: "settings-label", "Max file edits per turn" }
+                    div { class: "segmented-control",
+                        { let opts = ["5", "10", "25", "50", "unlimited"]; rsx! {
+                            for o in opts.iter() {
+                                button {
+                                    class: if *settings_max_file_edits.read() == *o { "segment active" } else { "segment" },
+                                    onclick: { let v = o.to_string(); move |_| settings_max_file_edits.set(v.clone()) },
+                                    "{o}"
+                                }
+                            }
+                        } }
+                    }
+                }
+                div { class: "settings-row",
+                    div { class: "settings-label-group",
+                        span { class: "settings-label", "Sandbox mode" }
+                        span { class: "settings-desc", "Run actions in isolated environment (experimental)" }
+                    }
+                    div { class: "toggle-group",
+                        button {
+                            class: if *settings_sandbox_mode.read() { "toggle-track on" } else { "toggle-track" },
+                            onclick: move |_| { let c = *settings_sandbox_mode.read(); settings_sandbox_mode.set(!c); },
+                            span { class: "toggle-knob" }
+                        }
+                        { let l = if *settings_sandbox_mode.read() { "On" } else { "Off" };
+                          rsx! { span { class: "toggle-label", "{l}" } } }
+                    }
+                }
+            }
+            div { class: "settings-section",
+                h3 { class: "settings-section-title", "Emergency Controls" }
+                div { class: "policy-emergency-row",
+                    div { class: "policy-emergency-icon", "\u{26A0}" }
+                    div { class: "policy-emergency-info",
+                        span { class: "settings-label", "Kill Switch" }
+                        span { class: "settings-desc", "\u{2318}\u{21E7}K \u{2014} Immediately halts all actions, kills child processes, cancels pending approvals." }
                     }
                 }
             }
         },
-        _ => rsx! {
-            // advanced tab
-            h2 { class: "settings-title", "Advanced" }
-            div { class: "settings-section",
-                h3 { class: "settings-section-title", "Server" }
-                div { class: "settings-row",
-                    span { class: "settings-label", "HTTP Server" }
-                    span { class: "settings-desc", style: "color: var(--success);", "http://127.0.0.1:3100" }
-                }
-                div { class: "settings-row",
-                    span { class: "settings-label", "SSE Events" }
-                    span { class: "settings-desc", "/events" }
-                }
-                div { class: "settings-row",
-                    span { class: "settings-label", "JSON-RPC" }
-                    span { class: "settings-desc", "/rpc" }
-                }
-            }
-            div { class: "settings-section",
-                h3 { class: "settings-section-title", "File Paths" }
-                div { class: "settings-row",
-                    span { class: "settings-label", "Config" }
-                    span { class: "settings-desc", "~/.hydra/config.toml" }
-                }
-                div { class: "settings-row",
-                    span { class: "settings-label", "Profile" }
-                    span { class: "settings-desc", "~/.hydra/profile.json" }
-                }
-                div { class: "settings-row",
-                    span { class: "settings-label", "Database" }
-                    span { class: "settings-desc", "~/.hydra/hydra.db" }
-                }
-                div { class: "settings-row",
-                    span { class: "settings-label", "Sessions" }
-                    span { class: "settings-desc", "~/.hydra/sessions/" }
-                }
-                div { class: "settings-row",
-                    span { class: "settings-label", "MCP Config" }
-                    span { class: "settings-desc", "~/.hydra/mcp.json" }
-                }
-                div { class: "settings-row",
-                    span { class: "settings-label", "Receipts" }
-                    span { class: "settings-desc", "~/.hydra/receipts/" }
-                }
-            }
-            div { class: "settings-section",
-                h3 { class: "settings-section-title", "Engine" }
-                div { class: "settings-row",
-                    span { class: "settings-label", "Cognitive Loop" }
-                    span { class: "settings-desc", "5-phase: Perceive \u{2192} Think \u{2192} Decide \u{2192} Act \u{2192} Learn" }
-                }
-                div { class: "settings-row",
-                    span { class: "settings-label", "Execution Gate" }
-                    span { class: "settings-desc", "6-layer security stack" }
-                }
-                div { class: "settings-row",
-                    span { class: "settings-label", "Receipt Ledger" }
-                    span { class: "settings-desc", "Hash-chained audit trail with tamper detection" }
-                }
-                div { class: "settings-row",
-                    span { class: "settings-label", "Kill Switch" }
-                    span { class: "settings-desc", "Cmd+Shift+K \u{2014} emergency halt" }
-                }
-            }
-            div { class: "settings-section",
-                h3 { class: "settings-section-title", "Skills & Federation" }
-                div { class: "settings-row",
-                    span { class: "settings-label", "Crystallized Skills" }
-                    span { class: "settings-desc", "Evolve sister auto-captures reusable patterns" }
-                }
-                div { class: "settings-row",
-                    span { class: "settings-label", "Federation" }
-                    span { class: "settings-desc", "Peer discovery, skill sharing, task delegation" }
-                }
-                div { class: "settings-row",
-                    span { class: "settings-label", "Undo Stack" }
-                    span { class: "settings-desc", "Cmd+Z to undo file actions \u{2014} bounded history" }
-                }
-            }
-            div { class: "settings-section",
-                h3 { class: "settings-section-title", "Debug" }
-                p { class: "settings-info", "Version: Hydra v1.0.0" }
-                p { class: "settings-info", "Runtime: Dioxus 0.6 + WebView" }
-                p { class: "settings-info", "Platform: macOS (Darwin)" }
-            }
+        "behavior" => {
+            let behavior_content = include!("app_rsx_settings_behavior.rs");
+            behavior_content
+        },
+        _ => {
+            let advanced_content = include!("app_rsx_settings_advanced.rs");
+            advanced_content
         },
     }
 }

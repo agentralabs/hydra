@@ -5,9 +5,11 @@
 
 mod scan_repair;
 mod implement_diagnose;
+mod improve_threat;
 mod sister_repair_diagnosis;
 mod sister_repair_handler;
 
 pub(crate) use scan_repair::{handle_self_repair, handle_omniscience_scan};
 pub(crate) use implement_diagnose::{handle_self_implement, handle_sister_diagnose};
+pub(crate) use improve_threat::{handle_sister_improve, handle_threat_query};
 pub(crate) use sister_repair_handler::handle_sister_repair;

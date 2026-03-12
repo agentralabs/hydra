@@ -1,5 +1,6 @@
 //! Cognitive loop — decoupled from UI via message passing.
 
+pub mod conversation_engine;
 pub mod decide;
 pub mod decide_anomaly;
 pub mod decide_challenge;
@@ -28,5 +29,6 @@ pub use inventions::InventionEngine;
 pub use loop_runner::{CognitiveLoopConfig, CognitiveUpdate, run_cognitive_loop};
 pub use omniscience::{OmniscienceEngine, OmniscienceGap, OmniscienceScan, OmniscienceUpdate, RepoTarget, RepoScan};
 pub use self_repair::{SelfRepairEngine, RepairSpec, RepairResult, RepairStatus, RepairUpdate};
+pub use conversation_engine::{ConversationBuffer, ConversationContext};
 pub use spawner::AgentSpawner;
 pub use obstacles::{ObstacleResolver, Obstacle, ObstaclePattern, Resolution, ResolverConfig};

@@ -216,6 +216,7 @@ impl App {
                     user_name: self.user_name.clone(),
                     task_id,
                     history: self.conversation_history.clone(),
+                    session_count: self.messages.len() as u32,
                     anthropic_oauth_token: None,
                 };
 

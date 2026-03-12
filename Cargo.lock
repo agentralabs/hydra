@@ -2861,6 +2861,7 @@ dependencies = [
  "hydra-pulse",
  "hydra-router",
  "hydra-runtime",
+ "libc",
  "parking_lot",
  "pretty_assertions",
  "serde",

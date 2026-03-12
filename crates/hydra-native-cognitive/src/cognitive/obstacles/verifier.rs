@@ -51,8 +51,8 @@ pub fn verification_command(pattern: &ObstaclePattern, source_file: Option<&str>
                 None
             }
         }
-        ObstaclePattern::InvalidConfig => {
-            // Try cargo check to verify config
+        ObstaclePattern::InvalidConfig | ObstaclePattern::UnknownFramework => {
+            // Try cargo check to verify config / unknown framework setup
             Some("cargo check -j 1 2>&1".to_string())
         }
         // Network, Timeout, Permission — can't verify with a simple command
@@ -99,7 +99,7 @@ pub fn check_verification_output(
                 VerifyResult::SameError
             }
         }
-        ObstaclePattern::InvalidConfig => {
+        ObstaclePattern::InvalidConfig | ObstaclePattern::UnknownFramework => {
             if lower.contains("error") {
                 VerifyResult::SameError
             } else {

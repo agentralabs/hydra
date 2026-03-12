@@ -40,6 +40,7 @@ pub const COMMANDS: &[SlashCommand] = &[
     SlashCommand { name: "/export",   description: "Export conversation to file",      category: CommandCategory::Session },
     SlashCommand { name: "/context",  description: "Visualize context window usage",   category: CommandCategory::Session },
     SlashCommand { name: "/history",  description: "Show conversation history",        category: CommandCategory::Session },
+    SlashCommand { name: "/copy",     description: "Copy last response to clipboard",   category: CommandCategory::Session },
 
     // ── Model & Cost (Hydra §5.2) ──
     SlashCommand { name: "/model",    description: "Switch model",                     category: CommandCategory::Model },
@@ -95,6 +96,12 @@ pub const COMMANDS: &[SlashCommand] = &[
     SlashCommand { name: "/plugin",             description: "Manage plugins",                  category: CommandCategory::Integration },
     SlashCommand { name: "/remote-control",     description: "Enable control from web UI",      category: CommandCategory::Integration },
     SlashCommand { name: "/remote",             description: "Connect to remote session",       category: CommandCategory::Integration },
+    SlashCommand { name: "/ssh",               description: "Connect to remote machine via SSH", category: CommandCategory::Integration },
+    SlashCommand { name: "/ssh-exec",          description: "Execute command on remote machine", category: CommandCategory::Integration },
+    SlashCommand { name: "/ssh-upload",        description: "Upload file to remote machine",    category: CommandCategory::Integration },
+    SlashCommand { name: "/ssh-download",      description: "Download file from remote machine", category: CommandCategory::Integration },
+    SlashCommand { name: "/ssh-disconnect",    description: "Disconnect from remote machine",   category: CommandCategory::Integration },
+    SlashCommand { name: "/ssh-list",          description: "List active SSH connections",      category: CommandCategory::Integration },
 
     // ── Agents & Skills (Hydra §5.6) ──
     SlashCommand { name: "/agents",   description: "Manage custom AI subagents",       category: CommandCategory::Agent },
@@ -102,7 +109,22 @@ pub const COMMANDS: &[SlashCommand] = &[
     SlashCommand { name: "/commands", description: "List all slash commands",            category: CommandCategory::Agent },
     SlashCommand { name: "/plan",     description: "Enter plan mode",                   category: CommandCategory::Agent },
     SlashCommand { name: "/bashes",   description: "List background processes",         category: CommandCategory::Agent },
-    SlashCommand { name: "/tasks",    description: "View/toggle persistent task list",  category: CommandCategory::Agent },
+    SlashCommand { name: "/tasks",       description: "View active/interrupted tasks",    category: CommandCategory::Agent },
+    SlashCommand { name: "/resume-task", description: "Resume an interrupted task",      category: CommandCategory::Agent },
+    SlashCommand { name: "/cancel-task", description: "Cancel and clean up a task",      category: CommandCategory::Agent },
+
+    // ── Swarm (P9) ──
+    SlashCommand { name: "/swarm",          description: "Agent swarm management (spawn/status/assign/kill)", category: CommandCategory::Agent },
+    SlashCommand { name: "/swarm-spawn",    description: "Spawn N local agents",              category: CommandCategory::Agent },
+    SlashCommand { name: "/swarm-status",   description: "Show all agent statuses",            category: CommandCategory::Agent },
+    SlashCommand { name: "/swarm-assign",   description: "Distribute goal across idle agents", category: CommandCategory::Agent },
+    SlashCommand { name: "/swarm-results",  description: "Show aggregated agent results",      category: CommandCategory::Agent },
+    SlashCommand { name: "/swarm-kill",     description: "Terminate a specific agent",         category: CommandCategory::Agent },
+    SlashCommand { name: "/swarm-kill-all", description: "Terminate all agents",               category: CommandCategory::Agent },
+    SlashCommand { name: "/swarm-scale",    description: "Scale swarm to N agents",            category: CommandCategory::Agent },
+
+    // ── Sister Improve (P10) ──
+    SlashCommand { name: "/improve-sister", description: "Improve a sister codebase",        category: CommandCategory::Agent },
 
     // ── System ──
     SlashCommand { name: "/sisters",  description: "Show sister status",               category: CommandCategory::System },

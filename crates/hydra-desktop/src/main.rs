@@ -1,12 +1,9 @@
-//! Hydra Desktop — Fresh build. Claude Desktop quality.
-
+//! Hydra Desktop — native desktop app built with Dioxus.
 use dioxus::prelude::*;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-
 mod voice_capture;
-
 // Data structures from hydra-native (tested, working)
 use hydra_native::components::onboarding::{OnboardingState, OnboardingStep};
 use hydra_native::components::approval::ApprovalCard;
@@ -33,9 +30,8 @@ use hydra_db::HydraDb;
 use hydra_runtime::approval::{ApprovalDecision, ApprovalManager};
 use hydra_runtime::undo::UndoStack;
 use hydra_native::federation::FederationManager;
-
 const CSS: &str = include_str!("styles.css");
-
+const HYDRA_VERSION: &str = env!("CARGO_PKG_VERSION");
 fn main() {
     dioxus::LaunchBuilder::desktop()
         .with_cfg(
@@ -61,24 +57,19 @@ fn App() -> Element {
         }
         Arc::new(parking_lot::Mutex::new(lock))
     });
-
     // ── Load persisted profile ──
     let persisted = load_profile();
     let onboarding_done = persisted.as_ref().map_or(false, |p| p.onboarding_complete);
-
     let chat_db = Arc::new(ChatPersistence::init().unwrap_or_else(|e| {
         eprintln!("[hydra] Chat persistence failed: {}", e);
         ChatPersistence::init().expect("chat persistence fallback failed")
     }));
-
-    // ── Init engines + security DB (extracted for compilation memory) ──
+    // ── Init engines + security DB ──
     let (decide_engine, invention_engine, proactive_notifier, agent_spawner, undo_stack, approval_manager, federation_manager, hydra_db) = include!("app_engines.rs");
-
     // Clone for each UI consumer that captures approval_manager
     let send_msg_approval_mgr = approval_manager.clone();
     let palette_approval_mgr = approval_manager.clone();
     let card_approval_mgr = approval_manager.clone();
-
     // ── Init sisters (MCP connections) ──
     let sisters: Signal<Option<SistersHandle>> = use_signal(|| None);
     let sisters_status = use_signal(|| "Connecting...".to_string());
@@ -94,7 +85,6 @@ fn App() -> Element {
             });
         });
     }
-
     // ── Extract settings from profile ──
     let init_theme = persisted.as_ref().and_then(|p| p.theme.clone()).unwrap_or_else(|| "dark".to_string());
     let init_voice = persisted.as_ref().map_or(false, |p| p.voice_enabled);
@@ -117,7 +107,6 @@ fn App() -> Element {
         .and_then(|p| p.google_api_key.clone())
         .or_else(|| std::env::var("GOOGLE_API_KEY").ok().filter(|s| !s.is_empty()))
         .unwrap_or_default();
-
     // ── Core state signals ──
     let mut input = use_signal(|| String::new());
     let chat_db_init = chat_db.clone();
@@ -126,7 +115,6 @@ fn App() -> Element {
     let mut connected = use_signal(|| false);
     let mut phase = use_signal(|| "Idle".to_string());
     let mut icon_state = use_signal(|| "idle".to_string());
-
     // ── Onboarding ──
     let mut onboarding = use_signal(move || {
         if let Some(ref p) = persisted {
@@ -152,11 +140,11 @@ fn App() -> Element {
     let init_mode_for_sidebar = init_default_mode.clone();
     let mut settings_default_mode = use_signal(move || init_default_mode);
     let mut settings_model = use_signal(move || init_model);
+    let mut settings_local_model = use_signal(|| "llama3.3".to_string());
     let mut settings_anthropic_key = use_signal(move || init_anthropic_key);
     let mut settings_openai_key = use_signal(move || init_openai_key);
     let mut settings_google_key = use_signal(move || init_google_key);
     let mut settings_tab = use_signal(|| "general".to_string());
-
     // ── Anthropic OAuth state ──
     let mut oauth_status = use_signal(|| {
         let oauth = AnthropicOAuth::new();
@@ -169,10 +157,8 @@ fn App() -> Element {
         }
     });
     let mut oauth_loading = use_signal(|| false);
-
     // ── Mode state ──
     let mut current_mode = use_signal(move || init_mode_for_current);
-
     // ── Sidebar ──
     let mut sidebar = use_signal(|| {
         let mut sb = Sidebar::new();
@@ -180,12 +166,10 @@ fn App() -> Element {
         sb
     });
     let mut show_sidebar = use_signal(move || init_mode_for_sidebar == "workspace");
-
     // ── Approval, progress, error ──
     let mut pending_approval = use_signal(|| Option::<ApprovalCard>::None);
     let mut pending_approval_id = use_signal(|| Option::<String>::None);
     let mut challenge_input = use_signal(|| String::new());
-
     // ── Ghost Cursor state ──
     let mut ghost_cursor = use_signal(|| GhostCursorState::new());
     let mut ghost_click_rings: Signal<Vec<(f64, f64, u64)>> = use_signal(|| Vec::new());
@@ -194,7 +178,38 @@ fn App() -> Element {
     let mut celebration_dismiss_scheduled = use_signal(|| false);
     let mut active_error = use_signal(|| Option::<FriendlyError>::None);
     let mut approval_countdown = use_signal(|| 0u32);
+    // ── Voice settings (expanded) ──
+    let mut settings_tts_voice = use_signal(|| "nova".to_string());
+    let mut settings_stt_lang = use_signal(|| "en".to_string());
+    let mut settings_wake_word = use_signal(|| false);
+    let mut settings_audio_input = use_signal(|| "default".to_string());
+    let mut settings_auto_listen = use_signal(|| false);
+    // ── Policy settings (expanded) ──
+    let mut settings_risk_threshold = use_signal(|| "medium".to_string());
+    let mut settings_file_write = use_signal(|| true);
+    let mut settings_network_access = use_signal(|| true);
+    let mut settings_shell_exec = use_signal(|| true);
+    let mut settings_max_file_edits = use_signal(|| "25".to_string());
+    let mut settings_require_approval_critical = use_signal(|| true);
+    let mut settings_sandbox_mode = use_signal(|| false);
+    // ── Behavior settings (wired to actual toggles) ──
+    let mut settings_intent_cache = use_signal(|| true);
+    let mut settings_cache_ttl = use_signal(|| "1h".to_string());
+    let mut settings_learn_corrections = use_signal(|| true);
+    let mut settings_belief_persist = use_signal(|| "7 days".to_string());
+    let mut settings_compression = use_signal(|| "Balanced".to_string());
+    let mut settings_dispatch_mode = use_signal(|| "Parallel".to_string());
+    let mut settings_sister_timeout = use_signal(|| "10s".to_string());
+    let mut settings_retry_failures = use_signal(|| true);
+    let mut settings_dream_state = use_signal(|| true);
+    let mut settings_proactive = use_signal(|| true);
 
+    // ── Advanced settings ──
+    let mut settings_server_port = use_signal(|| "3100".to_string());
+    let mut settings_log_level = use_signal(|| "info".to_string());
+    let mut settings_debug_mode = use_signal(|| false);
+    let mut settings_telemetry = use_signal(|| false);
+    let mut backup_status = use_signal(|| String::new());
     // ── UI state ──
     let mut show_features = use_signal(|| false);
     let mut is_typing = use_signal(|| false);
@@ -362,9 +377,16 @@ fn App() -> Element {
         });
     });
 
-    // ── Greeting ──
+    // ── Greeting + model display ──
     let user_name = onboarding.read().user_name.clone().unwrap_or_default();
     let greeting = if user_name.is_empty() { "Hi there!".to_string() } else { format!("Hi {}!", user_name) };
+    let model_display = {
+        let m = settings_model.read().clone();
+        if m.contains("opus") { "Opus 4.6".to_string() }
+        else if m.contains("sonnet") { "Sonnet 4.6".to_string() }
+        else if m.contains("haiku") { "Haiku 4.5".to_string() }
+        else { m }
+    };
 
     // ── Send message handler + save profile (extracted for compilation memory) ──
     let (mut send_message, save_current_profile) = include!("app_send_handler.rs");

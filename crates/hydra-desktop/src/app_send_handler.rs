@@ -67,6 +67,7 @@
             user_name,
             task_id: task_id.clone(),
             history,
+            session_count: messages.read().len() as u32,
             anthropic_oauth_token: {
                 let (status, _, _) = oauth_status.read().clone();
                 if status == "authenticated" {
@@ -123,7 +124,42 @@
                         messages.write().push((role, content, css_class));
                     }
                     CognitiveUpdate::SidebarCompleteTask(id) => { sidebar.write().complete_task(&id); }
-                    CognitiveUpdate::Celebrate(msg) => { celebration.set(Some(Celebration::small(&msg))); }
+                    CognitiveUpdate::Celebrate(msg) => {
+                        // Build Claude Code-style inline completion summary
+                        let statuses = phase_statuses.read().clone();
+                        let total_tokens: u64 = statuses.iter().filter_map(|s| s.tokens_used).sum();
+                        let total_ms: u64 = statuses.iter().filter_map(|s| s.duration_ms).sum();
+                        let phases_done = statuses.len();
+                        let duration_str = if total_ms >= 60_000 {
+                            format!("{:.1}m", total_ms as f64 / 60_000.0)
+                        } else if total_ms >= 1_000 {
+                            format!("{:.1}s", total_ms as f64 / 1_000.0)
+                        } else {
+                            format!("{}ms", total_ms)
+                        };
+                        let token_str = if total_tokens >= 1_000 {
+                            format!("{:.1}k", total_tokens as f64 / 1_000.0)
+                        } else {
+                            format!("{}", total_tokens)
+                        };
+                        // Phase breakdown rows
+                        let mut phase_rows = String::new();
+                        for s in &statuses {
+                            let name = format!("{:?}", s.phase);
+                            let dur = s.duration_ms.map(|d| if d >= 1000 { format!("{:.1}s", d as f64 / 1000.0) } else { format!("{}ms", d) }).unwrap_or_else(|| "-".into());
+                            let tok = s.tokens_used.map(|t| if t > 0 { format!("{}", t) } else { "-".into() }).unwrap_or_else(|| "-".into());
+                            phase_rows.push_str(&format!(
+                                r#"<div class="cs-phase-row"><span class="cs-phase-check">{}</span><span class="cs-phase-name">{}</span><span class="cs-phase-dur">{}</span><span class="cs-phase-tok">{}</span></div>"#,
+                                "\u{2713}", name, dur, tok
+                            ));
+                        }
+                        let summary_html = format!(
+                            r#"<div class="completion-summary"><div class="cs-header"><span class="cs-badge">Completed</span><span class="cs-title">{}</span></div><div class="cs-stats"><div class="cs-stat"><span class="cs-stat-value">{}</span><span class="cs-stat-label">Duration</span></div><div class="cs-stat"><span class="cs-stat-value">{}</span><span class="cs-stat-label">Tokens</span></div><div class="cs-stat"><span class="cs-stat-value">{}</span><span class="cs-stat-label">Phases</span></div></div><div class="cs-phases">{}</div></div>"#,
+                            msg, duration_str, token_str, phases_done, phase_rows,
+                        );
+                        messages.write().push(("system".into(), summary_html, "completion".into()));
+                        celebration.set(Some(Celebration::small(&msg)));
+                    }
                     CognitiveUpdate::ResetIdle => {
                         phase.set("Idle".into());
                         icon_state.set("idle".into());

@@ -64,9 +64,10 @@ impl App {
             "/rename"   => self.slash_cmd_rename(args, timestamp),
             "/export"   => self.slash_cmd_export(args, timestamp),
             "/context"  => self.slash_cmd_context(timestamp),
+            "/copy"     => self.slash_cmd_copy(timestamp),
 
             // ── Model & Cost ──
-            "/model"   => self.slash_cmd_model(timestamp),
+            "/model"   => self.slash_cmd_model(args, timestamp),
             "/cost"    => self.slash_cmd_cost(timestamp),
             "/tokens"  => self.slash_cmd_tokens(timestamp),
             "/usage"   => self.slash_cmd_usage(timestamp),
@@ -99,20 +100,43 @@ impl App {
             "/remote-control"     => self.slash_cmd_remote_control(timestamp),
             "/remote"             => self.slash_cmd_remote(timestamp),
 
+            // ── SSH Remote Control (P8) ──
+            "/ssh"            => self.slash_cmd_ssh(args, timestamp),
+            "/ssh-exec"       => self.slash_cmd_ssh_exec(args, timestamp),
+            "/ssh-upload"     => self.slash_cmd_ssh_upload(args, timestamp),
+            "/ssh-download"   => self.slash_cmd_ssh_download(args, timestamp),
+            "/ssh-disconnect" => self.slash_cmd_ssh_disconnect(args, timestamp),
+            "/ssh-list"       => self.slash_cmd_ssh_list(timestamp),
+
+            // ── Sister Improve (P10) ──
+            "/improve-sister" => self.slash_cmd_improve_sister(args, timestamp),
+
+            // ── Agent Swarm (P9) ──
+            "/swarm"          => self.slash_cmd_swarm(args, timestamp),
+            "/swarm-spawn"    => self.slash_cmd_swarm_spawn(args, timestamp),
+            "/swarm-status"   => self.slash_cmd_swarm_status(timestamp),
+            "/swarm-assign"   => self.slash_cmd_swarm_assign(args, timestamp),
+            "/swarm-results"  => self.slash_cmd_swarm_results(timestamp),
+            "/swarm-kill"     => self.slash_cmd_swarm_kill(args, timestamp),
+            "/swarm-kill-all" => self.slash_cmd_swarm_kill_all(timestamp),
+            "/swarm-scale"    => self.slash_cmd_swarm_scale(args, timestamp),
+
             // ── Agents & Skills (Hydra) ──
-            "/agents"   => self.slash_cmd_agents(timestamp),
-            "/skills"   => self.slash_cmd_skills(timestamp),
-            "/commands"  => self.slash_cmd_commands(timestamp),
-            "/plan"     => self.slash_cmd_plan(timestamp),
-            "/bashes"   => self.slash_cmd_bashes(timestamp),
-            "/tasks"    => self.slash_cmd_tasks(timestamp),
+            "/agents"      => self.slash_cmd_agents(timestamp),
+            "/skills"      => self.slash_cmd_skills(timestamp),
+            "/commands"    => self.slash_cmd_commands(timestamp),
+            "/plan"        => self.slash_cmd_plan(timestamp),
+            "/bashes"      => self.slash_cmd_bashes(timestamp),
+            "/tasks"       => self.slash_cmd_tasks(timestamp),
+            "/resume-task" => self.slash_cmd_resume_task(args, timestamp),
+            "/cancel-task" => self.slash_cmd_cancel_task(args, timestamp),
 
             // ── Hydra-Exclusive ──
             "/version"     => self.slash_cmd_version(timestamp),
             "/env"         => self.slash_cmd_env(args, timestamp),
             "/dream"       => self.slash_cmd_dream(timestamp),
             "/obstacles"   => self.slash_cmd_obstacles(timestamp),
-            "/threat"      => self.slash_cmd_threat(timestamp),
+            "/threat"      => self.slash_cmd_threat(args, timestamp),
             "/autonomy"    => self.slash_cmd_autonomy(args, timestamp),
             "/implement"   => self.slash_cmd_implement(args, timestamp),
             "/diagnostics" => self.slash_cmd_diagnostics(timestamp),

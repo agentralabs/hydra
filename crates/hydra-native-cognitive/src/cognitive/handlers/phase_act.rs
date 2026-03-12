@@ -183,6 +183,24 @@ pub(crate) async fn run_act(
         }
     }
 
+    // Phase 5, P2: Obstacle resolution — classify failures, store solutions, send UI updates
+    {
+        let mut resolver = super::obstacle_handler::create_resolver();
+        for (cmd, output, success) in &all_exec_results {
+            if !*success {
+                if let Some(resolution) = super::obstacle_handler::try_resolve_obstacle(
+                    output, cmd, &mut resolver, llm_config, tx,
+                ).await {
+                    let obstacle = crate::cognitive::obstacles::Obstacle::from_error(output, cmd);
+                    let msg = super::obstacle_handler::format_resolution_message(
+                        obstacle.pattern.label(), &resolution.summary(), output,
+                    );
+                    final_response.push_str(&format!("\n\n{}", msg));
+                }
+            }
+        }
+    }
+
     let act_ms = act_start.elapsed().as_millis() as u64;
 
     if !is_simple {

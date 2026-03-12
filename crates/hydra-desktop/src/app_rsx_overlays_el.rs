@@ -5,6 +5,8 @@ rsx! {
     if *show_onboarding.read() {
         div {
             class: "onboarding-overlay",
+            role: "dialog",
+            aria_label: "Welcome to Hydra",
             div {
                 class: "onboarding-card",
                 div { class: "onboarding-globe" }
@@ -145,6 +147,8 @@ rsx! {
     if *show_command_palette.read() {
         div {
             class: "command-palette-overlay",
+            role: "dialog",
+            aria_label: "Command palette",
             onclick: move |_| show_command_palette.set(false),
             div {
                 class: "command-palette",
@@ -319,8 +323,7 @@ rsx! {
                 }
 
                 button {
-                    class: "btn-primary",
-                    style: "margin-top: 16px; width: 100%;",
+                    class: "btn-primary overlay-close-btn",
                     onclick: move |_| show_features.set(false),
                     "Close"
                 }
@@ -333,8 +336,7 @@ rsx! {
         div {
             class: "overlay",
             div {
-                class: "overlay-panel",
-                style: "max-width: 640px;",
+                class: "overlay-panel receipts-panel",
                 h2 { class: "overlay-title", "Receipt Audit Log" }
                 div {
                     class: "receipts-list",
@@ -359,7 +361,7 @@ rsx! {
                 }
                 button {
                     class: "btn-primary",
-                    style: "margin-top: 16px; width: 100%;",
+                    class: "overlay-close-btn",
                     onclick: move |_| show_receipts.set(false),
                     "Close"
                 }

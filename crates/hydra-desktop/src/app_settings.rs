@@ -84,9 +84,7 @@
 
                     // ── Content: Settings OR Chat ──
                     if *show_settings.read() {
-                        // ╔══════════════════════════════════════╗
-                        // ║  SETTINGS PAGE — Claude Desktop      ║
-                        // ╚══════════════════════════════════════╝
+                        // ── Settings page ──
                         div {
                             class: "settings-page",
                             // Left nav

@@ -114,19 +114,34 @@ pub(crate) async fn run_think(
     );
 
     // Dynamic per-phase model selection
+    // Conversational queries with memory context need Sonnet for personality.
+    // Only pure utility tasks (builds, deploys) can use Haiku for simple mode.
+    let has_memory_context = perceive.always_on_memory.is_some();
     if provider == "anthropic" {
         use super::super::intent_router::IntentCategory as IC;
         let routed_model: Option<&str> = match intent.category {
+            // Greetings/farewell/thanks are handled by dispatch_intents (static responses).
+            // If they reach here, they have memory context — use Sonnet.
+            IC::Greeting | IC::Farewell | IC::Thanks if has_memory_context => {
+                Some("claude-sonnet-4-6")
+            }
             IC::Greeting | IC::Farewell | IC::Thanks => {
                 Some("claude-haiku-4-5-20251001")
+            }
+            // Memory recall and questions with memory need Sonnet for natural response
+            IC::MemoryRecall | IC::Question if has_memory_context && !active_model.contains("opus") => {
+                Some("claude-sonnet-4-6")
             }
             IC::CodeBuild | IC::CodeFix
                 if complexity == "complex" && !active_model.contains("opus") => {
                 Some("claude-sonnet-4-6")
             }
             _ => match complexity {
-                "simple" if !active_model.contains("opus") => {
+                "simple" if !active_model.contains("opus") && !has_memory_context => {
                     Some("claude-haiku-4-5-20251001")
+                }
+                "simple" if !active_model.contains("opus") => {
+                    Some("claude-sonnet-4-6") // has memory → needs personality
                 }
                 "complex" if !active_model.contains("opus") => {
                     Some("claude-sonnet-4-6")

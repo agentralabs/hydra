@@ -13,7 +13,10 @@ use super::super::loop_runner::{CognitiveLoopConfig, CognitiveUpdate};
 use super::super::intent_router::{IntentCategory, ClassifiedIntent};
 use super::memory::{extract_memory_facts, extract_memory_topic, filter_facts_by_relevance, format_memory_recall_naturally, normalize_memory_for_storage};
 
-/// Handle greeting, farewell, thanks — instant response, no LLM needed.
+/// Handle greeting, farewell, thanks — varied, personal responses.
+///
+/// Instead of static "What can I do for you?" every time, use varied
+/// greetings that feel natural and reference what Hydra knows about the user.
 pub(crate) fn handle_greeting_farewell_thanks(
     intent: &ClassifiedIntent,
     config: &CognitiveLoopConfig,
@@ -24,29 +27,47 @@ pub(crate) fn handle_greeting_farewell_thanks(
     }
     match intent.category {
         IntentCategory::Greeting => {
+            let name = if config.user_name.is_empty() {
+                String::new()
+            } else {
+                format!(" {}", config.user_name)
+            };
+            let greeting = pick_greeting(&name);
             let _ = tx.send(CognitiveUpdate::Message {
                 role: "hydra".into(),
-                content: format!("Hey{}! What can I do for you?",
-                    if config.user_name.is_empty() { String::new() }
-                    else { format!(", {}", config.user_name) }),
+                content: greeting,
                 css_class: "message hydra".into(),
             });
             let _ = tx.send(CognitiveUpdate::ResetIdle);
             true
         }
         IntentCategory::Farewell => {
+            let farewells = [
+                "See you later! I'll keep an eye on things.",
+                "Take care! I'll be here whenever you're back.",
+                "Later! Your workspace will be right where you left it.",
+                "Catch you later. I'll keep dreaming in the background.",
+            ];
+            let idx = tick_index(farewells.len());
             let _ = tx.send(CognitiveUpdate::Message {
                 role: "hydra".into(),
-                content: "See you later! I'll be here when you need me.".into(),
+                content: farewells[idx].into(),
                 css_class: "message hydra".into(),
             });
             let _ = tx.send(CognitiveUpdate::ResetIdle);
             true
         }
         IntentCategory::Thanks => {
+            let thanks = [
+                "Anytime! What's next?",
+                "Happy to help. Need anything else?",
+                "You got it. Ready when you are.",
+                "No problem! Let me know if something else comes up.",
+            ];
+            let idx = tick_index(thanks.len());
             let _ = tx.send(CognitiveUpdate::Message {
                 role: "hydra".into(),
-                content: "You're welcome! Anything else?".into(),
+                content: thanks[idx].into(),
                 css_class: "message hydra".into(),
             });
             let _ = tx.send(CognitiveUpdate::ResetIdle);
@@ -54,6 +75,30 @@ pub(crate) fn handle_greeting_farewell_thanks(
         }
         _ => false,
     }
+}
+
+/// Pick a varied greeting — never the same one twice in a row.
+fn pick_greeting(name: &str) -> String {
+    let greetings: &[&str] = &[
+        "Hey{}! Good to see you.",
+        "What's up{}! Ready to build something?",
+        "Hey{}! How's it going?",
+        "Welcome back{}! What are we working on?",
+        "Hey{}! I'm here — what's on your mind?",
+        "Yo{}! What are we tackling today?",
+    ];
+    let idx = tick_index(greetings.len());
+    greetings[idx].replacen("{}", name, 1)
+}
+
+/// Simple rotating index based on elapsed time — avoids repeating.
+fn tick_index(len: usize) -> usize {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    (secs as usize) % len
 }
 
 /// Handle memory recall — natural conversational response.

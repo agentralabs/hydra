@@ -182,6 +182,14 @@ pub(crate) async fn handle_slash_command(
     let _ = tx.send(CognitiveUpdate::Phase("Act (command)".into()));
     let _ = tx.send(CognitiveUpdate::IconState("working".into()));
 
+    // Project execution marker — trigger ProjectExecutor pipeline
+    if slash_result.starts_with("__TEXT__:__PROJECT_EXEC__:") {
+        let marker = &slash_result["__TEXT__:__PROJECT_EXEC__:".len()..];
+        let (mode, url) = marker.split_once(':').unwrap_or(("EXECUTE", marker));
+        run_project_executor(url, mode == "DRY RUN", tx).await;
+        return true;
+    }
+
     // Some slash commands return static text (no shell execution needed)
     if slash_result.starts_with("__TEXT__:") {
         let content = slash_result.strip_prefix("__TEXT__:").unwrap_or(&slash_result);
@@ -313,4 +321,76 @@ pub(crate) async fn handle_direct_action(
 
     let _ = tx.send(CognitiveUpdate::ResetIdle);
     true
+}
+
+/// Handle natural language project execution requests (e.g., "test https://github.com/user/repo").
+pub(crate) async fn handle_project_exec_natural(
+    text: &str,
+    tx: &mpsc::UnboundedSender<CognitiveUpdate>,
+) -> bool {
+    if !crate::project_exec::is_project_exec_request(text) {
+        return false;
+    }
+    let url = match crate::project_exec::extract_url(text) {
+        Some(u) => u,
+        None => return false,
+    };
+    let dry_run = {
+        let lower = text.to_lowercase();
+        lower.contains("dry") && lower.contains("run")
+    };
+    run_project_executor(&url, dry_run, tx).await;
+    true
+}
+
+/// Spawn ProjectExecutor and forward progress updates to the cognitive loop.
+async fn run_project_executor(
+    url: &str,
+    dry_run: bool,
+    tx: &mpsc::UnboundedSender<CognitiveUpdate>,
+) {
+    let request = if dry_run {
+        crate::project_exec::ProjectRequest::dry_run(url)
+    } else {
+        crate::project_exec::ProjectRequest::new(url)
+    };
+
+    let _ = tx.send(CognitiveUpdate::Phase("Project Execution".into()));
+    let _ = tx.send(CognitiveUpdate::IconState("working".into()));
+
+    let (exec_tx, mut exec_rx) = mpsc::channel::<CognitiveUpdate>(100);
+    let tx_fwd = tx.clone();
+
+    // Forward progress updates from executor channel to cognitive loop
+    let forwarder = tokio::spawn(async move {
+        while let Some(update) = exec_rx.recv().await {
+            let _ = tx_fwd.send(update);
+        }
+    });
+
+    // Run executor in blocking task (it does git clone, runs shell commands)
+    let report = tokio::task::spawn_blocking(move || {
+        let mut executor = crate::project_exec::ProjectExecutor::new();
+        executor.execute(&request, &exec_tx)
+    }).await;
+
+    let _ = forwarder.await;
+
+    match report {
+        Ok(r) => {
+            let _ = tx.send(CognitiveUpdate::Message {
+                role: "hydra".into(),
+                content: r.detailed_table(),
+                css_class: "message hydra".into(),
+            });
+        }
+        Err(e) => {
+            let _ = tx.send(CognitiveUpdate::Message {
+                role: "hydra".into(),
+                content: format!("Project execution failed: {}", e),
+                css_class: "message hydra error".into(),
+            });
+        }
+    }
+    let _ = tx.send(CognitiveUpdate::ResetIdle);
 }

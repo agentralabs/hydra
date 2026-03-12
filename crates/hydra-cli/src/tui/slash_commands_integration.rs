@@ -279,29 +279,77 @@ impl App {
     }
 
     pub(crate) fn slash_cmd_tasks(&mut self, timestamp: &str) {
-        if self.recent_tasks.is_empty() {
-            self.messages.push(Message {
-                role: MessageRole::System,
-                content: "Tasks\n\n  No persistent tasks. Tasks are tracked per-session.".to_string(),
-                timestamp: timestamp.to_string(),
-                phase: None,
-            });
-        } else {
-            let mut msg = String::from("Tasks\n\n");
+        let mut msg = String::from("Tasks\n\n");
+        // Persistent checkpoints from disk
+        let persister = hydra_native::task_persistence::TaskPersister::new();
+        if let Ok(checkpoints) = persister.list_incomplete() {
+            if !checkpoints.is_empty() {
+                msg.push_str("  Interrupted (resumable):\n");
+                for cp in &checkpoints {
+                    msg.push_str(&format!("    ◉ {}\n", hydra_native::task_persistence::format_task_summary(cp)));
+                    msg.push_str(&format!("      /resume-task {}  |  /cancel-task {}\n", cp.task_id, cp.task_id));
+                }
+                msg.push('\n');
+            }
+        }
+        // Session tasks
+        if !self.recent_tasks.is_empty() {
+            msg.push_str("  Session:\n");
             for (i, task) in self.recent_tasks.iter().enumerate() {
                 let icon = match task.status {
                     super::app::TaskStatus::Complete => "✓",
                     super::app::TaskStatus::Running => "◉",
                     super::app::TaskStatus::Failed => "✗",
                 };
-                msg.push_str(&format!("  {} {}. {}\n", icon, i + 1, task.summary));
+                msg.push_str(&format!("    {} {}. {}\n", icon, i + 1, task.summary));
             }
+        }
+        if self.recent_tasks.is_empty() && msg.len() < 15 {
+            msg.push_str("  No active or interrupted tasks.\n");
+        }
+        self.messages.push(Message {
+            role: MessageRole::System,
+            content: msg,
+            timestamp: timestamp.to_string(),
+            phase: None,
+        });
+    }
+
+    pub(crate) fn slash_cmd_resume_task(&mut self, args: &str, timestamp: &str) {
+        let task_id = args.trim();
+        if task_id.is_empty() {
             self.messages.push(Message {
                 role: MessageRole::System,
-                content: msg,
+                content: "Usage: /resume-task <task-id>".to_string(),
                 timestamp: timestamp.to_string(),
                 phase: None,
             });
+            return;
         }
+        self.execute_intent(&format!("/test-repo --resume {}", task_id), timestamp);
+    }
+
+    pub(crate) fn slash_cmd_cancel_task(&mut self, args: &str, timestamp: &str) {
+        let task_id = args.trim();
+        if task_id.is_empty() {
+            self.messages.push(Message {
+                role: MessageRole::System,
+                content: "Usage: /cancel-task <task-id>".to_string(),
+                timestamp: timestamp.to_string(),
+                phase: None,
+            });
+            return;
+        }
+        let persister = hydra_native::task_persistence::TaskPersister::new();
+        let msg = match hydra_native::task_persistence::recovery::cancel_task(&persister, task_id) {
+            Ok(m) => m,
+            Err(e) => format!("Failed to cancel: {}", e),
+        };
+        self.messages.push(Message {
+            role: MessageRole::System,
+            content: msg,
+            timestamp: timestamp.to_string(),
+            phase: None,
+        });
     }
 }

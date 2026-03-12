@@ -196,6 +196,25 @@ pub(crate) fn handle_universal_slash_command(input: &str) -> Option<String> {
                 Type `/` to see autocomplete suggestions.".to_string())
         }
 
+        // ── Threat Intelligence (P11) ──
+        "/threat" => {
+            let correlator = crate::threat::ThreatCorrelator::new();
+            let content = match args {
+                "history" => correlator.signal_history(20),
+                "patterns" => correlator.patterns_summary(),
+                _ => correlator.summary(),
+            };
+            Some(format!("__TEXT__:{}", content))
+        }
+
+        // P10: Sister improve — async, falls through to handler
+        "/improve-sister" if args.is_empty() => {
+            Some("__TEXT__:Usage: `/improve-sister <path> <goal>`\nExamples: `/improve-sister ../agentic-memory add retry logic`".to_string())
+        }
+        // P9/P10: Handled by TUI app state or cognitive loop dispatch
+        "/improve-sister" | "/swarm" | "/swarm-status" | "/swarm-spawn" | "/swarm-assign"
+        | "/swarm-results" | "/swarm-kill" | "/swarm-kill-all" | "/swarm-scale" => None,
+
         _ => None,
     }
 }

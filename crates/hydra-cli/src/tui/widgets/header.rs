@@ -21,9 +21,16 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
         (Span::styled("●", theme::status_err()), " Offline")
     };
 
-    // Header line: ── Hydra v1.1.0 · project (branch) · Model · tools · ● status ──
+    // Header line: ── Agentra Labs · Hydra v1.1.0 · project (branch) · Model · tools · ● status ──
     let mut spans = vec![
         Span::styled("── ", theme::dim()),
+        Span::styled(
+            "Agentra Labs",
+            Style::default()
+                .fg(theme::HYDRA_DIM)
+                .add_modifier(Modifier::ITALIC),
+        ),
+        Span::styled(" · ", theme::dim()),
         Span::styled(
             format!("Hydra v{}", version),
             Style::default()

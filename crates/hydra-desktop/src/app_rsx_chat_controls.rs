@@ -59,7 +59,10 @@ rsx! {
                     }
                     if countdown_val > 0 {
                         div { class: "approval-countdown", "Auto-declining in {countdown_val}s" }
-                        div { class: "approval-progress-bar",
+                        div {
+                            class: "approval-progress-bar",
+                            role: "progressbar",
+                            aria_label: "Auto-decline countdown",
                             div {
                                 class: "approval-progress-fill",
                                 style: format!("width: {}%", (countdown_val as f32 / 30.0 * 100.0).min(100.0)),
@@ -238,28 +241,39 @@ rsx! {
                     span { class: if *voice_listening.read() { "mic-icon listening" } else { "mic-icon" } }
                 }
             }
-            input {
+            textarea {
                 class: "chat-input",
                 placeholder: if *voice_listening.read() { "Listening..." } else { "Message Hydra..." },
                 value: "{input}",
+                rows: "1",
                 oninput: move |e| {
                     input.set(e.value());
                     if input_error.read().is_some() { input_error.set(None); }
+                    // Auto-resize textarea
+                    document::eval("requestAnimationFrame(function(){var t=document.querySelector('.chat-input');if(t){t.style.height='auto';t.style.height=Math.min(t.scrollHeight,150)+'px';}})");
                 },
-                onkeypress: move |e| {
-                    if e.key() == Key::Enter {
+                onkeydown: move |e| {
+                    if e.key() == Key::Enter && !e.modifiers().shift() {
+                        e.prevent_default();
                         let text = input.read().clone();
                         send_message(text);
+                        // Reset height after send
+                        document::eval("requestAnimationFrame(function(){var t=document.querySelector('.chat-input');if(t)t.style.height='auto';})");
                     }
                 },
             }
             button {
                 class: "send-btn",
+                title: "Send message",
+                aria_label: "Send message",
                 onclick: move |_| {
                     let text = input.read().clone();
                     send_message(text);
                 },
-                "\u{2191}"
+                span {
+                    class: "send-icon",
+                    dangerous_inner_html: r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>"#,
+                }
             }
         }
         {
@@ -270,6 +284,17 @@ rsx! {
                 rsx! {}
             }
         }
-        p { class: "input-hint", "Enter to send \u{00B7} \u{2318}K commands \u{00B7} \u{2318}B sidebar" }
+        div { class: "input-footer",
+            p { class: "input-hint", "Enter to send \u{00B7} Shift+Enter newline \u{00B7} \u{2318}K commands \u{00B7} \u{2318}B sidebar" }
+            {
+                let len = input.read().len();
+                if len > 0 {
+                    let count_class = if len > 9000 { "char-count warn" } else { "char-count" };
+                    rsx! { span { class: count_class, "{len}/10000" } }
+                } else {
+                    rsx! { span { class: "powered-by", "by Agentra Labs" } }
+                }
+            }
+        }
     }
 }

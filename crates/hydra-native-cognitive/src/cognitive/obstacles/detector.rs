@@ -11,6 +11,7 @@ pub enum ObstaclePattern {
     Timeout,
     InvalidConfig,
     PermissionDenied,
+    UnknownFramework,
     Unknown,
 }
 
@@ -26,6 +27,7 @@ impl ObstaclePattern {
             Self::Timeout => "Timeout",
             Self::InvalidConfig => "Invalid Configuration",
             Self::PermissionDenied => "Permission Denied",
+            Self::UnknownFramework => "Unknown Framework",
             Self::Unknown => "Unknown Obstacle",
         }
     }
@@ -39,6 +41,7 @@ impl ObstaclePattern {
                 | Self::FileNotFound
                 | Self::Timeout
                 | Self::InvalidConfig
+                | Self::UnknownFramework
         )
     }
 }
@@ -103,6 +106,8 @@ pub fn classify_error(error: &str) -> ObstaclePattern {
         ObstaclePattern::NetworkError
     } else if is_invalid_config(&lower) {
         ObstaclePattern::InvalidConfig
+    } else if is_unknown_framework(&lower) {
+        ObstaclePattern::UnknownFramework
     } else {
         ObstaclePattern::Unknown
     }
@@ -165,6 +170,14 @@ fn is_invalid_config(s: &str) -> bool {
         || s.contains("toml") && s.contains("error")
         || s.contains("missing field")
         || s.contains("invalid value")
+}
+
+fn is_unknown_framework(s: &str) -> bool {
+    s.contains("unknown build system")
+        || s.contains("don't know how to build")
+        || s.contains("no makefile found") && s.contains("no build")
+        || s.contains("unrecognized project type")
+        || s.contains("unknown framework")
 }
 
 /// Extract a source file path from an error message (if present).

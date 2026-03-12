@@ -94,10 +94,12 @@ pub fn build_welcome_frame(app: &App, width: usize, out: &mut Vec<Line<'static>>
     ));
 
     // Logo ◉──◉ | activity items
+    let max_act = w.saturating_sub(sp + 5);
     let act1 = if app.recent_tasks.is_empty() {
         Span::styled(" No recent activity", dim)
     } else {
-        Span::styled(format!("   {}", app.recent_tasks[0].summary), dim)
+        let s = truncate_str(&app.recent_tasks[0].summary, max_act);
+        Span::styled(format!(" {}", s), dim)
     };
     out.push(row(
         vec![Span::styled("        ◉─────◉", lb)],
@@ -106,7 +108,8 @@ pub fn build_welcome_frame(app: &App, width: usize, out: &mut Vec<Line<'static>>
 
     // Logo ╲╱ | activity 2
     let act2 = if app.recent_tasks.len() > 1 {
-        Span::styled(format!("   {}", app.recent_tasks[1].summary), dim)
+        let s = truncate_str(&app.recent_tasks[1].summary, max_act);
+        Span::styled(format!(" {}", s), dim)
     } else { Span::raw("") };
     out.push(row(
         vec![Span::styled("         ╲   ╱", lb)],
@@ -125,15 +128,20 @@ pub fn build_welcome_frame(app: &App, width: usize, out: &mut Vec<Line<'static>>
         Span::styled(" System", bb),
     ], w, sp));
 
-    // Model + Org | Sisters
+    // Model + Branch | Sisters
     let sister_style = if app.connected_count == app.total_sisters { green } else { yellow };
+    let mut model_spans = vec![
+        Span::styled("  ", Style::default()),
+        Span::styled(app.model_name.clone(), purple),
+    ];
+    if let Some(ref info) = app.project_info {
+        if let Some(ref branch) = info.git_branch {
+            model_spans.push(Span::styled(" · ", dim));
+            model_spans.push(Span::styled(branch.clone(), green));
+        }
+    }
     out.push(row(
-        vec![
-            Span::styled("  ", Style::default()),
-            Span::styled(app.model_name.clone(), purple),
-            Span::styled(" · ", dim),
-            Span::styled("Agentra Labs", dim),
-        ],
+        model_spans,
         vec![
             Span::styled(" Sisters    ", dim),
             Span::styled(format!("{}/{} connected", app.connected_count, app.total_sisters), sister_style),
@@ -202,13 +210,21 @@ pub fn build_welcome_frame(app: &App, width: usize, out: &mut Vec<Line<'static>>
     // Empty row
     out.push(row(vec![], vec![], w, sp));
 
-    // Bottom border
-    let dashes = w.saturating_sub(2);
+    // Bottom border with Agentra Labs branding
+    let brand = " Agentra Labs ";
+    let dashes_left = 3usize;
+    let dashes_right = w.saturating_sub(2 + dashes_left + brand.len());
     out.push(Line::from(vec![
         Span::styled("└", bs),
-        Span::styled("─".repeat(dashes), bs),
+        Span::styled("─".repeat(dashes_left), bs),
+        Span::styled(brand, dim),
+        Span::styled("─".repeat(dashes_right), bs),
         Span::styled("┘", bs),
     ]));
+}
+
+fn truncate_str(s: &str, max: usize) -> String {
+    if s.len() <= max { s.to_string() } else { format!("{}…", &s[..max.saturating_sub(1)]) }
 }
 
 fn shorten_path(path: &str, max: usize) -> String {

@@ -1,7 +1,9 @@
 //! System prompt builder — extracted from phase_think.rs for file size.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
+use crate::cognitive::conversation_engine;
 use crate::cognitive::decide::DecideEngine;
 use crate::cognitive::inventions::InventionEngine;
 use crate::sisters::SistersHandle;
@@ -9,6 +11,9 @@ use crate::sisters::SistersHandle;
 use super::super::intent_router::ClassifiedIntent;
 use super::llm_helpers::route_tools_for_prompt;
 use super::phase_perceive::PerceiveResult;
+
+/// Track the last memory hash to detect when we're returning the same facts.
+static LAST_MEMORY_HASH: AtomicU64 = AtomicU64::new(0);
 
 /// Build the COGNITIVE system prompt from perceived sister context.
 pub(crate) fn build_system_prompt(
@@ -35,14 +40,48 @@ pub(crate) fn build_system_prompt(
         if let Some(ref intent_text) = veritas_intent {
             sp.push_str(&format!("\n# Compiled Intent\n{}\n\n", intent_text));
         }
-        // Always-on memory injection
+        // Always-on memory injection with dedup detection + natural formatting
         if let Some(ref mem_context) = perceive.always_on_memory {
-            sp.push_str(&format!(
-                "\n# What I Remember About This Topic\n\
-                 Use this context naturally — don't repeat it verbatim, but let it inform your response:\n{}\n\n",
-                mem_context
-            ));
+            let prev_hash = LAST_MEMORY_HASH.swap(perceive.memory_hash, Ordering::Relaxed);
+            let is_duplicate = prev_hash != 0 && prev_hash == perceive.memory_hash;
+            if is_duplicate {
+                sp.push_str(
+                    "\n# Memory Note\n\
+                     The same memories were returned as the previous query. \
+                     You don't have additional information beyond what you already shared. \
+                     If the user asks again, acknowledge this honestly.\n\n",
+                );
+            } else {
+                // Format memories naturally — never as bullet lists
+                let mem_lines: Vec<String> = mem_context.lines()
+                    .filter(|l| !l.trim().is_empty())
+                    .map(|l| l.to_string())
+                    .collect();
+                let formatted = conversation_engine::format_memories_naturally(&mem_lines);
+                sp.push_str(&format!("\n# What You Remember\n{}\n\n", formatted));
+            }
         }
+        // Time + emotional context (conversation engine)
+        let time_ctx = conversation_engine::build_time_context();
+        sp.push_str(&format!(
+            "\n# Current Context\nTime: {}, {}\n",
+            time_ctx.time_of_day, time_ctx.day_of_week,
+        ));
+        if !time_ctx.contextual_note.is_empty() {
+            sp.push_str(&format!("{}\n", time_ctx.contextual_note));
+        }
+        // Emotional read from user input — populate buffer with real history
+        let mut conv_buf = conversation_engine::ConversationBuffer::new(15);
+        for (role, content) in &config.history {
+            conv_buf.add(role, content);
+        }
+        let emotional = conversation_engine::detect_emotional_context(text, &conv_buf);
+        // User relationship depth
+        let user_profile = conversation_engine::build_user_profile(
+            &[], &config.user_name, config.session_count,
+        );
+        sp.push_str(&format!("\n# Relationship\n{}\n", user_profile));
+        sp.push_str(&format!("\n# Read The Room\n{}\n\n", emotional));
         // Active belief injection with relevance filtering
         if let Some(ref beliefs) = perceive.beliefs_context {
             let input_words: Vec<String> = text.split_whitespace()

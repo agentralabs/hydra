@@ -9,6 +9,7 @@ pub mod execution;
 pub mod execution_deepen;
 pub mod llm_helpers;
 pub mod memory;
+pub mod memory_intent;
 pub mod phase_act;
 pub mod phase_act_exec;
 pub mod phase_decide;

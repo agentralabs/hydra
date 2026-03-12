@@ -14,9 +14,14 @@ pub use hydra_native_state::persistence;
 pub use hydra_native_state::proactive;
 pub use hydra_native_state::federation;
 
-// From hydra-native-cognitive (cognitive loop, sisters)
+// From hydra-native-cognitive (cognitive loop, sisters, task persistence, remote)
 pub use hydra_native_cognitive::cognitive;
+pub use hydra_native_cognitive::remote;
 pub use hydra_native_cognitive::sisters;
+pub use hydra_native_cognitive::sister_improve;
+pub use hydra_native_cognitive::swarm;
+pub use hydra_native_cognitive::threat;
+pub use hydra_native_cognitive::task_persistence;
 
 // Local modules (remain in this crate)
 pub mod app;

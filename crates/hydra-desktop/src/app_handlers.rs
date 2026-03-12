@@ -64,6 +64,7 @@
             user_name,
             task_id: task_id.clone(),
             history,
+            session_count: messages.read().len() as u32,
             anthropic_oauth_token: {
                 let (status, _, _) = oauth_status.read().clone();
                 if status == "authenticated" {

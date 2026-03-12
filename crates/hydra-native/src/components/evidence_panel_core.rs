@@ -212,11 +212,11 @@ impl EvidencePanel {
     /// Icon for an evidence kind.
     pub fn evidence_icon(kind: EvidenceKind) -> &'static str {
         match kind {
-            EvidenceKind::Code => "\u{1F4C4}",         // page facing up
-            EvidenceKind::Screenshot => "\u{1F4F7}",   // camera
-            EvidenceKind::MemoryContext => "\u{1F9E0}", // brain
-            EvidenceKind::Diff => "\u{00B1}",          // plus-minus
-            EvidenceKind::LogOutput => "\u{1F4BB}",    // laptop / terminal
+            EvidenceKind::Code => "\u{2630}",        // trigram (file)
+            EvidenceKind::Screenshot => "\u{25A3}",   // white square with rounded corners
+            EvidenceKind::MemoryContext => "\u{2261}", // identical to (context)
+            EvidenceKind::Diff => "\u{00B1}",         // plus-minus
+            EvidenceKind::LogOutput => "\u{25B8}",    // right-pointing small triangle (terminal)
         }
     }
 

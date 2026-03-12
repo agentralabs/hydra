@@ -34,12 +34,21 @@ impl Sisters {
             || lower.contains("i prefer");
 
         // Structured capture — uses memory_add for facts/preferences,
-        // conversation_log for exchange history
+        // conversation_log for exchange history.
+        // FIX 2: Skip storing questions and greetings — they pollute memory.
+        use crate::cognitive::handlers::memory_intent::{is_question, is_greeting, classify_event_type};
+        let should_store = is_correction
+            || (!is_question(user_msg) && !is_greeting(user_msg));
+
         let v3_capture_fut = async {
+            if !should_store {
+                eprintln!("[hydra:learn] SKIPPED memory_add — question/greeting");
+                return;
+            }
             if let Some(mem) = &self.memory {
                 eprintln!("[hydra:learn] Calling memory_add...");
                 let content = format!("User: {}\nHydra: {}", user_msg, safe_truncate(&response, 200));
-                let event_type = if is_correction { "correction" } else { "episode" };
+                let event_type = if is_correction { "correction" } else { classify_event_type(user_msg) };
                 let result = mem.call_tool("memory_add", serde_json::json!({
                     "event_type": event_type,
                     "content": content,

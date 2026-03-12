@@ -19,4 +19,5 @@ pub(crate) use super::dispatch_actions::{
     handle_dep_query_precheck,
     handle_slash_command,
     handle_direct_action,
+    handle_project_exec_natural,
 };

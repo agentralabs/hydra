@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Hydra CLI launcher — builds quietly, runs the binary directly.
+set -e
+
+REPO_DIR="/Users/omoshola/Documents/agentralabs-tech/agentic-hydra"
+BIN="$REPO_DIR/target/debug/hydra-cli"
+
+# Rebuild only if source changed (cargo handles this), suppress warnings
+cd "$REPO_DIR" && cargo build --bin hydra-cli -j 1 -q 2>/dev/null
+
+exec "$BIN" "$@"

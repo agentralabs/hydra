@@ -38,6 +38,25 @@ impl App {
         };
 
         self.server_online = self.client.health_check();
+
+        // P7: Detect interrupted tasks from previous sessions
+        let persister = hydra_native::task_persistence::TaskPersister::new();
+        if let Ok(interrupted) = persister.list_incomplete() {
+            if !interrupted.is_empty() {
+                let mut msg = format!("Found {} interrupted task(s):\n\n", interrupted.len());
+                for cp in &interrupted {
+                    msg.push_str(&format!("  {} {}\n", "◉", hydra_native::task_persistence::format_task_summary(cp)));
+                    msg.push_str(&format!("    /resume-task {}  |  /cancel-task {}\n\n", cp.task_id, cp.task_id));
+                }
+                self.messages.push(super::app::Message {
+                    role: super::app::MessageRole::System,
+                    content: msg,
+                    timestamp: chrono::Local::now().format("%H:%M").to_string(),
+                    phase: None,
+                });
+            }
+        }
+        let _ = persister.cleanup_old(7);
     }
 
     /// Periodic tick — refresh animations, drain cognitive updates, advance idle timer.

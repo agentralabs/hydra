@@ -5,10 +5,13 @@
 let overlays_el: Element = include!("app_rsx_overlays_el.rs");
 let sidebar_el: Element = include!("app_rsx_sidebar_el.rs");
 let ghost_el: Element = include!("app_rsx_ghost_el.rs");
+let companion_el: Element = include!("app_rsx_companion.rs");
 
 // Lazy closures for conditional settings sections
 let settings_a = include!("app_rsx_settings_a.rs");
 let settings_b = include!("app_rsx_settings_b.rs");
+let settings_about = include!("app_rsx_settings_about.rs");
+let settings_mcp = include!("app_rsx_settings_mcp.rs");
 
 // Chat section elements
 let chat_body_el: Element = include!("app_rsx_chat_body.rs");
@@ -49,7 +52,21 @@ rsx! {
                         if !*show_sidebar.read() {
                             span { class: "topbar-brand", "Hydra" }
                         }
-                        span { class: "topbar-mode", "{current_mode}" }
+                        span { class: "topbar-version", "v{HYDRA_VERSION}" }
+                        span { class: "topbar-sep", "\u{00B7}" }
+                        span { class: "topbar-model", "{model_display}" }
+                        span { class: "topbar-sep", "\u{00B7}" }
+                        {
+                            let mode = current_mode.read().clone();
+                            let mode_label = match mode.as_str() {
+                                "companion" => "Companion",
+                                "workspace" => "Workspace",
+                                "immersive" => "Immersive",
+                                "invisible" => "Invisible",
+                                other => other,
+                            };
+                            rsx! { span { class: "topbar-mode", "{mode_label}" } }
+                        }
                     }
                     div {
                         class: "topbar-center",
@@ -103,18 +120,21 @@ rsx! {
                         button {
                             class: "topbar-cmd-btn",
                             title: "Command Palette (Cmd+K)",
+                            aria_label: "Open command palette",
                             onclick: move |_| { command_palette.write().reset(); show_command_palette.set(true); },
                             "\u{2318}K"
                         }
                         button {
                             class: "topbar-icon-btn",
                             title: "Toggle Sidebar (Cmd+B)",
+                            aria_label: "Toggle sidebar",
                             onclick: move |_| { let c = *show_sidebar.read(); show_sidebar.set(!c); },
                             "\u{2630}"
                         }
                         button {
                             class: "topbar-icon-btn",
                             title: "Settings (Cmd+,)",
+                            aria_label: "Open settings",
                             onclick: move |_| { let c = *show_settings.read(); show_settings.set(!c); },
                             "\u{2699}"
                         }
@@ -132,11 +152,13 @@ rsx! {
                                 let tabs: Vec<(&str, &str, &str)> = vec![
                                     ("general", "\u{2699}", "General"),
                                     ("models", "\u{2B21}", "Models"),
+                                    ("integrations", "\u{2B12}", "Integrations"),
                                     ("sisters", "\u{2726}", "Sisters"),
                                     ("voice", "\u{266A}", "Voice"),
                                     ("policies", "\u{26E8}", "Policies"),
                                     ("behavior", "\u{2699}", "Behavior"),
                                     ("advanced", "\u{2318}", "Advanced"),
+                                    ("about", "\u{24D8}", "About"),
                                 ];
                                 let current_tab = settings_tab.read().clone();
                                 rsx! {
@@ -161,6 +183,8 @@ rsx! {
                                 let tab = settings_tab.read().clone();
                                 match tab.as_str() {
                                     "general" | "models" | "sisters" => settings_a(&tab),
+                                    "integrations" => settings_mcp(),
+                                    "about" => settings_about(),
                                     _ => settings_b(&tab),
                                 }
                             }
@@ -185,17 +209,79 @@ rsx! {
                             }
                         }
                     }
+                } else if *current_mode.read() == "companion" {
+                    {companion_el}
                 } else if *current_mode.read() == "invisible" {
-                    // Invisible mode
                     div {
                         class: "invisible-mode",
-                        div { class: "welcome-globe" }
-                        p { class: "invisible-hint", "Say \"Hey Hydra\" or press Cmd+1 to switch modes" }
+                        {
+                            let p = phase.read();
+                            let has_approval = pending_approval.read().is_some();
+                            let voice_on = *settings_voice.read();
+                            let globe_state = derive_globe_state(&p, has_approval, voice_on, false);
+                            let params = globe_params(globe_state);
+                            let svg_html = globe_svg(&params, GlobeSize::Compact.pixels());
+                            rsx! { div { class: "voice-globe", dangerous_inner_html: svg_html } }
+                        }
+                        p { class: "invisible-hint", "Say \"Hey Hydra\" or \u{2318}1 for companion" }
                     }
                 } else {
-                    // Chat view
+                    // Workspace / chat view
                     div {
                         class: "chat-container",
+
+                        // ── Dynamic Companion Island ──
+                        // Persistent globe indicator — click to enter companion.
+                        // Expands when Hydra is processing or voice is active.
+                        div {
+                            class: "companion-island",
+                            onclick: move |_| { current_mode.set("companion".into()); },
+                            {
+                                let p = phase.read();
+                                let has_approval = pending_approval.read().is_some();
+                                let voice_on = *settings_voice.read();
+                                let listening = *voice_listening.read();
+                                let globe_state = derive_globe_state(&p, has_approval, voice_on, listening);
+                                let params = globe_params(globe_state);
+                                let svg_html = globe_svg(&params, GlobeSize::TopBar.pixels());
+                                let is_active = !matches!(p.as_str(), "Idle" | "" | "Done");
+                                let island_class = if is_active || listening {
+                                    "island-inner expanded"
+                                } else {
+                                    "island-inner"
+                                };
+                                let status_text = match p.as_str() {
+                                    "Perceive" | "Think" => "Thinking...",
+                                    "Decide" => "Deciding...",
+                                    "Act" => "Working...",
+                                    "Learn" => "Learning...",
+                                    "Error" => "Error",
+                                    _ => if listening { "Listening..." } else { "" },
+                                };
+                                rsx! {
+                                    div {
+                                        class: island_class,
+                                        div {
+                                            class: format!("island-globe {}", params.animation),
+                                            dangerous_inner_html: svg_html,
+                                        }
+                                        if !status_text.is_empty() {
+                                            span { class: "island-status", "{status_text}" }
+                                        }
+                                        button {
+                                            class: if listening { "island-mic active" } else { "island-mic" },
+                                            title: "Voice",
+                                            onclick: move |e| {
+                                                e.stop_propagation();
+                                                document::eval("document.querySelector('.mic-btn')?.click()");
+                                            },
+                                            dangerous_inner_html: r#"<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/></svg>"#,
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         {chat_body_el}
                         {chat_controls_el}
                     }

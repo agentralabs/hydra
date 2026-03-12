@@ -69,6 +69,9 @@ pub fn build_diagnosis_prompt(obstacle: &Obstacle) -> String {
         ObstaclePattern::PermissionDenied => {
             "A permission error occurred. Identify which resource and what permission is needed."
         }
+        ObstaclePattern::UnknownFramework => {
+            "The project uses an unfamiliar build system or framework. Read the docs to learn how to build and test it."
+        }
         ObstaclePattern::Unknown => {
             "Analyze this error carefully and identify the root cause."
         }

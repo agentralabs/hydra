@@ -186,10 +186,15 @@ impl App {
         });
     }
 
-    pub(crate) fn slash_cmd_threat(&mut self, timestamp: &str) {
+    pub(crate) fn slash_cmd_threat(&mut self, args: &str, timestamp: &str) {
+        let content = match args.trim() {
+            "history" => self.threat_correlator.signal_history(20),
+            "patterns" => self.threat_correlator.patterns_summary(),
+            _ => self.threat_correlator.summary(),
+        };
         self.messages.push(Message {
             role: MessageRole::System,
-            content: "Threat correlation: no threats detected. All actions verified.".to_string(),
+            content,
             timestamp: timestamp.to_string(),
             phase: None,
         });

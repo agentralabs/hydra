@@ -49,6 +49,7 @@ rsx! {
                         challenge_input.set(String::new());
                         new_session_flash.set(true);
                     },
+                    aria_label: "New session",
                     "+"
                 }
             }
@@ -64,6 +65,9 @@ rsx! {
                     }
                 }
                 if !sidebar.read().sections.first().map_or(true, |s| s.collapsed) {
+                    if sidebar.read().today_items().is_empty() {
+                        p { class: "sidebar-empty", "No sessions yet" }
+                    }
                     for item in sidebar.read().today_items().iter() {
                         {
                             let item_id = item.id.clone();
@@ -270,13 +274,15 @@ rsx! {
                         }
                     },
                     title: "Open Terminal (TUI)",
-                    ">"  // terminal icon
+                    aria_label: "Open terminal",
+                    ">"
                 }
                 div {
                     class: "sidebar-status",
                     div { class: if *connected.read() { "status-dot connected" } else { "status-dot" } }
                     span { class: "sidebar-status-text", if *connected.read() { "Connected" } else { "Ready" } }
                 }
+                span { class: "sidebar-powered-by", "by Agentra Labs" }
             }
         }
     }

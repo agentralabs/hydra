@@ -32,12 +32,19 @@
                 }
             }
 
-            // Click rings
-            for (i, (rx, ry, _ts)) in ghost_click_rings.read().iter().enumerate() {
-                div {
-                    key: "ring-{i}",
-                    class: "ghost-click-ring",
-                    style: format!("left: {}px; top: {}px;", rx, ry),
+            // Click rings (keep only last 5 to prevent memory leak)
+            {
+                let rings = ghost_click_rings.read();
+                let start = rings.len().saturating_sub(5);
+                let recent: Vec<_> = rings.iter().skip(start).enumerate().collect();
+                rsx! {
+                    for (i, (rx, ry, _ts)) in recent.iter() {
+                        div {
+                            key: "ring-{i}",
+                            class: "ghost-click-ring",
+                            style: format!("left: {}px; top: {}px;", rx, ry),
+                        }
+                    }
                 }
             }
 

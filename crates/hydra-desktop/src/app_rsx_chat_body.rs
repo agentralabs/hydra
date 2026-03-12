@@ -89,7 +89,7 @@ rsx! {
                                             span { class: "evidence-icon", "{EvidencePanel::evidence_icon(item.kind)}" }
                                             span { class: "evidence-title", "{item.title}" }
                                             if item.pinned {
-                                                span { class: "evidence-pin", "\u{1F4CC}" }
+                                                span { class: "evidence-pin", "Pin" }
                                             }
                                         }
                                         {
@@ -133,9 +133,14 @@ rsx! {
                         .filter(|(_, content, _)| content.to_lowercase().contains(&q.to_lowercase()))
                         .count()
                 };
+                let count_text = if count == 0 { "No results".to_string() } else { format!("{count} found") };
+                let count_class = if count == 0 { "search-bar-count no-results" } else { "search-bar-count" };
                 rsx! {
                     if !q.is_empty() {
-                        span { class: "search-bar-count", "{count} found" }
+                        span {
+                            class: count_class,
+                            "{count_text}"
+                        }
                     }
                 }
             }
@@ -189,7 +194,7 @@ rsx! {
                     }
                 }
                 h2 { class: "welcome-title", "{greeting}" }
-                p { class: "welcome-subtitle", "How can I help you today?" }
+                p { class: "welcome-subtitle", "{model_display} \u{00B7} v{HYDRA_VERSION}" }
 
                 // Quick-start suggestions
                 div {
@@ -231,23 +236,54 @@ rsx! {
             }
         }
 
-        for (i, (role, content, _css)) in messages.read().iter().enumerate() {
+        for (i, (role, content, css)) in messages.read().iter().enumerate() {
             {
-                let sq = search_query.read().clone();
-                let is_match = if sq.is_empty() { true } else {
-                    content.to_lowercase().contains(&sq.to_lowercase())
-                };
-                let msg_class = if !sq.is_empty() && is_match { "message search-hit" } else if !sq.is_empty() { "message search-dim" } else { "message" };
-                let role_label = if role == "user" { "You" } else { "Hydra" };
-                let html = markdown_to_html(content);
-                rsx! {
-                    div {
-                        key: "{i}",
-                        class: msg_class.to_string(),
-                        div { class: "message-role", "{role_label}" }
+                // Completion summary card — render as raw HTML, no markdown
+                if css == "completion" {
+                    rsx! {
                         div {
-                            class: "message-content",
-                            dangerous_inner_html: html,
+                            key: "{i}",
+                            class: "message completion-message",
+                            dangerous_inner_html: content.clone(),
+                        }
+                    }
+                } else {
+                    let sq = search_query.read().clone();
+                    let is_match = if sq.is_empty() { true } else {
+                        content.to_lowercase().contains(&sq.to_lowercase())
+                    };
+                    let msg_class = if !sq.is_empty() && is_match { "message search-hit" } else if !sq.is_empty() { "message search-dim" } else { "message" };
+                    let is_user = role == "user";
+                    let role_label = if is_user { "You" } else { "Hydra" };
+                    let role_class = if is_user { "message-role user" } else { "message-role assistant" };
+                    let html = markdown_to_html(content);
+                    let copy_content = content.replace('\\', "\\\\").replace('`', "\\`").replace('$', "\\$");
+                    rsx! {
+                        div {
+                            key: "{i}",
+                            class: msg_class.to_string(),
+                            div { class: "message-header",
+                                div { class: "message-role-group",
+                                    span { class: if is_user { "message-avatar user" } else { "message-avatar assistant" } }
+                                    span { class: role_class, "{role_label}" }
+                                }
+                                div { class: "message-actions",
+                                    button {
+                                        class: "msg-action-btn",
+                                        title: "Copy message",
+                                        aria_label: "Copy message to clipboard",
+                                        onclick: move |_| {
+                                            let js = format!("navigator.clipboard.writeText(`{}`);", copy_content);
+                                            document::eval(&js);
+                                        },
+                                        "\u{2398}"
+                                    }
+                                }
+                            }
+                            div {
+                                class: "message-content",
+                                dangerous_inner_html: html,
+                            }
                         }
                     }
                 }
@@ -264,10 +300,25 @@ rsx! {
         }
     }
 
-    // Auto-scroll
+    // Auto-scroll + code block copy
     {
         let _count = messages.read().len();
         let _typing = *is_typing.read();
-        rsx! { script { "requestAnimationFrame(function(){{ var el = document.getElementById('messages-container'); if(el) el.scrollTop = el.scrollHeight; }})" } }
+        rsx! { script { "requestAnimationFrame(function(){{ var el = document.getElementById('messages-container'); if(el) el.scrollTop = el.scrollHeight; }});
+            document.querySelectorAll('.message-content pre').forEach(function(pre){{
+                if(pre.dataset.copyBound) return;
+                pre.dataset.copyBound='1';
+                pre.addEventListener('click',function(e){{
+                    var r=pre.getBoundingClientRect();
+                    if(e.clientX>r.right-60 && e.clientY<r.top+30){{
+                        var code=pre.querySelector('code');
+                        if(code)navigator.clipboard.writeText(code.textContent).then(function(){{
+                            var af=pre.querySelector('::after');
+                            pre.style.setProperty('--copy-label','\"Copied!\"');
+                            setTimeout(function(){{pre.style.removeProperty('--copy-label')}},1500);
+                        }});
+                    }}
+                }});
+            }});" } }
     }
 }
