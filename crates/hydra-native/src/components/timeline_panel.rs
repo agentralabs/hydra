@@ -7,6 +7,7 @@
 #[path = "timeline_panel_core.rs"]
 mod timeline_panel_core;
 
+#[cfg(test)]
 #[path = "timeline_panel_tests.rs"]
 mod timeline_panel_tests;
 

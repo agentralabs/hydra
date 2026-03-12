@@ -7,6 +7,7 @@
 #[path = "evidence_panel_core.rs"]
 mod evidence_panel_core;
 
+#[cfg(test)]
 #[path = "evidence_panel_tests.rs"]
 mod evidence_panel_tests;
 

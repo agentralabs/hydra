@@ -1,7 +1,5 @@
-#[cfg(test)]
-mod tests {
-    use crate::bridge::*;
-    use super::*;
+use crate::bridge::*;
+use super::*;
 
     // ═══════════════════════════════════════════════════════════
     // UNIVERSAL FIX — V3/V4 Memory Bridge Tests
@@ -197,4 +195,3 @@ mod tests {
         assert_eq!(veritas_bridge().bridge_version, "0.1.0");
         assert_eq!(evolve_bridge().bridge_version, "0.1.0");
     }
-}

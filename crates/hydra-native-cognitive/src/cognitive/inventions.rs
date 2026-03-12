@@ -14,6 +14,7 @@ mod inventions_core;
 #[path = "inventions_extras.rs"]
 mod inventions_extras;
 
+#[cfg(test)]
 #[path = "inventions_tests.rs"]
 mod inventions_tests;
 

@@ -2,8 +2,10 @@
 mod bridges_core;
 #[path = "bridges_extended.rs"]
 mod bridges_extended;
+#[cfg(test)]
 #[path = "bridges_tests.rs"]
 mod bridges_tests;
+#[cfg(test)]
 #[path = "bridges_tests_memory.rs"]
 mod bridges_tests_memory;
 
