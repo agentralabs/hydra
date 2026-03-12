@@ -38,17 +38,6 @@ impl App {
         };
 
         self.server_online = self.client.health_check();
-
-        let timestamp = Local::now().format("%H:%M").to_string();
-        self.messages.push(Message {
-            role: MessageRole::System,
-            content: format!(
-                "{}/{} sisters connected · {} tools available",
-                connected, self.total_sisters, total_tools
-            ),
-            timestamp,
-            phase: None,
-        });
     }
 
     /// Periodic tick — refresh animations, drain cognitive updates, advance idle timer.
@@ -97,6 +86,9 @@ impl App {
 
     /// Submit user input.
     pub fn submit_input(&mut self, input: &str) {
+        // Dismiss welcome frame on first user interaction
+        self.welcome_dismissed = true;
+
         // Allow escape commands even during approval prompt
         if input.starts_with('/') {
             match input {

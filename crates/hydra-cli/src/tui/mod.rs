@@ -18,6 +18,8 @@ pub mod slash_commands_system;
 pub mod slash_commands_hydra;
 pub mod slash_commands_integration;
 pub mod slash_commands_model;
+pub mod settings;
+pub mod skills;
 pub mod theme;
 pub mod ui;
 pub mod widgets;
@@ -291,6 +293,10 @@ pub async fn run() -> io::Result<()> {
                     DisableMouseCapture
                 )?;
                 terminal.show_cursor()?;
+
+                // Print conversation to stdout so it's visible after exit
+                print_conversation(&app);
+
                 return result;
             }
 
@@ -339,6 +345,36 @@ pub async fn run() -> io::Result<()> {
                     }
                 }
             }
+        }
+    }
+}
+
+/// Print full session to stdout after TUI exits — welcome frame + conversation.
+fn print_conversation(app: &App) {
+    let version = env!("CARGO_PKG_VERSION");
+    let w = 80usize;
+
+    // Welcome frame header
+    let title = format!(" Hydra v{} ", version);
+    let ld = 3;
+    let rd = w.saturating_sub(ld + title.len() + 2);
+    println!("\n┌{}{}{}┐", "─".repeat(ld), title, "─".repeat(rd));
+
+    // Key info
+    println!("│  Welcome back {}!{}", app.user_name, " ".repeat(w.saturating_sub(20 + app.user_name.len())));
+    println!("│  {} · {}{}", app.model_name, app.working_dir,
+        " ".repeat(w.saturating_sub(6 + app.model_name.len() + app.working_dir.len()).min(40)));
+    println!("│  {}/{} sisters · {}+ tools · {}%{}",
+        app.connected_count, app.total_sisters, app.tool_count, app.health_pct,
+        " ".repeat(30));
+    println!("└{}┘\n", "─".repeat(w.saturating_sub(2)));
+
+    // All messages
+    for msg in &app.messages {
+        match msg.role {
+            app::MessageRole::User => println!("> {}\n", msg.content),
+            app::MessageRole::Hydra => println!("  {}\n", msg.content),
+            app::MessageRole::System => println!("  {}\n", msg.content),
         }
     }
 }

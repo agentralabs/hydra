@@ -112,10 +112,69 @@ impl App {
         }
     }
 
-    pub(crate) fn slash_cmd_resume(&mut self, _args: &str, timestamp: &str) {
+    pub(crate) fn slash_cmd_resume(&mut self, args: &str, timestamp: &str) {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+        let mut sessions: Vec<String> = Vec::new();
+
+        if let Ok(content) = std::fs::read_to_string(
+            format!("{}/.hydra/conversation-archive.log", home)
+        ) {
+            for line in content.lines() {
+                if let Some(rest) = line.strip_prefix("--- Compacted ") {
+                    if let Some(at) = rest.find(" messages at ") {
+                        let ts = rest[at + " messages at ".len()..].trim_end_matches(" ---");
+                        sessions.push(ts.to_string());
+                    }
+                }
+            }
+        }
+
+        if let Ok(entries) = std::fs::read_dir(format!("{}/.hydra", home)) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()) == Some("session") {
+                    let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
+                    sessions.push(name);
+                }
+            }
+        }
+
+        // If args provided, match by name or 1-based index.
+        if !args.is_empty() {
+            let needle = args.trim().to_lowercase();
+            let content = match sessions.iter().enumerate().find(|(i, l)| {
+                l.to_lowercase().contains(&needle) || (*i + 1).to_string() == needle
+            }) {
+                Some((_, label)) => format!("Resuming session: {}", label),
+                None => format!("No session matching \"{}\". Run /resume to list.", args),
+            };
+            self.messages.push(Message {
+                role: MessageRole::System,
+                content,
+                timestamp: timestamp.to_string(),
+                phase: None,
+            });
+            return;
+        }
+
+        let content = if sessions.is_empty() {
+            "Resume Session\n\n  No sessions found in ~/.hydra/.\n  Use /compact to archive a session first.\n\n  ↑↓ navigate  Enter select  q cancel".to_string()
+        } else {
+            let mut out = String::from("Resume Session\n\n  Today\n");
+            for (i, label) in sessions.iter().rev().take(10).enumerate() {
+                out.push_str(&format!("    {}. {}\n", i + 1, label));
+            }
+            if sessions.len() > 10 {
+                out.push_str(&format!("\n  … and {} more (use /resume <name> to match)\n", sessions.len() - 10));
+            } else {
+                out.push_str("\n  No more sessions found.\n");
+            }
+            out.push_str("\n  ↑↓ navigate  Enter select  q cancel");
+            out
+        };
         self.messages.push(Message {
             role: MessageRole::System,
-            content: "Session resume: not yet available. Sessions are ephemeral.".to_string(),
+            content,
             timestamp: timestamp.to_string(),
             phase: None,
         });

@@ -36,7 +36,7 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
     if let Some(ref info) = app.project_info {
         spans.push(Span::styled(" · ", theme::dim()));
         spans.push(Span::styled(
-            format!("{} {}", info.kind.icon(), info.name),
+            info.name.clone(),
             Style::default().fg(theme::HYDRA_BLUE),
         ));
         if let Some(ref branch) = info.git_branch {

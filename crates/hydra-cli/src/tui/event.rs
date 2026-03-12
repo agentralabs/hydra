@@ -59,10 +59,22 @@ impl EventHandler {
 
 /// Handle a key event and update app state.
 pub fn handle_key_event(app: &mut App, key: KeyEvent) {
+    // Only handle key press events — ignore Release/Repeat to prevent double-fire
+    if key.kind != crossterm::event::KeyEventKind::Press {
+        return;
+    }
     // Global keybindings (work in any mode)
     match (key.modifiers, key.code) {
         (KeyModifiers::CONTROL, KeyCode::Char('c')) => {
-            app.should_quit = true;
+            // Ctrl+C = cancel/interrupt only, NEVER quit.
+            // Use Ctrl+D or /quit to exit.
+            if app.is_thinking || app.running_cmd.is_some() {
+                app.kill_current();
+                app.is_thinking = false;
+            } else if !app.input.is_empty() {
+                app.input.clear();
+                app.cursor_pos = 0;
+            }
             return;
         }
         (KeyModifiers::CONTROL, KeyCode::Char('d')) => {
@@ -126,6 +138,12 @@ pub fn handle_key_event(app: &mut App, key: KeyEvent) {
             });
             return;
         }
+        (KeyModifiers::CONTROL, KeyCode::Char('r')) => {
+            // Reverse search through input history (§4.3, §6.2)
+            app.search_mode = true;
+            app.search_query.clear();
+            return;
+        }
         (KeyModifiers::CONTROL, KeyCode::Char('o')) => {
             // Toggle tool output expand/collapse (Visual Overhaul Rule 5: ctrl+o)
             app.tool_output_expanded = !app.tool_output_expanded;
@@ -174,6 +192,30 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) {
 }
 
 fn handle_insert_mode(app: &mut App, key: KeyEvent) {
+    // Reverse search mode (Ctrl+R)
+    if app.search_mode {
+        match key.code {
+            KeyCode::Esc => {
+                app.search_mode = false;
+                app.search_query.clear();
+            }
+            KeyCode::Enter => {
+                // Accept the found result
+                app.search_mode = false;
+                app.search_query.clear();
+            }
+            KeyCode::Backspace => {
+                app.search_query.pop();
+                reverse_search_update(app);
+            }
+            KeyCode::Char(c) => {
+                app.search_query.push(c);
+                reverse_search_update(app);
+            }
+            _ => {}
+        }
+        return;
+    }
     match key.code {
         KeyCode::Esc => {
             if app.command_dropdown.visible {
@@ -295,5 +337,18 @@ fn handle_insert_mode(app: &mut App, key: KeyEvent) {
             app.tab_complete();
         }
         _ => {}
+    }
+}
+
+/// Update input from reverse search through history.
+fn reverse_search_update(app: &mut App) {
+    if app.search_query.is_empty() { return; }
+    let q = app.search_query.to_lowercase();
+    for entry in app.history.iter().rev() {
+        if entry.to_lowercase().contains(&q) {
+            app.input = entry.clone();
+            app.cursor_pos = char_len(&app.input);
+            return;
+        }
     }
 }

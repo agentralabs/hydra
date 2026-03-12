@@ -13,105 +13,78 @@ use crate::tui::app::{App, MessageRole};
 use crate::tui::theme;
 
 use render::render_rich_content_ex;
-use empty::render_empty_state;
+use empty::build_welcome_frame;
 
 pub fn render(frame: &mut Frame, app: &App, area: Rect) {
-    // No borders — full width, clean like Claude Code
     let inner = area;
 
-    if app.messages.is_empty() {
-        render_empty_state(frame, app, inner);
-        return;
-    }
+    let mut lines: Vec<Line> = Vec::new();
+
+    // Welcome frame always at top — scroll up to see it
+    build_welcome_frame(app, inner.width as usize, &mut lines);
+    lines.push(Line::default());
 
     // Build lines from messages — filter out internal noise
-    let mut lines: Vec<Line> = Vec::new();
     let mut visible_idx: usize = 0;
     for msg in &app.messages {
         // Skip internal system messages that shouldn't be in conversation
         if msg.role == MessageRole::System {
             if let Some(ref phase) = msg.phase {
-                // Filter internal phases that are just noise
-                if matches!(phase.as_str(),
-                    "Repair" | "Omniscience" | "Decide"
-                ) {
-                    // Still show repair/omniscience completion summaries (short messages)
+                if matches!(phase.as_str(), "Repair" | "Omniscience" | "Decide") {
                     let is_summary = msg.content.contains("complete")
                         || msg.content.contains("Complete")
                         || msg.content.contains("RISK");
-                    if !is_summary {
-                        continue;
-                    }
+                    if !is_summary { continue; }
                 }
             }
-            // Filter system messages that dump sister lists or raw JSON
             let content_lower = msg.content.to_lowercase();
-            if content_lower.starts_with("sisters:") || content_lower.starts_with("{\"")
+            if content_lower.starts_with("sisters:")
+                || content_lower.starts_with("{\"")
                 || content_lower.starts_with("[{\"")
             {
                 continue;
             }
         }
 
-        // Phase 2, Bug Fix 0C: Hide internal cognitive phase tags from conversation
+        // Hide internal cognitive phase tags
         {
             let c = &msg.content;
             if c.contains("[Think]") || c.contains("[Act]") || c.contains("[Learn")
                 || c.contains("[Diagnostics]") || c.contains("[Think (Forge")
                 || c.contains("Step 1 complete") || c.contains("Step 2 complete")
                 || c.contains("Step 3 complete")
-            {
-                continue;
-            }
-            // Hide sister list dumps (e.g., "● Memory, ● Identity, ... ● Evolve")
-            if c.contains("● Memory,") && c.contains("● Evolve") {
-                continue;
-            }
-            // Hide generic auto-generated plans
+            { continue; }
+            if c.contains("● Memory,") && c.contains("● Evolve") { continue; }
             if c.contains("1. Analyze request")
                 && c.contains("2. Execute task")
                 && c.contains("3. Verify outcome")
-            {
-                continue;
-            }
+            { continue; }
         }
 
-        // Blank line between messages (no separators — just whitespace)
-        if visible_idx > 0 {
-            lines.push(Line::default());
-        }
+        if visible_idx > 0 { lines.push(Line::default()); }
         visible_idx += 1;
 
-        // Message rendering — clean, Claude Code style
         match msg.role {
             MessageRole::User => {
-                // User messages: "> text" — simple prefix, no label/timestamp
                 lines.push(Line::from(vec![
                     Span::styled("> ", theme::prompt()),
                     Span::styled(msg.content.clone(), theme::user_msg()),
                 ]));
             }
             MessageRole::Hydra => {
-                // Hydra responses: just flowing text, no label prefix
                 render_rich_content_ex(&msg.content, msg.role.clone(), &mut lines, app.tool_output_expanded);
             }
             MessageRole::System => {
-                // System messages: render content with rich formatting
                 render_rich_content_ex(&msg.content, msg.role.clone(), &mut lines, app.tool_output_expanded);
             }
         }
-
-        // Blank line after each message
         lines.push(Line::default());
     }
 
-    // Show running command indicator
+    // Running command indicator
     if app.running_cmd.is_some() {
         let spinner = match (app.tick_count / 2) % 4 {
-            0 => "⠋",
-            1 => "⠙",
-            2 => "⠹",
-            _ => "⠸",
+            0 => "⠋", 1 => "⠙", 2 => "⠹", _ => "⠸",
         };
         lines.push(Line::from(vec![
             Span::styled(format!("  {} ", spinner), Style::default().fg(theme::HYDRA_YELLOW)),
@@ -119,9 +92,8 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
         ]));
     }
 
-    // Phase 3, C5.3: Meaningful loading states with phase-specific messages
+    // Thinking indicator
     if app.is_thinking && app.running_cmd.is_none() {
-        // Rotating spinner with 4 distinct frames for visual progress
         let spinners = ["◐", "◓", "◑", "◒"];
         let spinner = spinners[(app.tick_count / 3) as usize % 4];
         let status = if app.thinking_status.is_empty() {
@@ -129,12 +101,9 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
         } else {
             app.thinking_status.clone()
         };
-        // Show elapsed time for long-running phases
         let elapsed = if app.thinking_elapsed_ms > 0 {
             format!("  ({:.1}s)", app.thinking_elapsed_ms as f64 / 1000.0)
-        } else {
-            String::new()
-        };
+        } else { String::new() };
         lines.push(Line::from(vec![
             Span::styled(format!("  {} ", spinner), Style::default().fg(theme::HYDRA_CYAN)),
             Span::styled(status, Style::default().fg(theme::HYDRA_CYAN)),
@@ -142,7 +111,7 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
         ]));
     }
 
-    // Calculate scroll — scroll_offset is "lines from bottom" (0 = pinned to bottom)
+    // Scroll
     let visible_height = inner.height as usize;
     let total_lines = lines.len();
     let max_scroll = total_lines.saturating_sub(visible_height);
@@ -151,10 +120,9 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
     let para = Paragraph::new(lines)
         .scroll((scroll_from_top as u16, 0))
         .wrap(Wrap { trim: false });
-
     frame.render_widget(para, inner);
 
-    // Show scroll indicator when not at bottom
+    // Scroll indicator
     if app.scroll_offset > 0 && total_lines > visible_height {
         let lines_above = app.scroll_offset.min(max_scroll);
         let indicator = format!(" ▼ {} more below — Shift+Down or PageDown ", lines_above);
@@ -164,9 +132,7 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
         let indicator_area = Rect::new(x, y, indicator_width as u16, 1);
         let badge = Paragraph::new(Line::from(Span::styled(
             &indicator[..indicator_width],
-            Style::default()
-                .fg(theme::HYDRA_BG)
-                .bg(theme::HYDRA_YELLOW),
+            Style::default().fg(theme::HYDRA_BG).bg(theme::HYDRA_YELLOW),
         )));
         frame.render_widget(badge, indicator_area);
     }

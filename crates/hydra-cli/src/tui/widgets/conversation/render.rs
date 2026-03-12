@@ -215,6 +215,28 @@ fn render_rich_content_inner(content: &str, role: MessageRole, lines: &mut Vec<L
             continue;
         }
 
+        // Detect thinking blocks: "[thinking...]" or "<thinking>" (§3.4)
+        if line.trim_start().starts_with("[thinking") || line.trim_start().starts_with("<thinking>") {
+            let ts = Style::default().fg(theme::HYDRA_DIM);
+            let bs = Style::default().fg(theme::HYDRA_BLUE);
+            lines.push(Line::from(vec![
+                Span::styled("  ┌ ", bs),
+                Span::styled("Thinking ", bs.add_modifier(Modifier::BOLD)),
+                Span::styled("─".repeat(40), bs), Span::styled("┐", bs),
+            ]));
+            i += 1;
+            while i < content_lines.len() {
+                let tl = content_lines[i].trim_start();
+                if tl.starts_with("[/thinking") || tl.starts_with("</thinking>") || tl.is_empty() {
+                    i += 1; break;
+                }
+                lines.push(Line::from(vec![Span::styled("  │ ", bs), Span::styled(tl.trim().to_string(), ts)]));
+                i += 1;
+            }
+            lines.push(Line::from(vec![Span::styled("  └", bs), Span::styled("─".repeat(44), bs), Span::styled("┘", bs)]));
+            continue;
+        }
+
         // Detect approval prompts
         if line.contains("Approve? [y/n]") || line.contains("Approve? (y/n)") {
             lines.push(Line::from(vec![
@@ -306,20 +328,10 @@ fn render_rich_content_inner(content: &str, role: MessageRole, lines: &mut Vec<L
             }
         }
 
-        // Detect status messages: "completed successfully", "failed with"
-        if line.contains("completed successfully") {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", line),
-                Style::default().fg(theme::HYDRA_GREEN),
-            )));
-            i += 1;
-            continue;
-        }
-        if line.contains("failed with exit code") {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", line),
-                Style::default().fg(theme::HYDRA_RED),
-            )));
+        // Detect status messages
+        if line.contains("completed successfully") || line.contains("failed with exit code") {
+            let color = if line.contains("failed") { theme::HYDRA_RED } else { theme::HYDRA_GREEN };
+            lines.push(Line::from(Span::styled(format!("  {}", line), Style::default().fg(color))));
             i += 1;
             continue;
         }

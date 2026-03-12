@@ -109,14 +109,6 @@ pub enum BootState {
     Ready,
 }
 
-/// Boot progress for the progress bar (0.0 to 1.0).
-/// Animates smoothly while waiting for sisters to spawn.
-#[derive(Clone, Debug)]
-pub struct BootProgress {
-    pub fraction: f64,
-    pub label: String,
-}
-
 /// Pending approval state for TUI y/n prompt.
 #[derive(Clone, Debug)]
 pub struct PendingApproval {
@@ -135,6 +127,8 @@ pub struct App {
     pub sidebar_visible: bool,
     pub boot_state: BootState,
     pub permission_mode: PermissionMode,
+    /// Welcome screen stays visible until the user sends their first input.
+    pub welcome_dismissed: bool,
 
     // Input
     pub input: String,
@@ -227,6 +221,12 @@ pub struct App {
     // PR status indicator (spec §11) — updated periodically
     pub pr_status: Option<PrStatus>,
     pub pr_check_tick: u64,
+
+    // Reverse search (Ctrl+R, spec §4.3)
+    pub search_mode: bool,
+    pub search_query: String,
+    // Double Ctrl+C detection
+    pub last_ctrlc_tick: u64,
 }
 
 /// PR status for the footer indicator (spec §11).
@@ -314,6 +314,7 @@ impl App {
             sidebar_visible: false,
             boot_state: BootState::Booting,
             permission_mode: PermissionMode::Normal,
+            welcome_dismissed: false,
 
             input: String::new(),
             cursor_pos: 0,
@@ -374,6 +375,9 @@ impl App {
             tool_output_expanded: false,
             pr_status: None,
             pr_check_tick: 0,
+            search_mode: false,
+            search_query: String::new(),
+            last_ctrlc_tick: 0,
         }
     }
 
