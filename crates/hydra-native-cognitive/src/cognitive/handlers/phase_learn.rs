@@ -56,6 +56,53 @@ pub(crate) async fn run_learn(
 
             // Comm: share significant learnings with peers
             sh.learn_comm_share(&format!("Completed: {}", safe_truncate(&user_text, 100))).await;
+
+            // Phase 5.5 P1: Store decisions with proper edge types
+            let lower = user_text.to_lowercase();
+            if lower.contains("let's ") || lower.contains("i decided")
+                || lower.contains("we should") || lower.contains("i want to")
+            {
+                sh.memory_store_decision(
+                    &user_text,
+                    safe_truncate(final_response, 200),
+                    text,
+                ).await;
+            }
+
+            // Phase 5.5 P1: Store command outputs as evidence
+            for (cmd, output, success) in all_exec_results {
+                sh.memory_store_evidence(cmd, output, *success).await;
+            }
+
+            // Phase 5.5 P1: Ghost Writer summary for long sessions
+            if config.history.len() >= 20 && config.history.len() % 10 == 0 {
+                if let Some(summary) = sh.memory_ghost_write(&config.history).await {
+                    let _ = tx.send(CognitiveUpdate::EvidenceMemory {
+                        title: "Session Summary".into(),
+                        content: summary,
+                    });
+                }
+            }
+
+            // Phase 5.5 P2: Crystallize receipt in Contract sister
+            sh.contract_crystallize(
+                &user_text,
+                safe_truncate(final_response, 100),
+                "low",
+                true,
+            ).await;
+
+            // Phase 5.5 P7: Record action pattern in Evolve sister
+            sh.evolve_record_pattern(
+                &format!("{:?}:{}", intent.category, safe_truncate(text, 50)),
+                true,
+            ).await;
+
+            // Phase 5.5 P7: Update user model in Cognition sister
+            sh.cognition_model_update_session(
+                safe_truncate(final_response, 200),
+                config.history.len() as u32,
+            ).await;
         }
     }
 

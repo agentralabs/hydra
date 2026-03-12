@@ -197,10 +197,8 @@ pub struct App {
     // Async command execution — child process handle for /test, /build, etc.
     pub running_cmd: Option<RunningCommand>,
 
-    // Tool output expand/collapse toggle (Visual Overhaul: ctrl+o)
     pub tool_output_expanded: bool,
 
-    // PR status indicator (spec §11) — updated periodically
     pub pr_status: Option<PrStatus>,
     pub pr_check_tick: u64,
 
@@ -208,8 +206,10 @@ pub struct App {
     pub search_query: String,
     pub last_ctrlc_tick: u64,
     pub last_submit_tick: u64,
-    /// Kill ring for Ctrl+K/Ctrl+U/Ctrl+Y (readline parity).
     pub kill_ring: String,
+    pub remote_executor: hydra_native::remote::RemoteExecutor,
+    pub swarm_manager: hydra_native::swarm::SwarmManager,
+    pub threat_correlator: hydra_native::threat::ThreatCorrelator,
 }
 
 /// PR status for the footer indicator (spec §11).
@@ -322,9 +322,8 @@ impl App {
             model_name: resolve_model_name(),
             tool_count: 740,
 
-            recent_tasks: VecDeque::with_capacity(10),
+            recent_tasks: load_recent_activity(),
             progress: None,
-
             tick_count: 0,
             sisters_handle: None,
             client: HydraClient::new(),
@@ -342,7 +341,6 @@ impl App {
             approval_manager: Arc::new(ApprovalManager::with_default_timeout()),
             federation_manager: Arc::new(FederationManager::new()),
             db,
-
             conversation_history: Vec::new(),
             pending_approval: None,
             challenge_phrase: None,
@@ -363,25 +361,15 @@ impl App {
             last_ctrlc_tick: 0,
             last_submit_tick: 0,
             kill_ring: String::new(),
+            remote_executor: hydra_native::remote::RemoteExecutor::new(),
+            swarm_manager: hydra_native::swarm::SwarmManager::default(),
+            threat_correlator: hydra_native::threat::ThreatCorrelator::default(),
         }
     }
-
 }
 
-/// Resolve model display name from HYDRA_MODEL env var.
-pub fn resolve_model_name() -> String {
-    let raw = std::env::var("HYDRA_MODEL").unwrap_or_default();
-    // Map model IDs to friendly names
-    match raw.as_str() {
-        s if s.contains("opus") => "Opus 4.6".to_string(),
-        s if s.contains("sonnet") => "Sonnet 4.6".to_string(),
-        s if s.contains("haiku") => "Haiku 4.5".to_string(),
-        s if s.contains("gpt-4") => format!("GPT-4 ({})", s),
-        s if s.contains("gemini") => format!("Gemini ({})", s),
-        s if !s.is_empty() => s.to_string(),
-        _ => "Sonnet 4.6".to_string(), // default model
-    }
-}
+pub use super::app_helpers::resolve_model_name;
+use super::app_helpers::load_recent_activity;
 
 #[cfg(test)]
 #[path = "app_tests.rs"]

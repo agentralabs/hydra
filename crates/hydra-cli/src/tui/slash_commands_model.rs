@@ -1,7 +1,7 @@
 //! Slash commands — Model, Cost, Config additions.
 //! Split for 400-line limit. Covers missing commands from TUI spec.
 
-use super::app::{App, Message, MessageRole};
+use super::app::{App, Message, MessageRole, resolve_model_name};
 
 impl App {
     // ── Model & Cost additions (§5.2) ──
@@ -249,5 +249,108 @@ impl App {
             timestamp: timestamp.to_string(),
             phase: None,
         });
+    }
+
+    /// /copy — copy last Hydra response to clipboard (uses pbcopy on macOS, xclip on Linux).
+    pub(crate) fn slash_cmd_copy(&mut self, timestamp: &str) {
+        // Find last Hydra message
+        let last = self.messages.iter().rev().find(|m| m.role == MessageRole::Hydra);
+        let text = match last {
+            Some(msg) => msg.content.clone(),
+            None => {
+                self.messages.push(Message {
+                    role: MessageRole::System,
+                    content: "Nothing to copy — no Hydra response yet.".to_string(),
+                    timestamp: timestamp.to_string(),
+                    phase: None,
+                });
+                return;
+            }
+        };
+
+        // Copy to clipboard using platform command
+        let cmd = if cfg!(target_os = "macos") { "pbcopy" } else { "xclip -selection clipboard" };
+        let result = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(cmd)
+            .stdin(std::process::Stdio::piped())
+            .spawn()
+            .and_then(|mut child| {
+                use std::io::Write;
+                if let Some(ref mut stdin) = child.stdin {
+                    stdin.write_all(text.as_bytes())?;
+                }
+                child.wait()
+            });
+
+        let msg = match result {
+            Ok(status) if status.success() => "Copied last response to clipboard.".to_string(),
+            _ => "Failed to copy — clipboard command not available.".to_string(),
+        };
+        self.messages.push(Message {
+            role: MessageRole::System,
+            content: msg,
+            timestamp: timestamp.to_string(),
+            phase: None,
+        });
+    }
+
+    // ── Model switching & cost (moved from slash_commands_session.rs) ──
+
+    pub(crate) fn slash_cmd_model(&mut self, args: &str, timestamp: &str) {
+        if args.is_empty() {
+            let msg = format!(
+                "Current model: {}\n\n\
+                 Frontier: opus, sonnet, haiku, gpt-4o, gpt-4o-mini, gpt-4.1, o3, o4-mini,\n\
+                 \x20         gemini-2.5-pro, gemini-2.5-flash, grok-3, deepseek-r1, mistral-large\n\
+                 Local:    llama3.3, qwen2.5-coder, deepseek-r1:14b, mistral, phi4, codellama\n\n\
+                 Switch: /model <name>  (e.g. /model opus, /model gpt-4o)",
+                self.model_name
+            );
+            self.messages.push(Message { role: MessageRole::System, content: msg,
+                timestamp: timestamp.to_string(), phase: None });
+        } else {
+            let input = args.trim().to_lowercase();
+            let resolved = match input.as_str() {
+                "opus" | "opus4" => "claude-opus-4-6",
+                "sonnet" | "sonnet4" => "claude-sonnet-4-6",
+                "haiku" | "haiku4" => "claude-haiku-4-5",
+                "gpt4o" | "4o" => "gpt-4o",
+                "4o-mini" => "gpt-4o-mini",
+                other => other,
+            };
+            std::env::set_var("HYDRA_MODEL", resolved);
+            self.model_name = resolve_model_name();
+            self.messages.push(Message { role: MessageRole::System,
+                content: format!("Model switched to: {}", self.model_name),
+                timestamp: timestamp.to_string(), phase: None });
+        }
+    }
+
+    pub(crate) fn slash_cmd_cost(&mut self, timestamp: &str) {
+        let est_tokens = self.messages.iter().map(|m| m.content.len() / 4).sum::<usize>();
+        let est_cost = (est_tokens as f64 / 1_000_000.0) * 15.0;
+        self.messages.push(Message { role: MessageRole::System,
+            content: format!("Session Cost Estimate:\nMessages:    {}\nEst. tokens: ~{}K\nEst. cost:   ~${:.2}",
+                self.messages.len(), est_tokens / 1000, est_cost),
+            timestamp: timestamp.to_string(), phase: None });
+    }
+
+    pub(crate) fn slash_cmd_tokens(&mut self, timestamp: &str) {
+        self.messages.push(Message { role: MessageRole::System,
+            content: format!("Token usage: {} avg per turn", self.token_avg),
+            timestamp: timestamp.to_string(), phase: None });
+    }
+
+    pub(crate) fn slash_cmd_review(&mut self, timestamp: &str) {
+        self.execute_intent("review current code changes for quality and issues", timestamp);
+    }
+
+    pub(crate) fn slash_cmd_quit(&mut self) { self.should_quit = true; }
+
+    pub(crate) fn slash_cmd_unknown(&mut self, cmd: &str, timestamp: &str) {
+        self.messages.push(Message { role: MessageRole::System,
+            content: format!("Unknown command: {}. Type /help for commands.", cmd),
+            timestamp: timestamp.to_string(), phase: None });
     }
 }

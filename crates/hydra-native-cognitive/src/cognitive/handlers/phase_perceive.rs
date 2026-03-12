@@ -13,7 +13,7 @@ use hydra_native_state::utils::generate_deliverable_steps;
 use hydra_db::{HydraDb, McpDiscoveredSkillRow, FederationStateRow};
 
 use super::super::loop_runner::CognitiveUpdate;
-use super::memory::extract_memory_facts;
+use super::memory_intent;
 
 /// Output of the PERCEIVE phase, consumed by THINK.
 pub(crate) struct PerceiveResult {
@@ -22,6 +22,8 @@ pub(crate) struct PerceiveResult {
     pub beliefs_context: Option<String>,
     pub federation_context: Option<String>,
     pub perceive_ms: u64,
+    /// Hash of memory response for dedup detection across queries.
+    pub memory_hash: u64,
 }
 
 /// Run the PERCEIVE phase: gather context from sisters, memory, beliefs, MCP, federation.
@@ -97,46 +99,22 @@ pub(crate) async fn run_perceive(
         })
     };
 
-    // Always-on memory retrieval
+    // Smart memory retrieval — intent-aware tool selection
+    // Phase 5.5 P1: Causal chain queries for "why" questions
     let always_on_memory = if let Some(ref sh) = sisters_handle {
-        if let Some(ref mem) = sh.memory {
-            let mem_limit = if is_simple { 3 } else { 8 };
-            let mem_result = mem.call_tool("memory_query", serde_json::json!({
-                "query": text,
-                "max_results": mem_limit,
-                "sort_by": "highest_confidence"
-            })).await;
-            match mem_result {
-                Ok(v) => {
-                    let raw = crate::sisters::extract_text(&v);
-                    if !raw.is_empty() && !raw.contains("No memories found") {
-                        let facts = extract_memory_facts(&raw);
-                        if !facts.is_empty() {
-                            let input_lower = text.to_lowercase();
-                            let input_words: Vec<&str> = input_lower.split_whitespace()
-                                .filter(|w| w.len() >= 3)
-                                .collect();
-                            let mut scored_facts: Vec<(usize, &String)> = facts.iter()
-                                .map(|f| {
-                                    let f_lower = f.to_lowercase();
-                                    let score = input_words.iter()
-                                        .filter(|w| f_lower.contains(*w))
-                                        .count();
-                                    (score, f)
-                                })
-                                .collect();
-                            scored_facts.sort_by(|a, b| b.0.cmp(&a.0));
-                            let sorted_facts: Vec<String> = scored_facts.iter()
-                                .map(|(_, f)| (*f).clone())
-                                .collect();
-                            eprintln!("[hydra:perceive] Always-on memory: {} facts retrieved (sorted by relevance)", sorted_facts.len());
-                            Some(sorted_facts.join("\n"))
-                        } else { None }
-                    } else { None }
-                }
-                Err(_) => None,
-            }
-        } else { None }
+        if crate::sisters::memory_deep::is_why_question(text) {
+            eprintln!("[hydra:perceive] P5.5: causal chain query for 'why' question");
+            let causal = sh.memory_causal_query(text).await;
+            if causal.is_some() { causal }
+            else { memory_intent::smart_memory_recall(text, sh, is_simple).await }
+        } else if crate::sisters::memory_deep::is_past_reference(text) {
+            eprintln!("[hydra:perceive] P5.5: specific node retrieval for past reference");
+            let node = sh.memory_get_node(text).await;
+            if node.is_some() { node }
+            else { memory_intent::smart_memory_recall(text, sh, is_simple).await }
+        } else {
+            memory_intent::smart_memory_recall(text, sh, is_simple).await
+        }
     } else { None };
 
     // Belief loading from DB
@@ -276,11 +254,16 @@ pub(crate) async fn run_perceive(
         PhaseStatus { phase: CognitivePhase::Think, state: PhaseState::Running, tokens_used: None, duration_ms: None },
     ]));
 
+    let memory_hash = always_on_memory.as_deref()
+        .map(memory_intent::hash_memory_response)
+        .unwrap_or(0);
+
     PerceiveResult {
         perceived,
         always_on_memory,
         beliefs_context,
         federation_context,
         perceive_ms,
+        memory_hash,
     }
 }

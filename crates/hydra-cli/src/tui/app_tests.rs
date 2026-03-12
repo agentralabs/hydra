@@ -386,8 +386,8 @@ fn input_hash_note() {
     assert!(app.messages.iter().any(|m| m.content.contains("Noted")));
 }
 
-#[test]
-fn input_bang_command() {
+#[tokio::test]
+async fn input_bang_command() {
     let mut app = App::new();
     app.submit_input("!ls");
     assert!(app.messages.iter().any(|m| m.content.contains("!ls")));

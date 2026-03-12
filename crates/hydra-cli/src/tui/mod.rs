@@ -1,4 +1,5 @@
 pub mod app;
+mod app_helpers;
 pub mod app_nav;
 pub mod app_runtime;
 pub mod cognitive_handler;
@@ -18,6 +19,9 @@ pub mod slash_commands_system;
 pub mod slash_commands_hydra;
 pub mod slash_commands_integration;
 pub mod slash_commands_model;
+pub mod slash_commands_ssh;
+pub mod slash_commands_sister_improve;
+pub mod slash_commands_swarm;
 pub mod settings;
 pub mod skills;
 pub mod theme;
@@ -28,10 +32,7 @@ use std::io;
 use std::os::unix::io::AsRawFd;
 
 use crossterm::{
-    event::{
-        DisableMouseCapture, EnableMouseCapture,
-        KeyboardEnhancementFlags, PushKeyboardEnhancementFlags, PopKeyboardEnhancementFlags,
-    },
+    event::{KeyboardEnhancementFlags, PushKeyboardEnhancementFlags, PopKeyboardEnhancementFlags},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -165,7 +166,7 @@ fn draw_splash(
 fn cleanup_terminal() {
     let _ = disable_raw_mode();
     let _ = execute!(io::stdout(), PopKeyboardEnhancementFlags);
-    let _ = execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture);
+    let _ = execute!(io::stdout(), LeaveAlternateScreen);
     let _ = execute!(io::stdout(), crossterm::cursor::Show);
 }
 
@@ -186,7 +187,7 @@ pub async fn run() -> io::Result<()> {
     let _ = execute!(stdout, PushKeyboardEnhancementFlags(
         KeyboardEnhancementFlags::REPORT_EVENT_TYPES
     ));
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     // Draw splash immediately — first thing user sees is clean progress bar at 0%
@@ -283,14 +284,8 @@ pub async fn run() -> io::Result<()> {
                 // Cleanup
                 restore_stderr(saved_stderr);
                 disable_raw_mode()?;
-                execute!(
-                    terminal.backend_mut(),
-                    LeaveAlternateScreen,
-                    DisableMouseCapture
-                )?;
+                execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
                 terminal.show_cursor()?;
-
-                // Print conversation to stdout so it's visible after exit
                 print_conversation(&app);
 
                 return result;
@@ -331,11 +326,7 @@ pub async fn run() -> io::Result<()> {
                     {
                         restore_stderr(saved_stderr);
                         disable_raw_mode()?;
-                        execute!(
-                            terminal.backend_mut(),
-                            LeaveAlternateScreen,
-                            DisableMouseCapture
-                        )?;
+                        execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
                         terminal.show_cursor()?;
                         return Ok(());
                     }
@@ -378,15 +369,7 @@ async fn run_loop(
             Event::Key(key_event) => {
                 event::handle_key_event(app, key_event);
             }
-            Event::Mouse(mouse) => {
-                use crossterm::event::MouseEventKind;
-                match mouse.kind {
-                    MouseEventKind::ScrollUp => app.scroll_up(),
-                    MouseEventKind::ScrollDown => app.scroll_down(),
-                    _ => {}
-                }
-            }
-            Event::Resize(_, _) => {}
+            Event::Mouse(_) | Event::Resize(_, _) => {}
         }
 
         if app.should_quit {
