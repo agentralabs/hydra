@@ -7,7 +7,6 @@ description = "HTTP/SSE server for agentic-hydra: JSON-RPC 2.0, SSE events, heal
 
 [features]
 default = []
-private = ["hydra-runtime/private"]
 
 [[bin]]
 name = "hydra-server"
