@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub(crate) mod handlers;
+#[cfg(test)]
 mod tests;
 
 // Re-export all handlers so routes/mod.rs can reference system::handler_name
