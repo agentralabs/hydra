@@ -17,6 +17,8 @@ members = [
     "crates/hydra-autonomy",
     "crates/hydra-integrations",
     "crates/hydra-monitor",
+    "crates/hydra-native-state",
+    "crates/hydra-native-cognitive",
     "crates/hydra-native",
     "crates/hydra-ux",
     "crates/hydra-voice",
@@ -34,13 +36,13 @@ members = [
     "crates/hydra-integration",
     "crates/animus",
     "crates/hydra-stress",
-    # === PRIVATE CRATES (proprietary, feature-gated) ===
-    "private/crates/hydra-gate-advanced",
-    "private/crates/hydra-consolidation",
-    "private/crates/hydra-omniscience",
-    "private/crates/hydra-collective",
-    "private/crates/hydra-replay",
-    "private/crates/hydra-enterprise",
+    "crates/hydra-installer",
+    "crates/hydra-cache",
+    "crates/hydra-router",
+    "crates/hydra-desktop",
+]
+exclude = [
+    "extensions/*",
 ]
 
 [workspace.package]
@@ -105,6 +107,8 @@ hydra-integrations = { path = "crates/hydra-integrations" }
 hydra-monitor = { path = "crates/hydra-monitor" }
 hydra-voice = { path = "crates/hydra-voice" }
 hydra-db = { path = "crates/hydra-db" }
+hydra-native-state = { path = "crates/hydra-native-state" }
+hydra-native-cognitive = { path = "crates/hydra-native-cognitive" }
 hydra-native = { path = "crates/hydra-native" }
 hydra-pulse = { path = "crates/hydra-pulse" }
 hydra-server = { path = "crates/hydra-server" }
@@ -117,14 +121,8 @@ hydra-mcp = { path = "crates/hydra-mcp" }
 hydra-observability = { path = "crates/hydra-observability" }
 hydra-integration = { path = "crates/hydra-integration" }
 animus = { path = "crates/animus" }
-
-# Private crates (proprietary)
-hydra-gate-advanced = { path = "private/crates/hydra-gate-advanced" }
-hydra-consolidation = { path = "private/crates/hydra-consolidation" }
-hydra-omniscience = { path = "private/crates/hydra-omniscience" }
-hydra-collective = { path = "private/crates/hydra-collective" }
-hydra-replay = { path = "private/crates/hydra-replay" }
-hydra-enterprise = { path = "private/crates/hydra-enterprise" }
+hydra-installer = { path = "crates/hydra-installer" }
+hydra-router = { path = "crates/hydra-router" }
 
 # HTTP Server
 axum = { version = "0.7", features = ["macros"] }
@@ -136,3 +134,16 @@ tokio-test = "0.4"
 pretty_assertions = "1.4"
 proptest = "1.4"
 tempfile = "3.10"
+
+[profile.dev]
+codegen-units = 16
+debug = 1
+split-debuginfo = "unpacked"
+incremental = true
+
+[profile.test]
+codegen-units = 16
+debug = 1
+split-debuginfo = "unpacked"
+opt-level = 0
+incremental = true

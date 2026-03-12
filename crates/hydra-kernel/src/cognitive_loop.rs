@@ -6,11 +6,11 @@ use parking_lot::Mutex;
 use tokio::sync::Notify;
 
 use hydra_core::error::HydraError;
-use hydra_core::types::{CognitivePhase, CompletionSummary, RiskAssessment, TokenBudget};
+use hydra_core::types::{CognitivePhase, RiskAssessment, TokenBudget};
 use hydra_ux::proactive::{ProactiveConfig, ProactiveEngine};
 
 use crate::budget::BudgetManager;
-use crate::config::{CheckpointLevel, KernelConfig};
+use crate::config::KernelConfig;
 use crate::state::{Checkpoint, KernelRunState};
 
 /// Input to a cognitive cycle
@@ -122,15 +122,15 @@ pub trait PhaseHandler: Send + Sync {
 
 /// The cognitive loop — the "mind runtime"
 pub struct CognitiveLoop {
-    config: KernelConfig,
-    ux: Arc<ProactiveEngine>,
-    budget: Arc<Mutex<BudgetManager>>,
-    run_state: Arc<Mutex<KernelRunState>>,
-    checkpoint: Arc<Mutex<Option<Checkpoint>>>,
-    interrupted: Arc<AtomicBool>,
-    recursion_depth: Arc<AtomicUsize>,
-    corruption_flag: Arc<AtomicBool>,
-    interrupt_notify: Arc<Notify>,
+    pub(crate) config: KernelConfig,
+    pub(crate) ux: Arc<ProactiveEngine>,
+    pub(crate) budget: Arc<Mutex<BudgetManager>>,
+    pub(crate) run_state: Arc<Mutex<KernelRunState>>,
+    pub(crate) checkpoint: Arc<Mutex<Option<Checkpoint>>>,
+    pub(crate) interrupted: Arc<AtomicBool>,
+    pub(crate) recursion_depth: Arc<AtomicUsize>,
+    pub(crate) corruption_flag: Arc<AtomicBool>,
+    pub(crate) interrupt_notify: Arc<Notify>,
 }
 
 impl CognitiveLoop {
@@ -235,356 +235,12 @@ impl CognitiveLoop {
         self.run_phases(input, handler, resume_phase).await
     }
 
-    async fn run_phases(
-        &self,
-        input: CycleInput,
-        handler: &dyn PhaseHandler,
-        start_phase: CognitivePhase,
-    ) -> CycleOutput {
-        let mut phases_completed = Vec::new();
-        let initial_budget = self.budget.lock().remaining();
-
-        // === PERCEIVE ===
-        let perceived = if start_phase == CognitivePhase::Perceive {
-            // UX: Acknowledge immediately (< 100ms)
-            self.ux.send_acknowledgment("Got it!");
-
-            match self
-                .run_phase(CognitivePhase::Perceive, handler.perceive(&input))
-                .await
-            {
-                PhaseResult::Ok(v) => {
-                    phases_completed.push(CognitivePhase::Perceive);
-                    v
-                }
-                PhaseResult::TimedOut => {
-                    return self.timeout_output(phases_completed, initial_budget)
-                }
-                PhaseResult::Interrupted => {
-                    return self.interrupt_output(phases_completed, initial_budget)
-                }
-                PhaseResult::BudgetExceeded => {
-                    return self.budget_output(phases_completed, initial_budget)
-                }
-                PhaseResult::Corrupted => {
-                    return self.corruption_output(phases_completed, initial_budget)
-                }
-                PhaseResult::Failed(e) => {
-                    // Perceive uses SkipAndContinue — use defaults
-                    if !handler.sisters_available() {
-                        // EC-CL-004: No sisters — degrade gracefully
-                        serde_json::json!({"degraded": true, "input": input.text})
-                    } else {
-                        return self.failed_output(e, phases_completed, initial_budget);
-                    }
-                }
-            }
-        } else {
-            // Resuming from checkpoint — use checkpoint context
-            input.context.clone()
-        };
-
-        // === THINK ===
-        let thought = if start_phase <= CognitivePhase::Think {
-            self.ux.send_progress(20.0, "Analyzing...");
-
-            match self
-                .run_phase(CognitivePhase::Think, handler.think(&perceived))
-                .await
-            {
-                PhaseResult::Ok(v) => {
-                    phases_completed.push(CognitivePhase::Think);
-                    v
-                }
-                PhaseResult::TimedOut => {
-                    return self.timeout_output(phases_completed, initial_budget)
-                }
-                PhaseResult::Interrupted => {
-                    return self.interrupt_output(phases_completed, initial_budget)
-                }
-                PhaseResult::BudgetExceeded => {
-                    return self.budget_output(phases_completed, initial_budget)
-                }
-                PhaseResult::Corrupted => {
-                    return self.corruption_output(phases_completed, initial_budget)
-                }
-                PhaseResult::Failed(e) => {
-                    return self.failed_output(e, phases_completed, initial_budget)
-                }
-            }
-        } else {
-            input.context.clone()
-        };
-
-        // === DECIDE ===
-        let decision = if start_phase <= CognitivePhase::Decide {
-            self.ux.send_progress(40.0, "Planning...");
-
-            match self
-                .run_phase(CognitivePhase::Decide, handler.decide(&thought))
-                .await
-            {
-                PhaseResult::Ok(v) => {
-                    phases_completed.push(CognitivePhase::Decide);
-
-                    // Gate check: assess risk
-                    if let Ok(risk) = handler.assess_risk(&v).await {
-                        if risk.needs_approval() {
-                            self.ux.send_alert(
-                                hydra_core::types::AlertLevel::Warning,
-                                "This action needs your approval",
-                                None,
-                            );
-                            // For now, proceed (real implementation would wait for UX decision)
-                        }
-                    }
-
-                    v
-                }
-                PhaseResult::TimedOut => {
-                    return self.timeout_output(phases_completed, initial_budget)
-                }
-                PhaseResult::Interrupted => {
-                    return self.interrupt_output(phases_completed, initial_budget)
-                }
-                PhaseResult::BudgetExceeded => {
-                    return self.budget_output(phases_completed, initial_budget)
-                }
-                PhaseResult::Corrupted => {
-                    return self.corruption_output(phases_completed, initial_budget)
-                }
-                PhaseResult::Failed(e) => {
-                    return self.failed_output(e, phases_completed, initial_budget)
-                }
-            }
-        } else {
-            input.context.clone()
-        };
-
-        // Checkpoint before Act (atomic phase)
-        self.save_checkpoint(CognitivePhase::Decide, &decision);
-
-        // === ACT ===
-        let result = if start_phase <= CognitivePhase::Act {
-            self.ux.send_progress(60.0, "Working...");
-
-            match self
-                .run_phase(CognitivePhase::Act, handler.act(&decision))
-                .await
-            {
-                PhaseResult::Ok(v) => {
-                    phases_completed.push(CognitivePhase::Act);
-                    v
-                }
-                PhaseResult::TimedOut => {
-                    return self.timeout_output(phases_completed, initial_budget)
-                }
-                PhaseResult::Interrupted => {
-                    // EC-CL-002: Checkpoint on interrupt during Act
-                    self.save_checkpoint(CognitivePhase::Act, &decision);
-                    return self.interrupt_output(phases_completed, initial_budget);
-                }
-                PhaseResult::BudgetExceeded => {
-                    return self.budget_output(phases_completed, initial_budget)
-                }
-                PhaseResult::Corrupted => {
-                    return self.corruption_output(phases_completed, initial_budget)
-                }
-                PhaseResult::Failed(e) => {
-                    return self.failed_output(e, phases_completed, initial_budget)
-                }
-            }
-        } else {
-            input.context.clone()
-        };
-
-        // === LEARN ===
-        self.ux.send_progress(90.0, "Learning...");
-
-        let learn_result = match self
-            .run_phase(CognitivePhase::Learn, handler.learn(&result))
-            .await
-        {
-            PhaseResult::Ok(v) => {
-                phases_completed.push(CognitivePhase::Learn);
-                v
-            }
-            PhaseResult::Failed(_) | PhaseResult::TimedOut => {
-                // Learn uses LogAndContinue — don't fail the whole cycle
-                phases_completed.push(CognitivePhase::Learn);
-                serde_json::json!({"learning": "deferred"})
-            }
-            PhaseResult::Interrupted => {
-                return self.interrupt_output(phases_completed, initial_budget)
-            }
-            PhaseResult::BudgetExceeded => {
-                // Still complete, just didn't learn
-                phases_completed.push(CognitivePhase::Learn);
-                serde_json::json!({"learning": "skipped_budget"})
-            }
-            PhaseResult::Corrupted => {
-                return self.corruption_output(phases_completed, initial_budget)
-            }
-        };
-
-        // === COMPLETION ===
-        let tokens_used = initial_budget - self.budget.lock().remaining();
-        let _ = learn_result; // consumed by learning
-
-        self.ux.send_completion(CompletionSummary {
-            headline: "Task completed".into(),
-            actions: vec!["Completed cognitive cycle".into()],
-            changes: vec![],
-            next_steps: vec![],
-        });
-
-        // Clear checkpoint on success
-        *self.checkpoint.lock() = None;
-
-        let status = if handler.sisters_available() {
-            CycleStatus::Completed
-        } else {
-            CycleStatus::Degraded
-        };
-
-        CycleOutput {
-            result,
-            status,
-            tokens_used,
-            phases_completed,
-        }
-    }
-
-    /// Run a single phase with timeout, budget check, interruption, and corruption detection
-    async fn run_phase<F>(&self, phase: CognitivePhase, future: F) -> PhaseResult
-    where
-        F: std::future::Future<Output = Result<serde_json::Value, HydraError>>,
-    {
-        // Check corruption (EC-CL-006)
-        if self.corruption_flag.load(Ordering::SeqCst) {
-            return PhaseResult::Corrupted;
-        }
-
-        // Check budget (EC-CL-007)
-        let phase_cost = self.estimated_phase_cost(phase);
-        if !self.budget.lock().can_afford(phase_cost) {
-            return PhaseResult::BudgetExceeded;
-        }
-
-        // Check interruption (EC-CL-002)
-        if self.interrupted.load(Ordering::SeqCst) {
-            return PhaseResult::Interrupted;
-        }
-
-        let timeout = self.config.phase_timeout(phase);
-
-        // Run with timeout (EC-CL-001)
-        match tokio::time::timeout(timeout, future).await {
-            Ok(Ok(value)) => {
-                self.budget.lock().try_spend(phase_cost, phase);
-                PhaseResult::Ok(value)
-            }
-            Ok(Err(e)) => PhaseResult::Failed(e.to_string()),
-            Err(_) => PhaseResult::TimedOut,
-        }
-    }
-
-    fn estimated_phase_cost(&self, phase: CognitivePhase) -> u64 {
-        match phase {
-            CognitivePhase::Perceive => 100,
-            CognitivePhase::Think => 500,
-            CognitivePhase::Decide => 200,
-            CognitivePhase::Act => 100,
-            CognitivePhase::Learn => 100,
-        }
-    }
-
-    fn save_checkpoint(&self, phase: CognitivePhase, context: &serde_json::Value) {
-        let budget = self.budget.lock().budget().clone();
-        let level = self
-            .config
-            .phase_configs
-            .get(&phase)
-            .map(|c| c.checkpoint_level)
-            .unwrap_or(CheckpointLevel::Full);
-        *self.checkpoint.lock() = Some(Checkpoint::capture(
-            phase,
-            level,
-            context.clone(),
-            vec![],
-            budget,
-        ));
-    }
-
-    fn timeout_output(&self, phases: Vec<CognitivePhase>, initial_budget: u64) -> CycleOutput {
-        self.ux.send_alert(
-            hydra_core::types::AlertLevel::Warning,
-            "The operation timed out",
-            Some("Try again or simplify the request".into()),
-        );
-        CycleOutput {
-            result: serde_json::json!({"timeout": true}),
-            status: CycleStatus::TimedOut,
-            tokens_used: initial_budget - self.budget.lock().remaining(),
-            phases_completed: phases,
-        }
-    }
-
-    fn interrupt_output(&self, phases: Vec<CognitivePhase>, initial_budget: u64) -> CycleOutput {
-        CycleOutput {
-            result: serde_json::json!({"interrupted": true}),
-            status: CycleStatus::Interrupted,
-            tokens_used: initial_budget - self.budget.lock().remaining(),
-            phases_completed: phases,
-        }
-    }
-
-    fn budget_output(&self, phases: Vec<CognitivePhase>, initial_budget: u64) -> CycleOutput {
-        self.ux.send_alert(
-            hydra_core::types::AlertLevel::Warning,
-            "Token budget exceeded",
-            Some("Switching to conservation mode".into()),
-        );
-        CycleOutput {
-            result: serde_json::json!({"budget_exceeded": true}),
-            status: CycleStatus::BudgetExceeded,
-            tokens_used: initial_budget - self.budget.lock().remaining(),
-            phases_completed: phases,
-        }
-    }
-
-    fn corruption_output(&self, phases: Vec<CognitivePhase>, initial_budget: u64) -> CycleOutput {
-        self.ux.send_alert(
-            hydra_core::types::AlertLevel::Error,
-            "State corruption detected",
-            Some("Attempting recovery".into()),
-        );
-        CycleOutput {
-            result: serde_json::json!({"corruption": true}),
-            status: CycleStatus::Failed("state corruption detected".into()),
-            tokens_used: initial_budget - self.budget.lock().remaining(),
-            phases_completed: phases,
-        }
-    }
-
-    fn failed_output(
-        &self,
-        error: String,
-        phases: Vec<CognitivePhase>,
-        initial_budget: u64,
-    ) -> CycleOutput {
-        self.ux
-            .send_alert(hydra_core::types::AlertLevel::Error, &error, None);
-        CycleOutput {
-            result: serde_json::json!({"error": error}),
-            status: CycleStatus::Failed(error),
-            tokens_used: initial_budget - self.budget.lock().remaining(),
-            phases_completed: phases,
-        }
-    }
+    // run_phases — extracted to cognitive_loop_phases.rs
+    // run_phase, estimated_phase_cost, save_checkpoint, output builders
+    // — all extracted to cognitive_loop_output.rs
 }
 
-enum PhaseResult {
+pub(crate) enum PhaseResult {
     Ok(serde_json::Value),
     TimedOut,
     Interrupted,
@@ -602,3 +258,11 @@ fn next_phase(phase: CognitivePhase) -> CognitivePhase {
         CognitivePhase::Learn => CognitivePhase::Perceive,
     }
 }
+
+#[cfg(test)]
+#[path = "cognitive_loop_tests.rs"]
+mod tests;
+
+#[cfg(test)]
+#[path = "cognitive_loop_tests_extra.rs"]
+mod tests_extra;

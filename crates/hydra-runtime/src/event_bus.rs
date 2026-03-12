@@ -57,3 +57,59 @@ impl Default for EventBus {
         Self::new(1024)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sse::SseEventType;
+
+    #[test]
+    fn test_new_event_bus() {
+        let bus = EventBus::new(16);
+        assert_eq!(bus.total_published(), 0);
+    }
+
+    #[test]
+    fn test_default_event_bus() {
+        let bus = EventBus::default();
+        assert_eq!(bus.total_published(), 0);
+    }
+
+    #[test]
+    fn test_publish_increments_counter() {
+        let bus = EventBus::new(16);
+        bus.publish(SseEvent::heartbeat());
+        assert_eq!(bus.total_published(), 1);
+        bus.publish(SseEvent::heartbeat());
+        bus.publish(SseEvent::heartbeat());
+        assert_eq!(bus.total_published(), 3);
+    }
+
+    #[test]
+    fn test_subscribe_receives_events() {
+        let bus = EventBus::new(16);
+        let mut rx = bus.subscribe();
+        bus.publish(SseEvent::heartbeat());
+        let event = rx.try_recv().unwrap();
+        assert_eq!(event.event_type, SseEventType::Heartbeat);
+    }
+
+    #[test]
+    fn test_multiple_subscribers() {
+        let bus = EventBus::new(16);
+        let mut rx1 = bus.subscribe();
+        let mut rx2 = bus.subscribe();
+        bus.publish(SseEvent::system_ready("1.0"));
+        assert!(rx1.try_recv().is_ok());
+        assert!(rx2.try_recv().is_ok());
+    }
+
+    #[test]
+    fn test_publish_system_events() {
+        let bus = EventBus::new(16);
+        let mut rx = bus.subscribe();
+        bus.publish(SseEvent::system_shutdown("test"));
+        let event = rx.try_recv().unwrap();
+        assert_eq!(event.event_type, SseEventType::SystemShutdown);
+    }
+}

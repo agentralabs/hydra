@@ -234,4 +234,107 @@ mod tests {
         let restored: ActionNode = serde_json::from_str(&json).unwrap();
         assert_eq!(restored.action_count(), 1);
     }
+
+    #[test]
+    fn test_empty_sequence() {
+        let node = ActionNode::Sequence(vec![]);
+        assert_eq!(node.action_count(), 0);
+        assert!(node.tool_names().is_empty());
+    }
+
+    #[test]
+    fn test_if_without_else() {
+        let node = ActionNode::If {
+            condition: ConditionExpr::Exists("x".into()),
+            then: Box::new(ActionNode::Action { tool: "a".into(), params: HashMap::new() }),
+            else_: None,
+        };
+        assert_eq!(node.action_count(), 1);
+        assert_eq!(node.tool_names(), vec!["a"]);
+    }
+
+    #[test]
+    fn test_nested_sequence() {
+        let node = ActionNode::Sequence(vec![
+            ActionNode::Sequence(vec![
+                ActionNode::Action { tool: "a".into(), params: HashMap::new() },
+                ActionNode::Action { tool: "b".into(), params: HashMap::new() },
+            ]),
+            ActionNode::Action { tool: "c".into(), params: HashMap::new() },
+        ]);
+        assert_eq!(node.action_count(), 3);
+        assert_eq!(node.tool_names(), vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn test_store_result_tool_names() {
+        let node = ActionNode::StoreResult {
+            key: "result".into(),
+            action: Box::new(ActionNode::Sequence(vec![
+                ActionNode::Action { tool: "x".into(), params: HashMap::new() },
+                ActionNode::Action { tool: "y".into(), params: HashMap::new() },
+            ])),
+        };
+        assert_eq!(node.action_count(), 2);
+        assert_eq!(node.tool_names(), vec!["x", "y"]);
+    }
+
+    #[test]
+    fn test_condition_expr_serde() {
+        let cond = ConditionExpr::And(vec![
+            ConditionExpr::Exists("x".into()),
+            ConditionExpr::Not(Box::new(ConditionExpr::Success("y".into()))),
+        ]);
+        let json = serde_json::to_string(&cond).unwrap();
+        let _: ConditionExpr = serde_json::from_str(&json).unwrap();
+    }
+
+    #[test]
+    fn test_collection_expr_serde() {
+        let c = CollectionExpr::FromResult("step_1".into());
+        let json = serde_json::to_string(&c).unwrap();
+        let _: CollectionExpr = serde_json::from_str(&json).unwrap();
+    }
+
+    #[test]
+    fn test_compute_rule_serde() {
+        let rule = ComputeRule::Extract { source: "result".into(), field: "id".into() };
+        let json = serde_json::to_string(&rule).unwrap();
+        let _: ComputeRule = serde_json::from_str(&json).unwrap();
+    }
+
+    #[test]
+    fn test_param_expr_previous_result() {
+        let p = ParamExpr::PreviousResult("step_1".into());
+        let json = serde_json::to_string(&p).unwrap();
+        let restored: ParamExpr = serde_json::from_str(&json).unwrap();
+        assert!(matches!(restored, ParamExpr::PreviousResult(_)));
+    }
+
+    #[test]
+    fn test_param_expr_computed() {
+        let p = ParamExpr::Computed(ComputeRule::Concat(vec![
+            ParamExpr::Literal(serde_json::json!("hello ")),
+            ParamExpr::Variable("name".into()),
+        ]));
+        let json = serde_json::to_string(&p).unwrap();
+        let _: ParamExpr = serde_json::from_str(&json).unwrap();
+    }
+
+    #[test]
+    fn test_condition_or_serde() {
+        let cond = ConditionExpr::Or(vec![
+            ConditionExpr::Exists("a".into()),
+            ConditionExpr::Exists("b".into()),
+        ]);
+        let json = serde_json::to_string(&cond).unwrap();
+        let _: ConditionExpr = serde_json::from_str(&json).unwrap();
+    }
+
+    #[test]
+    fn test_condition_equals_serde() {
+        let cond = ConditionExpr::Equals { left: "x".into(), right: serde_json::json!(42) };
+        let json = serde_json::to_string(&cond).unwrap();
+        let _: ConditionExpr = serde_json::from_str(&json).unwrap();
+    }
 }

@@ -1,9 +1,33 @@
 pub mod budget;
 pub mod cognitive_loop;
+pub mod cognitive_loop_output;
+pub mod cognitive_loop_phases;
 pub mod config;
+pub mod dispatch;
+pub mod dispatch_act;
+pub mod dispatch_phases;
+pub mod orchestration;
+pub mod self_modify;
+pub mod self_modify_llm;
+pub mod self_modify_pipeline;
 pub mod state;
 
 pub use budget::BudgetManager;
 pub use cognitive_loop::CognitiveLoop;
 pub use config::{CheckpointLevel, ErrorBehavior, KernelConfig, PhaseConfig, TimeoutBehavior};
+pub use dispatch::SisterDispatcher;
+pub use orchestration::{AgenticSession, SessionConfig, SessionResult, Tool, ToolCall, should_use_agentic_session};
+pub use self_modify::ModResult;
+pub use self_modify_pipeline::SelfModificationPipeline;
 pub use state::{Checkpoint, CognitiveState, KernelRunState};
+
+
+pub mod intent_stats;
+pub mod smart_patch;
+pub mod uptime;
+pub mod conversation_context;
+pub mod response_quality;
+pub mod implementation_chain;
+pub mod self_improve;
+pub mod error_recovery;
+pub mod health_summary;

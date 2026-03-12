@@ -1,7 +1,20 @@
+pub mod messages;
 mod schema;
-mod store;
+mod schema_tables;
+pub(crate) mod store;
+mod store_mutations;
+mod store_queries;
+mod store_queries_domain;
+mod store_tests;
+mod store_tests_extra;
+pub(crate) mod store_types;
 
+pub use messages::{Conversation, Message, MessageRole, MessageStore};
 pub use schema::SCHEMA_VERSION;
-pub use store::{ApprovalRow, CheckpointRow, RunRow, StepRow};
-pub use store::{ApprovalStatus, RunStatus, StepStatus};
-pub use store::{DbError, HydraDb};
+pub use store_types::{ApprovalRow, CheckpointRow, RunRow, StepRow};
+pub use store_types::{AnomalyEventRow, CursorEventRow, CursorSessionRow, ReceiptRow, ShadowValidationRow, TrustScoreRow};
+pub use store_types::{BeliefRow, McpDiscoveredSkillRow, FederationStateRow};
+pub use store_types::{RepairRunRow, RepairCheckRow};
+pub use store_types::{ApprovalStatus, RunStatus, StepStatus};
+pub use store_types::DbError;
+pub use store::HydraDb;

@@ -163,3 +163,169 @@ impl Default for HealthTracker {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_health_status_serialization() {
+        assert_eq!(serde_json::to_string(&HealthStatus::Healthy).unwrap(), "\"healthy\"");
+        assert_eq!(serde_json::to_string(&HealthStatus::Degraded).unwrap(), "\"degraded\"");
+        assert_eq!(serde_json::to_string(&HealthStatus::Unhealthy).unwrap(), "\"unhealthy\"");
+        assert_eq!(serde_json::to_string(&HealthStatus::Unknown).unwrap(), "\"unknown\"");
+    }
+
+    #[test]
+    fn test_health_tracker_new() {
+        let tracker = HealthTracker::new();
+        assert_eq!(tracker.total_checks(), 0);
+    }
+
+    #[test]
+    fn test_health_tracker_default() {
+        let tracker = HealthTracker::default();
+        assert_eq!(tracker.total_checks(), 0);
+    }
+
+    #[test]
+    fn test_unknown_protocol_health() {
+        let tracker = HealthTracker::new();
+        let id = Uuid::new_v4();
+        assert_eq!(tracker.check_health(id), HealthStatus::Unknown);
+    }
+
+    #[test]
+    fn test_mark_healthy() {
+        let tracker = HealthTracker::new();
+        let id = Uuid::new_v4();
+        tracker.mark_healthy(id);
+        assert_eq!(tracker.check_health(id), HealthStatus::Healthy);
+        assert_eq!(tracker.total_checks(), 1);
+    }
+
+    #[test]
+    fn test_mark_unhealthy_once_degraded() {
+        let tracker = HealthTracker::new();
+        let id = Uuid::new_v4();
+        tracker.mark_healthy(id); // start healthy
+        tracker.mark_unhealthy(id); // 1 failure => degraded (threshold=1)
+        assert_eq!(tracker.check_health(id), HealthStatus::Degraded);
+    }
+
+    #[test]
+    fn test_mark_unhealthy_three_times() {
+        let tracker = HealthTracker::new();
+        let id = Uuid::new_v4();
+        tracker.mark_unhealthy(id);
+        tracker.mark_unhealthy(id);
+        tracker.mark_unhealthy(id); // 3 >= unhealthy_threshold(3)
+        assert_eq!(tracker.check_health(id), HealthStatus::Unhealthy);
+    }
+
+    #[test]
+    fn test_is_available_healthy() {
+        let tracker = HealthTracker::new();
+        let id = Uuid::new_v4();
+        tracker.mark_healthy(id);
+        assert!(tracker.is_available(id));
+    }
+
+    #[test]
+    fn test_is_available_unknown() {
+        let tracker = HealthTracker::new();
+        let id = Uuid::new_v4();
+        assert!(tracker.is_available(id)); // Unknown is available
+    }
+
+    #[test]
+    fn test_is_available_unhealthy() {
+        let tracker = HealthTracker::new();
+        let id = Uuid::new_v4();
+        tracker.mark_unhealthy(id);
+        tracker.mark_unhealthy(id);
+        tracker.mark_unhealthy(id);
+        assert!(!tracker.is_available(id));
+    }
+
+    #[test]
+    fn test_is_available_degraded() {
+        let tracker = HealthTracker::new();
+        let id = Uuid::new_v4();
+        tracker.mark_unhealthy(id); // 1 failure = degraded
+        assert!(!tracker.is_available(id));
+    }
+
+    #[test]
+    fn test_uptime_ratio_no_checks() {
+        let tracker = HealthTracker::new();
+        let id = Uuid::new_v4();
+        assert_eq!(tracker.uptime_ratio(id), 1.0); // Default
+    }
+
+    #[test]
+    fn test_uptime_ratio_all_healthy() {
+        let tracker = HealthTracker::new();
+        let id = Uuid::new_v4();
+        tracker.mark_healthy(id);
+        tracker.mark_healthy(id);
+        tracker.mark_healthy(id);
+        assert_eq!(tracker.uptime_ratio(id), 1.0);
+    }
+
+    #[test]
+    fn test_uptime_ratio_mixed() {
+        let tracker = HealthTracker::new();
+        let id = Uuid::new_v4();
+        tracker.mark_healthy(id);
+        tracker.mark_unhealthy(id);
+        // 1 success, 2 total checks => 0.5
+        assert_eq!(tracker.uptime_ratio(id), 0.5);
+    }
+
+    #[test]
+    fn test_mark_all_unhealthy() {
+        let tracker = HealthTracker::new();
+        let id1 = Uuid::new_v4();
+        let id2 = Uuid::new_v4();
+        tracker.mark_healthy(id1);
+        tracker.mark_healthy(id2);
+        tracker.mark_all_unhealthy();
+        assert_eq!(tracker.check_health(id1), HealthStatus::Unhealthy);
+        assert_eq!(tracker.check_health(id2), HealthStatus::Unhealthy);
+    }
+
+    #[test]
+    fn test_unhealthy_protocols_list() {
+        let tracker = HealthTracker::new();
+        let id1 = Uuid::new_v4();
+        let id2 = Uuid::new_v4();
+        tracker.mark_healthy(id1);
+        tracker.mark_unhealthy(id2);
+        tracker.mark_unhealthy(id2);
+        tracker.mark_unhealthy(id2);
+        let unhealthy = tracker.unhealthy_protocols();
+        assert_eq!(unhealthy.len(), 1);
+        assert!(unhealthy.contains(&id2));
+    }
+
+    #[test]
+    fn test_healthy_recovery_resets_failures() {
+        let tracker = HealthTracker::new();
+        let id = Uuid::new_v4();
+        tracker.mark_unhealthy(id);
+        tracker.mark_unhealthy(id);
+        tracker.mark_healthy(id); // Recovery
+        assert_eq!(tracker.check_health(id), HealthStatus::Healthy);
+    }
+
+    #[test]
+    fn test_total_checks_accumulate() {
+        let tracker = HealthTracker::new();
+        let id = Uuid::new_v4();
+        tracker.mark_healthy(id);
+        tracker.mark_unhealthy(id);
+        tracker.mark_healthy(id);
+        assert_eq!(tracker.total_checks(), 3);
+    }
+}

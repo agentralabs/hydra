@@ -137,3 +137,132 @@ impl Default for KillSwitch {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_kill_switch_is_inactive() {
+        let ks = KillSwitch::new();
+        assert!(!ks.is_active());
+        assert!(!ks.is_frozen());
+        assert!(!ks.should_block());
+        assert!(ks.reason().is_none());
+        assert!(ks.activated_at().is_none());
+        assert!(ks.current_signal().is_none());
+    }
+
+    #[test]
+    fn test_default_is_inactive() {
+        let ks = KillSwitch::default();
+        assert!(!ks.is_active());
+        assert!(!ks.is_frozen());
+    }
+
+    #[test]
+    fn test_instant_halt_activates() {
+        let ks = KillSwitch::new();
+        ks.instant_halt("test reason");
+        assert!(ks.is_active());
+        assert!(!ks.is_frozen());
+        assert!(ks.should_block());
+        assert_eq!(ks.reason(), Some("test reason".to_string()));
+        assert!(ks.activated_at().is_some());
+        assert_eq!(ks.current_signal(), Some(KillSignal::InstantHalt));
+    }
+
+    #[test]
+    fn test_graceful_stop_activates() {
+        let ks = KillSwitch::new();
+        ks.graceful_stop("graceful reason");
+        assert!(ks.is_active());
+        assert!(!ks.is_frozen());
+        assert!(ks.should_block());
+        assert_eq!(ks.reason(), Some("graceful reason".to_string()));
+        assert_eq!(ks.current_signal(), Some(KillSignal::GracefulStop));
+    }
+
+    #[test]
+    fn test_freeze_sets_frozen() {
+        let ks = KillSwitch::new();
+        ks.freeze("freeze reason");
+        assert!(!ks.is_active());
+        assert!(ks.is_frozen());
+        assert!(ks.should_block());
+        assert_eq!(ks.current_signal(), Some(KillSignal::Freeze));
+    }
+
+    #[test]
+    fn test_resume_clears_frozen() {
+        let ks = KillSwitch::new();
+        ks.freeze("freeze");
+        assert!(ks.is_frozen());
+        ks.resume();
+        assert!(!ks.is_frozen());
+        assert!(!ks.should_block());
+        assert_eq!(ks.current_signal(), Some(KillSignal::Resume));
+    }
+
+    #[test]
+    fn test_reset_clears_everything() {
+        let ks = KillSwitch::new();
+        ks.instant_halt("halt");
+        assert!(ks.is_active());
+        ks.reset();
+        assert!(!ks.is_active());
+        assert!(!ks.is_frozen());
+        assert!(!ks.should_block());
+        assert!(ks.reason().is_none());
+        assert!(ks.activated_at().is_none());
+        assert!(ks.current_signal().is_none());
+    }
+
+    #[test]
+    fn test_should_block_active_or_frozen() {
+        let ks = KillSwitch::new();
+        assert!(!ks.should_block());
+        ks.freeze("f");
+        assert!(ks.should_block());
+        ks.resume();
+        assert!(!ks.should_block());
+        ks.instant_halt("h");
+        assert!(ks.should_block());
+    }
+
+    #[test]
+    fn test_subscribe_receives_signals() {
+        let ks = KillSwitch::new();
+        let mut rx = ks.subscribe();
+        ks.instant_halt("test");
+        let signal = rx.try_recv().unwrap();
+        assert_eq!(signal, KillSignal::InstantHalt);
+    }
+
+    #[test]
+    fn test_clone_shares_state() {
+        let ks = KillSwitch::new();
+        let ks2 = ks.clone();
+        ks.instant_halt("shared");
+        assert!(ks2.is_active());
+        assert_eq!(ks2.reason(), Some("shared".to_string()));
+    }
+
+    #[test]
+    fn test_kill_signal_serde() {
+        let signal = KillSignal::GracefulStop;
+        let json = serde_json::to_string(&signal).unwrap();
+        let restored: KillSignal = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored, KillSignal::GracefulStop);
+    }
+
+    #[test]
+    fn test_instant_halt_clears_frozen() {
+        let ks = KillSwitch::new();
+        ks.freeze("frozen");
+        assert!(ks.is_frozen());
+        ks.instant_halt("halt overrides freeze");
+        assert!(ks.is_active());
+        assert!(!ks.is_frozen());
+    }
+}

@@ -94,6 +94,22 @@ pub struct KernelConfig {
     pub token_budget: u64,
 }
 
+/// Read a u64 env var with a default fallback.
+fn env_u64(name: &str, default: u64) -> u64 {
+    std::env::var(name)
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(default)
+}
+
+/// Read a usize env var with a default fallback.
+fn env_usize(name: &str, default: usize) -> usize {
+    std::env::var(name)
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(default)
+}
+
 impl Default for KernelConfig {
     fn default() -> Self {
         let mut phase_configs = std::collections::HashMap::new();
@@ -106,11 +122,16 @@ impl Default for KernelConfig {
         ] {
             phase_configs.insert(phase, default_phase_config(phase));
         }
+
+        // Allow env var overrides for key parameters:
+        //   HYDRA_MAX_RECURSION_DEPTH (default: 5)
+        //   HYDRA_MAX_THINK_ITERATIONS (default: 10)
+        //   HYDRA_TOKEN_BUDGET (default: 100000)
         Self {
             phase_configs,
-            max_recursion_depth: 5,
-            max_think_iterations: 10,
-            token_budget: 100_000,
+            max_recursion_depth: env_usize("HYDRA_MAX_RECURSION_DEPTH", 5),
+            max_think_iterations: env_usize("HYDRA_MAX_THINK_ITERATIONS", 10),
+            token_budget: env_u64("HYDRA_TOKEN_BUDGET", 100_000),
         }
     }
 }
@@ -127,5 +148,105 @@ impl KernelConfig {
         if let Some(config) = self.phase_configs.get_mut(&phase) {
             config.timeout = timeout;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_kernel_config_has_all_phases() {
+        let config = KernelConfig::default();
+        assert!(config.phase_configs.contains_key(&CognitivePhase::Perceive));
+        assert!(config.phase_configs.contains_key(&CognitivePhase::Think));
+        assert!(config.phase_configs.contains_key(&CognitivePhase::Decide));
+        assert!(config.phase_configs.contains_key(&CognitivePhase::Act));
+        assert!(config.phase_configs.contains_key(&CognitivePhase::Learn));
+        assert_eq!(config.phase_configs.len(), 5);
+    }
+
+    #[test]
+    fn test_default_recursion_depth() {
+        let config = KernelConfig::default();
+        assert_eq!(config.max_recursion_depth, 5);
+    }
+
+    #[test]
+    fn test_default_token_budget() {
+        let config = KernelConfig::default();
+        assert_eq!(config.token_budget, 100_000);
+    }
+
+    #[test]
+    fn test_perceive_timeout_is_10s() {
+        let config = KernelConfig::default();
+        assert_eq!(config.phase_timeout(CognitivePhase::Perceive), Duration::from_secs(10));
+    }
+
+    #[test]
+    fn test_think_timeout_is_60s() {
+        let config = KernelConfig::default();
+        assert_eq!(config.phase_timeout(CognitivePhase::Think), Duration::from_secs(60));
+    }
+
+    #[test]
+    fn test_act_timeout_is_300s() {
+        let config = KernelConfig::default();
+        assert_eq!(config.phase_timeout(CognitivePhase::Act), Duration::from_secs(300));
+    }
+
+    #[test]
+    fn test_set_phase_timeout_overrides() {
+        let mut config = KernelConfig::default();
+        config.set_phase_timeout(CognitivePhase::Think, Duration::from_secs(120));
+        assert_eq!(config.phase_timeout(CognitivePhase::Think), Duration::from_secs(120));
+        // Other phases unchanged
+        assert_eq!(config.phase_timeout(CognitivePhase::Perceive), Duration::from_secs(10));
+    }
+
+    #[test]
+    fn test_perceive_error_behavior_is_skip_and_continue() {
+        let config = default_phase_config(CognitivePhase::Perceive);
+        assert_eq!(config.error_behavior, ErrorBehavior::SkipAndContinue);
+    }
+
+    #[test]
+    fn test_learn_error_behavior_is_log_and_continue() {
+        let config = default_phase_config(CognitivePhase::Learn);
+        assert_eq!(config.error_behavior, ErrorBehavior::LogAndContinue);
+    }
+
+    #[test]
+    fn test_act_checkpoint_level_is_atomic() {
+        let config = default_phase_config(CognitivePhase::Act);
+        assert_eq!(config.checkpoint_level, CheckpointLevel::Atomic);
+    }
+
+    #[test]
+    fn test_decide_is_user_interruptible() {
+        let config = default_phase_config(CognitivePhase::Decide);
+        assert!(config.user_interruptible);
+        assert!(!config.system_interruptible);
+    }
+
+    #[test]
+    fn test_learn_is_not_user_interruptible() {
+        let config = default_phase_config(CognitivePhase::Learn);
+        assert!(!config.user_interruptible);
+        assert!(config.system_interruptible);
+    }
+
+    #[test]
+    fn test_phase_timeout_returns_default_for_missing_phase() {
+        // Create a config with no phases configured
+        let config = KernelConfig {
+            phase_configs: std::collections::HashMap::new(),
+            max_recursion_depth: 5,
+            max_think_iterations: 10,
+            token_budget: 100_000,
+        };
+        // Should fall back to 30s
+        assert_eq!(config.phase_timeout(CognitivePhase::Think), Duration::from_secs(30));
     }
 }

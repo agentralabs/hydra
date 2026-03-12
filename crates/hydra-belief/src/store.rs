@@ -301,3 +301,7 @@ impl Clone for BeliefStore {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "store_tests.rs"]
+mod tests;

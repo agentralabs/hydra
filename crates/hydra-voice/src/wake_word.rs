@@ -67,6 +67,58 @@ impl WakeWordDetector {
             None
         }
     }
+
+    /// Check if the detector has a valid configuration for operation.
+    /// Returns true if the wake phrase is non-empty and sensitivity is valid.
+    pub fn is_configured(&self) -> bool {
+        !self.wake_phrase.is_empty() && self.sensitivity > 0.0 && self.sensitivity <= 1.0
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+// TRAIT-BASED WAKE WORD DETECTION
+// ═══════════════════════════════════════════════════════════
+
+/// Trait for pluggable wake word detection backends.
+pub trait WakeWordBackend: Send + Sync {
+    /// Process a chunk of audio and return a detection event if the wake word is found
+    fn process_audio(&self, audio: &[f32], sensitivity: f32) -> Option<WakeWordEvent>;
+
+    /// Check if the backend is ready
+    fn is_ready(&self) -> bool;
+
+    /// Backend name for diagnostics
+    fn backend_name(&self) -> &str;
+}
+
+/// Stub wake word backend — never detects (no model loaded)
+pub struct WakeWordStub;
+
+impl WakeWordStub {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for WakeWordStub {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl WakeWordBackend for WakeWordStub {
+    fn process_audio(&self, _audio: &[f32], _sensitivity: f32) -> Option<WakeWordEvent> {
+        tracing::debug!("WakeWordStub::process_audio — no model, returning None");
+        None
+    }
+
+    fn is_ready(&self) -> bool {
+        false
+    }
+
+    fn backend_name(&self) -> &str {
+        "wake-word-stub"
+    }
 }
 
 #[cfg(test)]

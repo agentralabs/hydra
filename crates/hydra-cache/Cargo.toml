@@ -1,0 +1,21 @@
+[package]
+name = "hydra-cache"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Caching layer for agentic-hydra: intent cache, context compression, sister call batching"
+
+[dependencies]
+hydra-core = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+dashmap = { workspace = true }
+parking_lot = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+pretty_assertions = { workspace = true }

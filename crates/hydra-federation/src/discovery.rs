@@ -128,6 +128,60 @@ mod tests {
     }
 
     #[test]
+    fn test_discovery_cached_empty_initially() {
+        let discovery = PeerDiscovery::new(DiscoveryMethod::Manual(vec!["1.2.3.4:9000".into()]));
+        assert!(discovery.cached().is_empty());
+    }
+
+    #[test]
+    fn test_discovery_cached_after_discover() {
+        let discovery = PeerDiscovery::new(DiscoveryMethod::Manual(vec!["10.0.0.1:9000".into()]));
+        discovery.discover();
+        let cached = discovery.cached();
+        assert_eq!(cached.len(), 1);
+        assert_eq!(cached[0].endpoint, "10.0.0.1:9000");
+    }
+
+    #[test]
+    fn test_discovery_count() {
+        let discovery = PeerDiscovery::new(DiscoveryMethod::Manual(vec![
+            "a:9000".into(),
+            "b:9000".into(),
+            "c:9000".into(),
+        ]));
+        discovery.discover();
+        assert_eq!(discovery.count(), 3);
+    }
+
+    #[test]
+    fn test_discovery_multiple_manual_adds() {
+        let discovery = PeerDiscovery::new(DiscoveryMethod::Mdns);
+        discovery.add_manual("10.0.0.1:9000");
+        discovery.add_manual("10.0.0.2:9000");
+        assert_eq!(discovery.count(), 2);
+    }
+
+    #[test]
+    fn test_discovery_method_serialization() {
+        let method = DiscoveryMethod::Mdns;
+        let json = serde_json::to_string(&method).unwrap();
+        let restored: DiscoveryMethod = serde_json::from_str(&json).unwrap();
+        assert!(matches!(restored, DiscoveryMethod::Mdns));
+    }
+
+    #[test]
+    fn test_discovered_peer_serialization() {
+        let peer = DiscoveredPeer {
+            endpoint: "10.0.0.1:9000".into(),
+            method: "manual".into(),
+            discovered_at: "2026-01-01T00:00:00Z".into(),
+        };
+        let json = serde_json::to_string(&peer).unwrap();
+        let restored: DiscoveredPeer = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.endpoint, "10.0.0.1:9000");
+    }
+
+    #[test]
     fn test_discovery_add_manual() {
         let discovery = PeerDiscovery::new(DiscoveryMethod::Mdns);
         assert_eq!(discovery.count(), 0);

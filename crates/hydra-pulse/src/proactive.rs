@@ -274,4 +274,96 @@ mod tests {
         assert!(engine.remove_watch("w1"));
         assert_eq!(engine.watches().len(), 0);
     }
+
+    #[test]
+    fn test_remove_watch_nonexistent() {
+        let engine = ProactiveEngine::new();
+        assert!(!engine.remove_watch("nope"));
+    }
+
+    #[test]
+    fn test_default_enabled() {
+        let engine = ProactiveEngine::default();
+        assert!(engine.is_enabled());
+    }
+
+    #[test]
+    fn test_enable_disable() {
+        let engine = ProactiveEngine::new();
+        engine.set_enabled(false);
+        assert!(!engine.is_enabled());
+        engine.set_enabled(true);
+        assert!(engine.is_enabled());
+    }
+
+    #[test]
+    fn test_pattern_detected() {
+        let engine = ProactiveEngine::new();
+        let update = engine.process_trigger(ProactiveTrigger::PatternDetected {
+            pattern: "repeated refactoring".into(),
+        });
+        assert!(update.is_some());
+        let u = update.unwrap();
+        assert_eq!(u.priority, UpdatePriority::Low);
+        assert!(u.actionable);
+        assert!(u.suggested_action.is_some());
+    }
+
+    #[test]
+    fn test_scheduled_check() {
+        let engine = ProactiveEngine::new();
+        let update = engine.process_trigger(ProactiveTrigger::ScheduledCheck {
+            name: "lint check".into(),
+        });
+        assert!(update.is_some());
+        assert_eq!(update.unwrap().priority, UpdatePriority::Low);
+    }
+
+    #[test]
+    fn test_reminder_high_priority() {
+        let engine = ProactiveEngine::new();
+        let update = engine.process_trigger(ProactiveTrigger::Reminder {
+            message: "Time to commit".into(),
+        });
+        assert!(update.is_some());
+        assert_eq!(update.unwrap().priority, UpdatePriority::High);
+    }
+
+    #[test]
+    fn test_update_priority_ordering() {
+        assert!(UpdatePriority::Low < UpdatePriority::Medium);
+        assert!(UpdatePriority::Medium < UpdatePriority::High);
+    }
+
+    #[test]
+    fn test_proactive_trigger_serde() {
+        let trigger = ProactiveTrigger::FileChanged { path: "/src/main.rs".into() };
+        let json = serde_json::to_string(&trigger).unwrap();
+        let restored: ProactiveTrigger = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored, trigger);
+    }
+
+    #[test]
+    fn test_watch_spec_serde() {
+        let spec = WatchSpec {
+            id: "w1".into(),
+            trigger: WatchTriggerType::Interval { seconds: 60 },
+            description: "test".into(),
+            enabled: true,
+            cooldown_secs: 30,
+        };
+        let json = serde_json::to_string(&spec).unwrap();
+        let restored: WatchSpec = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.id, "w1");
+    }
+
+    #[test]
+    fn test_pending_count_after_disabled() {
+        let engine = ProactiveEngine::new();
+        engine.process_trigger(ProactiveTrigger::Reminder { message: "a".into() });
+        assert_eq!(engine.pending_count(), 1);
+        engine.set_enabled(false);
+        engine.process_trigger(ProactiveTrigger::Reminder { message: "b".into() });
+        assert_eq!(engine.pending_count(), 1); // not incremented when disabled
+    }
 }

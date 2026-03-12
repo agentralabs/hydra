@@ -186,4 +186,79 @@ mod tests {
         detector.record("flaky", &["a".into()], &["t".into()], false);
         assert!(detector.detect().is_empty());
     }
+
+    #[test]
+    fn test_signature_count() {
+        let detector = PatternDetector::with_defaults();
+        detector.record("a", &["x".into()], &["t".into()], true);
+        detector.record("b", &["y".into()], &["t".into()], true);
+        assert_eq!(detector.signature_count(), 2);
+    }
+
+    #[test]
+    fn test_clear() {
+        let detector = PatternDetector::with_defaults();
+        detector.record("a", &["x".into()], &["t".into()], true);
+        detector.clear();
+        assert_eq!(detector.signature_count(), 0);
+    }
+
+    #[test]
+    fn test_detector_config_default() {
+        let config = DetectorConfig::default();
+        assert_eq!(config.min_occurrences, 3);
+        assert_eq!(config.min_success_rate, 0.9);
+        assert_eq!(config.max_age_days, 7);
+    }
+
+    #[test]
+    fn test_custom_config_lower_threshold() {
+        let config = DetectorConfig { min_occurrences: 1, min_success_rate: 0.5, max_age_days: 30 };
+        let detector = PatternDetector::new(config);
+        detector.record("once", &["a".into()], &["t".into()], true);
+        let patterns = detector.detect();
+        assert_eq!(patterns.len(), 1);
+    }
+
+    #[test]
+    fn test_multiple_patterns_sorted() {
+        let config = DetectorConfig { min_occurrences: 1, min_success_rate: 0.0, max_age_days: 30 };
+        let detector = PatternDetector::new(config);
+        detector.record("rare", &["a".into()], &["t".into()], true);
+        for _ in 0..5 {
+            detector.record("frequent", &["b".into()], &["t".into()], true);
+        }
+        let patterns = detector.detect();
+        assert_eq!(patterns[0].signature, "frequent"); // most frequent first
+    }
+
+    #[test]
+    fn test_detected_pattern_serde() {
+        let pattern = DetectedPattern {
+            signature: "sig".into(),
+            actions: vec!["a".into()],
+            tools: vec!["t".into()],
+            occurrences: 5,
+            success_rate: 1.0,
+            compilable: true,
+        };
+        let json = serde_json::to_string(&pattern).unwrap();
+        let restored: DetectedPattern = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.signature, "sig");
+        assert_eq!(restored.occurrences, 5);
+    }
+
+    #[test]
+    fn test_action_record_serde() {
+        let record = ActionRecord {
+            action: "deploy".into(),
+            tool: "deploy_tool".into(),
+            params_hash: "abc123".into(),
+            success: true,
+            timestamp: "2026-01-01".into(),
+        };
+        let json = serde_json::to_string(&record).unwrap();
+        let restored: ActionRecord = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.action, "deploy");
+    }
 }

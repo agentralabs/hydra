@@ -389,20 +389,4 @@ fn test_animus_engine_validation_failure() {
     assert!(!result.validation.as_ref().unwrap().valid);
 }
 
-#[test]
-fn test_end_to_end_script_to_code() {
-    // Script → tokens → AST → validate → compile to JS
-    let script = "entity User { name: string, age: int }";
-    let tokens = Lexer::new(script).tokenize();
-    let mut parser = ScriptParser::new(tokens);
-    let ast = parser.parse().unwrap();
-
-    let validation = PrimeValidator::validate(&ast);
-    assert!(validation.valid);
-
-    let js = compiler::compile(&ast, Target::JavaScript).unwrap();
-    assert!(js.code.contains("class User"));
-
-    let py = compiler::compile(&ast, Target::Python).unwrap();
-    assert!(py.code.contains("@dataclass"));
-}
+// test_end_to_end_script_to_code moved to animus_tests_extra.rs

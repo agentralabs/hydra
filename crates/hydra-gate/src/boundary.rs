@@ -1,11 +1,20 @@
 use serde::{Deserialize, Serialize};
 
+/// A named hard boundary that blocks specific actions unconditionally.
+/// Used to define custom enforcement rules beyond the built-in defaults.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HardBoundary {
+    pub description: String,
+    pub blocked_actions: Vec<String>,
+}
+
 /// Hard boundary enforcement — actions that are NEVER allowed regardless of risk score.
 /// This runs BEFORE risk assessment in the ExecutionGate pipeline.
 #[derive(Debug, Clone)]
 pub struct BoundaryEnforcer {
     blocked_paths: Vec<String>,
     blocked_patterns: Vec<BlockedPattern>,
+    hard_boundaries: Vec<HardBoundary>,
 }
 
 /// A pattern that is unconditionally blocked
@@ -51,21 +60,49 @@ impl std::fmt::Display for BoundaryViolation {
 
 impl BoundaryEnforcer {
     pub fn new() -> Self {
+        let mut blocked_paths = vec![
+            // Cross-platform sensitive directories
+            "~/.ssh/".into(),
+            ".ssh/".into(),
+            "~/.gnupg/".into(),
+            ".gnupg/".into(),
+        ];
+
+        // Unix/macOS protected paths
+        #[cfg(unix)]
+        blocked_paths.extend([
+            "/etc/".into(),
+            "/System/".into(),
+            "/usr/bin/".into(),
+            "/usr/sbin/".into(),
+            "/sbin/".into(),
+            "/boot/".into(),
+            "/proc/".into(),
+            "/sys/".into(),
+        ]);
+
+        // Windows protected paths
+        #[cfg(windows)]
+        blocked_paths.extend([
+            "C:\\Windows\\".to_string(),
+            "C:\\Windows\\System32\\".to_string(),
+            "C:\\Program Files\\".to_string(),
+            "C:\\ProgramData\\".to_string(),
+        ]);
+
+        // Allow overriding additional blocked paths via env var (comma-separated)
+        if let Ok(extra) = std::env::var("HYDRA_BLOCKED_PATHS") {
+            for path in extra.split(',') {
+                let trimmed = path.trim();
+                if !trimmed.is_empty() {
+                    blocked_paths.push(trimmed.to_string());
+                }
+            }
+        }
+
         Self {
-            blocked_paths: vec![
-                "/etc/".into(),
-                "/System/".into(),
-                "/usr/bin/".into(),
-                "/usr/sbin/".into(),
-                "/sbin/".into(),
-                "/boot/".into(),
-                "/proc/".into(),
-                "/sys/".into(),
-                "~/.ssh/".into(),
-                ".ssh/".into(),
-                "~/.gnupg/".into(),
-                ".gnupg/".into(),
-            ],
+            blocked_paths,
+            hard_boundaries: Vec::new(),
             blocked_patterns: vec![
                 BlockedPattern {
                     name: "email_without_confirmation",
@@ -101,6 +138,29 @@ impl BoundaryEnforcer {
         }
     }
 
+    /// Check if an action+target pair is allowed through the boundary.
+    /// Two-argument version that also checks hard boundaries against the action.
+    /// Returns `BoundaryResult::Blocked` if either hits a hard block.
+    pub fn check_action(&self, action: &str, target: &str) -> BoundaryResult {
+        let action_lower = action.to_lowercase();
+
+        // Check hard boundaries against the action
+        for boundary in &self.hard_boundaries {
+            for blocked in &boundary.blocked_actions {
+                if action_lower.contains(&blocked.to_lowercase()) {
+                    return BoundaryResult::Blocked(BoundaryViolation {
+                        rule_name: "hard_boundary".into(),
+                        reason: boundary.description.clone(),
+                        target: format!("{}:{}", action, target),
+                    });
+                }
+            }
+        }
+
+        // Fall through to target-based check
+        self.check(target)
+    }
+
     /// Check if an action target is allowed through the boundary.
     /// Returns `BoundaryResult::Blocked` if the target hits a hard block.
     pub fn check(&self, target: &str) -> BoundaryResult {
@@ -115,6 +175,19 @@ impl BoundaryEnforcer {
                     reason: format!("Path '{}' is in a protected system directory", path),
                     target: target.to_string(),
                 });
+            }
+        }
+
+        // Check hard boundaries against the target too
+        for boundary in &self.hard_boundaries {
+            for blocked in &boundary.blocked_actions {
+                if lower.contains(&blocked.to_lowercase()) {
+                    return BoundaryResult::Blocked(BoundaryViolation {
+                        rule_name: "hard_boundary".into(),
+                        reason: boundary.description.clone(),
+                        target: target.to_string(),
+                    });
+                }
             }
         }
 
@@ -152,6 +225,16 @@ impl BoundaryEnforcer {
     /// Add a custom blocked pattern
     pub fn add_blocked_pattern(&mut self, pattern: BlockedPattern) {
         self.blocked_patterns.push(pattern);
+    }
+
+    /// Add a hard boundary that blocks specific actions unconditionally
+    pub fn add_boundary(&mut self, boundary: HardBoundary) {
+        self.hard_boundaries.push(boundary);
+    }
+
+    /// Get all hard boundaries (for inspection/testing)
+    pub fn hard_boundaries(&self) -> &[HardBoundary] {
+        &self.hard_boundaries
     }
 
     /// Get all blocked paths (for inspection/testing)

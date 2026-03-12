@@ -1,6 +1,7 @@
 //! CompiledExecutor — runs compiled ASTs without LLM calls (zero tokens).
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
@@ -29,12 +30,22 @@ pub struct StepResult {
     pub success: bool,
 }
 
+/// Callback type for dispatching tool execution through a real bridge.
+/// Arguments: (tool_name, resolved_params) -> Result<Value, error_message>
+pub type CompiledToolDispatcher = Arc<
+    dyn Fn(&str, &HashMap<String, serde_json::Value>) -> Result<serde_json::Value, String>
+        + Send
+        + Sync,
+>;
+
 /// Executes compiled action ASTs without any LLM calls
 pub struct CompiledExecutor {
     /// Context: variable bindings from user input
     variables: HashMap<String, serde_json::Value>,
     /// Results from previous steps (for StoreResult / PreviousResult)
     stored_results: HashMap<String, serde_json::Value>,
+    /// Optional dispatcher for real tool execution via sister bridges
+    tool_dispatcher: Option<CompiledToolDispatcher>,
 }
 
 impl CompiledExecutor {
@@ -42,6 +53,7 @@ impl CompiledExecutor {
         Self {
             variables: HashMap::new(),
             stored_results: HashMap::new(),
+            tool_dispatcher: None,
         }
     }
 
@@ -49,7 +61,15 @@ impl CompiledExecutor {
         Self {
             variables,
             stored_results: HashMap::new(),
+            tool_dispatcher: None,
         }
+    }
+
+    /// Set a real tool dispatcher for bridging compiled action execution
+    /// through sister bridges instead of simulating results.
+    pub fn with_dispatcher(mut self, dispatcher: CompiledToolDispatcher) -> Self {
+        self.tool_dispatcher = Some(dispatcher);
+        self
     }
 
     /// Execute a compiled action. Returns zero tokens used.
@@ -79,16 +99,25 @@ impl CompiledExecutor {
         match node {
             ActionNode::Action { tool, params } => {
                 let resolved = self.resolve_params(params);
-                // In production: call the actual tool via sister bridge
-                // For now: simulate success
-                let result = serde_json::json!({ "status": "ok", "tool": tool });
+
+                let (result, success) = if let Some(ref dispatcher) = self.tool_dispatcher {
+                    // Dispatch through real sister bridge
+                    match dispatcher(tool, &resolved) {
+                        Ok(val) => (val, true),
+                        Err(err) => (serde_json::json!({ "error": err }), false),
+                    }
+                } else {
+                    // Fallback: simulate success
+                    (serde_json::json!({ "status": "ok", "tool": tool }), true)
+                };
+
                 results.push(StepResult {
                     tool: tool.clone(),
                     params: resolved,
                     result: result.clone(),
-                    success: true,
+                    success,
                 });
-                true
+                success
             }
             ActionNode::Sequence(nodes) => {
                 for node in nodes {
@@ -219,97 +248,5 @@ impl Default for CompiledExecutor {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::compiler::CompiledAction;
-
-    fn make_compiled(ast: ActionNode) -> CompiledAction {
-        CompiledAction {
-            id: "test-1".into(),
-            signature: "test".into(),
-            ast,
-            required_variables: vec![],
-            compiled_at: chrono::Utc::now().to_rfc3339(),
-            source_occurrences: 5,
-            source_success_rate: 1.0,
-        }
-    }
-
-    #[test]
-    fn test_execute_single_action() {
-        let compiled = make_compiled(ActionNode::Action {
-            tool: "test_tool".into(),
-            params: HashMap::from([("key".into(), ParamExpr::Literal(serde_json::json!("value")))]),
-        });
-
-        let mut executor = CompiledExecutor::new();
-        let result = executor.execute(&compiled);
-
-        assert!(result.success);
-        assert_eq!(result.tokens_used, 0);
-        assert_eq!(result.steps_executed, 1);
-        assert!(result.error.is_none());
-    }
-
-    #[test]
-    fn test_zero_tokens() {
-        let compiled = make_compiled(ActionNode::Sequence(vec![
-            ActionNode::Action {
-                tool: "a".into(),
-                params: HashMap::new(),
-            },
-            ActionNode::Action {
-                tool: "b".into(),
-                params: HashMap::new(),
-            },
-            ActionNode::Action {
-                tool: "c".into(),
-                params: HashMap::new(),
-            },
-        ]));
-
-        let mut executor = CompiledExecutor::new();
-        let result = executor.execute(&compiled);
-        assert_eq!(result.tokens_used, 0);
-        assert_eq!(result.steps_executed, 3);
-    }
-
-    #[test]
-    fn test_variable_resolution() {
-        let compiled = make_compiled(ActionNode::Action {
-            tool: "commit".into(),
-            params: HashMap::from([("msg".into(), ParamExpr::Variable("user_msg".into()))]),
-        });
-
-        let mut executor = CompiledExecutor::with_variables(HashMap::from([(
-            "user_msg".into(),
-            serde_json::json!("fix: the bug"),
-        )]));
-        let result = executor.execute(&compiled);
-        assert!(result.success);
-        assert_eq!(
-            result.results[0].params["msg"],
-            serde_json::json!("fix: the bug")
-        );
-    }
-
-    #[test]
-    fn test_foreach_execution() {
-        let compiled = make_compiled(ActionNode::ForEach {
-            variable: "file".into(),
-            collection: CollectionExpr::Literal(vec![
-                serde_json::json!("a.rs"),
-                serde_json::json!("b.rs"),
-            ]),
-            body: Box::new(ActionNode::Action {
-                tool: "lint".into(),
-                params: HashMap::from([("path".into(), ParamExpr::Variable("file".into()))]),
-            }),
-        });
-
-        let mut executor = CompiledExecutor::new();
-        let result = executor.execute(&compiled);
-        assert!(result.success);
-        assert_eq!(result.steps_executed, 2);
-    }
-}
+#[path = "executor_tests.rs"]
+mod executor_tests;

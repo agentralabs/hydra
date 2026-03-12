@@ -123,3 +123,103 @@ pub struct ShutdownResult {
     pub reason: String,
     pub cancelled_runs: usize,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_not_shutting_down() {
+        let seq = ShutdownSequence::new();
+        assert!(!seq.is_shutting_down());
+    }
+
+    #[test]
+    fn test_default_not_shutting_down() {
+        let seq = ShutdownSequence::default();
+        assert!(!seq.is_shutting_down());
+    }
+
+    #[test]
+    fn test_force_shutdown_sets_flag() {
+        let seq = ShutdownSequence::new();
+        seq.force_shutdown();
+        assert!(seq.is_shutting_down());
+    }
+
+    #[test]
+    fn test_flag_is_shared() {
+        let seq = ShutdownSequence::new();
+        let flag = seq.flag();
+        assert!(!flag.load(Ordering::SeqCst));
+        seq.force_shutdown();
+        assert!(flag.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn test_execute_clean_shutdown() {
+        let seq = ShutdownSequence::new();
+        let bus = EventBus::new(64);
+        let result = seq.execute(&bus, "test shutdown").await;
+        assert!(result.clean);
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(result.reason, "test shutdown");
+        assert_eq!(result.cancelled_runs, 0);
+    }
+
+    #[tokio::test]
+    async fn test_execute_sets_flag() {
+        let seq = ShutdownSequence::new();
+        let bus = EventBus::new(64);
+        let _ = seq.execute(&bus, "test").await;
+        assert!(seq.is_shutting_down());
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_registry_no_tasks() {
+        let seq = ShutdownSequence::new();
+        let bus = EventBus::new(64);
+        let registry = TaskRegistry::new();
+        let result = seq.execute_with_registry(&bus, "test", None, Some(&registry), None).await;
+        assert!(result.clean);
+        assert_eq!(result.cancelled_runs, 0);
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_kill_switch() {
+        let seq = ShutdownSequence::new();
+        let bus = EventBus::new(64);
+        let ks = KillSwitch::new();
+        let result = seq.execute_with_registry(&bus, "ks test", Some(&ks), None, None).await;
+        assert!(result.clean);
+        assert!(ks.should_block());
+    }
+
+    #[test]
+    fn test_shutdown_result_debug() {
+        let result = ShutdownResult {
+            clean: true,
+            duration_ms: 42,
+            exit_code: 0,
+            reason: "test".into(),
+            cancelled_runs: 0,
+        };
+        let debug = format!("{:?}", result);
+        assert!(debug.contains("clean: true"));
+    }
+
+    #[test]
+    fn test_shutdown_result_clone() {
+        let result = ShutdownResult {
+            clean: false,
+            duration_ms: 100,
+            exit_code: 1,
+            reason: "forced".into(),
+            cancelled_runs: 3,
+        };
+        let cloned = result.clone();
+        assert_eq!(cloned.clean, false);
+        assert_eq!(cloned.exit_code, 1);
+        assert_eq!(cloned.cancelled_runs, 3);
+    }
+}

@@ -179,6 +179,75 @@ mod tests {
     }
 
     #[test]
+    fn test_skill_request_message() {
+        let msg = FederationMessage::skill_request("skill-123");
+        assert_eq!(msg.method, "federation.skill_request");
+        let params: SkillRequestParams = serde_json::from_value(msg.params).unwrap();
+        assert_eq!(params.skill_id, "skill-123");
+    }
+
+    #[test]
+    fn test_hello_params_roundtrip() {
+        let params = HelloParams {
+            peer_id: "peer-1".into(),
+            name: "test".into(),
+            version: "1.0".into(),
+            capabilities: PeerCapabilities::default(),
+        };
+        let json = serde_json::to_string(&params).unwrap();
+        let restored: HelloParams = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.peer_id, "peer-1");
+    }
+
+    #[test]
+    fn test_discover_params_roundtrip() {
+        let params = DiscoverParams {
+            query: "memory".into(),
+        };
+        let json = serde_json::to_string(&params).unwrap();
+        let restored: DiscoverParams = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.query, "memory");
+    }
+
+    #[test]
+    fn test_delegate_params_roundtrip() {
+        let params = DelegateParams {
+            task_id: "t-1".into(),
+            description: "test".into(),
+            requirements: vec!["mem".into(), "vis".into()],
+        };
+        let json = serde_json::to_string(&params).unwrap();
+        let restored: DelegateParams = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.requirements.len(), 2);
+    }
+
+    #[test]
+    fn test_skill_offer_params_roundtrip() {
+        let params = SkillOfferParams {
+            skill_id: "s-1".into(),
+            name: "test_skill".into(),
+            version: "1.0.0".into(),
+            signature: "input->output".into(),
+        };
+        let json = serde_json::to_string(&params).unwrap();
+        let restored: SkillOfferParams = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.signature, "input->output");
+    }
+
+    #[test]
+    fn test_federation_message_serialization() {
+        let msg = FederationMessage {
+            id: "msg-1".into(),
+            method: "test".into(),
+            params: serde_json::json!({"key": "value"}),
+        };
+        let json = serde_json::to_string(&msg).unwrap();
+        let restored: FederationMessage = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.id, "msg-1");
+        assert_eq!(restored.method, "test");
+    }
+
+    #[test]
     fn test_response_success_and_error() {
         let ok = FederationResponse::success("1", serde_json::json!({"status": "ok"}));
         assert!(ok.success);

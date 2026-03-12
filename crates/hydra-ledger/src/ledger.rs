@@ -274,3 +274,7 @@ impl Clone for ReceiptLedger {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "ledger_tests.rs"]
+mod tests;

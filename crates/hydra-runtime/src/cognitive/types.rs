@@ -90,14 +90,34 @@ impl Default for Decision {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LearningResult {
     pub summary: String,
+    #[serde(default)]
+    pub extracted_knowledge: Vec<ExtractedKnowledge>,
     pub patterns_observed: Vec<String>,
     pub should_remember: bool,
+}
+
+/// A single piece of extracted knowledge from an interaction.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExtractedKnowledge {
+    /// fact | preference | correction | pattern | skill
+    #[serde(rename = "type")]
+    pub knowledge_type: String,
+    pub content: String,
+    #[serde(default = "default_confidence")]
+    pub confidence: f64,
+    #[serde(default)]
+    pub subject: String,
+}
+
+fn default_confidence() -> f64 {
+    0.7
 }
 
 impl Default for LearningResult {
     fn default() -> Self {
         Self {
             summary: String::new(),
+            extracted_knowledge: vec![],
             patterns_observed: vec![],
             should_remember: false,
         }

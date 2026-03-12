@@ -232,6 +232,72 @@ mod tests {
     }
 
     #[test]
+    fn test_skill_sharing_offered_skills() {
+        let sharing = SkillSharing::new();
+        sharing.offer(make_skill("s1"));
+        sharing.offer(make_skill("s2"));
+        assert_eq!(sharing.offered_skills().len(), 2);
+    }
+
+    #[test]
+    fn test_skill_sharing_not_found() {
+        let sharing = SkillSharing::new();
+        let peer = make_peer("p1", TrustLevel::Trusted);
+        let result = sharing.handle_request("nonexistent", &peer);
+        assert!(matches!(result, Err(SharingError::SkillNotFound(_))));
+    }
+
+    #[test]
+    fn test_sharing_policy_default() {
+        let policy = SharingPolicy::default();
+        assert_eq!(policy.default_level, ShareLevel::MetadataOnly);
+        assert!(policy.skill_overrides.is_empty());
+        assert!(policy.peer_overrides.is_empty());
+    }
+
+    #[test]
+    fn test_share_level_ordering() {
+        assert!(ShareLevel::Full > ShareLevel::ReadOnly);
+        assert!(ShareLevel::ReadOnly > ShareLevel::MetadataOnly);
+        assert!(ShareLevel::MetadataOnly > ShareLevel::Private);
+    }
+
+    #[test]
+    fn test_skill_sharing_set_policy() {
+        let sharing = SkillSharing::new();
+        let mut policy = SharingPolicy::default();
+        policy.default_level = ShareLevel::Full;
+        sharing.set_policy(policy);
+        let peer = make_peer("p1", TrustLevel::Trusted);
+        let level = sharing.check_permission("any", &peer).unwrap();
+        assert_eq!(level, ShareLevel::Full);
+    }
+
+    #[test]
+    fn test_skill_sharing_default() {
+        let sharing = SkillSharing::default();
+        assert!(sharing.offered_skills().is_empty());
+        assert!(sharing.received_skills().is_empty());
+    }
+
+    #[test]
+    fn test_shared_skill_serialization() {
+        let skill = make_skill("s1");
+        let json = serde_json::to_string(&skill).unwrap();
+        let restored: SharedSkill = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.id, "s1");
+        assert_eq!(restored.share_level, ShareLevel::Full);
+    }
+
+    #[test]
+    fn test_skill_sharing_check_permission_default() {
+        let sharing = SkillSharing::new();
+        let peer = make_peer("p1", TrustLevel::Trusted);
+        let level = sharing.check_permission("any", &peer).unwrap();
+        assert_eq!(level, ShareLevel::MetadataOnly);
+    }
+
+    #[test]
     fn test_skill_sharing_receive() {
         let sharing = SkillSharing::new();
         sharing.receive(make_skill("remote-1"));

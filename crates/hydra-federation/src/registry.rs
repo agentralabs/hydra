@@ -173,6 +173,72 @@ mod tests {
     }
 
     #[test]
+    fn test_registry_remove() {
+        let registry = PeerRegistry::new();
+        registry.register(make_peer("a", TrustLevel::Trusted));
+        assert!(registry.remove("a"));
+        assert_eq!(registry.count(), 0);
+    }
+
+    #[test]
+    fn test_registry_remove_nonexistent() {
+        let registry = PeerRegistry::new();
+        assert!(!registry.remove("nonexistent"));
+    }
+
+    #[test]
+    fn test_registry_list() {
+        let registry = PeerRegistry::new();
+        registry.register(make_peer("a", TrustLevel::Trusted));
+        registry.register(make_peer("b", TrustLevel::Owner));
+        let list = registry.list();
+        assert_eq!(list.len(), 2);
+    }
+
+    #[test]
+    fn test_registry_update_task_count() {
+        let registry = PeerRegistry::new();
+        registry.register(make_peer("a", TrustLevel::Trusted));
+        registry.update_task_count("a", 5);
+        let peer = registry.get("a").unwrap();
+        assert_eq!(peer.active_tasks, 5);
+    }
+
+    #[test]
+    fn test_registry_touch() {
+        let registry = PeerRegistry::new();
+        registry.register(make_peer("a", TrustLevel::Trusted));
+        let before = registry.get("a").unwrap().last_seen.clone();
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        registry.touch("a");
+        let after = registry.get("a").unwrap().last_seen;
+        assert_ne!(before, after);
+    }
+
+    #[test]
+    fn test_registry_available_peers() {
+        let registry = PeerRegistry::new();
+        registry.register(make_peer("a", TrustLevel::Trusted)); // capacity, delegation OK
+        registry.register(make_peer("b", TrustLevel::Known));   // no delegation
+        let available = registry.available_peers();
+        assert_eq!(available.len(), 1);
+        assert_eq!(available[0].id, "a");
+    }
+
+    #[test]
+    fn test_registry_set_trust_nonexistent() {
+        let registry = PeerRegistry::new();
+        let result = registry.set_trust("nonexistent", TrustLevel::Owner);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_registry_default() {
+        let registry = PeerRegistry::default();
+        assert_eq!(registry.count(), 0);
+    }
+
+    #[test]
     fn test_registry_set_trust() {
         let registry = PeerRegistry::new();
         registry.register(make_peer("a", TrustLevel::Unknown));

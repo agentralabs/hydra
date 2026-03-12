@@ -1,0 +1,16 @@
+mod cognitive_tests;
+mod completion_tests;
+mod daemon_tests;
+mod degradation_tests;
+mod hardening_tests;
+mod hardening_tests_extra;
+mod kill_switch_tests;
+mod notification_tests;
+mod offline_tests;
+mod proactive_tests;
+mod profile_tests;
+mod recovery_config_tests;
+mod runtime_tests;
+mod runtime_tests_extra;
+mod task_tests;
+mod undo_tests;

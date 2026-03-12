@@ -3,7 +3,14 @@ name = "hydra-native"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Native desktop UI for agentic-hydra (Dioxus + Tauri architecture)"
+description = "Core engine library for Hydra — cognitive loop, sisters, intent router, self-repair"
+# ┌──────────────────────────────────────────────────────────────────┐
+# │  THIS IS A LIBRARY CRATE — NOT THE DESKTOP APP.                │
+# │  The desktop binary lives at: crates/hydra-desktop/             │
+# │  Run desktop with: cargo run --bin hydra-desktop                │
+# │  DO NOT add [[bin]] targets here. DO NOT create main.rs here.   │
+# └──────────────────────────────────────────────────────────────────┘
+autobins = false
 
 [features]
 default = []
@@ -18,6 +25,12 @@ uuid = { workspace = true }
 parking_lot = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
+# Sub-crates (split for compile memory reduction)
+hydra-native-state = { path = "../hydra-native-state" }
+hydra-native-cognitive = { path = "../hydra-native-cognitive" }
+# NOTE: hydra-core, hydra-db, hydra-runtime, hydra-federation were removed —
+# they were unused dead dependencies causing OOM during compilation.
+# All types come through hydra-native-state and hydra-native-cognitive re-exports.
 
 # Desktop rendering (optional — tests run without it)
 dioxus = { version = "0.6", features = ["desktop"], optional = true }
@@ -25,3 +38,4 @@ dioxus = { version = "0.6", features = ["desktop"], optional = true }
 [dev-dependencies]
 tokio-test = { workspace = true }
 pretty_assertions = { workspace = true }
+tempfile = "3"

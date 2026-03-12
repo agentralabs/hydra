@@ -1,0 +1,116 @@
+{
+  "name": "hydra-vscode",
+  "displayName": "Hydra",
+  "description": "Hydra AI Agent Orchestration for VS Code",
+  "version": "1.0.0",
+  "publisher": "agentralabs",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["AI", "Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "icon": "media/icon.svg",
+  "contributes": {
+    "commands": [
+      { "command": "hydra.run", "title": "Hydra: Run Intent" },
+      { "command": "hydra.status", "title": "Hydra: Show Status" },
+      { "command": "hydra.stop", "title": "Hydra: Stop All" },
+      { "command": "hydra.approve", "title": "Hydra: Approve Pending" },
+      { "command": "hydra.deny", "title": "Hydra: Deny Pending" },
+      { "command": "hydra.sisters", "title": "Hydra: Sister Status" },
+      { "command": "hydra.toggleSidebar", "title": "Hydra: Toggle Sidebar" },
+      { "command": "hydra.explain", "title": "Hydra: Explain Code" },
+      { "command": "hydra.fixError", "title": "Hydra: Fix Error" },
+      { "command": "hydra.generateTests", "title": "Hydra: Generate Tests" },
+      { "command": "hydra.showImpact", "title": "Hydra: Show Impact Analysis" },
+      { "command": "hydra.suggestRefactor", "title": "Hydra: Suggest Refactor" },
+      { "command": "hydra.toggleVoice", "title": "Hydra: Toggle Voice" },
+      { "command": "hydra.showPanel", "title": "Hydra: Show Workspace Panel" }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "hydra.explain",
+          "when": "editorHasSelection",
+          "group": "hydra@1"
+        },
+        {
+          "command": "hydra.generateTests",
+          "when": "editorHasSelection",
+          "group": "hydra@2"
+        },
+        {
+          "command": "hydra.suggestRefactor",
+          "when": "editorHasSelection",
+          "group": "hydra@3"
+        },
+        {
+          "command": "hydra.showImpact",
+          "when": "editorFocus",
+          "group": "hydra@4"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "hydra",
+          "title": "Hydra",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "hydra": [
+        { "type": "webview", "id": "hydra.sidebar", "name": "Hydra" },
+        { "id": "hydra-explorer", "name": "Explorer", "type": "tree" }
+      ]
+    },
+    "configuration": {
+      "title": "Hydra",
+      "properties": {
+        "hydra.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:7777",
+          "description": "Hydra server URL"
+        },
+        "hydra.autoConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-connect to Hydra server on startup"
+        },
+        "hydra.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show Hydra status in the status bar"
+        },
+        "hydra.voiceEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable voice commands (say 'Hey Hydra')"
+        },
+        "hydra.showCodeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show Hydra code lens annotations"
+        }
+      }
+    },
+    "keybindings": [
+      { "command": "hydra.run", "key": "ctrl+shift+h", "mac": "cmd+shift+h" },
+      { "command": "hydra.stop", "key": "ctrl+shift+k", "mac": "cmd+shift+k" },
+      { "command": "hydra.explain", "key": "ctrl+shift+e", "mac": "cmd+shift+e", "when": "editorHasSelection" },
+      { "command": "hydra.generateTests", "key": "ctrl+shift+t", "mac": "cmd+shift+t", "when": "editorTextFocus" },
+      { "command": "hydra.showImpact", "key": "ctrl+shift+i", "mac": "cmd+shift+i", "when": "editorTextFocus" },
+      { "command": "hydra.suggestRefactor", "key": "ctrl+shift+r", "mac": "cmd+shift+r", "when": "editorHasSelection" }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}

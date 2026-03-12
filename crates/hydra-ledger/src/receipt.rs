@@ -132,3 +132,129 @@ fn djb2_hash(input: &str) -> u64 {
     }
     hash
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn genesis_receipt() -> LedgerReceipt {
+        LedgerReceipt::new(
+            0,
+            LedgerReceiptType::ActionExecuted,
+            "test_action",
+            serde_json::json!({"status": "ok"}),
+            None,
+        )
+    }
+
+    #[test]
+    fn create_receipt_has_valid_hash() {
+        let r = genesis_receipt();
+        assert!(r.verify_hash());
+    }
+
+    #[test]
+    fn receipt_sequence_and_type() {
+        let r = genesis_receipt();
+        assert_eq!(r.sequence, 0);
+        assert_eq!(r.receipt_type, LedgerReceiptType::ActionExecuted);
+    }
+
+    #[test]
+    fn genesis_receipt_has_no_previous_hash() {
+        let r = genesis_receipt();
+        assert!(r.previous_hash.is_none());
+    }
+
+    #[test]
+    fn chained_receipt_has_previous_hash() {
+        let r0 = genesis_receipt();
+        let r1 = LedgerReceipt::new(
+            1,
+            LedgerReceiptType::ActionExecuted,
+            "action_2",
+            serde_json::json!({}),
+            Some(r0.content_hash.clone()),
+        );
+        assert_eq!(r1.previous_hash, Some(r0.content_hash));
+        assert!(r1.verify_hash());
+    }
+
+    #[test]
+    fn verify_chain_link_genesis() {
+        let r = genesis_receipt();
+        assert!(r.verify_chain_link(None));
+    }
+
+    #[test]
+    fn verify_chain_link_valid_pair() {
+        let r0 = genesis_receipt();
+        let r1 = LedgerReceipt::new(
+            1,
+            LedgerReceiptType::ActionExecuted,
+            "next",
+            serde_json::json!({}),
+            Some(r0.content_hash.clone()),
+        );
+        assert!(r1.verify_chain_link(Some(&r0)));
+    }
+
+    #[test]
+    fn verify_chain_link_invalid_sequence() {
+        let r0 = genesis_receipt();
+        let r1 = LedgerReceipt::new(
+            5, // wrong sequence
+            LedgerReceiptType::ActionExecuted,
+            "next",
+            serde_json::json!({}),
+            Some(r0.content_hash.clone()),
+        );
+        assert!(!r1.verify_chain_link(Some(&r0)));
+    }
+
+    #[test]
+    fn tampered_receipt_fails_hash_verification() {
+        let mut r = genesis_receipt();
+        r.action = "tampered_action".to_string();
+        assert!(!r.verify_hash());
+    }
+
+    #[test]
+    fn with_parent_sets_parent_id() {
+        let parent_id = Uuid::new_v4();
+        let r = genesis_receipt().with_parent(parent_id);
+        assert_eq!(r.parent_id, Some(parent_id));
+    }
+
+    #[test]
+    fn with_signature_sets_signature() {
+        let r = genesis_receipt().with_signature("sig123");
+        assert_eq!(r.signature, "sig123");
+    }
+
+    #[test]
+    fn estimated_size_is_positive() {
+        let r = genesis_receipt();
+        assert!(r.estimated_size() > 0);
+    }
+
+    #[test]
+    fn has_future_timestamp_returns_false_for_now() {
+        let r = genesis_receipt();
+        assert!(!r.has_future_timestamp());
+    }
+
+    #[test]
+    fn djb2_deterministic() {
+        let h1 = djb2_hash("hello world");
+        let h2 = djb2_hash("hello world");
+        assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn djb2_different_inputs_different_hashes() {
+        let h1 = djb2_hash("hello");
+        let h2 = djb2_hash("world");
+        assert_ne!(h1, h2);
+    }
+}

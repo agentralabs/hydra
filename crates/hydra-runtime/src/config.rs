@@ -193,3 +193,120 @@ fn default_data_dir() -> PathBuf {
         .map(|h| PathBuf::from(h).join(".hydra"))
         .unwrap_or_else(|_| PathBuf::from("/tmp/.hydra"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_config() {
+        let config = HydraRuntimeConfig::default();
+        assert_eq!(config.api_port, 7777);
+        assert_eq!(config.profile, ResourceProfile::Standard);
+        assert!(!config.voice_enabled);
+        assert_eq!(config.wake_word, "hey hydra");
+        assert_eq!(config.log_level, "info");
+        assert!(!config.server_mode);
+    }
+
+    #[test]
+    fn test_default_limits() {
+        let limits = LimitsConfig::default();
+        assert_eq!(limits.token_budget, 100_000);
+        assert_eq!(limits.max_concurrent_runs, 10);
+        assert_eq!(limits.approval_timeout_secs, 300);
+    }
+
+    #[test]
+    fn test_validate_valid_config() {
+        let config = HydraRuntimeConfig::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_port_zero() {
+        let mut config = HydraRuntimeConfig::default();
+        config.api_port = 0;
+        let errors = config.validate().unwrap_err();
+        assert!(errors.iter().any(|e| e.contains("port")));
+    }
+
+    #[test]
+    fn test_validate_invalid_log_level() {
+        let mut config = HydraRuntimeConfig::default();
+        config.log_level = "verbose".into();
+        let errors = config.validate().unwrap_err();
+        assert!(errors.iter().any(|e| e.contains("log level")));
+    }
+
+    #[test]
+    fn test_validate_zero_token_budget() {
+        let mut config = HydraRuntimeConfig::default();
+        config.limits.token_budget = 0;
+        let errors = config.validate().unwrap_err();
+        assert!(errors.iter().any(|e| e.contains("Token budget")));
+    }
+
+    #[test]
+    fn test_validate_zero_concurrent_runs() {
+        let mut config = HydraRuntimeConfig::default();
+        config.limits.max_concurrent_runs = 0;
+        let errors = config.validate().unwrap_err();
+        assert!(errors.iter().any(|e| e.contains("concurrent runs")));
+    }
+
+    #[test]
+    fn test_validate_multiple_errors() {
+        let mut config = HydraRuntimeConfig::default();
+        config.api_port = 0;
+        config.log_level = "invalid".into();
+        config.limits.token_budget = 0;
+        let errors = config.validate().unwrap_err();
+        assert!(errors.len() >= 3);
+    }
+
+    #[test]
+    fn test_checkpoint_path() {
+        let mut config = HydraRuntimeConfig::default();
+        config.data_dir = PathBuf::from("/tmp/test-hydra");
+        assert_eq!(config.checkpoint_path(), PathBuf::from("/tmp/test-hydra/checkpoint.json"));
+    }
+
+    #[test]
+    fn test_load_nonexistent_returns_default() {
+        let config = HydraRuntimeConfig::load(Some(&PathBuf::from("/nonexistent/path/config.toml")));
+        assert_eq!(config.api_port, 7777);
+    }
+
+    #[test]
+    fn test_load_none_returns_default() {
+        let config = HydraRuntimeConfig::load(None);
+        assert_eq!(config.api_port, 7777);
+    }
+
+    #[test]
+    fn test_resource_profile_serde() {
+        let profile = ResourceProfile::Performance;
+        let json = serde_json::to_string(&profile).unwrap();
+        let restored: ResourceProfile = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored, ResourceProfile::Performance);
+    }
+
+    #[test]
+    fn test_config_serde_roundtrip() {
+        let config = HydraRuntimeConfig::default();
+        let json = serde_json::to_string(&config).unwrap();
+        let restored: HydraRuntimeConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.api_port, config.api_port);
+        assert_eq!(restored.profile, config.profile);
+    }
+
+    #[test]
+    fn test_all_valid_log_levels() {
+        for level in ["trace", "debug", "info", "warn", "error"] {
+            let mut config = HydraRuntimeConfig::default();
+            config.log_level = level.to_string();
+            assert!(config.validate().is_ok(), "level '{}' should be valid", level);
+        }
+    }
+}

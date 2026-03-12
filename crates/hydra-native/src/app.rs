@@ -92,10 +92,10 @@ impl Default for WindowConfig {
     fn default() -> Self {
         Self {
             title: "Hydra".into(),
-            width: 480,
-            height: 720,
-            min_width: 380,
-            min_height: 500,
+            width: 1200,
+            height: 800,
+            min_width: 800,
+            min_height: 600,
             resizable: true,
             decorations: true,
             transparent: false,
@@ -171,8 +171,10 @@ mod tests {
     fn test_window_config_defaults() {
         let config = WindowConfig::default();
         assert_eq!(config.title, "Hydra");
-        assert_eq!(config.width, 480);
-        assert_eq!(config.height, 720);
+        assert_eq!(config.width, 1200);
+        assert_eq!(config.height, 800);
+        assert_eq!(config.min_width, 800);
+        assert_eq!(config.min_height, 600);
         assert!(config.resizable);
     }
 }

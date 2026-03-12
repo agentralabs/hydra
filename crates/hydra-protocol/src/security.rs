@@ -305,3 +305,7 @@ impl Default for ProtocolCallCounter {
         Self::new()
     }
 }
+
+#[cfg(test)]
+#[path = "security_tests.rs"]
+mod tests;

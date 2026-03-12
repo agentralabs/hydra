@@ -1,22 +1,17 @@
-//! Hydra Native Desktop — Dioxus entry point.
-//!
-//! Build with: cargo build -p hydra-native --features desktop
-//! Run with:   cargo run -p hydra-native --features desktop
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  WRONG PLACE — This file is NOT used.                         ║
+// ║  hydra-native is a LIBRARY crate (autobins = false).          ║
+// ║                                                               ║
+// ║  The desktop app lives at: crates/hydra-desktop/src/main.rs   ║
+// ║  Run with: cargo run --bin hydra-desktop                      ║
+// ╚══════════════════════════════════════════════════════════════════╝
+//
+// This file exists only as a signpost. It is never compiled.
 
 fn main() {
-    #[cfg(feature = "desktop")]
-    {
-        use dioxus::prelude::*;
-        println!("Hydra Desktop v0.1.0 — starting...");
-        // Dioxus desktop launch would go here:
-        // dioxus::LaunchBuilder::desktop().launch(App);
-        println!("Hydra Desktop requires Dioxus desktop launch. Build with --features desktop.");
-    }
-
-    #[cfg(not(feature = "desktop"))]
-    {
-        eprintln!("hydra-native: desktop feature not enabled.");
-        eprintln!("Build with: cargo run -p hydra-native --features desktop");
-        std::process::exit(1);
-    }
+    panic!(
+        "WRONG BINARY. hydra-native is a library.\n\
+         The desktop app is: cargo run --bin hydra-desktop\n\
+         See crates/hydra-desktop/src/main.rs"
+    );
 }

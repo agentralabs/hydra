@@ -163,6 +163,8 @@ impl Default for TtsEngine {
     }
 }
 
+pub use crate::tts_backends::{MockTtsEngine, PiperStub, TtsBackend};
+
 #[cfg(test)]
 mod tests {
     use super::*;

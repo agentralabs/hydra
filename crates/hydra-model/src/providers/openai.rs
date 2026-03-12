@@ -61,7 +61,10 @@ impl OpenAiClient {
     pub fn new(config: &LlmConfig) -> Result<Self, LlmError> {
         let api_key = config.openai_api_key.clone().ok_or(LlmError::NoApiKey)?;
         Ok(Self {
-            client: Client::new(),
+            client: Client::builder()
+                .timeout(std::time::Duration::from_secs(60))
+                .build()
+                .unwrap_or_else(|_| Client::new()),
             api_key,
             base_url: config.openai_base_url.clone(),
         })
@@ -100,10 +103,17 @@ impl OpenAiClient {
             });
         }
 
+        // Clamp max_tokens to model's actual API limit to prevent 400 errors
+        let clamped_max_tokens = match api_model {
+            "gpt-4o" | "gpt-4o-mini" => std::cmp::min(request.max_tokens, 16_384),
+            m if m.contains("gpt-4") => std::cmp::min(request.max_tokens, 8_192),
+            _ => std::cmp::min(request.max_tokens, 16_384),
+        };
+
         let body = OpenAiRequest {
             model: api_model.into(),
             messages,
-            max_tokens: request.max_tokens,
+            max_tokens: clamped_max_tokens,
             temperature: request.temperature,
         };
 

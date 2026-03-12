@@ -137,6 +137,10 @@ impl std::fmt::Display for SisterError {
 
 impl std::error::Error for SisterError {}
 
+#[cfg(test)]
+#[path = "bridge_tests.rs"]
+mod tests;
+
 /// Health status from a sister
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

@@ -151,4 +151,50 @@ mod tests {
         assert!(json.contains("git_add"));
         assert!(json.contains("git_commit"));
     }
+
+    #[test]
+    fn test_compiled_action_has_id() {
+        let norm = simple_sequence();
+        let compiled = ActionCompiler::compile(&norm, 1, 0.9);
+        assert!(!compiled.id.is_empty());
+    }
+
+    #[test]
+    fn test_compiled_action_has_timestamp() {
+        let norm = simple_sequence();
+        let compiled = ActionCompiler::compile(&norm, 1, 1.0);
+        assert!(!compiled.compiled_at.is_empty());
+    }
+
+    #[test]
+    fn test_compiled_preserves_success_rate() {
+        let norm = simple_sequence();
+        let compiled = ActionCompiler::compile(&norm, 10, 0.85);
+        assert_eq!(compiled.source_success_rate, 0.85);
+        assert_eq!(compiled.source_occurrences, 10);
+    }
+
+    #[test]
+    fn test_compiled_action_serde_roundtrip() {
+        let norm = simple_sequence();
+        let compiled = ActionCompiler::compile(&norm, 3, 1.0);
+        let json = serde_json::to_string(&compiled).unwrap();
+        let restored: CompiledAction = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.signature, "git_add→git_commit");
+        assert_eq!(restored.ast.action_count(), 2);
+    }
+
+    #[test]
+    fn test_compile_no_variables() {
+        let norm = NormalizedSequence {
+            actions: vec![NormalizedAction {
+                tool: "test".into(),
+                params: HashMap::from([("key".into(), NormalizedParam::Literal(serde_json::json!("val")))]),
+            }],
+            variables: HashMap::new(),
+            signature: "test".into(),
+        };
+        let compiled = ActionCompiler::compile(&norm, 1, 1.0);
+        assert!(compiled.required_variables.is_empty());
+    }
 }

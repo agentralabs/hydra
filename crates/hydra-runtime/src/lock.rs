@@ -1,12 +1,28 @@
 use std::path::{Path, PathBuf};
 
-/// Single-instance lock file
+/// Per-project instance lock file.
+///
+/// The lock lives at `<project_dir>/.hydra/hydra.lock`, NOT in the global
+/// `~/.hydra/` directory.  This allows multiple Hydra instances to run
+/// simultaneously on *different* projects while preventing two instances
+/// from corrupting the same project's memory, beliefs, and codebase state.
 pub struct InstanceLock {
     lock_path: PathBuf,
     held: bool,
 }
 
 impl InstanceLock {
+    /// Create a lock scoped to `project_dir`.
+    ///
+    /// Lock path: `<project_dir>/.hydra/hydra.lock`
+    pub fn for_project(project_dir: &Path) -> Self {
+        Self {
+            lock_path: project_dir.join(".hydra").join("hydra.lock"),
+            held: false,
+        }
+    }
+
+    /// Legacy constructor — lock inside an arbitrary data directory.
     pub fn new(data_dir: &Path) -> Self {
         Self {
             lock_path: data_dir.join("hydra.lock"),
@@ -14,7 +30,7 @@ impl InstanceLock {
         }
     }
 
-    /// Acquire the lock — returns false if another instance is running
+    /// Acquire the lock — returns error if another instance owns this project
     pub fn acquire(&mut self) -> Result<(), LockError> {
         if self.lock_path.exists() {
             // Check if the lock is stale (process dead)
@@ -75,7 +91,7 @@ impl std::fmt::Display for LockError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::AlreadyRunning(pid) => write!(
-                f, "Another Hydra instance is running (PID {pid}). Only one instance can run at a time. Stop the other instance first."
+                f, "Hydra is already running on this project (PID {pid}). Use a different terminal for a different project."
             ),
             Self::IoError(msg) => write!(
                 f, "Cannot create lock file. {msg}. Check directory permissions."
@@ -84,9 +100,139 @@ impl std::fmt::Display for LockError {
     }
 }
 
-fn is_process_alive(_pid: u32) -> bool {
-    // Simple check: try to read /proc/{pid} on Linux or use sysctl on macOS
-    // For portability, just check if the lock file's PID matches a running process
-    // In production, use the `sysinfo` crate. For now, assume stale.
-    false
+/// Check if a process is alive using `kill -0`.
+fn is_process_alive(pid: u32) -> bool {
+    std::process::Command::new("kill")
+        .args(["-0", &pid.to_string()])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn temp_dir() -> PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!("hydra_lock_test_{}_{}", std::process::id(), id));
+        let _ = std::fs::create_dir_all(&dir);
+        dir
+    }
+
+    #[test]
+    fn test_new_not_held() {
+        let dir = temp_dir();
+        let lock = InstanceLock::new(&dir);
+        assert!(!lock.is_held());
+    }
+
+    #[test]
+    fn test_acquire_and_release() {
+        let dir = temp_dir();
+        let mut lock = InstanceLock::new(&dir);
+        lock.acquire().unwrap();
+        assert!(lock.is_held());
+        assert!(lock.lock_exists());
+        lock.release();
+        assert!(!lock.is_held());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_release_without_acquire() {
+        let dir = temp_dir();
+        let mut lock = InstanceLock::new(&dir);
+        lock.release(); // should not panic
+        assert!(!lock.is_held());
+    }
+
+    #[test]
+    fn test_drop_releases_lock() {
+        let dir = temp_dir();
+        let lock_path = dir.join("hydra.lock");
+        {
+            let mut lock = InstanceLock::new(&dir);
+            lock.acquire().unwrap();
+            assert!(lock_path.exists());
+        }
+        // After drop, lock file should be removed
+        assert!(!lock_path.exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_stale_lock_recovery() {
+        let dir = temp_dir();
+        // Create a stale lock file with a fake PID
+        let lock_path = dir.join("hydra.lock");
+        std::fs::write(&lock_path, "999999999").unwrap();
+        let mut lock = InstanceLock::new(&dir);
+        // PID 999999999 shouldn't be alive, so stale recovery succeeds
+        lock.acquire().unwrap();
+        assert!(lock.is_held());
+        lock.release();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_for_project_lock_path() {
+        let dir = temp_dir();
+        let lock = InstanceLock::for_project(&dir);
+        assert!(!lock.is_held());
+        // Lock path should be <dir>/.hydra/hydra.lock
+        assert_eq!(lock.lock_path, dir.join(".hydra").join("hydra.lock"));
+    }
+
+    #[test]
+    fn test_for_project_acquire_and_release() {
+        let dir = temp_dir();
+        let mut lock = InstanceLock::for_project(&dir);
+        lock.acquire().unwrap();
+        assert!(lock.is_held());
+        assert!(dir.join(".hydra").join("hydra.lock").exists());
+        lock.release();
+        assert!(!lock.is_held());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_lock_error_already_running_display() {
+        let err = LockError::AlreadyRunning(1234);
+        let msg = format!("{}", err);
+        assert!(msg.contains("1234"));
+        assert!(msg.contains("already running on this project"));
+    }
+
+    #[test]
+    fn test_lock_error_io_display() {
+        let err = LockError::IoError("permission denied".into());
+        let msg = format!("{}", err);
+        assert!(msg.contains("permission denied"));
+        assert!(msg.contains("lock file"));
+    }
+
+    #[test]
+    fn test_lock_error_eq() {
+        assert_eq!(LockError::AlreadyRunning(1), LockError::AlreadyRunning(1));
+        assert_ne!(LockError::AlreadyRunning(1), LockError::AlreadyRunning(2));
+    }
+
+    #[test]
+    fn test_lock_exists_before_acquire() {
+        let dir = temp_dir();
+        let lock = InstanceLock::new(&dir);
+        // Lock file shouldn't exist if we haven't done anything
+        let lock_path = dir.join("hydra.lock");
+        if lock_path.exists() {
+            let _ = std::fs::remove_file(&lock_path);
+        }
+        assert!(!lock.lock_exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

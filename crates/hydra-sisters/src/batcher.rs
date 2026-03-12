@@ -123,3 +123,149 @@ impl SisterBatcher {
         self.batched_calls
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bridges;
+
+    fn make_registry() -> Arc<SisterRegistry> {
+        let mut reg = SisterRegistry::new();
+        for b in bridges::all_bridges() {
+            reg.register(b);
+        }
+        Arc::new(reg)
+    }
+
+    #[test]
+    fn test_batcher_new_empty() {
+        let reg = make_registry();
+        let batcher = SisterBatcher::new(reg);
+        assert_eq!(batcher.pending_count(), 0);
+        assert_eq!(batcher.individual_calls(), 0);
+        assert_eq!(batcher.batched_calls(), 0);
+    }
+
+    #[test]
+    fn test_batcher_queue_one() {
+        let reg = make_registry();
+        let mut batcher = SisterBatcher::new(reg);
+        batcher.queue(SisterId::Memory, SisterAction::new("memory_add", serde_json::json!({})));
+        assert_eq!(batcher.pending_count(), 1);
+        assert_eq!(batcher.individual_calls(), 1);
+    }
+
+    #[test]
+    fn test_batcher_queue_multiple_same_sister() {
+        let reg = make_registry();
+        let mut batcher = SisterBatcher::new(reg);
+        batcher.queue(SisterId::Memory, SisterAction::new("memory_add", serde_json::json!({})));
+        batcher.queue(SisterId::Memory, SisterAction::new("memory_query", serde_json::json!({})));
+        assert_eq!(batcher.pending_count(), 2);
+        assert_eq!(batcher.individual_calls(), 2);
+    }
+
+    #[test]
+    fn test_batcher_queue_multiple_sisters() {
+        let reg = make_registry();
+        let mut batcher = SisterBatcher::new(reg);
+        batcher.queue(SisterId::Memory, SisterAction::new("memory_add", serde_json::json!({})));
+        batcher.queue(SisterId::Vision, SisterAction::new("vision_capture", serde_json::json!({})));
+        assert_eq!(batcher.pending_count(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_batcher_flush_all() {
+        let reg = make_registry();
+        let mut batcher = SisterBatcher::new(reg);
+        batcher.queue(SisterId::Memory, SisterAction::new("memory_add", serde_json::json!({})));
+        batcher.queue(SisterId::Vision, SisterAction::new("vision_capture", serde_json::json!({})));
+        let results = batcher.flush_all().await;
+        assert_eq!(results.len(), 2);
+        assert!(results.contains_key(&SisterId::Memory));
+        assert!(results.contains_key(&SisterId::Vision));
+        assert_eq!(batcher.pending_count(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_batcher_flush_specific_sister() {
+        let reg = make_registry();
+        let mut batcher = SisterBatcher::new(reg);
+        batcher.queue(SisterId::Memory, SisterAction::new("memory_add", serde_json::json!({})));
+        batcher.queue(SisterId::Vision, SisterAction::new("vision_capture", serde_json::json!({})));
+        let results = batcher.flush(SisterId::Memory).await;
+        assert_eq!(results.len(), 1);
+        assert!(results[0].is_ok());
+        assert_eq!(batcher.pending_count(), 1); // Vision still pending
+    }
+
+    #[tokio::test]
+    async fn test_batcher_flush_empty_sister() {
+        let reg = make_registry();
+        let mut batcher = SisterBatcher::new(reg);
+        let results = batcher.flush(SisterId::Memory).await;
+        assert!(results.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_batcher_flush_all_empty() {
+        let reg = make_registry();
+        let mut batcher = SisterBatcher::new(reg);
+        let results = batcher.flush_all().await;
+        assert!(results.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_batcher_tokens_saved_no_batches() {
+        let reg = make_registry();
+        let batcher = SisterBatcher::new(reg);
+        assert_eq!(batcher.tokens_saved(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_batcher_tokens_saved_after_flush() {
+        let reg = make_registry();
+        let mut batcher = SisterBatcher::new(reg);
+        batcher.queue(SisterId::Memory, SisterAction::new("memory_add", serde_json::json!({})));
+        batcher.queue(SisterId::Memory, SisterAction::new("memory_query", serde_json::json!({})));
+        batcher.queue(SisterId::Memory, SisterAction::new("memory_similar", serde_json::json!({})));
+        batcher.flush(SisterId::Memory).await;
+        // 3 individual calls, 1 batch call => saved (3-1)*50 = 100
+        assert_eq!(batcher.tokens_saved(), 100);
+    }
+
+    #[tokio::test]
+    async fn test_batcher_flush_unregistered_sister() {
+        let reg = Arc::new(SisterRegistry::new()); // empty registry
+        let mut batcher = SisterBatcher::new(reg);
+        batcher.queue(SisterId::Memory, SisterAction::new("memory_add", serde_json::json!({})));
+        let results = batcher.flush(SisterId::Memory).await;
+        assert_eq!(results.len(), 1);
+        assert!(results[0].is_err());
+    }
+
+    #[tokio::test]
+    async fn test_batcher_flush_all_unregistered() {
+        let reg = Arc::new(SisterRegistry::new()); // empty registry
+        let mut batcher = SisterBatcher::new(reg);
+        batcher.queue(SisterId::Memory, SisterAction::new("memory_add", serde_json::json!({})));
+        batcher.queue(SisterId::Vision, SisterAction::new("vision_capture", serde_json::json!({})));
+        let results = batcher.flush_all().await;
+        assert_eq!(results.len(), 2);
+        for (_, batch_results) in &results {
+            assert!(batch_results[0].is_err());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_batcher_stats_after_multiple_flushes() {
+        let reg = make_registry();
+        let mut batcher = SisterBatcher::new(reg);
+        batcher.queue(SisterId::Memory, SisterAction::new("memory_add", serde_json::json!({})));
+        batcher.flush(SisterId::Memory).await;
+        batcher.queue(SisterId::Vision, SisterAction::new("vision_capture", serde_json::json!({})));
+        batcher.flush(SisterId::Vision).await;
+        assert_eq!(batcher.individual_calls(), 2);
+        assert_eq!(batcher.batched_calls(), 2);
+    }
+}

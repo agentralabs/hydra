@@ -5,6 +5,7 @@
 
 # Proprietary - DO NOT COMMIT
 /specs/
+/repair-specs/
 /private/
 /private/crates/
 

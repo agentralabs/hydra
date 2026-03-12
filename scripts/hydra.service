@@ -1,0 +1,14 @@
+[Unit]
+Description=Hydra AI Orchestrator Daemon
+After=network.target
+
+[Service]
+ExecStart=%h/.local/bin/hydra-server --port 7777
+Restart=always
+RestartSec=5
+Environment=HOME=%h
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

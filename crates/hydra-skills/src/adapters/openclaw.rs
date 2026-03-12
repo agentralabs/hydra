@@ -139,4 +139,77 @@ mod tests {
         assert_eq!(map_type("list"), ParamType::Array);
         assert_eq!(map_type("path"), ParamType::Path);
     }
+
+    #[test]
+    fn test_openclaw_type_mapping_extended() {
+        assert_eq!(map_type("str"), ParamType::String);
+        assert_eq!(map_type("int"), ParamType::Number);
+        assert_eq!(map_type("float"), ParamType::Number);
+        assert_eq!(map_type("boolean"), ParamType::Boolean);
+        assert_eq!(map_type("dict"), ParamType::Object);
+        assert_eq!(map_type("map"), ParamType::Object);
+        assert_eq!(map_type("file"), ParamType::Path);
+        assert_eq!(map_type("unknown"), ParamType::String);
+    }
+
+    #[test]
+    fn test_openclaw_triggers() {
+        let json = r#"{
+            "name": "my_skill",
+            "description": "desc",
+            "inputs": {}
+        }"#;
+        let skill = OpenClawAdapter::parse(json).unwrap();
+        assert!(skill.triggers.contains(&SkillTrigger::Intent("my_skill".into())));
+        assert!(skill.triggers.contains(&SkillTrigger::Tool("openclaw.my_skill".into())));
+    }
+
+    #[test]
+    fn test_openclaw_id_format() {
+        let json = r#"{ "name": "abc", "description": "d", "inputs": {} }"#;
+        let skill = OpenClawAdapter::parse(json).unwrap();
+        assert_eq!(skill.id, "openclaw-abc");
+    }
+
+    #[test]
+    fn test_openclaw_default_version() {
+        let json = r#"{ "name": "x", "description": "d", "inputs": {} }"#;
+        let skill = OpenClawAdapter::parse(json).unwrap();
+        assert_eq!(skill.version, "1.0.0");
+    }
+
+    #[test]
+    fn test_openclaw_custom_version() {
+        let json = r#"{ "name": "x", "description": "d", "version": "2.0.0", "inputs": {} }"#;
+        let skill = OpenClawAdapter::parse(json).unwrap();
+        assert_eq!(skill.version, "2.0.0");
+    }
+
+    #[test]
+    fn test_openclaw_risk_level() {
+        let json = r#"{ "name": "x", "description": "d", "inputs": {} }"#;
+        let skill = OpenClawAdapter::parse(json).unwrap();
+        assert_eq!(skill.risk_level, RiskLevel::Medium);
+    }
+
+    #[test]
+    fn test_openclaw_parse_invalid() {
+        let result = OpenClawAdapter::parse("not json");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_openclaw_skill_serde() {
+        let oc = OpenClawSkill {
+            name: "test".into(),
+            description: "desc".into(),
+            version: "1.0.0".into(),
+            inputs: HashMap::from([("in".into(), OpenClawParam { type_: "string".into(), description: "input".into(), required: true })]),
+            outputs: HashMap::new(),
+            tags: vec!["tag".into()],
+        };
+        let json = serde_json::to_string(&oc).unwrap();
+        let restored: OpenClawSkill = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.name, "test");
+    }
 }

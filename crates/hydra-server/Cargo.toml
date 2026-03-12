@@ -7,7 +7,6 @@ description = "HTTP/SSE server for agentic-hydra: JSON-RPC 2.0, SSE events, heal
 
 [features]
 default = []
-private = ["hydra-runtime/private"]
 
 [[bin]]
 name = "hydra-server"
@@ -20,6 +19,7 @@ hydra-model = { workspace = true }
 hydra-db = { workspace = true }
 hydra-kernel = { workspace = true }
 hydra-ledger = { workspace = true }
+hydra-native = { workspace = true }
 axum = { workspace = true }
 tower = { workspace = true }
 tower-http = { workspace = true }

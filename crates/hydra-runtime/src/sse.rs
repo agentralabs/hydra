@@ -64,3 +64,82 @@ impl SseEvent {
         format!("event: {event_name}\ndata: {data}\n\n")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_heartbeat_event() {
+        let event = SseEvent::heartbeat();
+        assert_eq!(event.event_type, SseEventType::Heartbeat);
+        assert_eq!(event.data["status"], "alive");
+    }
+
+    #[test]
+    fn test_system_ready_event() {
+        let event = SseEvent::system_ready("0.2.0");
+        assert_eq!(event.event_type, SseEventType::SystemReady);
+        assert_eq!(event.data["version"], "0.2.0");
+    }
+
+    #[test]
+    fn test_system_shutdown_event() {
+        let event = SseEvent::system_shutdown("user request");
+        assert_eq!(event.event_type, SseEventType::SystemShutdown);
+        assert_eq!(event.data["reason"], "user request");
+    }
+
+    #[test]
+    fn test_to_sse_string_format() {
+        let event = SseEvent::heartbeat();
+        let sse = event.to_sse_string();
+        assert!(sse.starts_with("event: "));
+        assert!(sse.contains("data: "));
+        assert!(sse.ends_with("\n\n"));
+    }
+
+    #[test]
+    fn test_sse_event_serde() {
+        let event = SseEvent::system_ready("1.0");
+        let json = serde_json::to_string(&event).unwrap();
+        let restored: SseEvent = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.event_type, SseEventType::SystemReady);
+    }
+
+    #[test]
+    fn test_event_type_serde() {
+        for et in [
+            SseEventType::RunStarted,
+            SseEventType::StepStarted,
+            SseEventType::StepProgress,
+            SseEventType::StepCompleted,
+            SseEventType::ApprovalRequired,
+            SseEventType::RunCompleted,
+            SseEventType::RunError,
+            SseEventType::Heartbeat,
+            SseEventType::SystemReady,
+            SseEventType::SystemShutdown,
+        ] {
+            let json = serde_json::to_string(&et).unwrap();
+            let restored: SseEventType = serde_json::from_str(&json).unwrap();
+            assert_eq!(restored, et);
+        }
+    }
+
+    #[test]
+    fn test_new_custom_event() {
+        let event = SseEvent::new(SseEventType::RunStarted, serde_json::json!({"run_id": "abc"}));
+        assert_eq!(event.event_type, SseEventType::RunStarted);
+        assert_eq!(event.data["run_id"], "abc");
+    }
+
+    #[test]
+    fn test_timestamp_populated() {
+        let event = SseEvent::heartbeat();
+        // Timestamp should be recent (within last second)
+        let now = chrono::Utc::now();
+        let diff = now - event.timestamp;
+        assert!(diff.num_seconds() < 2);
+    }
+}

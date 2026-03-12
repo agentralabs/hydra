@@ -163,4 +163,71 @@ mod tests {
         assert!(skill.parameters.is_empty());
         assert_eq!(skill.name, "simple_tool");
     }
+
+    #[test]
+    fn test_mcp_tool_triggers() {
+        let tool = McpToolDefinition {
+            name: "test_tool".into(),
+            description: "test".into(),
+            input_schema: None,
+        };
+        let skill = McpAdapter::from_tool("myserver", tool);
+        assert!(skill.triggers.contains(&SkillTrigger::Tool("myserver.test_tool".into())));
+        assert!(skill.triggers.contains(&SkillTrigger::Intent("test_tool".into())));
+    }
+
+    #[test]
+    fn test_mcp_tool_id_format() {
+        let tool = McpToolDefinition {
+            name: "my_tool".into(),
+            description: "test".into(),
+            input_schema: None,
+        };
+        let skill = McpAdapter::from_tool("server", tool);
+        assert_eq!(skill.id, "mcp-server-my_tool");
+    }
+
+    #[test]
+    fn test_mcp_tool_sandbox_level() {
+        let tool = McpToolDefinition {
+            name: "test".into(),
+            description: "test".into(),
+            input_schema: None,
+        };
+        let skill = McpAdapter::from_tool("s", tool);
+        assert_eq!(skill.sandbox_level, SandboxLevel::Basic);
+    }
+
+    #[test]
+    fn test_mcp_type_mapping() {
+        assert_eq!(map_json_type("string"), ParamType::String);
+        assert_eq!(map_json_type("number"), ParamType::Number);
+        assert_eq!(map_json_type("integer"), ParamType::Number);
+        assert_eq!(map_json_type("boolean"), ParamType::Boolean);
+        assert_eq!(map_json_type("array"), ParamType::Array);
+        assert_eq!(map_json_type("object"), ParamType::Object);
+        assert_eq!(map_json_type("unknown"), ParamType::String);
+    }
+
+    #[test]
+    fn test_parse_invalid_json() {
+        let result = McpAdapter::parse("server", "not json");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_mcp_tool_serde() {
+        let tool = McpToolDefinition {
+            name: "test".into(),
+            description: "desc".into(),
+            input_schema: Some(McpSchema {
+                type_: "object".into(),
+                properties: HashMap::from([("key".into(), McpProperty { type_: "string".into(), description: "val".into() })]),
+                required: vec!["key".into()],
+            }),
+        };
+        let json = serde_json::to_string(&tool).unwrap();
+        let restored: McpToolDefinition = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.name, "test");
+    }
 }
