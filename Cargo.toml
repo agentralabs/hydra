@@ -40,13 +40,6 @@ members = [
     "crates/hydra-cache",
     "crates/hydra-router",
     "crates/hydra-desktop",
-    # === PRIVATE CRATES (proprietary, feature-gated) ===
-    "private/crates/hydra-gate-advanced",
-    "private/crates/hydra-consolidation",
-    "private/crates/hydra-omniscience",
-    "private/crates/hydra-collective",
-    "private/crates/hydra-replay",
-    "private/crates/hydra-enterprise",
 ]
 exclude = [
     "extensions/*",
@@ -130,14 +123,6 @@ hydra-integration = { path = "crates/hydra-integration" }
 animus = { path = "crates/animus" }
 hydra-installer = { path = "crates/hydra-installer" }
 hydra-router = { path = "crates/hydra-router" }
-
-# Private crates (proprietary)
-hydra-gate-advanced = { path = "private/crates/hydra-gate-advanced" }
-hydra-consolidation = { path = "private/crates/hydra-consolidation" }
-hydra-omniscience = { path = "private/crates/hydra-omniscience" }
-hydra-collective = { path = "private/crates/hydra-collective" }
-hydra-replay = { path = "private/crates/hydra-replay" }
-hydra-enterprise = { path = "private/crates/hydra-enterprise" }
 
 # HTTP Server
 axum = { version = "0.7", features = ["macros"] }

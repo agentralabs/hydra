@@ -7,11 +7,9 @@ description = "Execution gate for agentic-hydra: risk assessment, approval flow,
 
 [features]
 default = []
-advanced-gate = ["dep:hydra-gate-advanced"]
 
 [dependencies]
 hydra-core = { workspace = true }
-hydra-gate-advanced = { workspace = true, optional = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
