@@ -1,10 +1,10 @@
-//! Slash commands — Model, Cost, Config additions (CC §5.2, §5.4, §5.7).
+//! Slash commands — Model, Cost, Config additions.
 //! Split for 400-line limit. Covers missing commands from TUI spec.
 
 use super::app::{App, Message, MessageRole};
 
 impl App {
-    // ── Model & Cost additions (CC §5.2) ──
+    // ── Model & Cost additions (§5.2) ──
 
     pub(crate) fn slash_cmd_usage(&mut self, timestamp: &str) {
         let est_tokens = self.messages.len() as u64 * self.token_avg.max(800);
@@ -40,7 +40,7 @@ impl App {
         });
     }
 
-    // ── Code & Review additions (CC §5.3) ──
+    // ── Code & Review additions (§5.3) ──
 
     pub(crate) fn slash_cmd_todos(&mut self, timestamp: &str) {
         // Scan conversation for TODO-like items
@@ -97,7 +97,7 @@ impl App {
         }
     }
 
-    // ── Configuration additions (CC §5.4) ──
+    // ── Configuration additions (§5.4) ──
 
     pub(crate) fn slash_cmd_terminal_setup(&mut self, timestamp: &str) {
         self.messages.push(Message {
@@ -193,7 +193,7 @@ impl App {
         });
     }
 
-    // ── Hydra-Exclusive additions (CC §5.7) ──
+    // ── Hydra-Exclusive additions (§5.7) ──
 
     pub(crate) fn slash_cmd_sister(&mut self, args: &str, timestamp: &str) {
         if args.is_empty() {

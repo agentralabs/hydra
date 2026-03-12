@@ -1,10 +1,10 @@
-//! Slash commands — Integrations, Agents, Skills (Claude Code Parity §5.5, §5.6).
+//! Slash commands — Integrations, Agents, Skills.
 //! Split for 400-line limit.
 
 use super::app::{App, Message, MessageRole};
 
 impl App {
-    // ── Integrations (CC §5.5) ──
+    // ── Integrations ──
 
     pub(crate) fn slash_cmd_mcp(&mut self, args: &str, timestamp: &str) {
         if args.is_empty() {
@@ -158,7 +158,7 @@ impl App {
         });
     }
 
-    // ── Agents & Skills (CC §5.6) ──
+    // ── Agents & Skills ──
 
     pub(crate) fn slash_cmd_agents(&mut self, timestamp: &str) {
         let project_dir = ".hydra/agents/";

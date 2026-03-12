@@ -94,7 +94,7 @@ pub fn handle_key_event(app: &mut App, key: KeyEvent) {
     }
     // Global keybindings (work in any mode)
     match (key.modifiers, key.code) {
-        // ── Readline shortcuts (Claude Code parity) ──
+        // ── Readline shortcuts ──
         (KeyModifiers::CONTROL, KeyCode::Char('a')) => {
             app.cursor_pos = 0; return;
         }
@@ -149,7 +149,7 @@ pub fn handle_key_event(app: &mut App, key: KeyEvent) {
             return;
         }
         (KeyModifiers::CONTROL, KeyCode::Char('l')) => {
-            // Clear conversation (Claude Code parity)
+            // Clear conversation
             app.messages.clear();
             app.scroll_offset = 0;
             return;
@@ -249,7 +249,7 @@ fn handle_insert_mode(app: &mut App, key: KeyEvent) {
                     });
                     app.last_esc_tick = 0;
                 } else if !app.input.is_empty() {
-                    // Clear input (like Claude Code Escape behavior)
+                    // Clear input on Escape
                     app.input.clear();
                     app.cursor_pos = 0;
                     app.completions.clear();
@@ -275,7 +275,7 @@ fn handle_insert_mode(app: &mut App, key: KeyEvent) {
                 }
                 return;
             }
-            // Backslash-Enter: replace trailing \ with newline (Claude Code parity)
+            // Backslash-Enter: replace trailing \ with newline
             if app.cursor_pos > 0 {
                 let prev_byte = char_to_byte(&app.input, app.cursor_pos - 1);
                 if app.input.as_bytes().get(prev_byte) == Some(&b'\\') {

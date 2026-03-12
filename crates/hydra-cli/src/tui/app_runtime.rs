@@ -173,7 +173,7 @@ impl App {
 
         // Input syntax: @file, !command, #memory (§4.2)
         if input.starts_with('!') {
-            // Direct shell execution (Claude Code parity: ! prefix = raw bash)
+            // Direct shell execution (! prefix = raw bash)
             let cmd = input[1..].trim();
             self.messages.push(Message {
                 role: MessageRole::User,

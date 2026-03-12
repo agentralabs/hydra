@@ -54,7 +54,7 @@ impl App {
             "/health"   => self.slash_cmd_health(timestamp),
             "/status"   => self.slash_cmd_status(timestamp),
 
-            // ── Session Management (Claude Code Parity) ──
+            // ── Session Management (Hydra) ──
             "/clear"    => self.slash_cmd_clear(),
             "/compact"  => self.slash_cmd_compact(args, timestamp),
             "/history"  => self.slash_cmd_history(args, timestamp),
@@ -90,7 +90,7 @@ impl App {
             "/keybindings"    => self.slash_cmd_keybindings(timestamp),
             "/output-style"   => self.slash_cmd_output_style(timestamp),
 
-            // ── Integrations (Claude Code Parity) ──
+            // ── Integrations (Hydra) ──
             "/mcp"                => self.slash_cmd_mcp(args, timestamp),
             "/ide"                => self.slash_cmd_ide(timestamp),
             "/install-github-app" => self.slash_cmd_install_github_app(timestamp),
@@ -99,7 +99,7 @@ impl App {
             "/remote-control"     => self.slash_cmd_remote_control(timestamp),
             "/remote"             => self.slash_cmd_remote(timestamp),
 
-            // ── Agents & Skills (Claude Code Parity) ──
+            // ── Agents & Skills (Hydra) ──
             "/agents"   => self.slash_cmd_agents(timestamp),
             "/skills"   => self.slash_cmd_skills(timestamp),
             "/commands"  => self.slash_cmd_commands(timestamp),

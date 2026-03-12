@@ -28,7 +28,7 @@ pub enum CommandCategory {
 
 /// All available slash commands.
 pub const COMMANDS: &[SlashCommand] = &[
-    // ── Session Management (Claude Code Parity) ──
+    // ── Session Management (Hydra) ──
     SlashCommand { name: "/help",     description: "List all available commands",      category: CommandCategory::Session },
     SlashCommand { name: "/exit",     description: "Exit the session",                 category: CommandCategory::Session },
     SlashCommand { name: "/clear",    description: "Clear conversation history",       category: CommandCategory::Session },
@@ -41,21 +41,21 @@ pub const COMMANDS: &[SlashCommand] = &[
     SlashCommand { name: "/context",  description: "Visualize context window usage",   category: CommandCategory::Session },
     SlashCommand { name: "/history",  description: "Show conversation history",        category: CommandCategory::Session },
 
-    // ── Model & Cost (Claude Code Parity §5.2) ──
+    // ── Model & Cost (Hydra §5.2) ──
     SlashCommand { name: "/model",    description: "Switch model",                     category: CommandCategory::Model },
     SlashCommand { name: "/cost",     description: "Show token usage for session",     category: CommandCategory::Model },
     SlashCommand { name: "/tokens",   description: "Show token usage stats",           category: CommandCategory::Model },
     SlashCommand { name: "/usage",    description: "Check progress against budget",    category: CommandCategory::Model },
     SlashCommand { name: "/fast",     description: "Toggle Fast Mode (2.5x speed)",    category: CommandCategory::Model },
 
-    // ── Code & Review (Claude Code Parity §5.3) ──
+    // ── Code & Review (Hydra §5.3) ──
     SlashCommand { name: "/diff",     description: "Show uncommitted changes",         category: CommandCategory::Code },
     SlashCommand { name: "/rewind",   description: "Rewind conversation and/or code",  category: CommandCategory::Code },
     SlashCommand { name: "/review",   description: "Request code review",              category: CommandCategory::Code },
     SlashCommand { name: "/todos",    description: "List tracked TODO items",           category: CommandCategory::Code },
     SlashCommand { name: "/add-dir",  description: "Add additional working directory",  category: CommandCategory::Code },
 
-    // ── Configuration (Claude Code Parity §5.4) ──
+    // ── Configuration (Hydra §5.4) ──
     SlashCommand { name: "/config",         description: "Open settings interface",           category: CommandCategory::Config },
     SlashCommand { name: "/memory",         description: "Edit CLAUDE.md / Hydra memory",     category: CommandCategory::Config },
     SlashCommand { name: "/init",           description: "Initialize project with HYDRA.md",  category: CommandCategory::Config },
@@ -87,7 +87,7 @@ pub const COMMANDS: &[SlashCommand] = &[
     SlashCommand { name: "/deploy",    description: "Deploy to configured target",      category: CommandCategory::Developer },
     SlashCommand { name: "/test-repo", description: "Run full repo test suite",        category: CommandCategory::Developer },
 
-    // ── Integrations (Claude Code Parity §5.5) ──
+    // ── Integrations (Hydra §5.5) ──
     SlashCommand { name: "/mcp",                description: "Manage MCP server connections",  category: CommandCategory::Integration },
     SlashCommand { name: "/ide",                description: "Manage IDE integrations",         category: CommandCategory::Integration },
     SlashCommand { name: "/install-github-app", description: "Set up GitHub Actions",           category: CommandCategory::Integration },
@@ -96,7 +96,7 @@ pub const COMMANDS: &[SlashCommand] = &[
     SlashCommand { name: "/remote-control",     description: "Enable control from web UI",      category: CommandCategory::Integration },
     SlashCommand { name: "/remote",             description: "Connect to remote session",       category: CommandCategory::Integration },
 
-    // ── Agents & Skills (Claude Code Parity §5.6) ──
+    // ── Agents & Skills (Hydra §5.6) ──
     SlashCommand { name: "/agents",   description: "Manage custom AI subagents",       category: CommandCategory::Agent },
     SlashCommand { name: "/skills",   description: "List available skills",             category: CommandCategory::Agent },
     SlashCommand { name: "/commands", description: "List all slash commands",            category: CommandCategory::Agent },

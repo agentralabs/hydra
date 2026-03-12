@@ -8,7 +8,7 @@ impl App {
         self.refresh_status();
         // Clean formatting — no box borders (per visual overhaul spec)
         let mut lines = Vec::new();
-        // Two-column layout like Claude Code
+        // Two-column layout
         let sisters = &self.sisters;
         let half = (sisters.len() + 1) / 2;
         for i in 0..half {

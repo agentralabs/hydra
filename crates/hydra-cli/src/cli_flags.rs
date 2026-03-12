@@ -1,4 +1,4 @@
-//! CLI flag parsing for spec §10 (Claude Code parity).
+//! CLI flag parsing for spec §10.
 //! Parses flags like -p, -c, -r, --model, --permission-mode, etc.
 
 /// Parsed CLI flags from command-line arguments.

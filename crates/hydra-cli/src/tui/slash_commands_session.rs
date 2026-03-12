@@ -1,5 +1,5 @@
 //! Slash commands — session management, model/cost, code/review.
-//! Claude Code parity commands for conversation lifecycle.
+//! Commands for conversation lifecycle.
 
 use super::app::{App, Message, MessageRole};
 

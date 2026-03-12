@@ -47,7 +47,7 @@ pub enum InputMode {
     Insert,
 }
 
-/// Permission mode — cycles with Shift+Tab (Claude Code parity).
+/// Permission mode — cycles with Shift+Tab.
 #[derive(Clone, Debug, PartialEq)]
 pub enum PermissionMode {
     /// Every action requires approval.
