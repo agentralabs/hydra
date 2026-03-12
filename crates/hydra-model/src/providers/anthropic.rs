@@ -84,7 +84,10 @@ impl AnthropicClient {
             return Err(LlmError::NoApiKey);
         };
         Ok(Self {
-            client: Client::new(),
+            client: Client::builder()
+                .timeout(std::time::Duration::from_secs(60))
+                .build()
+                .unwrap_or_else(|_| Client::new()),
             auth,
             base_url: config.anthropic_base_url.clone(),
         })
@@ -93,7 +96,10 @@ impl AnthropicClient {
     /// Create a client from an OAuth token directly.
     pub fn from_oauth_token(token: &str) -> Self {
         Self {
-            client: Client::new(),
+            client: Client::builder()
+                .timeout(std::time::Duration::from_secs(60))
+                .build()
+                .unwrap_or_else(|_| Client::new()),
             auth: AnthropicAuth::OAuthToken(token.to_string()),
             base_url: "https://api.anthropic.com".into(),
         }

@@ -5,6 +5,7 @@ pub mod state;
 pub mod stt;
 pub mod subsystem;
 pub mod tts;
+mod tts_backends;
 pub mod wake_word;
 
 pub use commands::{is_safe_to_execute, parse_command, ConfidenceLevel, VoiceAction, VoiceCommand};

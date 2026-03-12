@@ -1,0 +1,220 @@
+//! Cognitive sister dispatch — 14 sisters, 5 phases.
+//!
+//! This module contains the `Sisters` struct that holds all 14 sister connections
+//! and provides the PERCEIVE, THINK (prompt building), DECIDE (risk), ACT, and LEARN
+//! phase dispatch methods.
+
+use std::sync::Arc;
+
+use super::connection::SisterConnection;
+
+#[path = "cognitive_dispatch.rs"]
+mod dispatch;
+
+/// Holds all 14 connected sister processes — the full constellation
+pub struct Sisters {
+    // Foundation Sisters (7)
+    pub memory: Option<SisterConnection>,
+    pub identity: Option<SisterConnection>,
+    pub codebase: Option<SisterConnection>,
+    pub vision: Option<SisterConnection>,
+    pub comm: Option<SisterConnection>,
+    pub contract: Option<SisterConnection>,
+    pub time: Option<SisterConnection>,
+    // Cognitive Sisters (3)
+    pub planning: Option<SisterConnection>,
+    pub cognition: Option<SisterConnection>,
+    pub reality: Option<SisterConnection>,
+    // Astral Sisters (4)
+    pub forge: Option<SisterConnection>,
+    pub aegis: Option<SisterConnection>,
+    pub veritas: Option<SisterConnection>,
+    pub evolve: Option<SisterConnection>,
+}
+
+impl Sisters {
+    /// Spawn ALL 14 sisters in PARALLEL. Non-blocking: sisters that fail are None.
+    pub async fn spawn_all() -> Self {
+        let home = std::env::var("HOME").unwrap_or_default();
+        // Configurable via HYDRA_SISTER_BIN_DIR env var (default: ~/.local/bin)
+        let bin_dir = std::env::var("HYDRA_SISTER_BIN_DIR")
+            .unwrap_or_else(|_| format!("{}/.local/bin", home));
+
+        // Pre-compute all paths
+        let memory_bin = format!("{}/agentic-memory-mcp", bin_dir);
+        let identity_bin = format!("{}/agentic-identity-mcp", bin_dir);
+        let codebase_bin = format!("{}/agentic-codebase-mcp", bin_dir);
+        let vision_bin = format!("{}/agentic-vision-mcp", bin_dir);
+        let comm_bin = format!("{}/agentic-comm-mcp", bin_dir);
+        let contract_bin = format!("{}/agentic-contract-mcp", bin_dir);
+        let time_bin = format!("{}/agentic-time-mcp", bin_dir);
+        let planning_bin = format!("{}/agentic-planning-mcp", bin_dir);
+        let cognition_bin = format!("{}/agentic-cognition-mcp", bin_dir);
+        let reality_bin = format!("{}/agentic-reality-mcp", bin_dir);
+        let forge_bin = format!("{}/agentic-forge-mcp", bin_dir);
+        let aegis_bin = format!("{}/agentic-aegis-mcp", bin_dir);
+        let veritas_bin = format!("{}/agentic-veritas-mcp", bin_dir);
+        let evolve_bin = format!("{}/agentic-evolve-mcp", bin_dir);
+
+        // Hydra uses its own memory file — separate from Claude Code's ~/.brain.amem
+        let hydra_memory = format!("{}/.hydra/memory/hydra.amem", home);
+        let memory_args: Vec<&str> = vec!["serve", "--memory", &hydra_memory];
+
+        // Spawn ALL 14 sisters in parallel for fastest startup
+        let (memory, identity, codebase, vision, comm, contract, time,
+             planning, cognition, reality, forge, aegis, veritas, evolve) = tokio::join!(
+            // Foundation (use "serve")
+            Self::try_spawn("memory", &memory_bin, &memory_args),
+            Self::try_spawn("identity", &identity_bin, &["serve"]),
+            Self::try_spawn("codebase", &codebase_bin, &["serve"]),
+            Self::try_spawn("vision", &vision_bin, &["serve"]),
+            Self::try_spawn("comm", &comm_bin, &["serve"]),
+            Self::try_spawn("contract", &contract_bin, &[]),
+            Self::try_spawn("time", &time_bin, &["serve"]),
+            // Cognitive
+            Self::try_spawn("planning", &planning_bin, &["serve"]),
+            Self::try_spawn("cognition", &cognition_bin, &[]),
+            Self::try_spawn("reality", &reality_bin, &[]),
+            // Astral (no args, stdio mode)
+            Self::try_spawn("forge", &forge_bin, &[]),
+            Self::try_spawn("aegis", &aegis_bin, &[]),
+            Self::try_spawn("veritas", &veritas_bin, &[]),
+            Self::try_spawn("evolve", &evolve_bin, &[]),
+        );
+
+        let s = Self {
+            memory, identity, codebase, vision, comm, contract, time,
+            planning, cognition, reality,
+            forge, aegis, veritas, evolve,
+        };
+        let all = s.all_sisters();
+        let total = all.len();
+        let connected = all.iter().filter(|(_, opt)| opt.is_some()).count();
+        eprintln!("[hydra] ═══ {}/{} sisters connected ═══", connected, total);
+        s
+    }
+
+    async fn try_spawn(name: &str, cmd: &str, args: &[&str]) -> Option<SisterConnection> {
+        match SisterConnection::spawn(name, cmd, args).await {
+            Ok(conn) => {
+                eprintln!(
+                    "[hydra] {} sister connected ({} tools)",
+                    conn.name,
+                    conn.tools.len()
+                );
+                Some(conn)
+            }
+            Err(e) => {
+                eprintln!("[hydra] {} sister unavailable: {}", name, e);
+                None
+            }
+        }
+    }
+
+    /// Get specific tools from a sister by name. Returns matching tool names.
+    /// Used by the tool router to send only relevant tools to the LLM.
+    pub fn tools_for_sister(&self, sister: &str, names: &[&str]) -> Vec<String> {
+        let conn = match sister {
+            "memory" => self.memory.as_ref(),
+            "identity" => self.identity.as_ref(),
+            "codebase" => self.codebase.as_ref(),
+            "vision" => self.vision.as_ref(),
+            "comm" => self.comm.as_ref(),
+            "contract" => self.contract.as_ref(),
+            "time" => self.time.as_ref(),
+            "planning" => self.planning.as_ref(),
+            "cognition" => self.cognition.as_ref(),
+            "reality" => self.reality.as_ref(),
+            "forge" => self.forge.as_ref(),
+            "aegis" => self.aegis.as_ref(),
+            "veritas" => self.veritas.as_ref(),
+            "evolve" => self.evolve.as_ref(),
+            _ => None,
+        };
+        match conn {
+            Some(c) => c.tools.iter()
+                .filter(|t| names.iter().any(|n| t.contains(n)))
+                .cloned()
+                .collect(),
+            None => vec![],
+        }
+    }
+
+    /// Discover MCP tools from all connected sisters and return tool names per server.
+    /// Returns a list of (server_name, tool_name) tuples.
+    pub fn discover_mcp_tools(&self) -> Vec<(String, String)> {
+        let mut discovered = Vec::new();
+        for (name, opt) in self.all_sisters() {
+            if let Some(conn) = opt {
+                for tool_name in &conn.tools {
+                    discovered.push((name.to_string(), tool_name.clone()));
+                }
+            }
+        }
+        discovered
+    }
+
+    // perceive_beliefs, _save_to_memory, log_conversation — extracted to cognitive_dispatch.rs
+    // perceive, perceive_simple — extracted to sisters/perceive.rs
+    // learn — extracted to sisters/learn.rs
+    // Delegation methods — extracted to sisters/delegation.rs
+
+    /// Get list of which sisters are actually connected (for accurate reporting)
+    pub fn connected_sisters_list(&self) -> Vec<String> {
+        self.all_sisters()
+            .iter()
+            .filter_map(|(name, opt)| if opt.is_some() { Some(name.to_string()) } else { None })
+            .collect()
+    }
+
+    // degradation_report — extracted to cognitive_dispatch.rs
+    // detects_code, detects_visual, classify_complexity, assess_risk — extracted to cognitive_dispatch.rs
+    // status_summary — extracted to cognitive_dispatch.rs
+
+    /// Create an empty Sisters instance with no connections (for tests)
+    pub fn empty() -> Self {
+        Self {
+            memory: None, identity: None, codebase: None, vision: None,
+            comm: None, contract: None, time: None,
+            planning: None, cognition: None, reality: None,
+            forge: None, aegis: None, veritas: None, evolve: None,
+        }
+    }
+
+    /// Count connected sisters
+    pub fn connected_count(&self) -> usize {
+        self.all_sisters().iter().filter(|(_, s)| s.is_some()).count()
+    }
+
+    /// All 14 sisters as name/option pairs
+    pub fn all_sisters(&self) -> Vec<(&str, &Option<SisterConnection>)> {
+        vec![
+            ("Memory", &self.memory), ("Identity", &self.identity),
+            ("Codebase", &self.codebase), ("Vision", &self.vision),
+            ("Comm", &self.comm), ("Contract", &self.contract),
+            ("Time", &self.time),
+            ("Planning", &self.planning), ("Cognition", &self.cognition),
+            ("Reality", &self.reality),
+            ("Forge", &self.forge), ("Aegis", &self.aegis),
+            ("Veritas", &self.veritas), ("Evolve", &self.evolve),
+        ]
+    }
+
+    // capabilities_prompt — extracted to cognitive_dispatch.rs
+}
+
+/// Shared handle to sisters, safe to clone across async tasks
+pub type SistersHandle = Arc<Sisters>;
+
+/// Spawn sisters and return a shared handle
+pub async fn init_sisters() -> SistersHandle {
+    Arc::new(Sisters::spawn_all().await)
+}
+
+#[cfg(test)]
+#[path = "cognitive_tests.rs"]
+mod tests;
+
+#[cfg(test)]
+#[path = "cognitive_tests_extra.rs"]
+mod tests_extra;

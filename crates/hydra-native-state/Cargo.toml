@@ -1,0 +1,23 @@
+[package]
+name = "hydra-native-state"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Shared types, state, and utilities for Hydra native"
+autobins = false
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+parking_lot = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+hydra-db = { workspace = true }
+hydra-federation = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+pretty_assertions = { workspace = true }
+tempfile = "3"

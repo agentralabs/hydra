@@ -2795,12 +2795,14 @@ dependencies = [
  "hydra-core",
  "hydra-gate",
  "hydra-intent",
+ "hydra-model",
  "hydra-sisters",
  "hydra-ux",
  "parking_lot",
  "pretty_assertions",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "tokio-test",
  "tracing",
@@ -2873,16 +2875,56 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "dioxus",
+ "hydra-native-cognitive",
+ "hydra-native-state",
+ "parking_lot",
+ "pretty_assertions",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tokio-test",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "hydra-native-cognitive"
+version = "0.1.0"
+dependencies = [
+ "chrono",
  "hydra-autonomy",
+ "hydra-belief",
  "hydra-collab",
  "hydra-core",
  "hydra-db",
  "hydra-federation",
  "hydra-gate",
  "hydra-inventions",
+ "hydra-kernel",
  "hydra-model",
+ "hydra-native-state",
  "hydra-pulse",
+ "hydra-router",
  "hydra-runtime",
+ "parking_lot",
+ "pretty_assertions",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tokio-test",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "hydra-native-state"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "hydra-db",
+ "hydra-federation",
  "parking_lot",
  "pretty_assertions",
  "serde",
@@ -2957,6 +2999,19 @@ dependencies = [
  "chrono",
  "serde",
  "serde_json",
+ "tracing",
+]
+
+[[package]]
+name = "hydra-router"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "pretty_assertions",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-test",
  "tracing",
 ]
 

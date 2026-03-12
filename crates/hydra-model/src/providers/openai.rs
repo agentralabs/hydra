@@ -61,7 +61,10 @@ impl OpenAiClient {
     pub fn new(config: &LlmConfig) -> Result<Self, LlmError> {
         let api_key = config.openai_api_key.clone().ok_or(LlmError::NoApiKey)?;
         Ok(Self {
-            client: Client::new(),
+            client: Client::builder()
+                .timeout(std::time::Duration::from_secs(60))
+                .build()
+                .unwrap_or_else(|_| Client::new()),
             api_key,
             base_url: config.openai_base_url.clone(),
         })

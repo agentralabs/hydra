@@ -2,6 +2,7 @@ pub mod batcher;
 pub mod bridge;
 pub mod bridges;
 pub mod circuit_breaker;
+mod circuit_breaker_tests;
 pub mod live_bridge;
 pub mod registry;
 

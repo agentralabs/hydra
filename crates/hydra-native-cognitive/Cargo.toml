@@ -1,0 +1,35 @@
+[package]
+name = "hydra-native-cognitive"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Cognitive loop, sisters, intent routing, and self-repair for Hydra"
+autobins = false
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+parking_lot = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+hydra-native-state = { path = "../hydra-native-state" }
+hydra-model = { workspace = true }
+hydra-autonomy = { workspace = true }
+hydra-core = { workspace = true }
+hydra-gate = { workspace = true }
+hydra-runtime = { workspace = true }
+hydra-db = { workspace = true }
+hydra-inventions = { workspace = true }
+hydra-pulse = { workspace = true }
+hydra-belief = { workspace = true }
+hydra-kernel = { workspace = true }
+hydra-router = { workspace = true }
+hydra-federation = { workspace = true }
+hydra-collab = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+pretty_assertions = { workspace = true }
+tempfile = { workspace = true }

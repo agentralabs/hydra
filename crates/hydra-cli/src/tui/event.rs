@@ -65,19 +65,80 @@ pub fn handle_key_event(app: &mut App, key: KeyEvent) {
             app.should_quit = true;
             return;
         }
+        (KeyModifiers::CONTROL, KeyCode::Char('d')) => {
+            // Exit session (Claude Code parity)
+            app.should_quit = true;
+            return;
+        }
         (KeyModifiers::CONTROL, KeyCode::Char('k')) => {
             // Kill switch — stop current execution
             app.kill_current();
             return;
         }
-        (KeyModifiers::CONTROL, KeyCode::Char('b')) => {
-            // Toggle sidebar
+        (KeyModifiers::CONTROL, KeyCode::Char('s')) => {
+            // Toggle sidebar (Hydra-exclusive: Ctrl+S)
             app.sidebar_visible = !app.sidebar_visible;
+            return;
+        }
+        (KeyModifiers::CONTROL, KeyCode::Char('b')) => {
+            // Background current operation (CC §6.3: Ctrl+B)
+            // If a command is running, it's already async; inform user
+            if app.running_cmd.is_some() {
+                app.messages.push(super::app::Message {
+                    role: super::app::MessageRole::System,
+                    content: "Operation running in background. Use /bashes to check status.".to_string(),
+                    timestamp: String::new(),
+                    phase: None,
+                });
+            }
+            return;
+        }
+        (KeyModifiers::CONTROL, KeyCode::Char('e')) => {
+            // Quick environment check (Hydra §6.5: Ctrl+E)
+            let ts = String::new();
+            app.slash_cmd_env("", &ts);
+            return;
+        }
+        (KeyModifiers::CONTROL, KeyCode::Char('t')) => {
+            // Toggle task list (CC §6.3: Ctrl+T)
+            let ts = String::new();
+            app.slash_cmd_tasks(&ts);
+            return;
+        }
+        (KeyModifiers::CONTROL, KeyCode::Char('g')) => {
+            // Open external editor for input (CC §6.4: Ctrl+G)
+            app.messages.push(super::app::Message {
+                role: super::app::MessageRole::System,
+                content: "External editor: use /edit <file> to open $EDITOR.".to_string(),
+                timestamp: String::new(),
+                phase: None,
+            });
+            return;
+        }
+        (KeyModifiers::CONTROL, KeyCode::Char('f')) => {
+            // Kill all background agents (CC §6.4: Ctrl+F)
+            app.kill_current();
+            app.messages.push(super::app::Message {
+                role: super::app::MessageRole::System,
+                content: "All background agents killed.".to_string(),
+                timestamp: String::new(),
+                phase: None,
+            });
+            return;
+        }
+        (KeyModifiers::CONTROL, KeyCode::Char('o')) => {
+            // Toggle tool output expand/collapse (Visual Overhaul Rule 5: ctrl+o)
+            app.tool_output_expanded = !app.tool_output_expanded;
             return;
         }
         (KeyModifiers::CONTROL, KeyCode::Char('l')) => {
             // Refresh
             app.refresh_status();
+            return;
+        }
+        (KeyModifiers::SHIFT, KeyCode::BackTab) => {
+            // Shift+Tab: Cycle permission mode (Normal → Auto-Accept → Plan)
+            app.permission_mode = app.permission_mode.next();
             return;
         }
         // Scroll works in ANY mode — no need to switch to Normal
@@ -107,34 +168,9 @@ pub fn handle_key_event(app: &mut App, key: KeyEvent) {
 }
 
 fn handle_normal_mode(app: &mut App, key: KeyEvent) {
-    match key.code {
-        KeyCode::Char('i') | KeyCode::Char('/') | KeyCode::Enter => {
-            app.input_mode = InputMode::Insert;
-            if key.code == KeyCode::Char('/') {
-                app.input.push('/');
-                app.cursor_pos = 1;
-            }
-        }
-        KeyCode::Char('q') => {
-            app.should_quit = true;
-        }
-        KeyCode::Char('j') | KeyCode::Down => {
-            app.scroll_down();
-        }
-        KeyCode::Char('k') | KeyCode::Up => {
-            app.scroll_up();
-        }
-        KeyCode::Char('G') | KeyCode::End => {
-            app.scroll_to_bottom();
-        }
-        KeyCode::Char('g') | KeyCode::Home => {
-            app.scroll_to_top();
-        }
-        KeyCode::Tab => {
-            app.cycle_focus();
-        }
-        _ => {}
-    }
+    // No separate Normal mode — always redirect to Insert mode
+    app.input_mode = InputMode::Insert;
+    handle_insert_mode(app, key);
 }
 
 fn handle_insert_mode(app: &mut App, key: KeyEvent) {
@@ -143,8 +179,39 @@ fn handle_insert_mode(app: &mut App, key: KeyEvent) {
             if app.command_dropdown.visible {
                 app.command_dropdown.close();
             } else {
-                app.input_mode = InputMode::Normal;
+                // Esc+Esc detection (§6.1: double-Esc opens rewind menu)
+                let now = app.tick_count;
+                if now.saturating_sub(app.last_esc_tick) < 4 && app.input.is_empty() {
+                    // Double Esc — show rewind menu
+                    let ts = String::new();
+                    app.messages.push(super::app::Message {
+                        role: super::app::MessageRole::System,
+                        content: "Rewind Menu\n\n\
+                                 1. Rewind everything (conversation + code)\n\
+                                 2. Rewind conversation only (keep code changes)\n\
+                                 3. Rewind code only (keep conversation)\n\
+                                 4. Cancel\n\n\
+                                 Type 1-4 to select:".to_string(),
+                        timestamp: ts,
+                        phase: None,
+                    });
+                    app.last_esc_tick = 0;
+                } else if !app.input.is_empty() {
+                    // Clear input (like Claude Code Escape behavior)
+                    app.input.clear();
+                    app.cursor_pos = 0;
+                    app.completions.clear();
+                    app.last_esc_tick = 0;
+                } else {
+                    app.last_esc_tick = now;
+                }
             }
+        }
+        KeyCode::Enter if key.modifiers.contains(KeyModifiers::SHIFT) => {
+            // Shift+Enter: insert newline for multiline input (§4.1)
+            let byte_idx = char_to_byte(&app.input, app.cursor_pos);
+            app.input.insert(byte_idx, '\n');
+            app.cursor_pos += 1;
         }
         KeyCode::Enter => {
             // If dropdown is visible, select the highlighted command first
@@ -207,6 +274,9 @@ fn handle_insert_mode(app: &mut App, key: KeyEvent) {
         KeyCode::Up => {
             if app.command_dropdown.visible {
                 app.command_dropdown.select_prev();
+            } else if app.input.is_empty() {
+                // Empty input → scroll conversation (like Claude Code)
+                app.scroll_up();
             } else {
                 app.history_prev();
             }
@@ -214,6 +284,9 @@ fn handle_insert_mode(app: &mut App, key: KeyEvent) {
         KeyCode::Down => {
             if app.command_dropdown.visible {
                 app.command_dropdown.select_next();
+            } else if app.input.is_empty() {
+                // Empty input → scroll conversation (like Claude Code)
+                app.scroll_down();
             } else {
                 app.history_next();
             }

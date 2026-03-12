@@ -2,7 +2,7 @@ use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Paragraph},
     Frame,
 };
 
@@ -16,15 +16,15 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
         theme::border()
     };
 
+    // NO BORDERS — Visual Overhaul Rule 1. Clean padding only.
+    let _ = border_style; // suppress unused warning
     let block = Block::default()
         .title(Span::styled(
-            " Status ",
+            "Status",
             Style::default()
                 .fg(theme::HYDRA_BLUE)
                 .add_modifier(Modifier::BOLD),
-        ))
-        .borders(Borders::ALL)
-        .border_style(border_style);
+        ));
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -95,11 +95,8 @@ fn render_project_info(frame: &mut Frame, app: &App, area: Rect) {
             lines.push(Line::from(git_spans));
         }
 
-        // Separator
-        lines.push(Line::from(Span::styled(
-            "─".repeat(area.width as usize),
-            theme::border(),
-        )));
+        // Blank line separator — NO horizontal rules (Visual Overhaul Rule 3)
+        lines.push(Line::default());
 
         let para = Paragraph::new(lines);
         frame.render_widget(para, area);
@@ -213,11 +210,8 @@ fn render_metrics(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_separator(frame: &mut Frame, area: Rect) {
-    let sep = Line::from(Span::styled(
-        "─".repeat(area.width as usize),
-        theme::border(),
-    ));
-    let para = Paragraph::new(sep);
+    // Blank line separator — NO horizontal rules (Visual Overhaul Rule 3)
+    let para = Paragraph::new(Line::default());
     frame.render_widget(para, area);
 }
 

@@ -2,6 +2,7 @@ pub mod advanced;
 pub mod boundary;
 pub mod challenge;
 pub mod gate;
+pub mod gate_types;
 pub mod kill_switch;
 pub mod risk;
 pub mod security_layers;
@@ -16,3 +17,7 @@ pub use security_layers::{GateAuditEntry, PerimeterConfig, ResourceLimits, Sessi
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_gate;
+#[cfg(test)]
+mod tests_security;

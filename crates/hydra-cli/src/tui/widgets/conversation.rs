@@ -1,72 +1,107 @@
+mod render;
+mod empty;
+
 use ratatui::{
     layout::Rect,
-    style::{Modifier, Style},
+    style::Style,
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Paragraph, Wrap},
     Frame,
 };
 
-use crate::tui::app::{App, BootState, FocusArea, MessageRole};
+use crate::tui::app::{App, MessageRole};
 use crate::tui::theme;
 
+use render::render_rich_content_ex;
+use empty::render_empty_state;
+
 pub fn render(frame: &mut Frame, app: &App, area: Rect) {
-    let border_style = if app.focus == FocusArea::Conversation {
-        theme::border_active()
-    } else {
-        theme::border()
-    };
-
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(border_style);
-
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
+    // No borders — full width, clean like Claude Code
+    let inner = area;
 
     if app.messages.is_empty() {
         render_empty_state(frame, app, inner);
         return;
     }
 
-    // Build lines from messages
+    // Build lines from messages — filter out internal noise
     let mut lines: Vec<Line> = Vec::new();
+    let mut visible_idx: usize = 0;
     for msg in &app.messages {
-        // Message header
-        let (prefix, prefix_style) = match msg.role {
-            MessageRole::User => ("❯ ", theme::prompt()),
-            MessageRole::Hydra => ("◉ ", theme::hydra_msg()),
-            MessageRole::System => ("ℹ ", theme::dim()),
-        };
-
-        let mut header_spans = vec![
-            Span::styled(prefix, prefix_style),
-            Span::styled(
-                match msg.role {
-                    MessageRole::User => "you",
-                    MessageRole::Hydra => "hydra",
-                    MessageRole::System => "system",
-                },
-                Style::default()
-                    .fg(match msg.role {
-                        MessageRole::User => theme::HYDRA_BLUE,
-                        MessageRole::Hydra => theme::HYDRA_CYAN,
-                        MessageRole::System => theme::HYDRA_DIM,
-                    })
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled(format!("  {}", msg.timestamp), theme::dim()),
-        ];
-
-        if let Some(ref phase) = msg.phase {
-            header_spans.push(Span::styled(format!("  [{}]", phase), theme::phase_color(phase)));
+        // Skip internal system messages that shouldn't be in conversation
+        if msg.role == MessageRole::System {
+            if let Some(ref phase) = msg.phase {
+                // Filter internal phases that are just noise
+                if matches!(phase.as_str(),
+                    "Repair" | "Omniscience" | "Decide"
+                ) {
+                    // Still show repair/omniscience completion summaries (short messages)
+                    let is_summary = msg.content.contains("complete")
+                        || msg.content.contains("Complete")
+                        || msg.content.contains("RISK");
+                    if !is_summary {
+                        continue;
+                    }
+                }
+            }
+            // Filter system messages that dump sister lists or raw JSON
+            let content_lower = msg.content.to_lowercase();
+            if content_lower.starts_with("sisters:") || content_lower.starts_with("{\"")
+                || content_lower.starts_with("[{\"")
+            {
+                continue;
+            }
         }
 
-        lines.push(Line::from(header_spans));
+        // Phase 2, Bug Fix 0C: Hide internal cognitive phase tags from conversation
+        {
+            let c = &msg.content;
+            if c.contains("[Think]") || c.contains("[Act]") || c.contains("[Learn")
+                || c.contains("[Diagnostics]") || c.contains("[Think (Forge")
+                || c.contains("Step 1 complete") || c.contains("Step 2 complete")
+                || c.contains("Step 3 complete")
+            {
+                continue;
+            }
+            // Hide sister list dumps (e.g., "● Memory, ● Identity, ... ● Evolve")
+            if c.contains("● Memory,") && c.contains("● Evolve") {
+                continue;
+            }
+            // Hide generic auto-generated plans
+            if c.contains("1. Analyze request")
+                && c.contains("2. Execute task")
+                && c.contains("3. Verify outcome")
+            {
+                continue;
+            }
+        }
 
-        // Rich content rendering — detect code blocks, diffs, tool use, command output
-        render_rich_content(&msg.content, msg.role.clone(), &mut lines);
+        // Blank line between messages (no separators — just whitespace)
+        if visible_idx > 0 {
+            lines.push(Line::default());
+        }
+        visible_idx += 1;
 
-        // Blank line between messages
+        // Message rendering — clean, Claude Code style
+        match msg.role {
+            MessageRole::User => {
+                // User messages: "> text" — simple prefix, no label/timestamp
+                lines.push(Line::from(vec![
+                    Span::styled("> ", theme::prompt()),
+                    Span::styled(msg.content.clone(), theme::user_msg()),
+                ]));
+            }
+            MessageRole::Hydra => {
+                // Hydra responses: just flowing text, no label prefix
+                render_rich_content_ex(&msg.content, msg.role.clone(), &mut lines, app.tool_output_expanded);
+            }
+            MessageRole::System => {
+                // System messages: render content with rich formatting
+                render_rich_content_ex(&msg.content, msg.role.clone(), &mut lines, app.tool_output_expanded);
+            }
+        }
+
+        // Blank line after each message
         lines.push(Line::default());
     }
 
@@ -84,17 +119,26 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
         ]));
     }
 
-    // Show thinking indicator
+    // Phase 3, C5.3: Meaningful loading states with phase-specific messages
     if app.is_thinking && app.running_cmd.is_none() {
-        let spinner = match (app.tick_count / 2) % 4 {
-            0 => "⠋",
-            1 => "⠙",
-            2 => "⠹",
-            _ => "⠸",
+        // Rotating spinner with 4 distinct frames for visual progress
+        let spinners = ["◐", "◓", "◑", "◒"];
+        let spinner = spinners[(app.tick_count / 3) as usize % 4];
+        let status = if app.thinking_status.is_empty() {
+            "Thinking...".to_string()
+        } else {
+            app.thinking_status.clone()
+        };
+        // Show elapsed time for long-running phases
+        let elapsed = if app.thinking_elapsed_ms > 0 {
+            format!("  ({:.1}s)", app.thinking_elapsed_ms as f64 / 1000.0)
+        } else {
+            String::new()
         };
         lines.push(Line::from(vec![
             Span::styled(format!("  {} ", spinner), Style::default().fg(theme::HYDRA_CYAN)),
-            Span::styled("Thinking...", Style::default().fg(theme::HYDRA_CYAN)),
+            Span::styled(status, Style::default().fg(theme::HYDRA_CYAN)),
+            Span::styled(elapsed, Style::default().fg(theme::HYDRA_DIM)),
         ]));
     }
 
@@ -126,385 +170,4 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
         )));
         frame.render_widget(badge, indicator_area);
     }
-}
-
-/// Render message content with rich formatting: code blocks, diffs, tool use, etc.
-fn render_rich_content(content: &str, role: MessageRole, lines: &mut Vec<Line<'static>>) {
-    let content_lines: Vec<&str> = content.lines().collect();
-    let mut i = 0;
-
-    while i < content_lines.len() {
-        let line = content_lines[i];
-
-        // Detect diff lines (starts with + or - in a diff context)
-        if line.starts_with('+') && !line.starts_with("+++") {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", line),
-                Style::default().fg(theme::HYDRA_GREEN),
-            )));
-            i += 1;
-            continue;
-        }
-        if line.starts_with('-') && !line.starts_with("---") {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", line),
-                Style::default().fg(theme::HYDRA_RED),
-            )));
-            i += 1;
-            continue;
-        }
-
-        // Detect diff header lines
-        if line.starts_with("diff ") || line.starts_with("@@") {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", line),
-                Style::default().fg(theme::HYDRA_PURPLE),
-            )));
-            i += 1;
-            continue;
-        }
-
-        // Detect file headers in /open output: "--- path (lang, N lines) ---"
-        if line.starts_with("--- ") && line.ends_with(" ---") {
-            lines.push(Line::from(vec![
-                Span::styled("  ", Style::default()),
-                Span::styled(
-                    line.to_string(),
-                    Style::default()
-                        .fg(theme::HYDRA_BLUE)
-                        .add_modifier(Modifier::BOLD),
-                ),
-            ]));
-            i += 1;
-            continue;
-        }
-
-        // Detect line-numbered code (from /open): "   N | code"
-        if line.len() > 6 {
-            let trimmed = line.trim_start();
-            if let Some(pipe_pos) = trimmed.find(" | ") {
-                let num_part = &trimmed[..pipe_pos];
-                if num_part.chars().all(|c| c.is_ascii_digit()) {
-                    lines.push(Line::from(vec![
-                        Span::styled("  ", Style::default()),
-                        Span::styled(
-                            format!("{} ", num_part),
-                            Style::default().fg(theme::HYDRA_DIM),
-                        ),
-                        Span::styled(
-                            format!("| {}", &trimmed[pipe_pos + 3..]),
-                            Style::default(), // terminal default for code
-                        ),
-                    ]));
-                    i += 1;
-                    continue;
-                }
-            }
-        }
-
-        // Detect tool use lines: "Using Sister: tool(args)"
-        if line.starts_with("Using ") && line.contains(": ") {
-            lines.push(Line::from(vec![
-                Span::styled("  ◉ ", Style::default().fg(theme::HYDRA_CYAN)),
-                Span::styled(
-                    line.to_string(),
-                    Style::default().fg(theme::HYDRA_CYAN),
-                ),
-            ]));
-            i += 1;
-            continue;
-        }
-
-        // Detect sisters line: "Sisters: X, Y, Z"
-        if line.starts_with("Sisters: ") && role == MessageRole::System {
-            let sisters_str = &line[9..];
-            let mut spans = vec![
-                Span::styled("  ", Style::default()),
-            ];
-            for (j, sister) in sisters_str.split(", ").enumerate() {
-                if j > 0 {
-                    spans.push(Span::styled(", ", theme::dim()));
-                }
-                spans.push(Span::styled(format!("◉ {}", sister), Style::default().fg(theme::HYDRA_CYAN)));
-            }
-            lines.push(Line::from(spans));
-            i += 1;
-            continue;
-        }
-
-        // Detect command output: "$ command"
-        if line.starts_with("$ ") {
-            lines.push(Line::from(vec![
-                Span::styled("  ", Style::default()),
-                Span::styled(
-                    line.to_string(),
-                    Style::default()
-                        .fg(theme::HYDRA_GREEN)
-                        .add_modifier(Modifier::BOLD),
-                ),
-            ]));
-            i += 1;
-            continue;
-        }
-
-        // Detect approval prompts
-        if line.contains("Approve? [y/n]") || line.contains("Approve? (y/n)") {
-            lines.push(Line::from(vec![
-                Span::styled("  ", Style::default()),
-                Span::styled(
-                    line.to_string(),
-                    Style::default()
-                        .fg(theme::HYDRA_YELLOW)
-                        .add_modifier(Modifier::BOLD),
-                ),
-            ]));
-            i += 1;
-            continue;
-        }
-
-        // Detect risk labels
-        if line.starts_with("[HIGH RISK]") || line.starts_with("[CRITICAL RISK]") {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", line),
-                Style::default().fg(theme::HYDRA_RED).add_modifier(Modifier::BOLD),
-            )));
-            i += 1;
-            continue;
-        }
-        if line.starts_with("[MEDIUM RISK]") {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", line),
-                Style::default().fg(theme::HYDRA_YELLOW).add_modifier(Modifier::BOLD),
-            )));
-            i += 1;
-            continue;
-        }
-
-        // Detect table lines (box-drawing chars)
-        if line.contains('┌') || line.contains('├') || line.contains('└')
-            || line.contains('│') || line.contains('─')
-        {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", line),
-                Style::default().fg(theme::HYDRA_DIM),
-            )));
-            i += 1;
-            continue;
-        }
-
-        // Detect tree lines (from /health, /config)
-        if line.contains("├─") || line.contains("└─") {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", line),
-                Style::default().fg(theme::HYDRA_DIM),
-            )));
-            i += 1;
-            continue;
-        }
-
-        // Detect file tree entries (from /files)
-        if line.contains("📁 ") {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", line),
-                Style::default().fg(theme::HYDRA_BLUE),
-            )));
-            i += 1;
-            continue;
-        }
-
-        // Detect search result lines: "path:N:content"
-        if role == MessageRole::System && line.trim_start().contains(':') {
-            let trimmed = line.trim_start();
-            // Check if it looks like "file.rs:42:content"
-            let parts: Vec<&str> = trimmed.splitn(3, ':').collect();
-            if parts.len() == 3 {
-                if let Ok(_line_num) = parts[1].parse::<usize>() {
-                    if parts[0].contains('.') {
-                        lines.push(Line::from(vec![
-                            Span::styled("  ", Style::default()),
-                            Span::styled(
-                                format!("{}:{}", parts[0], parts[1]),
-                                Style::default().fg(theme::HYDRA_BLUE),
-                            ),
-                            Span::styled(
-                                format!(":{}", parts[2]),
-                                Style::default(),
-                            ),
-                        ]));
-                        i += 1;
-                        continue;
-                    }
-                }
-            }
-        }
-
-        // Detect status messages: "completed successfully", "failed with"
-        if line.contains("completed successfully") {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", line),
-                Style::default().fg(theme::HYDRA_GREEN),
-            )));
-            i += 1;
-            continue;
-        }
-        if line.contains("failed with exit code") {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", line),
-                Style::default().fg(theme::HYDRA_RED),
-            )));
-            i += 1;
-            continue;
-        }
-
-        // Default: regular text
-        if line.is_empty() {
-            lines.push(Line::default());
-        } else {
-            let body_style = match role {
-                MessageRole::System => Style::default().fg(theme::HYDRA_BLUE),
-                _ => Style::default(),
-            };
-            lines.push(Line::from(Span::styled(
-                format!("  {}", line),
-                body_style,
-            )));
-        }
-        i += 1;
-    }
-}
-
-fn render_empty_state(frame: &mut Frame, app: &App, area: Rect) {
-    let version = env!("CARGO_PKG_VERSION");
-
-    let boot_line = match app.boot_state {
-        BootState::Booting => Line::from(vec![
-            Span::styled("  ", Style::default()),
-            Span::styled("⠋ ", Style::default().fg(theme::HYDRA_YELLOW)),
-            Span::styled(
-                "Spawning sisters...",
-                Style::default().fg(theme::HYDRA_YELLOW),
-            ),
-        ]),
-        BootState::Ready => Line::from(vec![
-            Span::styled("  ", Style::default()),
-            Span::styled(
-                format!("{}/{} sisters · {} tools · ready",
-                    app.connected_count, app.total_sisters, app.tool_count),
-                theme::status_ok(),
-            ),
-        ]),
-    };
-
-    // Project info lines
-    let project_lines: Vec<Line> = if let Some(ref info) = app.project_info {
-        let mut pl = vec![
-            Line::default(),
-            Line::from(vec![
-                Span::styled("  Project: ", theme::dim()),
-                Span::styled(
-                    &info.name,
-                    Style::default()
-                        .fg(theme::HYDRA_BLUE)
-                        .add_modifier(Modifier::BOLD),
-                ),
-            ]),
-            Line::from(vec![
-                Span::styled("  Type:    ", theme::dim()),
-                Span::styled(
-                    format!("{} {}", info.kind.icon(), info.kind.label()),
-                    Style::default(),
-                ),
-                if let Some(count) = info.crate_count {
-                    Span::styled(format!(" ({} crates)", count), theme::dim())
-                } else {
-                    Span::raw("")
-                },
-            ]),
-        ];
-        if let Some(ref branch) = info.git_branch {
-            let mut git_spans = vec![
-                Span::styled("  Git:     ", theme::dim()),
-                Span::styled(branch.clone(), Style::default().fg(theme::HYDRA_GREEN)),
-            ];
-            match (info.git_ahead, info.git_behind) {
-                (Some(a), _) if a > 0 => {
-                    git_spans.push(Span::styled(format!(" ({} ahead)", a), theme::dim()));
-                }
-                _ => {}
-            }
-            pl.push(Line::from(git_spans));
-        }
-        pl
-    } else {
-        vec![]
-    };
-
-    let mut all_lines = vec![
-        Line::default(),
-        Line::from(vec![
-            Span::styled("  Welcome back, ", theme::dim()),
-            Span::styled(
-                &app.user_name,
-                Style::default()
-                    .fg(theme::HYDRA_CYAN)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled("!", theme::dim()),
-        ]),
-        Line::default(),
-        Line::from(Span::styled(
-            "          ◉",
-            Style::default().fg(theme::HYDRA_CYAN),
-        )),
-        Line::from(Span::styled(
-            "        ╱   ╲",
-            Style::default().fg(theme::HYDRA_BLUE),
-        )),
-        Line::from(Span::styled(
-            "       ◉─────◉",
-            Style::default().fg(theme::HYDRA_BLUE),
-        )),
-        Line::from(Span::styled(
-            "        ╲   ╱",
-            Style::default().fg(theme::HYDRA_BLUE),
-        )),
-        Line::from(Span::styled(
-            "          ◉",
-            Style::default().fg(theme::HYDRA_CYAN),
-        )),
-        Line::default(),
-        Line::from(vec![
-            Span::styled("  ", Style::default()),
-            Span::styled(
-                &app.model_name,
-                Style::default().fg(theme::HYDRA_PURPLE),
-            ),
-            Span::styled(" · ", theme::dim()),
-            Span::styled(
-                format!("v{}", version),
-                theme::dim(),
-            ),
-        ]),
-        Line::from(Span::styled(
-            format!("  {}", app.working_dir),
-            theme::dim(),
-        )),
-    ];
-
-    all_lines.extend(project_lines);
-
-    all_lines.push(Line::default());
-    all_lines.push(boot_line);
-    all_lines.push(Line::default());
-    all_lines.push(Line::from(Span::styled(
-        "  Type your request below, or use /files, /test, /build, /search.",
-        theme::dim(),
-    )));
-    all_lines.push(Line::from(Span::styled(
-        "  Type /help for all commands. 14 sisters at your service.",
-        theme::dim(),
-    )));
-
-    let para = Paragraph::new(all_lines);
-    frame.render_widget(para, area);
 }

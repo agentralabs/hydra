@@ -25,16 +25,12 @@ uuid = { workspace = true }
 parking_lot = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
-hydra-model = { workspace = true }
-hydra-autonomy = { workspace = true }
-hydra-core = { workspace = true }
-hydra-gate = { workspace = true }
-hydra-runtime = { workspace = true }
-hydra-db = { workspace = true }
-hydra-inventions = { workspace = true }
-hydra-pulse = { workspace = true }
-hydra-federation = { workspace = true }
-hydra-collab = { workspace = true }
+# Sub-crates (split for compile memory reduction)
+hydra-native-state = { path = "../hydra-native-state" }
+hydra-native-cognitive = { path = "../hydra-native-cognitive" }
+# NOTE: hydra-core, hydra-db, hydra-runtime, hydra-federation were removed —
+# they were unused dead dependencies causing OOM during compilation.
+# All types come through hydra-native-state and hydra-native-cognitive re-exports.
 
 # Desktop rendering (optional — tests run without it)
 dioxus = { version = "0.6", features = ["desktop"], optional = true }

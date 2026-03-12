@@ -1,0 +1,5 @@
+# Memory-safe build configuration
+# Prevents OOM crashes on 64GB machines by capping compiler parallelism
+
+[build]
+jobs = 1                          # single compilation job at a time

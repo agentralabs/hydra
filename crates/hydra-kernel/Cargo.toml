@@ -19,8 +19,10 @@ uuid = { workspace = true }
 tracing = { workspace = true }
 parking_lot = { workspace = true }
 async-trait = { workspace = true }
+hydra-model = { workspace = true }
 
 [dev-dependencies]
 tokio-test = { workspace = true }
 pretty_assertions = { workspace = true }
 futures = { workspace = true }
+tempfile = "3"

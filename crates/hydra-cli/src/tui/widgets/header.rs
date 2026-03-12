@@ -2,7 +2,7 @@ use ratatui::{
     layout::Rect,
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::Paragraph,
     Frame,
 };
 
@@ -14,15 +14,16 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
 
     // Connection status: Local (sisters embedded) > Server > Offline
     let (status_dot, status_text) = if app.sisters_handle.is_some() && app.connected_count > 0 {
-        (Span::styled("●", theme::status_ok()), "Local")
+        (Span::styled("●", theme::status_ok()), " Local")
     } else if app.server_online {
-        (Span::styled("●", theme::status_ok()), "Server")
+        (Span::styled("●", theme::status_ok()), " Server")
     } else {
-        (Span::styled("●", theme::status_err()), "Offline")
+        (Span::styled("●", theme::status_err()), " Offline")
     };
 
+    // Header line: ── Hydra v1.1.0 · project (branch) · Model · tools · ● status ──
     let mut spans = vec![
-        Span::styled("  ◉ ", Style::default().fg(theme::HYDRA_CYAN)),
+        Span::styled("── ", theme::dim()),
         Span::styled(
             format!("Hydra v{}", version),
             Style::default()
@@ -54,17 +55,43 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
             format!("{}+ tools", app.tool_count),
             Style::default().fg(theme::HYDRA_DIM),
         ),
-        Span::raw("  "),
+        Span::styled(" · ", theme::dim()),
+        Span::styled(
+            format!("{}/{} sisters", app.connected_count, app.total_sisters),
+            if app.connected_count == app.total_sisters {
+                Style::default().fg(theme::HYDRA_GREEN)
+            } else {
+                Style::default().fg(theme::HYDRA_YELLOW)
+            },
+        ),
+        Span::styled(" · ", theme::dim()),
+        Span::styled(
+            format!("{}%", app.health_pct),
+            if app.health_pct >= 90 {
+                Style::default().fg(theme::HYDRA_GREEN)
+            } else if app.health_pct >= 50 {
+                Style::default().fg(theme::HYDRA_YELLOW)
+            } else {
+                Style::default().fg(theme::HYDRA_RED)
+            },
+        ),
+        Span::styled(" · ", theme::dim()),
         status_dot,
-        Span::styled(format!(" {}", status_text), theme::dim()),
+        Span::styled(status_text, theme::dim()),
     ]);
 
+    // Fill remaining width with ── to create a clean horizontal rule
+    let content_width: usize = spans.iter().map(|s| s.content.chars().count()).sum();
+    let remaining = (area.width as usize).saturating_sub(content_width + 1);
+    if remaining > 2 {
+        spans.push(Span::styled(" ", Style::default()));
+        spans.push(Span::styled(
+            "─".repeat(remaining),
+            theme::dim(),
+        ));
+    }
+
     let header_line = Line::from(spans);
-
-    let block = Block::default()
-        .borders(Borders::BOTTOM)
-        .border_style(theme::border());
-
-    let header = Paragraph::new(header_line).block(block);
+    let header = Paragraph::new(header_line);
     frame.render_widget(header, area);
 }

@@ -1,6 +1,9 @@
 #![allow(dead_code)]
 
 mod banner;
+mod cli_dispatch;
+mod cli_flags;
+mod cli_subcommands;
 mod client;
 mod colors;
 mod commands;
@@ -9,463 +12,45 @@ mod repl;
 mod spinner;
 mod tui;
 
-use commands::config::ConfigAction;
-use commands::run::RunOptions;
-
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    let flags = cli_flags::CliFlags::parse(&args);
 
-    if args.len() < 2 {
-        // Launch full TUI by default
-        let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
-        match rt.block_on(tui::run()) {
-            Ok(()) => {}
-            Err(e) => {
-                eprintln!("TUI error: {}", e);
-                // Fallback to basic REPL
-                eprintln!("Falling back to basic REPL...");
-                repl::run();
-            }
-        }
+    // Apply environment overrides from flags (--model, --verbose, etc.)
+    flags.apply_env();
+
+    // -p "task" — non-interactive print mode
+    if let Some(ref task) = flags.print_task {
+        commands::run::execute(&commands::run::RunOptions {
+            intent: task.clone(),
+            ..Default::default()
+        });
         return;
     }
 
-    // Handle --repl flag for legacy REPL mode
-    if args[1] == "--repl" {
+    // --repl — legacy REPL mode
+    if flags.repl {
         repl::run();
         return;
     }
 
-    match args[1].as_str() {
-        "run" => commands::run::parse_and_execute(&args[2..]),
-        "status" => {
-            let run_id = args.get(2).map(|s| s.as_str());
-            commands::status::execute(run_id);
-        }
-        "approve" => {
-            if let Some(id) = args.get(2) {
-                commands::approval::approve(id);
-            } else {
-                output::print_error("Usage: hydra approve <run_id>");
-            }
-        }
-        "deny" => {
-            if let Some(id) = args.get(2) {
-                let reason = args.get(3).map(|s| s.as_str());
-                commands::approval::deny(id, reason);
-            } else {
-                output::print_error("Usage: hydra deny <run_id> [reason]");
-            }
-        }
-        "freeze" => {
-            let run_id = args.get(2).map(|s| s.as_str());
-            commands::control::freeze(run_id);
-        }
-        "resume" => {
-            if let Some(id) = args.get(2) {
-                commands::control::resume(id);
-            } else {
-                output::print_error("Usage: hydra resume <run_id>");
-            }
-        }
-        "kill" => {
-            let run_id = args.get(2).map(|s| s.as_str());
-            commands::control::kill(run_id);
-        }
-        "inspect" => {
-            if let Some(id) = args.get(2) {
-                let mut format = "text";
-                if args.get(3).map(|s| s.as_str()) == Some("--format") {
-                    if let Some(f) = args.get(4) {
-                        format = match f.as_str() {
-                            "json" => "json",
-                            "yaml" => "yaml",
-                            _ => "text",
-                        };
-                    }
-                }
-                commands::inspect::execute(id, format);
-            } else {
-                output::print_error("Usage: hydra inspect <run_id> [--format text|json|yaml]");
-            }
-        }
-        "config" => {
-            let sub = args.get(2).map(|s| s.as_str()).unwrap_or("show");
-            match sub {
-                "show" => commands::config::execute(ConfigAction::Show),
-                "set" => {
-                    if let (Some(key), Some(val)) = (args.get(3), args.get(4)) {
-                        commands::config::execute(ConfigAction::Set(
-                            key.clone(),
-                            val.clone(),
-                        ));
-                    } else {
-                        output::print_error("Usage: hydra config set <key> <value>");
-                    }
-                }
-                "get" => {
-                    if let Some(key) = args.get(3) {
-                        commands::config::execute(ConfigAction::Get(key.clone()));
-                    } else {
-                        output::print_error("Usage: hydra config get <key>");
-                    }
-                }
-                _ => {
-                    output::print_error(&format!("Unknown config subcommand: {}", sub));
-                    output::print_info("Subcommands: show, set, get");
-                }
-            }
-        }
-        "sisters" => {
-            let sub = args.get(2).map(|s| s.as_str()).unwrap_or("status");
-            match sub {
-                "status" | "" => commands::sisters::status(),
-                "connect" => {
-                    if let Some(name) = args.get(3) {
-                        commands::sisters::connect(name);
-                    } else {
-                        output::print_error("Usage: hydra sisters connect <name>");
-                    }
-                }
-                "disconnect" => {
-                    if let Some(name) = args.get(3) {
-                        commands::sisters::disconnect(name);
-                    } else {
-                        output::print_error("Usage: hydra sisters disconnect <name>");
-                    }
-                }
-                _ => {
-                    output::print_error(&format!("Unknown sisters subcommand: {}", sub));
-                    output::print_info("Subcommands: status, connect, disconnect");
-                }
-            }
-        }
-        "skills" => {
-            let sub = args.get(2).map(|s| s.as_str()).unwrap_or("list");
-            match sub {
-                "list" | "" => commands::skills::list(),
-                "install" => {
-                    if let Some(name) = args.get(3) {
-                        commands::skills::install(name);
-                    } else {
-                        output::print_error("Usage: hydra skills install <name>");
-                    }
-                }
-                "remove" => {
-                    if let Some(name) = args.get(3) {
-                        commands::skills::remove(name);
-                    } else {
-                        output::print_error("Usage: hydra skills remove <name>");
-                    }
-                }
-                "search" => {
-                    if let Some(query) = args.get(3) {
-                        commands::skills::search(query);
-                    } else {
-                        output::print_error("Usage: hydra skills search <query>");
-                    }
-                }
-                _ => {
-                    output::print_error(&format!("Unknown skills subcommand: {}", sub));
-                    output::print_info("Subcommands: list, install, remove, search");
-                }
-            }
-        }
-        "replay" => {
-            if let Some(run_id) = args.get(2) {
-                let dry_run = args[3..].iter().any(|a| a == "--dry-run" || a == "-n");
-                commands::replay::execute(run_id, dry_run);
-            } else {
-                output::print_error("Usage: hydra replay <run_id> [--dry-run]");
-            }
-        }
-        "memory" => {
-            let sub = args.get(2).map(|s| s.as_str()).unwrap_or("stats");
-            match sub {
-                "query" => {
-                    if let Some(q) = args.get(3) {
-                        commands::memory::query(q);
-                    } else {
-                        output::print_error("Usage: hydra memory query <query>");
-                    }
-                }
-                "add" => {
-                    if let Some(content) = args.get(3) {
-                        commands::memory::add(content);
-                    } else {
-                        output::print_error("Usage: hydra memory add <content>");
-                    }
-                }
-                "stats" | "" => commands::memory::stats(),
-                "clear" => commands::memory::clear(args.get(3).map(|s| s.as_str())),
-                _ => {
-                    output::print_error(&format!("Unknown memory subcommand: {}", sub));
-                    output::print_info("Subcommands: query, add, stats, clear");
-                }
-            }
-        }
-        "codebase" => {
-            let sub = args.get(2).map(|s| s.as_str()).unwrap_or("stats");
-            match sub {
-                "analyze" => commands::codebase::analyze(args.get(3).map(|s| s.as_str())),
-                "search" => {
-                    if let Some(q) = args.get(3) {
-                        commands::codebase::search(q);
-                    } else {
-                        output::print_error("Usage: hydra codebase search <query>");
-                    }
-                }
-                "impact" => {
-                    if let Some(target) = args.get(3) {
-                        commands::codebase::impact(target);
-                    } else {
-                        output::print_error("Usage: hydra codebase impact <target>");
-                    }
-                }
-                "stats" | "" => commands::codebase::stats(),
-                _ => {
-                    output::print_error(&format!("Unknown codebase subcommand: {}", sub));
-                    output::print_info("Subcommands: analyze, search, impact, stats");
-                }
-            }
-        }
-        "vision" => {
-            let sub = args.get(2).map(|s| s.as_str()).unwrap_or("stats");
-            match sub {
-                "capture" => commands::vision::capture(args.get(3).map(|s| s.as_str())),
-                "compare" => {
-                    if let (Some(a), Some(b)) = (args.get(3), args.get(4)) {
-                        commands::vision::compare(a, b);
-                    } else {
-                        output::print_error("Usage: hydra vision compare <image_a> <image_b>");
-                    }
-                }
-                "ocr" => {
-                    if let Some(path) = args.get(3) {
-                        commands::vision::ocr(path);
-                    } else {
-                        output::print_error("Usage: hydra vision ocr <image_path>");
-                    }
-                }
-                "stats" | "" => commands::vision::stats(),
-                _ => {
-                    output::print_error(&format!("Unknown vision subcommand: {}", sub));
-                    output::print_info("Subcommands: capture, compare, ocr, stats");
-                }
-            }
-        }
-        "planning" => {
-            let sub = args.get(2).map(|s| s.as_str()).unwrap_or("list");
-            match sub {
-                "create" => {
-                    if let Some(desc) = args.get(3) {
-                        commands::planning::create(desc);
-                    } else {
-                        output::print_error("Usage: hydra planning create <description>");
-                    }
-                }
-                "list" | "" => commands::planning::list(),
-                "show" => {
-                    if let Some(id) = args.get(3) {
-                        commands::planning::show(id);
-                    } else {
-                        output::print_error("Usage: hydra planning show <plan_id>");
-                    }
-                }
-                "progress" => {
-                    if let Some(id) = args.get(3) {
-                        commands::planning::progress(id);
-                    } else {
-                        output::print_error("Usage: hydra planning progress <plan_id>");
-                    }
-                }
-                _ => {
-                    output::print_error(&format!("Unknown planning subcommand: {}", sub));
-                    output::print_info("Subcommands: create, list, show, progress");
-                }
-            }
-        }
-        "soul" => {
-            let sub = args.get(2).map(|s| s.as_str()).unwrap_or("status");
-            match sub {
-                "save" => commands::soul::save(args.get(3).map(|s| s.as_str())),
-                "status" | "" => commands::soul::status(),
-                "export" => {
-                    if let Some(path) = args.get(3) {
-                        commands::soul::export(path);
-                    } else {
-                        output::print_error("Usage: hydra soul export <path>");
-                    }
-                }
-                "import" => {
-                    if let Some(path) = args.get(3) {
-                        commands::soul::import(path);
-                    } else {
-                        output::print_error("Usage: hydra soul import <path>");
-                    }
-                }
-                _ => {
-                    output::print_error(&format!("Unknown soul subcommand: {}", sub));
-                    output::print_info("Subcommands: save, status, export, import");
-                }
-            }
-        }
-        "suspend" => {
-            commands::suspend::suspend(args.get(2).map(|s| s.as_str()));
-        }
-        "resume-system" => {
-            commands::suspend::resume_system();
-        }
-        "resurrect" => {
-            commands::suspend::resurrect(args.get(2).map(|s| s.as_str()));
-        }
-        "remote" => {
-            let sub = args.get(2).map(|s| s.as_str()).unwrap_or("list");
-            match sub {
-                "list" | "" => commands::remote::list(),
-                "connect" => {
-                    if let Some(addr) = args.get(3) {
-                        commands::remote::connect(addr);
-                    } else {
-                        output::print_error("Usage: hydra remote connect <address>");
-                    }
-                }
-                "disconnect" => {
-                    if let Some(id) = args.get(3) {
-                        commands::remote::disconnect(id);
-                    } else {
-                        output::print_error("Usage: hydra remote disconnect <instance_id>");
-                    }
-                }
-                "sync" => commands::remote::sync(),
-                _ => {
-                    output::print_error(&format!("Unknown remote subcommand: {}", sub));
-                    output::print_info("Subcommands: list, connect, disconnect, sync");
-                }
-            }
-        }
-        "voice" => {
-            let sub = args.get(2).map(|s| s.as_str()).unwrap_or("status");
-            match sub {
-                "start" => commands::voice::start(),
-                "stop" => commands::voice::stop(),
-                "status" | "" => commands::voice::status(),
-                _ => {
-                    output::print_error(&format!("Unknown voice subcommand: {}", sub));
-                    output::print_info("Subcommands: start, stop, status");
-                }
-            }
-        }
-        "policy" => {
-            let sub = args.get(2).map(|s| s.as_str()).unwrap_or("list");
-            match sub {
-                "list" | "" => commands::policy::list(),
-                "add" => {
-                    if let (Some(name), Some(rule)) = (args.get(3), args.get(4)) {
-                        commands::policy::add(name, rule);
-                    } else {
-                        output::print_error("Usage: hydra policy add <name> <rule>");
-                    }
-                }
-                "remove" => {
-                    if let Some(name) = args.get(3) {
-                        commands::policy::remove(name);
-                    } else {
-                        output::print_error("Usage: hydra policy remove <name>");
-                    }
-                }
-                "check" => {
-                    if let Some(action) = args.get(3) {
-                        commands::policy::check(action);
-                    } else {
-                        output::print_error("Usage: hydra policy check <action>");
-                    }
-                }
-                _ => {
-                    output::print_error(&format!("Unknown policy subcommand: {}", sub));
-                    output::print_info("Subcommands: list, add, remove, check");
-                }
-            }
-        }
-        "serve" => {
-            let mut port: u16 = 3000;
-            let mut host = "127.0.0.1";
-            let mut i = 2;
-            while i < args.len() {
-                match args[i].as_str() {
-                    "--port" | "-p" => {
-                        i += 1;
-                        if i < args.len() {
-                            port = args[i].parse().unwrap_or(3000);
-                        }
-                    }
-                    "--host" => {
-                        i += 1;
-                        if i < args.len() {
-                            host = args[i].as_str();
-                        }
-                    }
-                    _ => {}
-                }
-                i += 1;
-            }
-            commands::serve::execute(port, host);
-        }
-        "profile" => {
-            let sub = args.get(2).map(|s| s.as_str()).unwrap_or("show");
-            match sub {
-                "show" | "" => commands::profile::show(),
-                "set-name" => {
-                    if let Some(name) = args.get(3) {
-                        commands::profile::set_name(name);
-                    } else {
-                        output::print_error("Usage: hydra profile set-name <name>");
-                    }
-                }
-                "reset" => commands::profile::reset(),
-                _ => {
-                    output::print_error(&format!("Unknown profile subcommand: {}", sub));
-                    output::print_info("Subcommands: show, set-name, reset");
-                }
-            }
-        }
-        "logs" => {
-            let mut follow = false;
-            let mut level: Option<&str> = None;
-            let mut i = 2;
-            while i < args.len() {
-                match args[i].as_str() {
-                    "--follow" | "-f" => follow = true,
-                    "--level" => {
-                        i += 1;
-                        if i < args.len() {
-                            level = Some(args[i].as_str());
-                        }
-                    }
-                    _ => {}
-                }
-                i += 1;
-            }
-            commands::logs::execute(follow, level);
-        }
-        "completions" => {
-            let shell = args.get(2).map(|s| s.as_str()).unwrap_or("bash");
-            commands::completions::generate(shell);
-        }
-        "trust" => commands::trust::execute(),
-        "inventions" => commands::inventions::execute(),
-        "health" => cmd_health(),
-        "help" | "--help" | "-h" => print_help(),
-        "version" | "--version" | "-V" => print_version(),
-        intent => {
-            // Treat unknown commands as intents: hydra "do something"
-            let mut all_words: Vec<String> = vec![intent.to_string()];
-            all_words.extend(args[2..].iter().cloned());
-            let combined = all_words.join(" ");
-            commands::run::execute(&RunOptions {
-                intent: combined,
-                ..Default::default()
-            });
+    // Subcommand present → dispatch
+    if !flags.remaining.is_empty() {
+        // Reconstruct args for dispatch: [argv0, subcommand, ...]
+        let mut dispatch_args = vec![args[0].clone()];
+        dispatch_args.extend(flags.remaining.clone());
+        cli_dispatch::dispatch(&dispatch_args);
+        return;
+    }
+
+    // Default: launch full TUI
+    let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
+    match rt.block_on(tui::run()) {
+        Ok(()) => {}
+        Err(e) => {
+            eprintln!("TUI error: {}", e);
+            eprintln!("Falling back to basic REPL...");
+            repl::run();
         }
     }
 }
@@ -650,22 +235,38 @@ fn print_help() {
         "Run health checks"
     );
     println!();
+    println!("    {}              {}",
+        colors::blue("mcp"),
+        "Manage MCP server connections"
+    );
+    println!();
     println!("  {}", colors::bold("FLAGS"));
-    println!("    -h, --help       Show this help");
-    println!("    -V, --version    Show version");
+    println!("    -h, --help                       Show this help");
+    println!("    -V, --version                    Show version");
+    println!("    -p \"task\"                        Print mode (non-interactive)");
+    println!("    -c                               Continue last session");
+    println!("    -r <id>                          Resume specific session");
+    println!("    --model <name>                   Use specific model");
+    println!("    --permission-mode <mode>         Start in plan/auto-accept");
+    println!("    --verbose                        Full turn-by-turn logging");
+    println!("    --output-format json|stream-json Structured output");
+    println!("    --max-budget-usd <amount>        Cost cap for session");
+    println!("    --system-prompt \"...\"            Inline system prompt");
+    println!("    --system-prompt-file <path>      System prompt from file");
+    println!("    --append-system-prompt \"...\"     Append to default prompt");
+    println!("    --allowedTools \"Read,Write\"      Pre-approve tools");
+    println!("    --disallowedTools \"Bash(rm*)\"    Block tools");
+    println!("    --dangerously-skip-permissions   Skip all approvals");
+    println!("    --add-dir <path>                 Add extra directory");
+    println!("    --from-pr <number>               Resume PR session");
     println!();
     println!("  {}", colors::bold("EXAMPLES"));
-    println!(
-        "    {}",
-        colors::dim("hydra run \"refactor the auth module\"")
-    );
-    println!(
-        "    {}",
-        colors::dim("hydra run \"deploy to staging\" --auto-approve")
-    );
+    println!("    {}", colors::dim("hydra -p \"fix the auth bug\""));
+    println!("    {}", colors::dim("hydra -c"));
+    println!("    {}", colors::dim("hydra --model opus run \"refactor auth\""));
+    println!("    {}", colors::dim("hydra mcp add github -- npx @mcp/github"));
     println!("{}", colors::dim("    hydra status"));
     println!("{}", colors::dim("    hydra sisters connect memory"));
-    println!("{}", colors::dim("    hydra skills search deploy"));
     println!();
 }
 

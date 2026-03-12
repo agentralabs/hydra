@@ -8,24 +8,19 @@ use super::widgets;
 
 /// Main render function — called every frame.
 ///
-/// Layout:
+/// Layout (clean, full-width — matches Claude Code):
 /// ```text
-/// ┌─────────────────────────────────────────────────────────┐
-/// │ HEADER: Hydra v1.1.0 · model · tools · path  ● online  │
-/// ├──────────────────────────────────┬──────────────────────┤
-/// │                                  │ SIDEBAR:             │
-/// │  MAIN CONVERSATION AREA          │ Sisters: 14/14       │
-/// │                                  │ Health: 97%          │
-/// │  ❯ user messages                 │ Trust: level 3       │
-/// │  ◉ hydra responses               │ Memory: 5 facts      │
-/// │  ℹ system output                 │ Tokens: 150 avg      │
-/// │                                  │ ──────────────       │
-/// │                                  │ Recent:              │
-/// │                                  │ · Fixed Contract     │
-/// │                                  │ · Scanned 15 repos   │
-/// ├──────────────────────────────────┴──────────────────────┤
-/// │ INSERT  ❯ _                                             │
-/// └─────────────────────────────────────────────────────────┘
+/// ── Hydra v1.1.0 · project · model · tools ● online ──────────
+///
+///   > user input text here
+///
+///   Hydra response text flows full width...
+///
+///   ● Read src/auth.rs (287 lines)
+///   ● Bash(cargo check) (exit 0)
+///     └  Finished `dev` profile
+///
+/// > _
 /// ```
 pub fn render(frame: &mut Frame, app: &mut App) {
     let size = frame.area();
@@ -35,7 +30,7 @@ pub fn render(frame: &mut Frame, app: &mut App) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(2),  // Header
-            Constraint::Min(8),    // Body (conversation + sidebar)
+            Constraint::Min(8),    // Body (conversation — full width)
             Constraint::Length(2), // Input bar
         ])
         .split(size);
@@ -43,7 +38,7 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     // Render header
     widgets::header::render(frame, app, vertical[0]);
 
-    // Body: Conversation | Sidebar
+    // Full-width conversation — no sidebar by default (status via /status command)
     if app.sidebar_visible && vertical[1].width > 50 {
         let sidebar_width = if vertical[1].width > 100 { 26 } else { 22 };
         let horizontal = Layout::default()
@@ -57,7 +52,7 @@ pub fn render(frame: &mut Frame, app: &mut App) {
         widgets::conversation::render(frame, app, horizontal[0]);
         widgets::sidebar::render(frame, app, horizontal[1]);
     } else {
-        // No sidebar — full width conversation
+        // Full width conversation (default)
         widgets::conversation::render(frame, app, vertical[1]);
     }
 
