@@ -113,7 +113,7 @@ fn test_codebase_capabilities() {
     let caps = bridge.capabilities();
     assert!(caps.contains(&"search_semantic".to_string()));
     assert!(caps.contains(&"concept_find".to_string()));
-    assert!(caps.contains(&"impact_analysis".to_string()));
+    assert!(caps.contains(&"impact_analyze".to_string()));
     assert!(caps.contains(&"omniscience_search".to_string()));
     assert!(caps.contains(&"analysis_log".to_string()));
 }
