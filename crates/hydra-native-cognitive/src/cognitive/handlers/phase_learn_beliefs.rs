@@ -80,7 +80,10 @@ pub(crate) fn update_beliefs_from_text(
             }
 
             if let Some(old) = existing.first() {
-                // Supersede old belief
+                // Contradict and supersede old belief
+                if *source == "corrected" {
+                    let _ = db.contradict_belief(&old.id);
+                }
                 let _ = db.supersede_belief(&old.id, &belief_id);
             }
 

@@ -51,6 +51,15 @@ pub(crate) async fn run_decide(
     let _ = tx.send(CognitiveUpdate::IconState("needs-attention".into()));
     let decide_start = Instant::now();
 
+    // Contract: precognition — predict likely outcome before deciding
+    if let Some(ref sh) = sisters_handle {
+        if let Some(p) = sh.contract_precognition(text).await {
+            let _ = tx.send(CognitiveUpdate::EvidenceMemory {
+                title: "Contract Precognition".into(),
+                content: format!("Risk: {} | Allowed: {} | {}", p.risk_level, p.allowed, p.reason),
+            });
+        }
+    }
     // Check graduated autonomy — trust level determines what proceeds automatically
     let decide_result = decide_engine.check(risk_level, "");
 
@@ -82,6 +91,16 @@ pub(crate) async fn run_decide(
     } else {
         "approved"
     };
+
+    // Apply runtime risk threshold — auto-approve if settings allow
+    if gate_decision == "requires_approval" && config.runtime.auto_approve_risk(risk_level) {
+        eprintln!("[hydra:decide] Runtime risk_threshold={} auto-approves {} risk", config.runtime.risk_threshold, risk_level);
+        gate_decision = "approved";
+    }
+    // Force approval for critical actions if setting requires it
+    if config.runtime.require_approval_critical && risk_level == "critical" {
+        gate_decision = "requires_approval";
+    }
 
     // Report trust-based decision context to the UI
     let _ = tx.send(CognitiveUpdate::Phase(format!(
@@ -252,6 +271,19 @@ pub(crate) async fn run_decide(
         }
     }
 
+    // Contract sister: request approval for auditable receipt chain
+    if gate_decision == "requires_approval" {
+        if let Some(ref sh) = sisters_handle {
+            let _ = sh.contract_request_approval(text, risk_level, "Cognitive loop action").await;
+        }
+    }
+
+    // Contract: policy compliance check for all actions
+    if let Some(ref sh) = sisters_handle {
+        if let Some(pr) = sh.contract_policy_check(text).await {
+            let _ = tx.send(CognitiveUpdate::EvidenceMemory { title: "Policy Check".into(), content: pr });
+        }
+    }
     // Step 3.7: Gate integration — if action requires approval, notify UI
     if gate_decision == "requires_approval" {
         // Phase 3, C1: Challenge phrase gate — use ChallengePhraseGate for

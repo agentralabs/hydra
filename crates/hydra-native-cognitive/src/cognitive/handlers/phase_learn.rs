@@ -47,9 +47,13 @@ pub(crate) async fn run_learn(
     let llm_result: Result<(), String> = if llm_ok { Ok(()) } else { Err("LLM failed".into()) };
 
     let user_text = config.history.last().map(|(_, c)| c.clone()).unwrap_or_default();
+    let rt = &config.runtime;
     if let Some(ref sh) = sisters_handle {
         if llm_result.is_ok() {
-            sh.learn(&user_text, final_response).await;
+            // Only learn from corrections if the setting is enabled
+            if rt.learn_corrections {
+                sh.learn(&user_text, final_response).await;
+            }
 
             // Planning: update goal progress from this interaction
             sh.learn_planning(&user_text, safe_truncate(final_response, 200)).await;
@@ -72,6 +76,11 @@ pub(crate) async fn run_learn(
             // Phase 5.5 P1: Store command outputs as evidence
             for (cmd, output, success) in all_exec_results {
                 sh.memory_store_evidence(cmd, output, *success).await;
+            }
+
+            // Memory: capture command execution details for recall
+            for (cmd, output, success) in all_exec_results {
+                sh.learn_capture_command(cmd, output, *success).await;
             }
 
             // Phase 5.5 P1: Ghost Writer summary for long sessions
@@ -103,7 +112,51 @@ pub(crate) async fn run_learn(
                 safe_truncate(final_response, 200),
                 config.history.len() as u32,
             ).await;
+
+            // Evolve: suggest improvements based on interaction patterns
+            if is_complex {
+                if let Some(suggestion) = sh.evolve_suggest_improvement().await {
+                    let _ = tx.send(CognitiveUpdate::EvidenceMemory {
+                        title: "Evolution Suggestion".to_string(),
+                        content: suggestion,
+                    });
+                }
+            }
+
+            // Contract: record the decision made in this interaction
+            sh.contract_record_decision(
+                &config.task_id,
+                llm_result.is_ok(),
+                safe_truncate(final_response, 100),
+            ).await;
+
+            // Planning: complete goal if one was created in ACT phase
+            // (goal_id passed through ActResult)
+            if is_complex {
+                sh.planning_complete_goal(
+                    &config.task_id,
+                    safe_truncate(final_response, 100),
+                ).await;
+            }
+
+            // Memory: store test results and error resolutions
+            for (cmd, output, success) in all_exec_results {
+                if !success {
+                    sh.memory_store_resolution(output, "Failed — check logs").await;
+                }
+                if cmd.contains("test") {
+                    let (pass, fail) = if *success { (1, 0) } else { (0, 1) };
+                    sh.memory_store_test_results(cmd, "rust", pass, fail, 1).await;
+                }
+            }
         }
+    }
+
+    // ── IMMORTAL CAPTURE: Always capture exchanges for session continuity ──
+    // This is NOT gated by learn_corrections — it's core to "where did we stop?"
+    if let Some(ref sh) = sisters_handle {
+        sh.memory_capture_exchange(text, final_response).await;
+        sh.comm_session_log(text, final_response).await;
     }
 
     // ── BELIEF UPDATE: Extract and persist beliefs from this interaction ──

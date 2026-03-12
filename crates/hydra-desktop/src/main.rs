@@ -3,6 +3,9 @@ use dioxus::prelude::*;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+mod app_init_settings;
+mod platform;
+mod pulse_voice;
 mod voice_capture;
 // Data structures from hydra-native (tested, working)
 use hydra_native::components::onboarding::{OnboardingState, OnboardingStep};
@@ -49,28 +52,24 @@ fn main() {
 #[allow(non_snake_case)]
 fn App() -> Element {
     // ── Per-project lock — prevents two Hydras on the same project ──
+    let mut lock_error_msg: Signal<Option<String>> = use_signal(|| None);
     let _project_lock: Arc<parking_lot::Mutex<hydra_runtime::InstanceLock>> = use_hook(|| {
         let project_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
         let mut lock = hydra_runtime::InstanceLock::for_project(&project_dir);
         if let Err(e) = lock.acquire() {
             eprintln!("[hydra] {}", e);
+            lock_error_msg.set(Some(e.to_string()));
         }
         Arc::new(parking_lot::Mutex::new(lock))
     });
     // ── Load persisted profile ──
     let persisted = load_profile();
     let onboarding_done = persisted.as_ref().map_or(false, |p| p.onboarding_complete);
-    let chat_db = Arc::new(ChatPersistence::init().unwrap_or_else(|e| {
-        eprintln!("[hydra] Chat persistence failed: {}", e);
-        ChatPersistence::init().expect("chat persistence fallback failed")
-    }));
-    // ── Init engines + security DB ──
-    let (decide_engine, invention_engine, proactive_notifier, agent_spawner, undo_stack, approval_manager, federation_manager, hydra_db) = include!("app_engines.rs");
-    // Clone for each UI consumer that captures approval_manager
+    let chat_db = Arc::new(ChatPersistence::init_or_memory());
+    let (decide_engine, invention_engine, proactive_notifier, agent_spawner, undo_stack, approval_manager, federation_manager, hydra_db, swarm_manager) = include!("app_engines.rs");
     let send_msg_approval_mgr = approval_manager.clone();
     let palette_approval_mgr = approval_manager.clone();
     let card_approval_mgr = approval_manager.clone();
-    // ── Init sisters (MCP connections) ──
     let sisters: Signal<Option<SistersHandle>> = use_signal(|| None);
     let sisters_status = use_signal(|| "Connecting...".to_string());
     {
@@ -85,28 +84,17 @@ fn App() -> Element {
             });
         });
     }
-    // ── Extract settings from profile ──
-    let init_theme = persisted.as_ref().and_then(|p| p.theme.clone()).unwrap_or_else(|| "dark".to_string());
-    let init_voice = persisted.as_ref().map_or(false, |p| p.voice_enabled);
-    let init_sounds = persisted.as_ref().map_or(true, |p| p.sounds_enabled);
-    let init_volume = persisted.as_ref().map_or("70".to_string(), |p| p.sound_volume.to_string());
-    let init_auto_approve = persisted.as_ref().map_or(false, |p| p.auto_approve);
-    let init_default_mode = persisted.as_ref().and_then(|p| p.default_mode.clone()).unwrap_or_else(|| "companion".to_string());
-    let init_model = persisted.as_ref().and_then(|p| p.selected_model.clone()).unwrap_or_else(|| "claude-sonnet-4-6".to_string());
-    let init_anthropic_key = persisted.as_ref()
-        .and_then(|p| p.anthropic_api_key.clone())
-        .or_else(|| persisted.as_ref().and_then(|p| p.api_key.clone()).filter(|k| k.starts_with("sk-ant-")))
-        .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok().filter(|s| !s.is_empty()))
-        .unwrap_or_default();
-    let init_openai_key = persisted.as_ref()
-        .and_then(|p| p.openai_api_key.clone())
-        .or_else(|| persisted.as_ref().and_then(|p| p.api_key.clone()).filter(|k| k.starts_with("sk-") && !k.starts_with("sk-ant-")))
-        .or_else(|| std::env::var("OPENAI_API_KEY").ok().filter(|s| !s.is_empty()))
-        .unwrap_or_default();
-    let init_google_key = persisted.as_ref()
-        .and_then(|p| p.google_api_key.clone())
-        .or_else(|| std::env::var("GOOGLE_API_KEY").ok().filter(|s| !s.is_empty()))
-        .unwrap_or_default();
+    let s = app_init_settings::extract_init_settings(&persisted);
+    let init_theme = s.theme;
+    let init_voice = s.voice;
+    let init_sounds = s.sounds;
+    let init_volume = s.volume;
+    let init_auto_approve = s.auto_approve;
+    let init_default_mode = s.default_mode;
+    let init_model = s.model;
+    let init_anthropic_key = s.anthropic_key;
+    let init_openai_key = s.openai_key;
+    let init_google_key = s.google_key;
     // ── Core state signals ──
     let mut input = use_signal(|| String::new());
     let chat_db_init = chat_db.clone();
@@ -115,7 +103,6 @@ fn App() -> Element {
     let mut connected = use_signal(|| false);
     let mut phase = use_signal(|| "Idle".to_string());
     let mut icon_state = use_signal(|| "idle".to_string());
-    // ── Onboarding ──
     let mut onboarding = use_signal(move || {
         if let Some(ref p) = persisted {
             let mut state = OnboardingState::new();
@@ -145,7 +132,6 @@ fn App() -> Element {
     let mut settings_openai_key = use_signal(move || init_openai_key);
     let mut settings_google_key = use_signal(move || init_google_key);
     let mut settings_tab = use_signal(|| "general".to_string());
-    // ── Anthropic OAuth state ──
     let mut oauth_status = use_signal(|| {
         let oauth = AnthropicOAuth::new();
         if oauth.is_authenticated() {
@@ -203,6 +189,7 @@ fn App() -> Element {
     let mut settings_retry_failures = use_signal(|| true);
     let mut settings_dream_state = use_signal(|| true);
     let mut settings_proactive = use_signal(|| true);
+    let mut settings_federation = use_signal(|| false);
 
     // ── Advanced settings ──
     let mut settings_server_port = use_signal(|| "3100".to_string());
@@ -227,6 +214,12 @@ fn App() -> Element {
     let mut show_receipts = use_signal(|| false);
     // Store messages per session: session_id -> Vec<(role, content, css)>
     let mut session_store = use_signal(|| HashMap::<String, Vec<(String, String, String)>>::new());
+    // Pulse voice — instant ack + progressive TTS
+    let pulse = use_signal(|| Arc::new(pulse_voice::PulseVoice::new()));
+    // System monitor — tracks metrics (tokens, latency, health)
+    let monitor: Signal<Arc<parking_lot::Mutex<hydra_monitor::SystemMonitor>>> = use_signal(|| Arc::new(parking_lot::Mutex::new(hydra_monitor::SystemMonitor::new())));
+    // Trace collector — records cognitive loop spans for perf visibility
+    let tracer: Signal<Arc<parking_lot::Mutex<hydra_trace::TraceCollector>>> = use_signal(|| Arc::new(parking_lot::Mutex::new(hydra_trace::TraceCollector::new(100))));
 
     // ── Undo/Redo state ──
     let mut can_undo = use_signal(|| false);
@@ -377,7 +370,15 @@ fn App() -> Element {
         });
     });
 
-    // ── Greeting + model display ──
+    // Show lock error if another instance owns this project
+    if lock_error_msg.read().is_some() && active_error.read().is_none() {
+        let err = lock_error_msg.read().clone().unwrap_or_default();
+        active_error.set(Some(FriendlyError {
+            message: "Another Hydra instance is running".into(),
+            explanation: format!("{} Close it or choose a different project.", err),
+            options: vec![], icon_state: "error".into(), can_undo: false,
+        }));
+    }
     let user_name = onboarding.read().user_name.clone().unwrap_or_default();
     let greeting = if user_name.is_empty() { "Hi there!".to_string() } else { format!("Hi {}!", user_name) };
     let model_display = {

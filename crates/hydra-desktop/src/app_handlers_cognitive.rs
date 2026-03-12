@@ -291,3 +291,31 @@
                             celebration.set(Some(Celebration::small("Codebase health: excellent!")));
                         }
                     }
+                    // ── Agent Swarm events ──
+                    CognitiveUpdate::SwarmSpawned { count, agent_ids } => {
+                        let now = chrono::Utc::now().to_rfc3339();
+                        let ids_preview: String = agent_ids.iter().take(3)
+                            .map(|id| &id[..id.len().min(8)]).collect::<Vec<_>>().join(", ");
+                        timeline_panel.write().push_event(
+                            &now, TimelineEventKind::Info,
+                            &format!("Swarm: {} agents spawned", count),
+                            Some(&ids_preview), Some("Swarm"),
+                        );
+                    }
+                    CognitiveUpdate::SwarmTaskAssigned { agent_id, task_desc } => {
+                        let now = chrono::Utc::now().to_rfc3339();
+                        timeline_panel.write().push_event(
+                            &now, TimelineEventKind::Info,
+                            &format!("Agent {} assigned", agent_id),
+                            Some(&task_desc), Some("Swarm"),
+                        );
+                    }
+                    CognitiveUpdate::SwarmResults { total, succeeded, failed, .. } => {
+                        let now = chrono::Utc::now().to_rfc3339();
+                        let kind = if failed > 0 { TimelineEventKind::Error } else { TimelineEventKind::Info };
+                        timeline_panel.write().push_event(
+                            &now, kind,
+                            &format!("Swarm results: {}/{} succeeded", succeeded, total),
+                            Some(&format!("{} failed", failed)), Some("Swarm"),
+                        );
+                    }

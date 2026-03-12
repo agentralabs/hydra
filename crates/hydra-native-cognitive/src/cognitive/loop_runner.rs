@@ -10,6 +10,7 @@ use crate::cognitive::decide::DecideEngine;
 use crate::cognitive::inventions::InventionEngine;
 use crate::cognitive::spawner::AgentSpawner;
 use crate::sisters::SistersHandle;
+use crate::swarm::SwarmManager;
 use hydra_native_state::state::hydra::PhaseStatus;
 use hydra_native_state::utils::safe_truncate;
 use hydra_db::HydraDb;
@@ -189,15 +190,15 @@ pub enum CognitiveUpdate {
     /// Consolidation cycle completed.
     ConsolidationCycleComplete { cycle: u64, strengthened: usize, decayed: usize, gc_cleaned: usize },
 
-    // -- Obstacle resolution (Phase 5, Priority 2) --
-    /// An obstacle was detected and is being diagnosed.
+    // -- Obstacle resolution --
     ObstacleDetected { pattern: String, error_summary: String },
-    /// Obstacle resolution attempt completed.
     ObstacleResolved { pattern: String, resolution: String, attempts: usize },
-
-    // -- Autonomous project execution (Phase 5, Priority 6) --
-    /// Project execution phase progress.
+    // -- Autonomous project execution --
     ProjectExecPhase { repo: String, phase: String, detail: String },
+    // -- Agent Swarm --
+    SwarmSpawned { count: usize, agent_ids: Vec<String> },
+    SwarmTaskAssigned { agent_id: String, task_desc: String },
+    SwarmResults { total: usize, succeeded: usize, failed: usize, summary: String },
 }
 
 /// Configuration for the cognitive loop (read-only inputs).
@@ -213,8 +214,9 @@ pub struct CognitiveLoopConfig {
     pub history: Vec<(String, String)>,
     pub session_count: u32,
     /// OAuth bearer token for Anthropic (from browser-based auth / Claude Max subscription).
-    /// When set, this is preferred over anthropic_key for API calls.
     pub anthropic_oauth_token: Option<String>,
+    /// Runtime behavior settings from UI
+    pub runtime: super::runtime_settings::RuntimeSettings,
 }
 
 /// Run the 5-phase cognitive loop, sending updates via the channel.
@@ -230,17 +232,32 @@ pub async fn run_cognitive_loop(
     approval_manager: Option<Arc<ApprovalManager>>,
     db: Option<Arc<HydraDb>>,
     federation: Option<Arc<hydra_native_state::federation::FederationManager>>,
+    swarm_manager: Option<Arc<SwarmManager>>,
 ) {
     use crate::sisters::Sisters;
 
     let text = &config.text;
+    let debug = config.runtime.debug_mode;
     eprintln!("[hydra:loop] INPUT: {:?}", safe_truncate(text, 120));
+    if debug { eprintln!("[hydra:debug] runtime_settings: risk={} dispatch={} sister_timeout={}", config.runtime.risk_threshold, config.runtime.dispatch_mode, config.runtime.sister_timeout); }
 
-    // ═══════════════════════════════════════════════════════════
-    // INTENT CLASSIFICATION — Micro-LLM classifier (~150 tokens)
-    // Uses cheapest model (Haiku) to understand MEANING.
-    // Works in any language, any phrasing, any slang.
-    // ═══════════════════════════════════════════════════════════
+    // Register as active agent in comm network (once per session)
+    if config.session_count == 0 { if let Some(ref sh) = &sisters_handle { sh.comm_register_agent(&config.user_name, "primary").await; } }
+
+    // ── CAPABILITY REGISTRY — pattern-match BEFORE LLM classification ──
+    use super::handlers::dispatch_capability;
+    // Shared threat correlator — persistent across queries in this loop
+    let threat_correlator: Option<Arc<parking_lot::RwLock<crate::threat::ThreatCorrelator>>> = Some(
+        Arc::new(parking_lot::RwLock::new(crate::threat::ThreatCorrelator::new()))
+    );
+    let remote_executor: Option<Arc<parking_lot::RwLock<crate::remote::RemoteExecutor>>> = Some(
+        Arc::new(parking_lot::RwLock::new(crate::remote::RemoteExecutor::new()))
+    );
+    if dispatch_capability::handle_capability_match(text, &swarm_manager, &threat_correlator, &remote_executor, &tx).await {
+        return;
+    }
+
+    // ── INTENT CLASSIFICATION — Micro-LLM classifier (~150 tokens) ──
     let classify_llm_config = hydra_model::LlmConfig::from_env_with_overlay(
         &config.anthropic_key,
         &config.openai_key,
@@ -258,10 +275,7 @@ pub async fn run_cognitive_loop(
     eprintln!("[hydra:intent] category={:?} confidence={:.2} target={:?}",
         intent.category, intent.confidence, intent.target);
 
-    // ═══════════════════════════════════════════════════════════
-    // PRE-PHASE DISPATCH — route by classified intent
-    // Extracted to handlers/dispatch.rs and handlers/sister_ops.rs
-    // ═══════════════════════════════════════════════════════════
+    // ── PRE-PHASE DISPATCH — route by classified intent ──
     use super::handlers::dispatch;
     use super::handlers::sister_ops;
 
@@ -300,9 +314,7 @@ pub async fn run_cognitive_loop(
     // Direct action fast-path — execute immediately, skip LLM
     if dispatch::handle_direct_action(text, &sisters_handle, &decide_engine, &tx).await { return; }
 
-    // ═══════════════════════════════════════════════════════════
-    // CLASSIFY — Determine complexity and risk BEFORE anything
-    // ═══════════════════════════════════════════════════════════
+    // ── CLASSIFY — Determine complexity and risk ──
     let complexity = Sisters::classify_complexity(text);
     let risk_level = Sisters::assess_risk(text);
     // Action detection is now intent-based — categories with direct handlers are "actions"
@@ -317,21 +329,18 @@ pub async fn run_cognitive_loop(
     let suggested_mode = if is_simple { "companion" } else { "workspace" };
     let _ = tx.send(CognitiveUpdate::SuggestMode(suggested_mode.into()));
 
-    // ═══════════════════════════════════════════════════════════
-    // PHASE 1: PERCEIVE — extracted to handlers/phase_perceive.rs
-    // ═══════════════════════════════════════════════════════════
+    // ── PHASE 1: PERCEIVE ──
     use super::handlers::phase_perceive;
     use super::handlers::phase_think;
 
     let perceive = phase_perceive::run_perceive(
-        text, is_simple, is_complex,
+        text, &config, is_simple, is_complex,
         &sisters_handle, &inventions, &proactive_notifier, &federation, &db, &tx,
     ).await;
     let perceive_ms = perceive.perceive_ms;
+    if debug { eprintln!("[hydra:debug] PERCEIVE completed in {}ms", perceive_ms); }
 
-    // ═══════════════════════════════════════════════════════════
-    // PHASE 2: THINK — extracted to handlers/phase_think.rs
-    // ═══════════════════════════════════════════════════════════
+    // ── PHASE 2: THINK ──
     let think = phase_think::run_think(
         text, &config, &intent, &perceive,
         is_simple, is_complex, is_action_request, &complexity, risk_level,
@@ -346,9 +355,7 @@ pub async fn run_cognitive_loop(
     let llm_config = think.llm_config;
     let llm_ok = think.llm_ok;
 
-    // ═══════════════════════════════════════════════════════════
-    // PHASE 3: DECIDE — extracted to handlers/phase_decide.rs
-    // ═══════════════════════════════════════════════════════════
+    // ── PHASE 3: DECIDE ──
     use super::handlers::phase_decide;
     use super::handlers::phase_act;
     use super::handlers::phase_learn;
@@ -366,9 +373,7 @@ pub async fn run_cognitive_loop(
     };
     let decide_ms = decide.decide_ms;
 
-    // ═══════════════════════════════════════════════════════════
-    // PHASE 4: ACT — extracted to handlers/phase_act.rs
-    // ═══════════════════════════════════════════════════════════
+    // ── PHASE 4: ACT ──
     let act = phase_act::run_act(
         text, &config, &response_text,
         is_simple, is_complex, llm_ok,
@@ -380,9 +385,7 @@ pub async fn run_cognitive_loop(
         &tx,
     ).await;
 
-    // ═══════════════════════════════════════════════════════════
-    // PHASE 5: LEARN + DELIVER — extracted to handlers/phase_learn.rs
-    // ═══════════════════════════════════════════════════════════
+    // ── PHASE 5: LEARN + DELIVER ──
     phase_learn::run_learn(
         text, &config, &act.final_response,
         is_simple, is_complex, llm_ok,

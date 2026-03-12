@@ -282,6 +282,23 @@ impl App {
                 | CognitiveUpdate::BeliefUpdated { .. }
                 => {}
 
+                // -- Agent Swarm events --
+                CognitiveUpdate::SwarmSpawned { count, .. } => {
+                    self.thinking_status = format!("Spawned {} agents", count);
+                }
+                CognitiveUpdate::SwarmTaskAssigned { agent_id, task_desc } => {
+                    self.thinking_status = format!("Agent {} → {}", agent_id, task_desc);
+                }
+                CognitiveUpdate::SwarmResults { succeeded, total, failed, .. } => {
+                    self.messages.push(Message {
+                        role: MessageRole::System,
+                        content: format!("Swarm complete: {}/{} succeeded, {} failed", succeeded, total, failed),
+                        timestamp: timestamp.clone(),
+                        phase: Some("Swarm".to_string()),
+                    });
+                    self.scroll_to_bottom();
+                }
+
                 CognitiveUpdate::ObstacleDetected { pattern, error_summary } => {
                     self.thinking_status = format!("Obstacle: {}...", pattern);
                     self.messages.push(Message {

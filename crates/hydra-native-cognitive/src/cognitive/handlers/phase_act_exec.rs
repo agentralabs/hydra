@@ -179,7 +179,12 @@ pub(crate) async fn execute_commands(
         let is_visual_cmd = cmd.contains("open -a") || cmd.contains("open http")
             || cmd.contains("xdg-open") || cmd.starts_with("open ")
             || cmd.contains("google-chrome") || cmd.contains("firefox");
+        let cursor_session_id = if is_visual_cmd { Some(uuid::Uuid::new_v4().to_string()) } else { None };
+        let cursor_start = std::time::Instant::now();
         if is_visual_cmd {
+            if let (Some(ref sess_id), Some(ref db)) = (&cursor_session_id, &db) {
+                let _ = db.create_cursor_session(sess_id, &config.task_id, "execute");
+            }
             let _ = tx.send(CognitiveUpdate::CursorVisibility { visible: true });
             // Animate cursor to center-ish of screen with action label
             let label = if cmd.contains("open -a") || cmd.contains("open ") {
@@ -267,7 +272,7 @@ pub(crate) async fn execute_commands(
                     let _ = tx.send(CognitiveUpdate::CursorVisibility { visible: false });
                 }
 
-                // Record cursor event to DB
+                // Record cursor event and finish cursor session
                 if is_visual_cmd {
                     if let Some(ref db) = db {
                         let _ = db.record_cursor_event(
@@ -279,6 +284,10 @@ pub(crate) async fn execute_commands(
                             }).to_string()),
                         );
                     }
+                    if let (Some(ref sess_id), Some(ref db)) = (&cursor_session_id, &db) {
+                        let dur = cursor_start.elapsed().as_millis() as i64;
+                        let _ = db.finish_cursor_session(sess_id, 1, dur);
+                    }
                 }
             }
             Err(e) => {
@@ -287,6 +296,10 @@ pub(crate) async fn execute_commands(
                 // Ghost cursor: Hide on error too
                 if is_visual_cmd {
                     let _ = tx.send(CognitiveUpdate::CursorVisibility { visible: false });
+                    if let (Some(ref sess_id), Some(ref db)) = (&cursor_session_id, &db) {
+                        let dur = cursor_start.elapsed().as_millis() as i64;
+                        let _ = db.finish_cursor_session(sess_id, 0, dur);
+                    }
                 }
             }
         }

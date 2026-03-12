@@ -154,4 +154,21 @@ rsx! {
             }
         }
     }
+    div { class: "settings-section",
+        h3 { class: "settings-section-title", "Federation" }
+        div { class: "settings-row",
+            div { class: "settings-label-group",
+                span { class: "settings-label", "Enable federation" }
+                span { class: "settings-desc", "Connect to other Hydra instances for distributed tasks" }
+            }
+            div { class: "toggle-group",
+                button {
+                    class: if *settings_federation.read() { "toggle-track on" } else { "toggle-track" },
+                    onclick: move |_| { let c = *settings_federation.read(); settings_federation.set(!c); },
+                    span { class: "toggle-knob" }
+                }
+                { let l = if *settings_federation.read() { "On" } else { "Off" }; rsx! { span { class: "toggle-label", "{l}" } } }
+            }
+        }
+    }
 }

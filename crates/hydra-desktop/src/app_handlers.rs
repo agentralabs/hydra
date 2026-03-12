@@ -73,6 +73,7 @@
                     None
                 }
             },
+            runtime: Default::default(),
         };
 
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<CognitiveUpdate>();
@@ -84,7 +85,8 @@
         let approval_mgr = approval_sig.read().clone();
         let db_handle = db_sig.read().clone();
         let fed_mgr = fed_sig.read().clone();
-        spawn(async move { run_cognitive_loop(loop_config, sisters_handle, tx, decide, Some(undo_sig.read().clone()), Some(inv), Some(notifier), Some(spawner), Some(approval_mgr), db_handle, Some(fed_mgr)).await; });
+        let swarm = Some(swarm_manager.clone());
+        spawn(async move { run_cognitive_loop(loop_config, sisters_handle, tx, decide, Some(undo_sig.read().clone()), Some(inv), Some(notifier), Some(spawner), Some(approval_mgr), db_handle, Some(fed_mgr), swarm).await; });
 
         let chat_db_rx = chat_db_sig.read().clone();
         spawn(async move {

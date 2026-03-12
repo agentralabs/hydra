@@ -98,11 +98,15 @@ pub(crate) async fn execute_llm_call(
         let llm_config = llm_config.clone();
         let active_model_owned = active_model.to_string();
         let provider_owned = provider.to_string();
+        let tx_stream = tx.clone();
         let llm_future = async {
-            match provider_owned.as_str() {
+            let chunk_cb = |chunk: &str| {
+                let _ = tx_stream.send(CognitiveUpdate::StreamChunk { content: chunk.to_string() });
+            };
+            let result = match provider_owned.as_str() {
                 "anthropic" => {
                     match hydra_model::providers::anthropic::AnthropicClient::new(&llm_config) {
-                        Ok(client) => client.complete(request).await
+                        Ok(client) => client.complete_streaming(request, chunk_cb).await
                             .map(|r| (r.content, r.model, r.input_tokens, r.output_tokens))
                             .map_err(|e| format!("{}", e)),
                         Err(e) => Err(format!("{}", e)),
@@ -110,7 +114,7 @@ pub(crate) async fn execute_llm_call(
                 }
                 "openai" | "google" => {
                     match hydra_model::providers::openai::OpenAiClient::new(&llm_config) {
-                        Ok(client) => client.complete(request).await
+                        Ok(client) => client.complete_streaming(request, chunk_cb).await
                             .map(|r| (r.content, r.model, r.input_tokens, r.output_tokens))
                             .map_err(|e| format!("{}", e)),
                         Err(e) => Err(format!("{}", e)),
@@ -121,14 +125,16 @@ pub(crate) async fn execute_llm_call(
                     ollama_config.openai_api_key = Some("ollama".into());
                     ollama_config.openai_base_url = "http://localhost:11434".into();
                     match hydra_model::providers::openai::OpenAiClient::new(&ollama_config) {
-                        Ok(client) => client.complete(request).await
+                        Ok(client) => client.complete_streaming(request, chunk_cb).await
                             .map(|r| (r.content, r.model, r.input_tokens, r.output_tokens))
                             .map_err(|e| format!("{}", e)),
                         Err(e) => Err(format!("{}", e)),
                     }
                 }
                 _ => Err("Unsupported provider".into()),
-            }
+            };
+            if result.is_ok() { let _ = tx_stream.send(CognitiveUpdate::StreamComplete); }
+            result
         };
 
         match tokio::time::timeout(llm_timeout, llm_future).await {

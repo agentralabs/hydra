@@ -107,6 +107,61 @@ impl Sisters {
         let text = extract_text(&result);
         if text.is_empty() { None } else { Some(text) }
     }
+
+    /// SESSION: Start a communication session for tracking this conversation.
+    /// Returns a session_id used for subsequent log/context calls.
+    pub async fn comm_session_start(&self, user_name: &str) -> Option<String> {
+        let comm = self.comm.as_ref()?;
+        let result = comm.call_tool("comm_session", serde_json::json!({
+            "operation": "start",
+            "params": {
+                "agent_id": user_name,
+                "session_type": "conversation",
+            }
+        })).await.ok()?;
+        result.get("session_id").and_then(|v| v.as_str()).map(|s| s.to_string())
+    }
+
+    /// SESSION: Log an interaction within the communication session.
+    /// Creates a durable conversation trail for context continuity.
+    pub async fn comm_session_log(
+        &self,
+        user_msg: &str,
+        response: &str,
+    ) {
+        if let Some(comm) = &self.comm {
+            let _ = comm.call_tool("comm_session", serde_json::json!({
+                "operation": "log",
+                "params": {
+                    "user_message": safe_truncate(user_msg, 300),
+                    "assistant_response": safe_truncate(response, 300),
+                }
+            })).await;
+        }
+    }
+
+    /// SESSION: Get conversation context from the communication session.
+    /// Returns accumulated context from previous exchanges in this session.
+    pub async fn comm_session_context(&self) -> Option<String> {
+        let comm = self.comm.as_ref()?;
+        let result = comm.call_tool("comm_session", serde_json::json!({
+            "operation": "get_context",
+        })).await.ok()?;
+        let text = extract_text(&result);
+        if text.is_empty() { None } else { Some(text) }
+    }
+
+    /// SESSION: End the communication session with a summary.
+    pub async fn comm_session_end(&self, summary: &str) {
+        if let Some(comm) = &self.comm {
+            let _ = comm.call_tool("comm_session", serde_json::json!({
+                "operation": "end",
+                "params": {
+                    "summary": safe_truncate(summary, 300),
+                }
+            })).await;
+        }
+    }
 }
 
 /// A message from the Comm sister inbox.

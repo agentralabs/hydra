@@ -68,7 +68,7 @@ pub use hydra_native_state::proactive::{ProactiveAlert, AlertPriority, Proactive
 pub use hydra_native_state::federation::FederationManager;
 
 // Cognitive (from hydra-native-cognitive)
-pub use hydra_native_cognitive::cognitive::{AgentSpawner, CognitiveLoopConfig, CognitiveUpdate, DecideEngine, DecideResult, InventionEngine, run_cognitive_loop};
+pub use hydra_native_cognitive::cognitive::{AgentSpawner, CapabilityRegistry, CognitiveLoopConfig, CognitiveUpdate, DecideEngine, DecideResult, InventionEngine, RuntimeSettings, run_cognitive_loop};
 pub use hydra_native_cognitive::cognitive::streaming::{StreamBuffer, StreamingConfig, StreamState};
 
 // Sisters (from hydra-native-cognitive)

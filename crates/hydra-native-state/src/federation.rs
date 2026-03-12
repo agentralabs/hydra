@@ -4,6 +4,7 @@
 //! at startup and enables distributed Hydra operations.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use hydra_federation::registry::PeerRegistry;
 use hydra_federation::discovery::{DiscoveryMethod, PeerDiscovery};
@@ -22,7 +23,7 @@ pub struct FederationManager {
     pub delegation: Arc<TaskDelegation>,
     pub skills: Arc<SkillSharing>,
     pub sync: Arc<SyncProtocol>,
-    enabled: bool,
+    enabled: AtomicBool,
 }
 
 impl FederationManager {
@@ -40,23 +41,23 @@ impl FederationManager {
             delegation,
             skills,
             sync,
-            enabled: false, // Disabled by default, user enables in settings
+            enabled: AtomicBool::new(false),
         }
     }
 
-    /// Enable federation
-    pub fn enable(&mut self) {
-        self.enabled = true;
+    /// Enable federation (callable through Arc)
+    pub fn enable(&self) {
+        self.enabled.store(true, Ordering::Relaxed);
     }
 
-    /// Disable federation
-    pub fn disable(&mut self) {
-        self.enabled = false;
+    /// Disable federation (callable through Arc)
+    pub fn disable(&self) {
+        self.enabled.store(false, Ordering::Relaxed);
     }
 
     /// Check if federation is enabled
     pub fn is_enabled(&self) -> bool {
-        self.enabled
+        self.enabled.load(Ordering::Relaxed)
     }
 
     /// Add a manual peer endpoint
@@ -77,7 +78,7 @@ impl FederationManager {
 
     /// Get status summary
     pub fn status(&self) -> String {
-        if !self.enabled {
+        if !self.is_enabled() {
             return "Federation: disabled".to_string();
         }
         format!(

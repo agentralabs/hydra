@@ -43,5 +43,9 @@
         }
     });
 
-    (decide_engine, invention_engine, proactive_notifier, agent_spawner, undo_stack, approval_manager, federation_manager, hydra_db)
+    let swarm_manager: Arc<hydra_native::swarm::SwarmManager> = use_hook(|| {
+        Arc::new(hydra_native::swarm::SwarmManager::default())
+    });
+
+    (decide_engine, invention_engine, proactive_notifier, agent_spawner, undo_stack, approval_manager, federation_manager, hydra_db, swarm_manager)
 }

@@ -173,6 +173,14 @@ pub(crate) fn build_system_prompt(
         if let Some(ref fed_ctx) = perceive.federation_context {
             sp.push_str(&format!("\n# Federation Status\n{}\n\n", fed_ctx));
         }
+        // Matched skills from registry
+        if let Some(ref skills_ctx) = perceive.skills_context {
+            sp.push_str(&format!("\n# Available Skills\n{}\n\n", skills_ctx));
+        }
+        // Capability awareness — tell LLM what Hydra can DO
+        let cap_section = crate::cognitive::capability_registry::CapabilityRegistry::new()
+            .to_system_prompt_section();
+        sp.push_str(&format!("\n{}\n", cap_section));
         sp
     } else {
         format!(

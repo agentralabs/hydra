@@ -21,6 +21,7 @@ pub(crate) struct PerceiveResult {
     pub always_on_memory: Option<String>,
     pub beliefs_context: Option<String>,
     pub federation_context: Option<String>,
+    pub skills_context: Option<String>,
     pub perceive_ms: u64,
     /// Hash of memory response for dedup detection across queries.
     pub memory_hash: u64,
@@ -29,6 +30,7 @@ pub(crate) struct PerceiveResult {
 /// Run the PERCEIVE phase: gather context from sisters, memory, beliefs, MCP, federation.
 pub(crate) async fn run_perceive(
     text: &str,
+    config: &super::super::loop_runner::CognitiveLoopConfig,
     is_simple: bool,
     is_complex: bool,
     sisters_handle: &Option<SistersHandle>,
@@ -47,21 +49,75 @@ pub(crate) async fn run_perceive(
     ]));
     let perceive_start = Instant::now();
 
-    // Surface dream insights from idle processing
-    if let Some(ref inv) = inventions {
-        inv.tick_idle(0);
-        inv.reset_idle();
-        if let Some(insights) = inv.surface_insights(0.6) {
-            let _ = tx.send(CognitiveUpdate::EvidenceMemory {
-                title: "Dream Insights".to_string(),
-                content: insights,
-            });
+    // SESSION RESUME: Bootstrap from last session for continuity ("where did we stop?")
+    let session_context = if config.session_count == 0 {
+        if let Some(ref sh) = sisters_handle {
+            let (resume_ctx, _, _) = tokio::join!(
+                sh.memory_session_resume(), sh.memory_session_start(&config.user_name),
+                sh.comm_session_start(&config.user_name));
+            if let Some(ref ctx) = resume_ctx {
+                let _ = tx.send(CognitiveUpdate::EvidenceMemory {
+                    title: "Previous Session".into(), content: ctx.clone() });
+            }
+            resume_ctx
+        } else { None }
+    } else { None };
+
+    // Surface dream insights from idle processing (gated by runtime settings)
+    if config.runtime.dream_state {
+        if let Some(ref inv) = inventions {
+            inv.tick_idle(0);
+            inv.reset_idle();
+            if let Some(insights) = inv.surface_insights(0.6) {
+                let _ = tx.send(CognitiveUpdate::EvidenceMemory {
+                    title: "Dream Insights".to_string(),
+                    content: insights,
+                });
+            }
+            if let Some(dream_text) = inv.maybe_dream() {
+                let _ = tx.send(CognitiveUpdate::DreamInsight {
+                    category: "idle_processing".to_string(),
+                    description: dream_text.clone(),
+                    confidence: 0.7,
+                });
+            }
         }
-        if let Some(dream_text) = inv.maybe_dream() {
-            let _ = tx.send(CognitiveUpdate::DreamInsight {
-                category: "idle_processing".to_string(),
-                description: dream_text.clone(),
-                confidence: 0.7,
+    }
+
+    // Planning sister: recover interrupted goals for context
+    if let Some(ref sh) = sisters_handle {
+        if let Some(goals) = sh.planning_list_active().await {
+            for goal in &goals {
+                let _ = tx.send(CognitiveUpdate::EvidenceMemory {
+                    title: format!("Active goal: {}", goal.name),
+                    content: format!("{:.0}% complete", goal.progress * 100.0),
+                });
+            }
+        }
+    }
+
+    // Comm: check inbox for pending messages during perceive
+    if let Some(ref sh) = sisters_handle {
+        if let Some(messages) = sh.comm_check_inbox(&config.user_name, 10).await {
+            if !messages.is_empty() {
+                let summary = messages.iter()
+                    .map(|m| format!("[{}] {}: {}", m.message_type, m.from, m.content))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                let _ = tx.send(CognitiveUpdate::EvidenceMemory {
+                    title: "Pending Messages".to_string(),
+                    content: summary,
+                });
+            }
+        }
+    }
+
+    // Contract: check for any pending approvals
+    if let Some(ref sh) = sisters_handle {
+        if let Some(pending) = sh.contract_query_approvals("last_24h").await {
+            let _ = tx.send(CognitiveUpdate::EvidenceMemory {
+                title: "Pending Approvals".to_string(),
+                content: pending,
             });
         }
     }
@@ -117,6 +173,20 @@ pub(crate) async fn run_perceive(
         }
     } else { None };
 
+    // Enrich memory with session context + déjà vu + prediction for continuity
+    let always_on_memory = {
+        let mut parts: Vec<String> = Vec::new();
+        if let Some(ref s) = session_context { parts.push(format!("### Previous Session:\n{}", s)); }
+        if let Some(ref m) = always_on_memory { parts.push(m.clone()); }
+        if let Some(dj) = perceived.get("dejavu_context").and_then(|v| v.as_str()) {
+            parts.push(format!("### Returning Topic:\n{}", dj));
+        }
+        if let Some(p) = perceived.get("memory_prediction").and_then(|v| v.as_str()) {
+            parts.push(format!("### Predicted Context:\n{}", p));
+        }
+        if parts.is_empty() { None } else { Some(parts.join("\n\n")) }
+    };
+
     // Belief loading from DB
     let belief_limit = if is_simple { 5 } else { 20 };
     let beliefs_context = if let Some(ref db) = db {
@@ -135,6 +205,18 @@ pub(crate) async fn run_perceive(
             _ => None,
         }
     } else { None };
+
+    // Aegis: validate user input for security threats
+    if let Some(ref sh) = sisters_handle {
+        if let Some(validation) = sh.aegis_validate_input(text).await {
+            if !validation.safe {
+                let _ = tx.send(CognitiveUpdate::EvidenceMemory {
+                    title: "Input Security Check".to_string(),
+                    content: format!("[{:?}] {}", validation.severity, validation.reason),
+                });
+            }
+        }
+    }
 
     // MCP skill discovery (complex only)
     let _mcp_context = if !is_complex {
@@ -180,6 +262,22 @@ pub(crate) async fn run_perceive(
         } else { None }
     } else { None };
 
+    // Skill discovery — match registered skills against user input
+    let skills_context = {
+        let registry = hydra_skills::SkillRegistry::new();
+        for skill in hydra_skills::builtin_skills() {
+            let _ = registry.register(skill);
+        }
+        let matches = registry.discover(text);
+        if !matches.is_empty() {
+            let summary: String = matches.iter()
+                .map(|m| format!("- {} (confidence: {:.0}%, trigger: {:?})", m.name, m.confidence * 100.0, m.trigger))
+                .collect::<Vec<_>>()
+                .join("\n");
+            Some(summary)
+        } else { None }
+    };
+
     // Federation context (complex only)
     let federation_context = if !is_complex {
         None
@@ -214,18 +312,46 @@ pub(crate) async fn run_perceive(
         } else { None }
     } else { None };
 
+    // Time: check for upcoming deadlines (complex only)
+    if !is_simple {
+        if let Some(ref sh) = sisters_handle {
+            if let Some(deadline_info) = sh.time_check_deadline(text).await {
+                let _ = tx.send(CognitiveUpdate::EvidenceMemory {
+                    title: "Deadline Check".to_string(),
+                    content: deadline_info,
+                });
+            }
+        }
+    }
+
+    // Reality: probe environment for grounding context (complex only)
+    if !is_simple {
+        if let Some(ref sh) = sisters_handle {
+            let env_profile = sh.reality_probe_environment().await;
+            let env_info = env_profile.summary();
+            if !env_info.is_empty() {
+                let _ = tx.send(CognitiveUpdate::EvidenceMemory {
+                    title: "Environment Context".to_string(),
+                    content: env_info,
+                });
+            }
+        }
+    }
+
     let perceive_ms = perceive_start.elapsed().as_millis() as u64;
 
-    // Proactive: anticipate needs
-    if let Some(ref notifier) = proactive_notifier {
-        let mut n = notifier.lock();
-        n.anticipate(text);
-        for alert in n.drain() {
-            let _ = tx.send(CognitiveUpdate::ProactiveAlert {
-                title: alert.title,
-                message: alert.message,
-                priority: format!("{:?}", alert.priority),
-            });
+    // Proactive: anticipate needs (gated by runtime settings)
+    if config.runtime.proactive {
+        if let Some(ref notifier) = proactive_notifier {
+            let mut n = notifier.lock();
+            n.anticipate(text);
+            for alert in n.drain() {
+                let _ = tx.send(CognitiveUpdate::ProactiveAlert {
+                    title: alert.title,
+                    message: alert.message,
+                    priority: format!("{:?}", alert.priority),
+                });
+            }
         }
     }
 
@@ -263,6 +389,7 @@ pub(crate) async fn run_perceive(
         always_on_memory,
         beliefs_context,
         federation_context,
+        skills_context,
         perceive_ms,
         memory_hash,
     }

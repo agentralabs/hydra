@@ -21,3 +21,6 @@ hydra-db = { path = "../hydra-db" }
 hydra-federation = { path = "../hydra-federation" }
 hydra-model = { path = "../hydra-model" }
 chrono = { workspace = true }
+hydra-pulse = { path = "../hydra-pulse" }
+hydra-monitor = { path = "../hydra-monitor" }
+hydra-trace = { path = "../hydra-trace" }

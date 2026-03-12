@@ -51,6 +51,20 @@ pub(crate) async fn run_think(
     let _ = tx.send(CognitiveUpdate::IconState("working".into()));
     let think_start = Instant::now();
 
+    // Cognition sister: predict intent and detect drift
+    if let Some(ref sh) = sisters_handle {
+        if let Some(prediction) = sh.cognition_predict_intent(text).await {
+            let _ = tx.send(CognitiveUpdate::EvidenceMemory {
+                title: "Cognition Prediction".into(), content: prediction,
+            });
+        }
+        if let Some(drift) = sh.cognition_detect_drift().await {
+            let _ = tx.send(CognitiveUpdate::EvidenceMemory {
+                title: "Behavioral Drift".into(), content: drift,
+            });
+        }
+    }
+
     // Sub-agent spawning for complex tasks
     if let Some(ref spawner) = spawner {
         if spawner.should_spawn(text) {

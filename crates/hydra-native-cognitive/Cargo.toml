@@ -29,6 +29,7 @@ hydra-kernel = { workspace = true }
 hydra-router = { workspace = true }
 hydra-federation = { workspace = true }
 hydra-collab = { workspace = true }
+hydra-skills = { workspace = true }
 
 [dev-dependencies]
 tokio-test = { workspace = true }

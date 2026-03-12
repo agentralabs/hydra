@@ -197,8 +197,18 @@ impl Sisters {
             }
         };
 
+        // V3 immortal capture — stores EVERY exchange for "where did we stop?" recall
+        let immortal_capture_fut = async {
+            self.memory_capture_exchange(user_msg, response).await;
+        };
+
+        // Comm session log — durable conversation trail for context continuity
+        let comm_session_log_fut = async {
+            self.comm_session_log(user_msg, response).await;
+        };
+
         tokio::join!(v3_capture_fut, v2_log_fut, cognition_fut, cognition_model_fut, evolve_fut,
                      identity_fut, time_fut, quality_fut, reflect_fut, correct_fut, pattern_fut,
-                     planning_learn_fut, comm_learn_fut);
+                     planning_learn_fut, comm_learn_fut, immortal_capture_fut, comm_session_log_fut);
     }
 }

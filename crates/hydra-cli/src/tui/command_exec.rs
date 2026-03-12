@@ -195,6 +195,25 @@ impl App {
             }
         }
 
+        // Validate that at least one API key is available
+        let has_key = !std::env::var("ANTHROPIC_API_KEY").unwrap_or_default().is_empty()
+            || !std::env::var("OPENAI_API_KEY").unwrap_or_default().is_empty()
+            || !std::env::var("GOOGLE_API_KEY").unwrap_or_default().is_empty();
+        if !has_key {
+            self.messages.push(Message {
+                role: MessageRole::System,
+                content: "No API key configured.\n\n\
+                    Set one of these environment variables and restart:\n\
+                    \u{2022} ANTHROPIC_API_KEY (for Claude)\n\
+                    \u{2022} OPENAI_API_KEY (for GPT)\n\
+                    \u{2022} GOOGLE_API_KEY (for Gemini)\n\n\
+                    Or run the onboarding wizard: rm ~/.hydra/profile.json && hydra".to_string(),
+                timestamp: timestamp.to_string(),
+                phase: None,
+            });
+            return;
+        }
+
         // Sisters connected locally → spawn cognitive loop (same as Desktop)
         if let Some(ref sisters) = self.sisters_handle {
             if self.connected_count > 0 {
@@ -218,6 +237,28 @@ impl App {
                     history: self.conversation_history.clone(),
                     session_count: self.messages.len() as u32,
                     anthropic_oauth_token: None,
+                    runtime: hydra_native::cognitive::RuntimeSettings {
+                        intent_cache: std::env::var("HYDRA_INTENT_CACHE").map(|v| v != "0" && v != "false").unwrap_or(true),
+                        cache_ttl: std::env::var("HYDRA_CACHE_TTL").unwrap_or_else(|_| "1h".into()),
+                        learn_corrections: std::env::var("HYDRA_LEARN_CORRECTIONS").map(|v| v != "0" && v != "false").unwrap_or(true),
+                        belief_persist: std::env::var("HYDRA_BELIEF_PERSIST").unwrap_or_else(|_| "7 days".into()),
+                        compression: std::env::var("HYDRA_COMPRESSION").unwrap_or_else(|_| "Balanced".into()),
+                        dispatch_mode: std::env::var("HYDRA_DISPATCH_MODE").unwrap_or_else(|_| "Parallel".into()),
+                        sister_timeout: std::env::var("HYDRA_SISTER_TIMEOUT").unwrap_or_else(|_| "10s".into()),
+                        retry_failures: std::env::var("HYDRA_RETRY_FAILURES").map(|v| v != "0" && v != "false").unwrap_or(true),
+                        dream_state: std::env::var("HYDRA_DREAM_STATE").map(|v| v != "0" && v != "false").unwrap_or(true),
+                        proactive: std::env::var("HYDRA_PROACTIVE").map(|v| v != "0" && v != "false").unwrap_or(true),
+                        risk_threshold: std::env::var("HYDRA_RISK_THRESHOLD").unwrap_or_else(|_| "medium".into()),
+                        file_write: std::env::var("HYDRA_FILE_WRITE").map(|v| v != "0" && v != "false").unwrap_or(true),
+                        network_access: std::env::var("HYDRA_NETWORK_ACCESS").map(|v| v != "0" && v != "false").unwrap_or(true),
+                        shell_exec: std::env::var("HYDRA_SHELL_EXEC").map(|v| v != "0" && v != "false").unwrap_or(true),
+                        max_file_edits: std::env::var("HYDRA_MAX_FILE_EDITS").unwrap_or_else(|_| "25".into()),
+                        require_approval_critical: std::env::var("HYDRA_REQUIRE_APPROVAL_CRITICAL").map(|v| v != "0" && v != "false").unwrap_or(true),
+                        sandbox_mode: std::env::var("HYDRA_SANDBOX_MODE").map(|v| v == "1" || v == "true").unwrap_or(false),
+                        debug_mode: std::env::var("HYDRA_DEBUG_MODE").map(|v| v == "1" || v == "true").unwrap_or(false),
+                        log_level: std::env::var("HYDRA_LOG_LEVEL").unwrap_or_else(|_| "info".into()),
+                        federation_enabled: std::env::var("HYDRA_FEDERATION_ENABLED").map(|v| v == "1" || v == "true").unwrap_or(false),
+                    },
                 };
 
                 let sisters_handle = Some(sisters.clone());
@@ -229,6 +270,7 @@ impl App {
                 let approval = Some(self.approval_manager.clone());
                 let db = self.db.clone();
                 let fed = Some(self.federation_manager.clone());
+                let swarm = Some(std::sync::Arc::new(self.swarm_manager.clone_handle()));
 
                 tokio::spawn(async move {
                     run_cognitive_loop(
@@ -243,6 +285,7 @@ impl App {
                         approval,
                         db,
                         fed,
+                        swarm,
                     )
                     .await;
                 });
@@ -251,16 +294,20 @@ impl App {
             }
         }
 
-        // No sisters, no server
+        // Diagnose what's wrong and give actionable guidance
+        let mut diag = format!("Cannot process: \"{}\"\n\n", input);
+        if self.sisters_handle.is_none() {
+            diag.push_str("\u{2717} Sisters: Not initialized (check ~/.local/bin/ for sister binaries)\n");
+        } else {
+            diag.push_str(&format!("\u{2717} Sisters: 0/{} connected\n", self.total_sisters));
+        }
+        if !self.server_online {
+            diag.push_str("\u{2717} Server: Offline (try `hydra serve` in another terminal)\n");
+        }
+        diag.push_str("\nTo fix: install sisters or start the server, then restart Hydra.");
         self.messages.push(Message {
             role: MessageRole::Hydra,
-            content: format!(
-                "Received: \"{}\"\n\n\
-                 [No sisters connected]\n\
-                 Sister binaries not found in ~/.local/bin/\n\
-                 Install sisters or run `hydra serve` for server mode.",
-                input
-            ),
+            content: diag,
             timestamp: timestamp.to_string(),
             phase: None,
         });

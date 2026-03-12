@@ -1,11 +1,29 @@
 // Pre-rendered chat body element: workspace panels, search, messages
 // Included as `let chat_body_el: Element = include!("app_rsx_chat_body.rs");`
 rsx! {
-    // Workspace panels
-    if (*current_mode.read() == "workspace" || *current_mode.read() == "immersive") && plan_panel.read().steps.len() > 1 {
+    // Minimal plan indicator — shows only when there's an active plan (no debug panels)
+    if (*current_mode.read() == "workspace" || *current_mode.read() == "immersive") && plan_panel.read().steps.len() > 1 && !*settings_debug_mode.read() {
+        {
+            let pp = plan_panel.read();
+            let completed = pp.steps.iter().filter(|s| s.status == StepStatus::Completed).count();
+            let total = pp.steps.len();
+            let pct = pp.progress_percent();
+            rsx! {
+                div { class: "plan-inline",
+                    span { class: "plan-inline-label", "{pp.goal}" }
+                    div { class: "plan-inline-bar",
+                        div { class: "progress-fill", style: format!("width: {}%", pct) }
+                    }
+                    span { class: "plan-inline-stat", "{completed}/{total}" }
+                }
+            }
+        }
+    }
+
+    // Debug panels — only visible with debug mode ON (Settings > Advanced)
+    if *settings_debug_mode.read() && plan_panel.read().steps.len() > 1 {
         div {
             class: "workspace-panels",
-
             // Plan
             div {
                 class: "panel",
@@ -35,14 +53,10 @@ rsx! {
                             }
                             span { class: "progress-text", "{pp.progress_percent() as u32}%" }
                         }
-                        if let Some(eta) = pp.eta_display() {
-                            span { class: "plan-eta", "ETA: {eta}" }
-                        }
                     }
                 }
             }
-
-            // Timeline
+            // Timeline (debug only)
             {
                 let tp = timeline_panel.read();
                 let user_events: Vec<_> = tp.events.iter()
@@ -65,12 +79,9 @@ rsx! {
                             }
                         }
                     }
-                } else {
-                    rsx! {}
-                }
+                } else { rsx! {} }
             }
-
-            // Evidence
+            // Evidence (debug only)
             {
                 let ep = evidence_panel.read();
                 let items: Vec<_> = ep.items.iter()
@@ -88,22 +99,13 @@ rsx! {
                                         div { class: "evidence-header",
                                             span { class: "evidence-icon", "{EvidencePanel::evidence_icon(item.kind)}" }
                                             span { class: "evidence-title", "{item.title}" }
-                                            if item.pinned {
-                                                span { class: "evidence-pin", "Pin" }
-                                            }
-                                        }
-                                        {
-                                            let summary = EvidencePanel::human_summary(item);
-                                            rsx! { p { class: "evidence-content", "{summary}" } }
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                } else {
-                    rsx! {}
-                }
+                } else { rsx! {} }
             }
         }
     }
@@ -258,6 +260,12 @@ rsx! {
                     let role_class = if is_user { "message-role user" } else { "message-role assistant" };
                     let html = markdown_to_html(content);
                     let copy_content = content.replace('\\', "\\\\").replace('`', "\\`").replace('$', "\\$");
+                    let token_est = if !is_user { content.len() / 4 } else { 0 };
+                    let token_label = if token_est >= 1000 {
+                        format!("{:.1}k", token_est as f64 / 1000.0)
+                    } else if token_est > 0 {
+                        format!("{}", token_est)
+                    } else { String::new() };
                     rsx! {
                         div {
                             key: "{i}",
@@ -266,6 +274,9 @@ rsx! {
                                 div { class: "message-role-group",
                                     span { class: if is_user { "message-avatar user" } else { "message-avatar assistant" } }
                                     span { class: role_class, "{role_label}" }
+                                    if !token_label.is_empty() {
+                                        span { class: "message-tokens", "{token_label}" }
+                                    }
                                 }
                                 div { class: "message-actions",
                                     button {
@@ -276,7 +287,7 @@ rsx! {
                                             let js = format!("navigator.clipboard.writeText(`{}`);", copy_content);
                                             document::eval(&js);
                                         },
-                                        "\u{2398}"
+                                        dangerous_inner_html: r#"<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>"#,
                                     }
                                 }
                             }

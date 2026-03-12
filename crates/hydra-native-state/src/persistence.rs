@@ -27,6 +27,20 @@ impl ChatPersistence {
         })
     }
 
+    /// Initialize with disk DB, falling back to in-memory if disk fails.
+    /// Never panics — the app always starts, even if chat history won't persist.
+    pub fn init_or_memory() -> Self {
+        match Self::init() {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("[hydra] Chat persistence failed ({}), using in-memory fallback", e);
+                let db = HydraDb::in_memory().expect("in-memory SQLite cannot fail");
+                let messages = MessageStore::new(db.connection()).expect("in-memory MessageStore cannot fail");
+                Self { db, messages, current_conversation_id: parking_lot::Mutex::new(None) }
+            }
+        }
+    }
+
     fn db_path() -> PathBuf {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
         PathBuf::from(home).join(".hydra").join("hydra.db")

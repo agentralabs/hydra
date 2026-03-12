@@ -200,7 +200,8 @@
                                                             if samples.len() > 1600 { // at least 0.1s of audio
                                                                 let wav = voice_capture::encode_wav(&samples, sample_rate);
                                                                 let key = settings_openai_key.read().clone();
-                                                                match voice_capture::transcribe_whisper(wav, &key).await {
+                                                                let lang = settings_stt_lang.read().clone();
+                                                                match voice_capture::transcribe_whisper(wav, &key, &lang).await {
                                                                     Ok(text) if !text.is_empty() => {
                                                                         input.set(text);
                                                                         // Auto-click send

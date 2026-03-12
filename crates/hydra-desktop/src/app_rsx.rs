@@ -70,49 +70,40 @@ rsx! {
                     }
                     div {
                         class: "topbar-center",
-                        {
-                            let statuses = phase_statuses.read();
-                            if !statuses.is_empty() {
-                                let dots = build_phase_dots(&statuses);
-                                let connectors = build_connectors(&statuses);
-                                rsx! {
-                                    div {
-                                        class: "phase-dots",
-                                        for (idx, dot) in dots.iter().enumerate() {
-                                            if idx > 0 {
-                                                {
-                                                    let conn = &connectors[idx - 1];
-                                                    rsx! {
-                                                        div { class: if conn.active { "phase-connector active" } else { "phase-connector" } }
-                                                    }
+                        // Phase dots — debug mode only
+                        if *settings_debug_mode.read() {
+                            {
+                                let statuses = phase_statuses.read();
+                                if !statuses.is_empty() {
+                                    let dots = build_phase_dots(&statuses);
+                                    let connectors = build_connectors(&statuses);
+                                    rsx! {
+                                        div {
+                                            class: "phase-dots",
+                                            for (idx, dot) in dots.iter().enumerate() {
+                                                if idx > 0 {
+                                                    { let conn = &connectors[idx - 1];
+                                                      rsx! { div { class: if conn.active { "phase-connector active" } else { "phase-connector" } } } }
                                                 }
-                                            }
-                                            div {
-                                                title: "{dot.label}",
-                                                class: format!("phase-dot {}", dot.css_class),
+                                                div { title: "{dot.label}", class: format!("phase-dot {}", dot.css_class) }
                                             }
                                         }
                                     }
-                                }
-                            } else {
-                                rsx! {}
+                                } else { rsx! {} }
                             }
                         }
+                        // Simple status label — always visible when working
                         {
                             let p = phase.read();
                             let label = match p.as_str() {
                                 "Perceive" | "Think" | "Decide" | "Act" => "Working...",
                                 "Learn" => "Finishing up...",
-                                "Done" => "Done",
                                 "Error" => "Error",
-                                "Idle" => "",
-                                other => other,
+                                _ => "",
                             };
                             if !label.is_empty() {
                                 rsx! { span { class: "topbar-phase-label", "{label}" } }
-                            } else {
-                                rsx! {}
-                            }
+                            } else { rsx! {} }
                         }
                     }
                     div {

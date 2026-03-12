@@ -152,6 +152,96 @@ impl Sisters {
         let extracted = extract_text(&result);
         if extracted.is_empty() { None } else { Some(extracted) }
     }
+
+    /// SESSION: Resume previous session — returns last session context for continuity.
+    /// Called once at session start. Returns what happened last time for "where did we stop?" queries.
+    pub async fn memory_session_resume(&self) -> Option<String> {
+        let mem = self.memory.as_ref()?;
+        let result = mem.call_tool("memory_session_resume", serde_json::json!({
+            "include_summary": true,
+            "include_last_topics": true,
+            "max_context_tokens": 500,
+        })).await.ok()?;
+        let extracted = extract_text(&result);
+        if extracted.is_empty() || extracted.contains("No previous session") {
+            None
+        } else {
+            eprintln!("[hydra:session] Resumed previous session context ({} chars)", extracted.len());
+            Some(extracted)
+        }
+    }
+
+    /// SESSION: Start a new memory session for tracking this conversation.
+    pub async fn memory_session_start(&self, user_name: &str) -> Option<String> {
+        let mem = self.memory.as_ref()?;
+        let result = mem.call_tool("session_start", serde_json::json!({
+            "agent_id": user_name,
+            "session_type": "conversation",
+        })).await.ok()?;
+        result.get("session_id").and_then(|v| v.as_str()).map(|s| s.to_string())
+    }
+
+    /// SESSION: End current session — persists state for future resume.
+    pub async fn memory_session_end(&self, summary: &str) {
+        if let Some(mem) = &self.memory {
+            let _ = mem.call_tool("session_end", serde_json::json!({
+                "summary": safe_truncate(summary, 500),
+                "persist": true,
+            })).await;
+        }
+    }
+
+    /// LEARN: Capture user+hydra exchange in the immortal V3 log.
+    /// This is what enables "where did we stop?" — every exchange is captured.
+    pub async fn memory_capture_exchange(&self, user_msg: &str, hydra_response: &str) {
+        if let Some(mem) = &self.memory {
+            // Capture user message
+            let _ = mem.call_tool("memory_capture_message", serde_json::json!({
+                "role": "user",
+                "content": safe_truncate(user_msg, 500),
+                "importance": "normal",
+            })).await;
+            // Capture hydra response
+            let _ = mem.call_tool("memory_capture_message", serde_json::json!({
+                "role": "assistant",
+                "content": safe_truncate(hydra_response, 500),
+                "importance": "normal",
+            })).await;
+        }
+    }
+
+    /// PERCEIVE: Predict what memories will be needed based on current input.
+    /// Returns pre-loaded relevant context — smarter than generic memory_query.
+    pub async fn memory_predict_context(&self, text: &str) -> Option<String> {
+        let mem = self.memory.as_ref()?;
+        let result = mem.call_tool("memory_predict", serde_json::json!({
+            "context": text,
+            "max_results": 5,
+            "include_confidence": true,
+        })).await.ok()?;
+        let extracted = extract_text(&result);
+        if extracted.is_empty() || extracted.contains("No predictions") {
+            None
+        } else {
+            Some(extracted)
+        }
+    }
+
+    /// PERCEIVE: Check for déjà vu — has user visited this topic before?
+    /// Detects returning conversations for context continuity.
+    pub async fn memory_dejavu_check(&self, text: &str) -> Option<String> {
+        let mem = self.memory.as_ref()?;
+        let result = mem.call_tool("memory_dejavu_check", serde_json::json!({
+            "context": text,
+        })).await.ok()?;
+        let extracted = extract_text(&result);
+        if extracted.is_empty() || extracted.contains("No déjà vu") || extracted.contains("No deja vu") {
+            None
+        } else {
+            eprintln!("[hydra:dejavu] Detected returning topic: {}", safe_truncate(&extracted, 80));
+            Some(extracted)
+        }
+    }
 }
 
 /// Detect if user is asking a "why" question (triggers causal chain query).

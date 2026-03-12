@@ -52,9 +52,22 @@ rsx! {
                     if show_challenge && has_challenge {
                         p { class: "approval-challenge", "Type \"{challenge_text}\" to proceed" }
                         input {
-                            class: "challenge-input",
+                            class: if *challenge_input.read() == challenge_text { "challenge-input valid" } else { "challenge-input" },
                             value: "{challenge_input}",
+                            placeholder: "{challenge_text}",
                             oninput: move |e| challenge_input.set(e.value()),
+                            onkeydown: {
+                                let ct = challenge_text.clone();
+                                let approve_enter = card_approval_mgr.clone();
+                                move |e: KeyboardEvent| {
+                                    if e.key() == Key::Enter && *challenge_input.read() == ct {
+                                        if let Some(id) = pending_approval_id.read().clone() {
+                                            let _ = approve_enter.submit_decision(&id, ApprovalDecision::Approved);
+                                        }
+                                        pending_approval.set(None); pending_approval_id.set(None); approval_countdown.set(0);
+                                    }
+                                }
+                            },
                         }
                     }
                     if countdown_val > 0 {
@@ -63,6 +76,9 @@ rsx! {
                             class: "approval-progress-bar",
                             role: "progressbar",
                             aria_label: "Auto-decline countdown",
+                            "aria-valuemin": "0",
+                            "aria-valuemax": "30",
+                            "aria-valuenow": "{countdown_val}",
                             div {
                                 class: "approval-progress-fill",
                                 style: format!("width: {}%", (countdown_val as f32 / 30.0 * 100.0).min(100.0)),
@@ -206,7 +222,8 @@ rsx! {
                                     if samples.len() > 1600 { // at least 0.1s of audio
                                         let wav = voice_capture::encode_wav(&samples, sample_rate);
                                         let key = settings_openai_key.read().clone();
-                                        match voice_capture::transcribe_whisper(wav, &key).await {
+                                        let lang = settings_stt_lang.read().clone();
+                                        match voice_capture::transcribe_whisper(wav, &key, &lang).await {
                                             Ok(text) if !text.is_empty() => {
                                                 input.set(text);
                                                 // Auto-click send
@@ -249,26 +266,25 @@ rsx! {
                 oninput: move |e| {
                     input.set(e.value());
                     if input_error.read().is_some() { input_error.set(None); }
-                    // Auto-resize textarea
                     document::eval("requestAnimationFrame(function(){var t=document.querySelector('.chat-input');if(t){t.style.height='auto';t.style.height=Math.min(t.scrollHeight,150)+'px';}})");
                 },
                 onkeydown: move |e| {
                     if e.key() == Key::Enter && !e.modifiers().shift() {
                         e.prevent_default();
                         let text = input.read().clone();
-                        send_message(text);
-                        // Reset height after send
+                        if !text.trim().is_empty() { send_message(text); }
                         document::eval("requestAnimationFrame(function(){var t=document.querySelector('.chat-input');if(t)t.style.height='auto';})");
                     }
                 },
             }
             button {
-                class: "send-btn",
+                class: if input.read().trim().is_empty() { "send-btn disabled" } else { "send-btn" },
+                disabled: input.read().trim().is_empty(),
                 title: "Send message",
                 aria_label: "Send message",
                 onclick: move |_| {
-                    let text = input.read().clone();
-                    send_message(text);
+                    // Trigger via JS — send_message closure is captured by onkeydown above
+                    document::eval("document.querySelector('.chat-input')?.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))");
                 },
                 span {
                     class: "send-icon",

@@ -161,25 +161,22 @@
                 button {
                     class: "btn-secondary",
                     onclick: move |_| {
-                        #[cfg(target_os = "macos")]
-                        { let _ = std::process::Command::new("open").arg("-e")
-                            .arg(format!("{}/.hydra/mcp.json", std::env::var("HOME").unwrap_or_default()))
-                            .spawn(); }
+                        let path = format!("{}/.hydra/mcp.json", crate::platform::home_dir());
+                        crate::platform::open_in_editor(&path);
                     },
                     "Edit mcp.json"
                 }
                 button {
                     class: "btn-secondary",
                     onclick: move |_| {
-                        let home = std::env::var("HOME").unwrap_or_default();
+                        let home = crate::platform::home_dir();
                         let path = format!("{}/.hydra/mcp.json", home);
                         if !std::path::Path::new(&path).exists() {
                             let dir = format!("{}/.hydra", home);
                             let _ = std::fs::create_dir_all(&dir);
                             let _ = std::fs::write(&path, "{\n  \"mcpServers\": {}\n}\n");
                         }
-                        #[cfg(target_os = "macos")]
-                        { let _ = std::process::Command::new("open").arg("-R").arg(&path).spawn(); }
+                        crate::platform::reveal_in_finder(&path);
                     },
                     "Reveal in Finder"
                 }

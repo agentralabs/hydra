@@ -61,9 +61,8 @@ rsx! {
                 button {
                     class: "btn-mini btn-mini-secondary",
                     onclick: move |_| {
-                        let home = std::env::var("HOME").unwrap_or_default();
-                        let log = format!("{}/.hydra/hydra-desktop.log", home);
-                        let _ = std::process::Command::new("open").arg("-a").arg("Console").arg(&log).spawn();
+                        let log = format!("{}/.hydra/hydra-desktop.log", crate::platform::home_dir());
+                        crate::platform::open_log_viewer(&log);
                     },
                     "View Logs"
                 }
@@ -100,7 +99,7 @@ rsx! {
             button {
                 class: "btn-mini",
                 onclick: move |_| {
-                    let home = std::env::var("HOME").unwrap_or_default();
+                    let home = crate::platform::home_dir();
                     let chat_db = format!("{}/.hydra/chat.db", home);
                     let _ = std::fs::remove_file(&chat_db);
                 },
@@ -115,7 +114,7 @@ rsx! {
             button {
                 class: "btn-mini btn-mini-secondary",
                 onclick: move |_| {
-                    let home = std::env::var("HOME").unwrap_or_default();
+                    let home = crate::platform::home_dir();
                     let src = format!("{}/.hydra/profile.json", home);
                     let date = chrono::Local::now().format("%Y-%m-%d").to_string();
                     let dst = format!("{}/Downloads/hydra-settings-{}.json", home, date);
@@ -132,9 +131,7 @@ rsx! {
             button {
                 class: "btn-mini btn-mini-secondary",
                 onclick: move |_| {
-                    let home = std::env::var("HOME").unwrap_or_default();
-                    let _ = std::process::Command::new("open")
-                        .arg(format!("{}/.hydra", home)).spawn();
+                    crate::platform::open_path(&format!("{}/.hydra", crate::platform::home_dir()));
                 },
                 "Open in Finder"
             }

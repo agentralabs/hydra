@@ -77,6 +77,20 @@ impl Sisters {
                 s.call_tool("cognition_predict", serde_json::json!({"context": text})).await.ok()
             } else { None }
         };
+        // ── Memory prediction: preload likely-needed memories (smarter than generic query) ──
+        let mem_predict_fut = async {
+            if let Some(s) = &self.memory {
+                s.call_tool("memory_predict", serde_json::json!({
+                    "context": text, "max_results": 5, "include_confidence": true,
+                })).await.ok()
+            } else { None }
+        };
+        // ── Déjà vu: detect if user is revisiting a previous topic ──
+        let dejavu_fut = async {
+            if let Some(s) = &self.memory {
+                s.call_tool("memory_dejavu_check", serde_json::json!({"context": text})).await.ok()
+            } else { None }
+        };
 
         // ── Veritas intent verification (detect ambiguity in user query) ──
         let veritas_fut = async {
@@ -120,10 +134,11 @@ impl Sisters {
         };
 
         let (facts_r, memory_r, longevity_r, identity_r, time_r, cognition_r, reality_r,
-             similar_r, ground_r, predict_r, veritas_r, contract_r, planning_r,
-             comm_r, forge_r, temporal_r) =
+             similar_r, ground_r, predict_r, mem_predict_r, dejavu_r, veritas_r, contract_r,
+             planning_r, comm_r, forge_r, temporal_r) =
             tokio::join!(facts_fut, memory_fut, longevity_fut, identity_fut, time_fut, cognition_fut, reality_fut,
-                         similar_fut, ground_fut, predict_fut, veritas_fut, contract_fut, planning_fut,
+                         similar_fut, ground_fut, predict_fut, mem_predict_fut, dejavu_fut,
+                         veritas_fut, contract_fut, planning_fut,
                          comm_fut, forge_fut, temporal_fut);
 
         // Conditional: Codebase tools (if code) — run in parallel
@@ -199,6 +214,8 @@ impl Sisters {
             "comm_context": extract(&comm_r),
             "forge_context": extract(&forge_r),
             "temporal_context": extract(&temporal_r),
+            "memory_prediction": extract(&mem_predict_r),
+            "dejavu_context": extract(&dejavu_r),
             "sisters_online": self.connected_count(),
         })
     }

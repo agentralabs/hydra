@@ -29,6 +29,7 @@ pub mod ui;
 pub mod widgets;
 
 use std::io;
+#[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 
 use crossterm::{
@@ -47,8 +48,9 @@ use event::{Event, EventHandler};
 use hydra_native::sisters::SistersHandle;
 
 /// Redirect ALL stderr to a log file. Returns original fd for restore.
+#[cfg(unix)]
 fn redirect_stderr_to_log() -> Option<i32> {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
     let log_dir = format!("{}/.hydra", home);
     let _ = std::fs::create_dir_all(&log_dir);
     let log_path = format!("{}/hydra-tui.log", log_dir);
@@ -65,12 +67,15 @@ fn redirect_stderr_to_log() -> Option<i32> {
     }
     let fd = log_file.as_raw_fd();
     unsafe { libc::dup2(fd, 2) };
-    // Keep log_file alive — dropping it would close the fd we just redirected to
     std::mem::forget(log_file);
     Some(original_fd)
 }
 
+#[cfg(not(unix))]
+fn redirect_stderr_to_log() -> Option<i32> { None }
+
 /// Restore stderr from saved fd.
+#[cfg(unix)]
 fn restore_stderr(saved_fd: Option<i32>) {
     if let Some(fd) = saved_fd {
         unsafe {
@@ -79,6 +84,9 @@ fn restore_stderr(saved_fd: Option<i32>) {
         }
     }
 }
+
+#[cfg(not(unix))]
+fn restore_stderr(_saved_fd: Option<i32>) {}
 
 /// Draw the splash/boot screen with a progress bar.
 fn draw_splash(
@@ -94,18 +102,10 @@ fn draw_splash(
     let _ = terminal.draw(|frame| {
         let area = frame.area();
 
-        // Progress bar characters
         let bar_width = 30usize;
         let filled = (bar_width as f64 * pct as f64 / 100.0) as usize;
-        let empty = bar_width.saturating_sub(filled);
-        let bar = format!("{}{}",
-            "█".repeat(filled),
-            "░".repeat(empty),
-        );
-
+        let bar = format!("{}{}", "█".repeat(filled), "░".repeat(bar_width.saturating_sub(filled)));
         let mut lines: Vec<Line> = Vec::new();
-
-        // Vertical centering
         let content_height = 16;
         let pad_top = area.height.saturating_sub(content_height) / 2;
         for _ in 0..pad_top {
@@ -256,9 +256,10 @@ pub async fn run() -> io::Result<()> {
         let _ = sisters_tx.send(handle);
     });
 
-    // STEP 7: Animate progress bar while waiting for sisters
+    // STEP 7: Animate progress bar while waiting for sisters (30s timeout)
     {
         let mut tick = 0u32;
+        let boot_start = std::time::Instant::now();
         loop {
             // Check if sisters are ready
             if let Ok(handle) = sisters_rx.try_recv() {
@@ -314,6 +315,23 @@ pub async fn run() -> io::Result<()> {
             };
 
             draw_splash(&mut terminal, label, pct);
+
+            // Timeout: after 30s, start the TUI without sisters rather than hang forever
+            if boot_start.elapsed().as_secs() > 30 {
+                draw_splash(&mut terminal, "Starting without sisters...", 95);
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                let mut app = App::new();
+                let event_handler = EventHandler::new(250);
+                // No sisters — app will show diagnostic when user sends a message
+                terminal.draw(|frame| ui::render(frame, &mut app))?;
+                let result = run_loop(&mut terminal, &mut app, &event_handler).await;
+                restore_stderr(saved_stderr);
+                disable_raw_mode()?;
+                execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+                terminal.show_cursor()?;
+                print_conversation(&app);
+                return result;
+            }
 
             // ~60fps would be 16ms, but 100ms is smooth enough and light on CPU
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;

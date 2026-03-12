@@ -133,10 +133,10 @@ rsx! {
                     if e.key() == Key::Enter {
                         let text = input.read().clone();
                         if !text.is_empty() {
-                            // Seamless transition: send the message AND switch to chat
                             current_mode.set("workspace".into());
                             show_sidebar.set(true);
-                            send_message(text);
+                            // Dispatch to main chat input — send_message is captured there
+                            document::eval("setTimeout(function(){var t=document.querySelector('.chat-input');if(t){t.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))}},50)");
                         }
                     }
                 },

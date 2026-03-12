@@ -34,6 +34,7 @@ async fn run_offline(text: &str) -> Vec<CognitiveUpdate> {
         history: vec![],
         session_count: 0,
         anthropic_oauth_token: None,
+        runtime: Default::default(),
     };
 
     let sisters = Arc::new(Sisters::empty());
@@ -48,7 +49,7 @@ async fn run_offline(text: &str) -> Vec<CognitiveUpdate> {
             Some(sisters),
             tx,
             decide,
-            None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None, None,
         ),
     ).await;
 

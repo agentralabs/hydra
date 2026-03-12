@@ -11,6 +11,6 @@ pub mod task_persistence;
 pub mod tools;
 
 // Re-exports
-pub use cognitive::{AgentSpawner, CognitiveLoopConfig, CognitiveUpdate, DecideEngine, DecideResult, InventionEngine, run_cognitive_loop};
+pub use cognitive::{AgentSpawner, CapabilityRegistry, CognitiveLoopConfig, CognitiveUpdate, DecideEngine, DecideResult, InventionEngine, RuntimeSettings, run_cognitive_loop};
 pub use cognitive::streaming::{StreamBuffer, StreamingConfig, StreamState};
 pub use sisters::{init_sisters, Sisters, SistersHandle};

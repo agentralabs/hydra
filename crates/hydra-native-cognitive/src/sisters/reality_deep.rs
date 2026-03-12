@@ -75,7 +75,7 @@ impl Sisters {
 }
 
 /// Local environment probe — runs even when Reality sister is offline.
-fn local_probe() -> EnvironmentProfile {
+pub fn local_probe() -> EnvironmentProfile {
     let os = std::env::consts::OS.to_string();
     let arch = std::env::consts::ARCH.to_string();
 

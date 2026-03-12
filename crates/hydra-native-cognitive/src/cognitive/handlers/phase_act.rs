@@ -56,9 +56,35 @@ pub(crate) async fn run_act(
     let _ = tx.send(CognitiveUpdate::Phase("Act".into()));
     let _ = tx.send(CognitiveUpdate::IconState("working".into()));
     let act_start = Instant::now();
+    let rt = &config.runtime;
+
+    // Runtime permission enforcement — block actions the user has disabled
+    if !rt.shell_exec && response_text.contains("<hydra-exec") {
+        eprintln!("[hydra:act] Shell execution disabled by user settings");
+        let _ = tx.send(CognitiveUpdate::Message { role: "hydra".into(), content: "Shell execution is disabled in your settings. Enable it in Settings > Policies to allow command execution.".into(), css_class: "message hydra".into() });
+        let _ = tx.send(CognitiveUpdate::ResetIdle);
+        return ActResult { final_response: response_text.to_string(), all_exec_results: vec![], act_ms: act_start.elapsed().as_millis() as u64 };
+    }
 
     // Alias for compatibility
     let llm_result: Result<(), String> = if llm_ok { Ok(()) } else { Err("LLM failed".into()) };
+
+    // Planning sister: create goal for complex tasks
+    let planning_goal_id = if is_complex {
+        if let Some(ref sh) = sisters_handle {
+            sh.planning_create_goal(
+                &hydra_native_state::utils::safe_truncate(text, 80),
+                &[], None,
+            ).await
+        } else { None }
+    } else { None };
+
+    // Planning: checkpoint phase for crash recovery
+    if let Some(ref goal_id) = planning_goal_id {
+        if let Some(ref sh) = sisters_handle {
+            sh.planning_checkpoint_phase(goal_id, "act", "started", "ACT phase beginning").await;
+        }
+    }
 
     let mut final_response = response_text.to_string();
     if is_complex && llm_result.is_ok() {
@@ -136,6 +162,19 @@ pub(crate) async fn run_act(
         }
     }
 
+    // Aegis: validate output before delivery
+    if let Some(ref sh) = sisters_handle {
+        if let Some(validation) = sh.aegis_validate_output(text, &final_response).await {
+            if !validation.safe {
+                eprintln!("[hydra:aegis] Output validation warning: {}", validation.reason);
+                let _ = tx.send(CognitiveUpdate::EvidenceMemory {
+                    title: "Output Security Check".to_string(),
+                    content: format!("[{:?}] {}", validation.severity, validation.reason),
+                });
+            }
+        }
+    }
+
     // Sign receipt via Identity sister
     if let Some(ref sh) = sisters_handle {
         if let Some(id) = &sh.identity {
@@ -145,6 +184,18 @@ pub(crate) async fn run_act(
                 "gate_decision": gate_decision,
                 "tokens_used": input_tokens + output_tokens,
             })).await;
+        }
+    }
+
+    // Identity: create execution receipt via delegation
+    if let Some(ref sh) = sisters_handle {
+        sh.act_receipt(text, risk_level, llm_ok).await;
+    }
+
+    // Vision: capture screen state after execution (complex tasks only)
+    if is_complex {
+        if let Some(ref sh) = sisters_handle {
+            let _ = sh.act_vision_capture(text).await;
         }
     }
 
@@ -198,6 +249,15 @@ pub(crate) async fn run_act(
                     final_response.push_str(&format!("\n\n{}", msg));
                 }
             }
+        }
+    }
+
+    // Planning: update goal progress
+    if let Some(ref goal_id) = planning_goal_id {
+        if let Some(ref sh) = sisters_handle {
+            let status = if all_exec_results.iter().all(|(_, _, s)| *s) { "progressing" } else { "partial" };
+            let step_idx = all_exec_results.len().min(10);
+            sh.planning_update_progress(goal_id, step_idx, status).await;
         }
     }
 

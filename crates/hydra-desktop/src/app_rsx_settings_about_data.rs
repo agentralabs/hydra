@@ -33,7 +33,7 @@
         h4 { class: "about-data-heading", "Sister Data" }
         div { class: "about-data-table",
             for (name, dir, desc) in sisters.iter() {
-                { let dir_path = format!("{}/.{}", std::env::var("HOME").unwrap_or_default(),
+                { let dir_path = format!("{}/.{}", crate::platform::home_dir(),
                     dir.trim_start_matches('.'));
                   let exists = std::path::Path::new(&dir_path).exists();
                   let dir_s = dir.to_string();
@@ -58,15 +58,12 @@
                                             let n = name_c.clone();
                                             let mut status = backup_status.clone();
                                             spawn(async move {
-                                                let home = std::env::var("HOME").unwrap_or_default();
+                                                let home = crate::platform::home_dir();
                                                 let src = format!("{}/{}", home, d);
                                                 let date = chrono::Local::now().format("%Y-%m-%d").to_string();
                                                 let zip = format!("{}/Downloads/{}-export-{}.zip", home, n.to_lowercase(), date);
-                                                let r = std::process::Command::new("zip")
-                                                    .arg("-r").arg("-q").arg(&zip).arg(&src).output();
-                                                match r {
-                                                    Ok(o) if o.status.success() => status.set(format!("done: {}", zip)),
-                                                    Ok(o) => status.set(format!("error: {}", String::from_utf8_lossy(&o.stderr).trim())),
+                                                match crate::platform::zip_directory(&src, &zip) {
+                                                    Ok(()) => status.set(format!("done: {}", zip)),
                                                     Err(e) => status.set(format!("error: {}", e)),
                                                 }
                                             });
@@ -80,10 +77,7 @@
                                     onclick: {
                                         let dir_c = dir_s.clone();
                                         move |_| {
-                                            let home = std::env::var("HOME").unwrap_or_default();
-                                            let _ = std::process::Command::new("open")
-                                                .arg(format!("{}/{}", home, dir_c))
-                                                .spawn();
+                                            crate::platform::open_path(&format!("{}/{}", crate::platform::home_dir(), dir_c));
                                         }
                                     },
                                     "Open"
@@ -119,7 +113,7 @@
                         backup_status.set("running".to_string());
                         let mut status = backup_status.clone();
                         spawn(async move {
-                            let home = std::env::var("HOME").unwrap_or_default();
+                            let home = crate::platform::home_dir();
                             let date = chrono::Local::now().format("%Y-%m-%d").to_string();
                             let zip_path = format!("{}/Downloads/hydra-backup-{}.zip", home, date);
                             let dirs: Vec<String> = [
@@ -134,11 +128,14 @@
                                 status.set("error: No data directories found".to_string());
                                 return;
                             }
-                            match std::process::Command::new("zip")
-                                .arg("-r").arg("-q").arg(&zip_path).args(&dirs).output() {
+                            // Zip all existing dirs into one backup
+                            let args: Vec<&str> = std::iter::once("-r").chain(std::iter::once("-q"))
+                                .chain(std::iter::once(zip_path.as_str()))
+                                .chain(dirs.iter().map(|s| s.as_str())).collect();
+                            match std::process::Command::new("zip").args(&args).output() {
                                 Ok(o) if o.status.success() => status.set(format!("done: {}", zip_path)),
                                 Ok(o) => status.set(format!("error: {}", String::from_utf8_lossy(&o.stderr).trim())),
-                                Err(e) => status.set(format!("error: {}", e)),
+                                Err(e) => status.set(format!("error: zip not available: {}", e)),
                             }
                         });
                     },
@@ -147,9 +144,7 @@
                 button {
                     class: "btn-secondary",
                     onclick: move |_| {
-                        let home = std::env::var("HOME").unwrap_or_default();
-                        let _ = std::process::Command::new("open")
-                            .arg(format!("{}/.hydra", home)).spawn();
+                        crate::platform::open_path(&format!("{}/.hydra", crate::platform::home_dir()));
                     },
                     "Open ~/.hydra/ in Finder"
                 }
@@ -170,10 +165,7 @@
                         onclick: move |_| {
                             let p = backup_status.read().clone();
                             if let Some(path) = p.strip_prefix("done: ") {
-                                let dir = std::path::Path::new(path)
-                                    .parent().map(|p| p.to_string_lossy().to_string())
-                                    .unwrap_or_default();
-                                let _ = std::process::Command::new("open").arg(&dir).spawn();
+                                crate::platform::reveal_in_finder(path);
                             }
                         },
                         "Show in Finder"
