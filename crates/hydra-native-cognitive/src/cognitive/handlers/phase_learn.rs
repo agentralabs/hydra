@@ -354,11 +354,14 @@ pub(crate) async fn run_learn(
 
     // ═══════════════════════════════════════════════════════════
     // DELIVER — Show final response to user
+    // When LLM succeeded, StreamChunk already delivered the visible response.
+    // Use css_class "history-only" to signal UIs not to add a duplicate bubble.
     // ═══════════════════════════════════════════════════════════
+    let css = if llm_result.is_ok() { "history-only" } else { "message hydra" };
     let _ = tx.send(CognitiveUpdate::Message {
         role: "hydra".into(),
         content: final_response.to_string(),
-        css_class: "message hydra".into(),
+        css_class: css.into(),
     });
 
     if !is_simple {

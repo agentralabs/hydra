@@ -61,9 +61,14 @@ impl EventHandler {
         }
     }
 
-    /// Poll for the next event. This is synchronous but uses crossterm's poll.
+    /// Poll for the next event with a short timeout for responsiveness.
+    /// Uses a 16ms poll (≈60fps) so cognitive updates are processed quickly.
+    /// The tick_rate controls the minimum interval between tick callbacks.
     pub async fn next(&self) -> io::Result<Event> {
-        if event::poll(self.tick_rate)? {
+        // Use short poll (16ms) so cognitive updates are visible in real-time.
+        // Tick events fire at tick_rate intervals even if no terminal events occur.
+        let poll_timeout = Duration::from_millis(16);
+        if event::poll(poll_timeout)? {
             match event::read()? {
                 CrosstermEvent::Key(key) => Ok(Event::Key(key)),
                 CrosstermEvent::Mouse(mouse) => Ok(Event::Mouse(mouse)),

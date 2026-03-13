@@ -70,7 +70,7 @@ impl App {
                         self.thinking_status = "Thinking...".into();
                     }
                 }
-                CognitiveUpdate::Message { role, content, .. } => {
+                CognitiveUpdate::Message { role, content, css_class } => {
                     let msg_role = match role.as_str() {
                         "user" => MessageRole::User,
                         "hydra" | "assistant" => MessageRole::Hydra,
@@ -80,13 +80,16 @@ impl App {
                     let api_role = if msg_role == MessageRole::User { "user" } else { "assistant" };
                     self.conversation_history.push((api_role.to_string(), content.clone()));
 
-                    self.messages.push(Message {
-                        role: msg_role,
-                        content,
-                        timestamp: timestamp.clone(),
-                        phase: self.current_phase.clone(),
-                    });
-                    self.scroll_to_bottom();
+                    // "history-only" = already displayed via streaming, skip visible push
+                    if css_class != "history-only" {
+                        self.messages.push(Message {
+                            role: msg_role,
+                            content,
+                            timestamp: timestamp.clone(),
+                            phase: self.current_phase.clone(),
+                        });
+                        self.scroll_to_bottom();
+                    }
                 }
                 CognitiveUpdate::ResetIdle => {
                     self.current_phase = None;

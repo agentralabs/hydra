@@ -99,6 +99,9 @@ pub(crate) async fn execute_llm_call(
         let active_model_owned = active_model.to_string();
         let provider_owned = provider.to_string();
         let tx_stream = tx.clone();
+        // Signal TUI that streaming is about to begin — MUST happen before first StreamChunk
+        // so the TUI's is_thinking flag is true and chunks append to one message bubble.
+        let _ = tx.send(CognitiveUpdate::Typing(true));
         let llm_future = async {
             let chunk_cb = |chunk: &str| {
                 let _ = tx_stream.send(CognitiveUpdate::StreamChunk { content: chunk.to_string() });

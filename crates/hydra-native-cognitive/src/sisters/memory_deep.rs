@@ -9,16 +9,19 @@ use hydra_native_state::utils::safe_truncate;
 
 impl Sisters {
     /// PERCEIVE: Causal chain query for "why" questions.
-    /// Uses memory_causal to retrieve reasoning chains instead of flat facts.
+    /// Queries decisions and their reasoning context for causal understanding.
     pub async fn memory_causal_query(&self, text: &str) -> Option<String> {
         let mem = self.memory.as_ref()?;
-        let result = mem.call_tool("memory_causal", serde_json::json!({
+        // Query decisions specifically — they have reasoning metadata
+        let result = mem.call_tool("memory_query", serde_json::json!({
             "query": text,
-            "max_depth": 5,
-            "include_reasoning": true,
+            "event_types": ["decision"],
+            "max_results": 3,
+            "sort_by": "highest_confidence",
+            "include_edges": true,
         })).await.ok()?;
         let extracted = extract_text(&result);
-        if extracted.is_empty() || extracted.contains("No causal") {
+        if extracted.is_empty() || extracted.contains("No memories") || extracted.contains("Invalid params") {
             None
         } else {
             Some(extracted)

@@ -214,7 +214,10 @@
                                 pulse_rx.learn(&last_user, &content);
                             }
                         }
-                        messages.write().push((role, content, css_class));
+                        // "history-only" = already displayed via streaming, skip visible push
+                        if css_class != "history-only" {
+                            messages.write().push((role, content, css_class));
+                        }
                     }
                     CognitiveUpdate::SidebarCompleteTask(id) => { sidebar.write().complete_task(&id); }
                     CognitiveUpdate::Celebrate(msg) => {

@@ -276,7 +276,7 @@ pub async fn run() -> io::Result<()> {
 
                 // Transition to full TUI
                 let mut app = App::new();
-                let event_handler = EventHandler::new(250);
+                let event_handler = EventHandler::new(50); // 50ms tick for responsive streaming
                 app.on_sisters_ready(handle);
                 terminal.draw(|frame| ui::render(frame, &mut app))?;
 
@@ -329,7 +329,7 @@ pub async fn run() -> io::Result<()> {
                 draw_splash(&mut terminal, "Starting without sisters...", 95);
                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                 let mut app = App::new();
-                let event_handler = EventHandler::new(250);
+                let event_handler = EventHandler::new(50);
                 // No sisters — app will show diagnostic when user sends a message
                 terminal.draw(|frame| ui::render(frame, &mut app))?;
                 let result = run_loop(&mut terminal, &mut app, &event_handler).await;
@@ -364,14 +364,11 @@ pub async fn run() -> io::Result<()> {
 
 fn print_conversation(app: &App) {
     let (v, w) = (env!("CARGO_PKG_VERSION"), 80usize);
-    let title = format!(" Hydra v{} ", v);
-    println!("\n┌{}{}{}┐", "─".repeat(3), title, "─".repeat(w.saturating_sub(3 + title.len() + 2)));
-    println!("│  Welcome back {}!  {} · {}", app.user_name, app.model_name, app.working_dir);
-    println!("│  {}/{} sisters · {}+ tools · {}%", app.connected_count, app.total_sisters, app.tool_count, app.health_pct);
+    let t = format!(" Hydra v{} ", v);
+    println!("\n┌{}{}{}┐", "─".repeat(3), t, "─".repeat(w.saturating_sub(3 + t.len() + 2)));
+    println!("│  {} · {} · {}/{} sisters", app.user_name, app.model_name, app.connected_count, app.total_sisters);
     println!("└{}┘\n", "─".repeat(w.saturating_sub(2)));
-    for msg in &app.messages {
-        match msg.role { app::MessageRole::User => println!("> {}\n", msg.content), _ => println!("  {}\n", msg.content) }
-    }
+    for m in &app.messages { if m.role == app::MessageRole::User { println!("> {}\n", m.content) } else { println!("  {}\n", m.content) } }
 }
 
 async fn run_loop(
@@ -379,21 +376,25 @@ async fn run_loop(
     app: &mut App,
     event_handler: &EventHandler,
 ) -> io::Result<()> {
+    let mut render_errs = 0u32;
     loop {
-        terminal.draw(|frame| ui::render(frame, app))?;
+        // Render with recovery — don't crash TUI on transient render failures
+        match terminal.draw(|frame| ui::render(frame, app)) {
+            Ok(_) => { render_errs = 0; }
+            Err(e) => {
+                render_errs += 1;
+                eprintln!("[hydra:tui] Render error ({}): {}", render_errs, e);
+                if render_errs >= 10 { return Err(e); } // terminal likely disconnected
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                continue;
+            }
+        }
 
         match event_handler.next().await? {
-            Event::Tick => {
-                app.tick();
-            }
-            Event::Key(key_event) => {
-                event::handle_key_event(app, key_event);
-            }
+            Event::Tick => app.tick(),
+            Event::Key(key_event) => event::handle_key_event(app, key_event),
             Event::Mouse(_) | Event::Resize(_, _) => {}
         }
-
-        if app.should_quit {
-            return Ok(());
-        }
+        if app.should_quit { return Ok(()); }
     }
 }

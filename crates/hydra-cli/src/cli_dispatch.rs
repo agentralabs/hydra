@@ -181,6 +181,18 @@ pub fn dispatch(args: &[String]) {
         "trust" => commands::trust::execute(),
         "inventions" => commands::inventions::execute(),
         "mcp" => dispatch_mcp(args),
+        "tui" => {
+            // Launch interactive TUI (same as running with no args)
+            let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
+            match rt.block_on(crate::tui::run()) {
+                Ok(()) => {}
+                Err(e) => {
+                    eprintln!("TUI error: {}", e);
+                    eprintln!("Falling back to basic REPL...");
+                    crate::repl::run();
+                }
+            }
+        }
         "health" => super::cmd_health(),
         "help" | "--help" | "-h" => super::print_help(),
         "version" | "--version" | "-V" => super::print_version(),

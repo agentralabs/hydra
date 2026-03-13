@@ -68,17 +68,17 @@ impl App {
         self.process_running_command();
         if was_at_bottom { self.scroll_offset = 0; }
 
-        // Idle timer — tick_idle every ~1 second (4 ticks × 250ms).
-        if self.tick_count % 4 == 0 {
+        // Idle timer — tick_idle every ~1 second (20 ticks × 50ms).
+        if self.tick_count % 20 == 0 {
             self.invention_engine.tick_idle(1);
-            if self.tick_count % 40 == 0 {
+            if self.tick_count % 200 == 0 {
                 if let Some(dream_text) = self.invention_engine.maybe_dream() {
                     eprintln!("[hydra:tui:dream] {}", hydra_native::utils::safe_truncate(&dream_text, 200));
                 }
             }
         }
         // File watcher: drain changes and generate suggestions every ~4 seconds
-        if self.tick_count % 16 == 8 {
+        if self.tick_count % 80 == 40 {
             if let Some(ref watcher) = self.file_watcher {
                 let changes = watcher.drain_changes();
                 if !changes.is_empty() {
@@ -97,8 +97,8 @@ impl App {
                 }
             }
         }
-        // PR status check — every ~60 seconds (240 ticks × 250ms) (spec §11)
-        if self.tick_count % 240 == 0 && self.tick_count > 0 {
+        // PR status check — every ~60 seconds (1200 ticks × 50ms) (spec §11)
+        if self.tick_count % 1200 == 0 && self.tick_count > 0 {
             self.check_pr_status();
         }
     }

@@ -102,6 +102,9 @@ fn tick_index(len: usize) -> usize {
 }
 
 /// Handle memory recall — natural conversational response.
+///
+/// Three strategies: (1) causal chain for "why" questions, (2) sister memory query,
+/// (3) conversation history fallback when sisters are offline.
 pub(crate) async fn handle_memory_recall(
     text: &str,
     intent: &ClassifiedIntent,
@@ -116,114 +119,126 @@ pub(crate) async fn handle_memory_recall(
     let _ = tx.send(CognitiveUpdate::Phase("Recall".into()));
     let _ = tx.send(CognitiveUpdate::IconState("working".into()));
 
-    let sh = match sisters_handle.as_ref() {
-        Some(sh) => sh,
-        None => return false,
-    };
-    let mem = match sh.memory.as_ref() {
-        Some(mem) => mem,
-        None => return false,
-    };
-
-    // Build LLM config for the micro-formatting call (sanitized keys)
     let recall_llm_config = hydra_model::LlmConfig::from_env_with_overlay(
-        &config.anthropic_key,
-        &config.openai_key,
-        config.anthropic_oauth_token.as_deref(),
+        &config.anthropic_key, &config.openai_key, config.anthropic_oauth_token.as_deref(),
     );
     let recall_model = if recall_llm_config.anthropic_api_key.is_some() {
         "claude-haiku-4-5-20251001"
-    } else {
-        &config.model
-    };
-
-    // Extract topic for targeted query
+    } else { &config.model };
     let recall_topic = extract_memory_topic(text);
-    eprintln!("[hydra:recall] Extracted topic: '{}'", recall_topic);
+    eprintln!("[hydra:recall] topic='{}' is_why={}", recall_topic, crate::sisters::memory_deep::is_why_question(text));
 
-    // Query facts first (high-signal), then general
-    let facts_result = mem.call_tool("memory_query", serde_json::json!({
-        "query": if recall_topic.is_empty() { text.to_string() } else { recall_topic.clone() },
-        "event_types": ["fact", "correction", "decision"],
-        "max_results": 5,
-        "sort_by": "highest_confidence"
-    })).await;
-
-    let fact_text = facts_result.ok()
-        .map(|v| crate::sisters::extract_text(&v))
-        .filter(|t| !t.is_empty() && !t.contains("No memories found"));
-
-    if let Some(ref raw_facts) = fact_text {
-        eprintln!("[hydra:recall] Found facts: {}", safe_truncate(raw_facts, 200));
-        let facts = extract_memory_facts(raw_facts);
-        let facts = filter_facts_by_relevance(&facts, &recall_topic);
-        if !facts.is_empty() {
-            let formatted = format_memory_recall_naturally(
-                text, &facts, &config.user_name, &recall_llm_config, recall_model
-            ).await;
-            let _ = tx.send(CognitiveUpdate::Message {
-                role: "hydra".into(),
-                content: formatted,
-                css_class: "message hydra".into(),
-            });
-            let _ = tx.send(CognitiveUpdate::ResetIdle);
-            return true;
-        }
-    }
-
-    // No facts found — try general memory
-    let general_result = mem.call_tool("memory_query", serde_json::json!({
-        "query": text,
-        "max_results": 5
-    })).await;
-
-    let general_text = general_result.ok()
-        .map(|v| crate::sisters::extract_text(&v))
-        .filter(|t| !t.is_empty() && !t.contains("No memories found"));
-
-    if let Some(ref raw_general) = general_text {
-        eprintln!("[hydra:recall] Found general memory: {}", safe_truncate(raw_general, 200));
-        let facts = extract_memory_facts(raw_general);
-        if !facts.is_empty() {
-            let formatted = format_memory_recall_naturally(
-                text, &facts, &config.user_name, &recall_llm_config, recall_model
-            ).await;
-            let _ = tx.send(CognitiveUpdate::Message {
-                role: "hydra".into(),
-                content: formatted,
-                css_class: "message hydra".into(),
-            });
-            let _ = tx.send(CognitiveUpdate::ResetIdle);
-            return true;
-        }
-    }
-
-    // Also check beliefs
-    if let Some(ref cog) = sh.cognition {
-        let beliefs_result = cog.call_tool("cognition_belief_query", serde_json::json!({"query": text})).await;
-        let belief_text = beliefs_result.ok()
-            .map(|v| crate::sisters::extract_text(&v))
-            .filter(|t| !t.is_empty());
-        if let Some(ref raw_beliefs) = belief_text {
-            let facts = extract_memory_facts(raw_beliefs);
-            if !facts.is_empty() {
-                let formatted = format_memory_recall_naturally(
-                    text, &facts, &config.user_name, &recall_llm_config, recall_model
-                ).await;
-                let _ = tx.send(CognitiveUpdate::Message {
-                    role: "hydra".into(),
-                    content: formatted,
-                    css_class: "message hydra".into(),
-                });
-                let _ = tx.send(CognitiveUpdate::ResetIdle);
-                return true;
+    // Strategy 1: "Why" questions → decision query (deeper reasoning)
+    if crate::sisters::memory_deep::is_why_question(text) {
+        if let Some(ref sh) = sisters_handle {
+            if let Some(causal_raw) = sh.memory_causal_query(text).await {
+                eprintln!("[hydra:recall] Causal query returned: {}", safe_truncate(&causal_raw, 200));
+                let facts = extract_memory_facts(&causal_raw);
+                let facts = filter_facts_by_relevance(&facts, &recall_topic);
+                if !facts.is_empty() {
+                    let formatted = format_memory_recall_naturally(
+                        text, &facts, &config.user_name, &recall_llm_config, recall_model,
+                    ).await;
+                    return send_recall_response(&formatted, tx);
+                }
             }
         }
     }
 
-    // Nothing found — let it fall through to LLM
+    // Strategy 2: Sister memory query (facts, general, beliefs)
+    if let Some(facts) = query_sister_memory(text, &recall_topic, sisters_handle).await {
+        let facts = filter_facts_by_relevance(&facts, &recall_topic);
+        if !facts.is_empty() {
+            let formatted = format_memory_recall_naturally(
+                text, &facts, &config.user_name, &recall_llm_config, recall_model,
+            ).await;
+            return send_recall_response(&formatted, tx);
+        }
+    }
+
+    // Strategy 3: Conversation history fallback (works without sisters)
+    let history_facts = extract_facts_from_history(&config.history);
+    if !history_facts.is_empty() {
+        eprintln!("[hydra:recall] Using {} facts from conversation history", history_facts.len());
+        let relevant = filter_facts_by_relevance(&history_facts, &recall_topic);
+        let formatted = format_memory_recall_naturally(
+            text, &relevant, &config.user_name, &recall_llm_config, recall_model,
+        ).await;
+        return send_recall_response(&formatted, tx);
+    }
+
     eprintln!("[hydra:recall] No memories found, falling through to LLM");
     false
+}
+
+/// Send a recall response and reset idle.
+fn send_recall_response(content: &str, tx: &mpsc::UnboundedSender<CognitiveUpdate>) -> bool {
+    let _ = tx.send(CognitiveUpdate::Message {
+        role: "hydra".into(), content: content.to_string(), css_class: "message hydra".into(),
+    });
+    let _ = tx.send(CognitiveUpdate::ResetIdle);
+    true
+}
+
+/// Query sister memory — facts, general, beliefs (returns None if sisters offline).
+async fn query_sister_memory(
+    text: &str,
+    topic: &str,
+    sisters_handle: &Option<SistersHandle>,
+) -> Option<Vec<String>> {
+    let sh = sisters_handle.as_ref()?;
+    let mem = sh.memory.as_ref()?;
+    let query = if topic.is_empty() { text.to_string() } else { topic.to_string() };
+
+    // Try high-signal facts first
+    if let Ok(v) = mem.call_tool("memory_query", serde_json::json!({
+        "query": query, "event_types": ["fact", "correction", "decision"],
+        "max_results": 5, "sort_by": "highest_confidence"
+    })).await {
+        let raw = crate::sisters::extract_text(&v);
+        if !raw.is_empty() && !raw.contains("No memories found") {
+            let facts = extract_memory_facts(&raw);
+            if !facts.is_empty() { return Some(facts); }
+        }
+    }
+    // Try general memory
+    if let Ok(v) = mem.call_tool("memory_query", serde_json::json!({"query": text, "max_results": 5})).await {
+        let raw = crate::sisters::extract_text(&v);
+        if !raw.is_empty() && !raw.contains("No memories found") {
+            let facts = extract_memory_facts(&raw);
+            if !facts.is_empty() { return Some(facts); }
+        }
+    }
+    // Try beliefs
+    if let Some(ref cog) = sh.cognition {
+        if let Ok(v) = cog.call_tool("cognition_belief_query", serde_json::json!({"query": text})).await {
+            let raw = crate::sisters::extract_text(&v);
+            if !raw.is_empty() {
+                let facts = extract_memory_facts(&raw);
+                if !facts.is_empty() { return Some(facts); }
+            }
+        }
+    }
+    None
+}
+
+/// Extract useful facts from conversation history when sisters are offline.
+fn extract_facts_from_history(history: &[(String, String)]) -> Vec<String> {
+    let mut facts = Vec::new();
+    for (role, content) in history.iter().rev().take(20) {
+        if role == "user" {
+            // Extract decision statements
+            let lower = content.to_lowercase();
+            if lower.contains("decided") || lower.contains("chose") || lower.contains("prefer")
+                || lower.contains("my favorite") || lower.contains("i use ")
+                || lower.contains("i work") || lower.contains("i'm a ")
+            {
+                facts.push(normalize_memory_for_storage(content));
+            }
+        }
+    }
+    facts.truncate(5);
+    facts
 }
 
 /// Handle natural language settings detection.
@@ -273,26 +288,38 @@ pub(crate) async fn handle_memory_store(
     let fact = normalize_memory_for_storage(&fact);
     eprintln!("[hydra:memory] Saving directly: {}", safe_truncate(&fact, 80));
 
+    // Detect decision vs. preference for proper event typing
+    let lower_fact = fact.to_lowercase();
+    let is_decision = lower_fact.contains("decided") || lower_fact.contains("chose")
+        || lower_fact.contains("going with") || lower_fact.contains("switching to")
+        || text.to_lowercase().contains("decided") || text.to_lowercase().contains("chose");
+    let (event_type, prefix) = if is_decision {
+        ("decision", "User decision: ")
+    } else {
+        ("fact", "User preference: ")
+    };
+
     let mut saved = false;
     if let Some(ref sh) = sisters_handle {
         if let Some(ref mem) = sh.memory {
             let payload = serde_json::json!({
-                "event_type": "fact",
-                "content": format!("User preference: {}", fact),
+                "event_type": event_type,
+                "content": format!("{}{}", prefix, fact),
                 "confidence": 0.95
             });
             match mem.call_tool("memory_add", payload).await {
                 Ok(v) => {
                     saved = true;
-                    eprintln!("[hydra:memory] memory_add OK: {}", serde_json::to_string(&v).unwrap_or_default());
+                    eprintln!("[hydra:memory] memory_add OK ({}): {}", event_type, serde_json::to_string(&v).unwrap_or_default());
                 }
                 Err(e) => { eprintln!("[hydra:memory] memory_add FAILED: {}", e); }
             }
         }
         // Also store as a belief via cognition
         if let Some(ref cog) = sh.cognition {
+            let subject = if is_decision { "user_decision" } else { "user_preference" };
             let _ = cog.call_tool("cognition_belief_add", serde_json::json!({
-                "subject": "user_preference",
+                "subject": subject,
                 "content": fact,
                 "confidence": 1.0,
                 "source": "explicit_user_statement"

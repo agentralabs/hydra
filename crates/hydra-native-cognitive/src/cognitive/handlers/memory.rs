@@ -10,19 +10,39 @@ pub(crate) fn extract_memory_facts(raw: &str) -> Vec<String> {
             return nodes.iter()
                 .filter_map(|node| {
                     node.get("content").and_then(|c| c.as_str()).map(|s| {
-                        s.strip_prefix("User preference: ")
+                        // Strip common prefixes
+                        let cleaned = s.strip_prefix("User preference: ")
+                            .or_else(|| s.strip_prefix("User decision: "))
                             .or_else(|| s.strip_prefix("User stated: "))
                             .or_else(|| s.strip_prefix("User fact: "))
                             .or_else(|| s.strip_prefix("Fact: "))
-                            .unwrap_or(s)
-                            .to_string()
+                            .unwrap_or(s);
+                        // Strip "User: X\nHydra: Y" transcript format — keep only the user part
+                        if let Some(user_part) = cleaned.strip_prefix("User: ") {
+                            user_part.split("\nHydra:").next().unwrap_or(user_part).trim().to_string()
+                        } else {
+                            cleaned.to_string()
+                        }
                     })
                 })
+                .filter(|s| !s.is_empty() && !is_error_response(s))
                 .collect();
         }
     }
-    // Not JSON — return as single item
-    if !raw.is_empty() { vec![raw.to_string()] } else { vec![] }
+    // Not JSON — return as single item, but filter out error messages and raw JSON
+    if !raw.is_empty() && !is_error_response(raw) && !raw.starts_with('{') {
+        vec![raw.to_string()]
+    } else {
+        vec![]
+    }
+}
+
+/// Check if a raw response is an error message rather than actual memory content.
+fn is_error_response(text: &str) -> bool {
+    let lower = text.to_lowercase();
+    lower.contains("invalid params") || lower.contains("missing field")
+        || lower.contains("error:") || lower.contains("not found")
+        || lower.starts_with("error") || lower.contains("tool_not_found")
 }
 
 /// Format memory recall through a micro-LLM call for natural, conversational response.
@@ -82,15 +102,22 @@ pub(crate) async fn format_memory_recall_naturally(
     // Use the cheapest available model for this tiny formatting call
     let result = if llm_config.anthropic_api_key.is_some() {
         match hydra_model::providers::anthropic::AnthropicClient::new(llm_config) {
-            Ok(client) => client.complete(request).await.ok(),
-            Err(_) => None,
+            Ok(client) => match client.complete(request).await {
+                Ok(r) => Some(r),
+                Err(e) => { eprintln!("[hydra:recall:format] Anthropic LLM failed: {}", e); None }
+            },
+            Err(e) => { eprintln!("[hydra:recall:format] Anthropic client init failed: {}", e); None }
         }
     } else if llm_config.openai_api_key.is_some() {
         match hydra_model::providers::openai::OpenAiClient::new(llm_config) {
-            Ok(client) => client.complete(request).await.ok(),
-            Err(_) => None,
+            Ok(client) => match client.complete(request).await {
+                Ok(r) => Some(r),
+                Err(e) => { eprintln!("[hydra:recall:format] OpenAI LLM failed: {}", e); None }
+            },
+            Err(e) => { eprintln!("[hydra:recall:format] OpenAI client init failed: {}", e); None }
         }
     } else {
+        eprintln!("[hydra:recall:format] No API key available for formatting call");
         None
     };
 
@@ -106,20 +133,21 @@ pub(crate) async fn format_memory_recall_naturally(
 
 /// Local fallback formatting when LLM is unavailable — still conversational, not robotic.
 pub(crate) fn format_memory_fallback(facts: &[String]) -> String {
-    if facts.is_empty() {
-        return "I don't have anything stored about that.".into();
+    // Filter out noise: JSON, garbage dates, questions, very long entries
+    let clean: Vec<&str> = facts.iter()
+        .map(|f| f.as_str())
+        .filter(|f| !f.starts_with('{') && !f.contains("\"nodes\"") && f.len() < 200)
+        .filter(|f| !f.ends_with('?'))  // Don't recall questions as facts
+        .filter(|f| f.len() >= 2)  // Skip empty/tiny noise
+        .collect();
+    if clean.is_empty() {
+        return "I don't have anything stored about that yet.".into();
     }
-    if facts.len() == 1 {
-        let fact = &facts[0];
-        // Don't just capitalize and return — add a conversational wrapper
-        format!("{} — that's what I've got. Need anything related?", fact)
+    if clean.len() == 1 {
+        format!("{} — that's what I remember.", clean[0])
     } else {
-        let mut result = String::from("Here's what I know:\n\n");
-        for fact in facts {
-            result.push_str(&format!("• {}\n", fact));
-        }
-        result.push_str("\nAnything specific you want to dig into?");
-        result
+        let items: Vec<String> = clean.iter().take(5).map(|f| format!("**{}**", f)).collect();
+        format!("Here's what I remember: {}. Want to dig into any of these?", items.join(", "))
     }
 }
 

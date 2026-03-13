@@ -120,7 +120,10 @@
                     CognitiveUpdate::TimelineClear => { timeline_panel.write().clear(); }
                     CognitiveUpdate::Message { role, content, css_class } => {
                         chat_db_rx.save_message(&role, &content);
-                        messages.write().push((role, content, css_class));
+                        // "history-only" = already displayed via streaming, skip visible push
+                        if css_class != "history-only" {
+                            messages.write().push((role, content, css_class));
+                        }
                     }
                     CognitiveUpdate::SidebarCompleteTask(id) => { sidebar.write().complete_task(&id); }
                     CognitiveUpdate::Celebrate(msg) => { celebration.set(Some(Celebration::small(&msg))); }
