@@ -142,14 +142,11 @@ pub(crate) async fn diagnose_and_retry(
         }
     }
 
-    // Step 2: Micro-LLM diagnosis (Haiku, 150 tokens, 10s timeout)
-    let model = if llm_config.anthropic_api_key.is_some() {
-        "claude-haiku-4-5-20251001"
-    } else if llm_config.openai_api_key.is_some() {
-        "gpt-4o-mini"
-    } else {
+    // Step 2: Micro-LLM diagnosis (cheapest model, 150 tokens, 10s timeout)
+    if !llm_config.has_anthropic() && !llm_config.has_openai() {
         return None; // No LLM available
-    };
+    }
+    let model = hydra_model::pick_cheapest_model(llm_config);
 
     let prompt = format!(
         "This shell command failed:\n```\n$ {}\n```\nError:\n```\n{}\n```\n\

@@ -226,6 +226,16 @@ pub(crate) fn emergency_classify(input: &str) -> ClassifiedIntent {
         return ClassifiedIntent { category: IntentCategory::Thanks, confidence: 0.95, target: None, payload: None };
     }
 
+    // Frustrated exclamations — route to general conversation via LLM, NOT self-repair
+    // "UGH this is so broken", "OMG this doesn't work", "WTF" etc.
+    // Return Greeting with low confidence so pre-phase handlers skip it → falls to LLM response.
+    if (lower.starts_with("ugh") || lower.starts_with("omg") || lower.starts_with("wtf")
+        || lower.starts_with("argh") || lower.starts_with("damn") || lower.starts_with("dammit"))
+        && !lower.contains("fix") && !lower.contains("repair")
+    {
+        return ClassifiedIntent { category: IntentCategory::Greeting, confidence: 0.1, target: None, payload: None };
+    }
+
     // Memory store — "remember X" is unambiguous
     if lower.starts_with("remember ") || lower.starts_with("note that ") || lower.starts_with("don't forget ") {
         return ClassifiedIntent {

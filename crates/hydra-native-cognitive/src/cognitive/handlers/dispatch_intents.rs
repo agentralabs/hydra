@@ -122,9 +122,8 @@ pub(crate) async fn handle_memory_recall(
     let recall_llm_config = hydra_model::LlmConfig::from_env_with_overlay(
         &config.anthropic_key, &config.openai_key, config.anthropic_oauth_token.as_deref(),
     );
-    let recall_model = if recall_llm_config.anthropic_api_key.is_some() {
-        "claude-haiku-4-5-20251001"
-    } else { &config.model };
+    // Auto-detect cheapest model for the formatting micro-call — must match the connected provider
+    let recall_model = hydra_model::pick_cheapest_model(&recall_llm_config);
     let recall_topic = extract_memory_topic(text);
     eprintln!("[hydra:recall] topic='{}' is_why={}", recall_topic, crate::sisters::memory_deep::is_why_question(text));
 

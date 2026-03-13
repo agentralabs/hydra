@@ -11,7 +11,7 @@ pub mod router;
 
 pub use circuit_breaker::{CircuitBreaker, CircuitState};
 pub use executor::{ErrorCategory, ErrorSeverity, ExecutionResult, ExecutorError, ModelExecutor};
-pub use llm_config::{LlmConfig, sanitize_key};
+pub use llm_config::{LlmConfig, pick_cheapest_model, sanitize_key};
 pub use local::{LocalModelManager, LocalModelProfile, MemoryTier, OllamaClient};
 pub use preferences::ModelPreferences;
 pub use profile::{ModelCapabilities, ModelProfile, PrivacyLevel, TaskType};

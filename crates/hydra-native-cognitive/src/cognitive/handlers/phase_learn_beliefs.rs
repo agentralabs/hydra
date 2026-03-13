@@ -146,11 +146,7 @@ pub(crate) async fn extract_and_persist_knowledge(
 
     // Micro-LLM call to extract structured knowledge from the interaction
     let learn_llm_config = llm_config.clone();
-    let learn_model = if learn_llm_config.anthropic_api_key.is_some() {
-        "claude-haiku-4-5-20251001" // Cheapest model for knowledge extraction
-    } else {
-        active_model
-    };
+    let learn_model = hydra_model::pick_cheapest_model(&learn_llm_config);
 
     let learn_prompt = format!(
         "User said: \"{}\"\nHydra responded: \"{}\"\nOutcome: {}\n\nExtract knowledge:",

@@ -30,20 +30,18 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
         // Skip internal system messages that shouldn't be in conversation
         if msg.role == MessageRole::System {
             if let Some(ref phase) = msg.phase {
+                // Hide ALL Repair/Omniscience/Decide internals — only show approval prompts
                 if matches!(phase.as_str(), "Repair" | "Omniscience" | "Decide") {
-                    let is_summary = msg.content.contains("complete")
-                        || msg.content.contains("Complete")
-                        || msg.content.contains("RISK");
-                    if !is_summary { continue; }
+                    if !msg.content.contains("RISK") { continue; }
                 }
             }
-            let content_lower = msg.content.to_lowercase();
-            if content_lower.starts_with("sisters:")
-                || content_lower.starts_with("{\"")
-                || content_lower.starts_with("[{\"")
-            {
-                continue;
-            }
+            let c = &msg.content;
+            let cl = c.to_lowercase();
+            // Hide raw JSON, sister lists, diagnostics, spec dumps
+            if cl.starts_with("sisters:") || cl.starts_with("{\"") || cl.starts_with("[{\"") { continue; }
+            if c.contains("specs fully passing") || c.contains("/6 checks)") || c.contains("/4 checks)")
+                || c.contains("/5 checks)") || c.contains("/2 checks)") { continue; }
+            if c.contains("Self-repair diagnostics") { continue; }
         }
 
         // Hide internal cognitive phase tags

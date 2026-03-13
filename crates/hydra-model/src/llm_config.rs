@@ -75,3 +75,17 @@ impl Default for LlmConfig {
         Self::from_env()
     }
 }
+
+/// Auto-detect the cheapest available model based on which API keys are configured.
+/// Returns a model name that matches the connected provider — never returns a Claude
+/// model when only OpenAI is available, or vice versa.
+pub fn pick_cheapest_model(config: &LlmConfig) -> &'static str {
+    if config.anthropic_api_key.is_some() {
+        "claude-haiku-4-5-20251001"
+    } else if config.openai_api_key.is_some() {
+        "gpt-4o-mini"
+    } else {
+        // No cloud API — try local
+        "llama3"
+    }
+}

@@ -41,13 +41,10 @@ pub(crate) async fn self_review_response(
     response: &str,
     llm_config: &hydra_model::LlmConfig,
 ) -> Option<String> {
-    let review_model = if llm_config.anthropic_api_key.is_some() {
-        "claude-haiku-4-5-20251001"
-    } else if llm_config.openai_api_key.is_some() {
-        "gpt-4o-mini"
-    } else {
+    if !llm_config.has_anthropic() && !llm_config.has_openai() {
         return None;
-    };
+    }
+    let review_model = hydra_model::pick_cheapest_model(llm_config);
 
     let request = hydra_model::CompletionRequest {
         model: review_model.to_string(),
@@ -105,13 +102,10 @@ pub(crate) async fn generate_clarification_question(
 ) -> String {
     let fallback = format!("I'm not sure I understand what you mean by \"{}\". Could you rephrase or give me more context?", safe_truncate(user_input, 80));
 
-    let clarify_model = if llm_config.anthropic_api_key.is_some() {
-        "claude-haiku-4-5-20251001"
-    } else if llm_config.openai_api_key.is_some() {
-        "gpt-4o-mini"
-    } else {
+    if !llm_config.has_anthropic() && !llm_config.has_openai() {
         return fallback;
-    };
+    }
+    let clarify_model = hydra_model::pick_cheapest_model(llm_config);
 
     let request = hydra_model::CompletionRequest {
         model: clarify_model.to_string(),
