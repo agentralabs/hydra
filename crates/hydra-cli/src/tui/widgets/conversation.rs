@@ -1,5 +1,5 @@
 mod render;
-mod empty;
+pub mod empty;
 
 use ratatui::{
     layout::Rect,
@@ -13,16 +13,11 @@ use crate::tui::app::{App, MessageRole};
 use crate::tui::theme;
 
 use render::render_rich_content_ex;
-use empty::build_welcome_frame;
 
 pub fn render(frame: &mut Frame, app: &App, area: Rect) {
     let inner = area;
 
     let mut lines: Vec<Line> = Vec::new();
-
-    // Welcome frame always at top — scroll up to see it
-    build_welcome_frame(app, inner.width as usize, &mut lines);
-    lines.push(Line::default());
 
     // Build lines from messages — filter out internal noise
     let mut visible_idx: usize = 0;
