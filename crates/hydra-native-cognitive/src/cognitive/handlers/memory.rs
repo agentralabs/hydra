@@ -7,6 +7,7 @@
 pub(crate) fn extract_memory_facts(raw: &str) -> Vec<String> {
     if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(raw) {
         if let Some(nodes) = parsed.get("nodes").and_then(|n| n.as_array()) {
+            let mut seen = std::collections::HashSet::new();
             return nodes.iter()
                 .filter_map(|node| {
                     node.get("content").and_then(|c| c.as_str()).map(|s| {
@@ -26,6 +27,8 @@ pub(crate) fn extract_memory_facts(raw: &str) -> Vec<String> {
                     })
                 })
                 .filter(|s| !s.is_empty() && !is_error_response(s))
+                // Dedup: skip facts we've already seen (case-insensitive)
+                .filter(|s| seen.insert(s.to_lowercase()))
                 .collect();
         }
     }
@@ -134,8 +137,8 @@ pub(crate) async fn format_memory_recall_naturally(
 /// Local fallback formatting when LLM is unavailable — still conversational, not robotic.
 pub(crate) fn format_memory_fallback(facts: &[String]) -> String {
     // Filter out noise: JSON, garbage dates, questions, very long entries
-    let clean: Vec<&str> = facts.iter()
-        .map(|f| f.as_str())
+    let clean: Vec<String> = facts.iter()
+        .map(|f| fact_to_user_facing(f))
         .filter(|f| !f.starts_with('{') && !f.contains("\"nodes\"") && f.len() < 200)
         .filter(|f| !f.ends_with('?'))  // Don't recall questions as facts
         .filter(|f| f.len() >= 2)  // Skip empty/tiny noise
@@ -149,6 +152,21 @@ pub(crate) fn format_memory_fallback(facts: &[String]) -> String {
         let items: Vec<String> = clean.iter().take(5).map(|f| format!("**{}**", f)).collect();
         format!("Here's what I remember: {}. Want to dig into any of these?", items.join(", "))
     }
+}
+
+/// Convert stored fact to user-facing text: "User's favorite X" → "your favorite X"
+fn fact_to_user_facing(fact: &str) -> String {
+    let s = fact
+        .replace("User's ", "your ")
+        .replace("user's ", "your ")
+        .replace("User prefers ", "you prefer ")
+        .replace("User likes ", "you like ")
+        .replace("User uses ", "you use ")
+        .replace("User works on ", "you work on ")
+        .replace("User works at ", "you work at ")
+        .replace("User is ", "you are ")
+        .replace("User decided ", "you decided ");
+    s
 }
 
 /// Simple hash for receipt chain (non-cryptographic, for audit trail integrity)
@@ -170,22 +188,39 @@ pub(crate) fn extract_memory_topic(input: &str) -> String {
         "remind me about ", "remind me of my ", "remind me of ",
         "what did i say about ", "what did i tell you about ",
         "tell me about my ", "what about my ",
+        "why did i choose ", "why did i pick ", "why did i decide on ",
+        "why did i select ", "why did i go with ", "why did i switch to ",
+        "why do i use ", "why do i like ", "why do i prefer ",
+        "what do you know about my ", "what do you know about ",
+        "what did we talk about ",
     ];
     for prefix in &prefixes {
         if let Some(rest) = lower.strip_prefix(prefix) {
             return rest.trim_end_matches('?').trim_end_matches('!').trim().to_string();
         }
     }
-    // Fallback: remove common question words and return remainder
-    lower.replace("what", "").replace("is", "").replace("my", "")
-        .replace("the", "").replace("?", "").replace("!", "")
-        .split_whitespace().collect::<Vec<_>>().join(" ")
+    // Fallback: remove stop words and return content words only
+    let stop_words = [
+        "what", "why", "how", "when", "where", "who", "which",
+        "is", "are", "was", "were", "do", "does", "did",
+        "my", "the", "a", "an", "about", "me", "i", "you",
+        "know", "remember", "tell", "said", "last", "we",
+    ];
+    lower.replace('?', "").replace('!', "")
+        .split_whitespace()
+        .filter(|w| !stop_words.contains(w))
+        .collect::<Vec<_>>().join(" ")
 }
 
 /// Phase 2, Bug Fix 0B: Filter memory facts to only those relevant to the topic.
 pub(crate) fn filter_facts_by_relevance(facts: &[String], topic: &str) -> Vec<String> {
+    let stop_words = [
+        "the", "and", "for", "are", "was", "were", "did", "does", "has", "had",
+        "use", "why", "how", "who", "what", "that", "this", "with", "from", "about",
+        "choose", "chose", "pick", "like", "want", "talk", "said", "know",
+    ];
     let topic_words: Vec<&str> = topic.split_whitespace()
-        .filter(|w| w.len() >= 3)
+        .filter(|w| w.len() >= 3 && !stop_words.contains(w))
         .collect();
     if topic_words.is_empty() {
         return facts.to_vec();
@@ -193,7 +228,10 @@ pub(crate) fn filter_facts_by_relevance(facts: &[String], topic: &str) -> Vec<St
     let filtered: Vec<String> = facts.iter()
         .filter(|f| {
             let lower = f.to_lowercase();
-            topic_words.iter().any(|w| lower.contains(w))
+            // Use word boundary matching: check if topic word appears as a distinct word
+            topic_words.iter().any(|w| {
+                lower.split(|c: char| !c.is_alphanumeric()).any(|part| part == *w)
+            })
         })
         .cloned()
         .collect();

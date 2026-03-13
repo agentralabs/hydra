@@ -243,6 +243,12 @@ pub(crate) fn emergency_classify(input: &str) -> ClassifiedIntent {
     if !is_identity_query && (lower.starts_with("what's my ") || lower.starts_with("whats my ")
         || lower.starts_with("what is my ") || lower.starts_with("do you remember")
         || lower.starts_with("remind me about") || lower.starts_with("remind me of")
+        || lower.starts_with("what do you know about")
+        || lower.starts_with("what did we talk about")
+        || lower.starts_with("why did i choose") || lower.starts_with("why did i pick")
+        || lower.starts_with("why did i decide") || lower.starts_with("why did i select")
+        || lower.starts_with("why did i go with") || lower.starts_with("why did i switch")
+        || lower.starts_with("why do i use") || lower.starts_with("why do i prefer")
         || (lower.contains("my") && lower.contains("favorite"))
         || (lower.contains("my") && lower.contains("favourite")))
     {

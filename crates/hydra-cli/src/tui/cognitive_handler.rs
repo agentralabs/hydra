@@ -7,22 +7,32 @@ use hydra_native::cognitive::CognitiveUpdate;
 use super::app::{App, Message, MessageRole, PendingApproval};
 
 impl App {
-    /// Drain all pending CognitiveUpdate events from the channel.
-    /// Called every tick (250ms) to keep the TUI responsive.
+    /// Process pending CognitiveUpdate events from the channel.
+    /// Limits StreamChunk processing to create visible streaming effect.
     pub(crate) fn process_cognitive_updates(&mut self) {
-        // Drain into a Vec to avoid borrow issues with self
+        // Drain into a Vec — but limit StreamChunks for streaming effect.
+        // Process all non-stream events immediately, but only a few chunks per tick.
         let (updates, disconnected) = {
             match self.cognitive_rx.as_mut() {
                 Some(rx) => {
                     let mut buf = Vec::new();
                     let mut disc = false;
+                    let mut stream_count = 0u32;
                     loop {
                         match rx.try_recv() {
-                            Ok(update) => buf.push(update),
+                            Ok(update) => {
+                                let is_stream = matches!(&update, CognitiveUpdate::StreamChunk { .. });
+                                buf.push(update);
+                                if is_stream {
+                                    stream_count += 1;
+                                    // Limit: process max 3 stream chunks per tick (~50ms)
+                                    // to create visible word-by-word streaming
+                                    if stream_count >= 3 { break; }
+                                }
+                            }
                             Err(mpsc::error::TryRecvError::Empty) => break,
                             Err(mpsc::error::TryRecvError::Disconnected) => {
-                                disc = true;
-                                break;
+                                disc = true; break;
                             }
                         }
                     }
