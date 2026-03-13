@@ -128,9 +128,21 @@ pub(crate) async fn run_think(
     );
 
     // Dynamic per-phase model selection
-    // Conversational queries with memory context need Sonnet for personality.
-    // Only pure utility tasks (builds, deploys) can use Haiku for simple mode.
+    // Phase 4: Use model escalation's select_initial_model for baseline,
+    // then apply context-aware overrides below.
     let has_memory_context = perceive.always_on_memory.is_some();
+    if provider == "anthropic" && !active_model.contains("opus") {
+        let escalation_model = super::model_escalation::select_initial_model(
+            &intent, complexity, None, // category_success_rate passed via caller in future
+        );
+        if escalation_model != active_model && !active_model.contains("opus") {
+            eprintln!(
+                "[hydra:escalation] Initial model selection: {} (was {})",
+                escalation_model, active_model,
+            );
+            active_model = escalation_model.to_string();
+        }
+    }
     if provider == "anthropic" {
         use super::super::intent_router::IntentCategory as IC;
         let routed_model: Option<&str> = match intent.category {

@@ -1,6 +1,9 @@
 //! Handler modules — extracted from loop_runner.rs for compilation performance.
 
 pub mod actions;
+pub mod agentic_loop;
+pub mod agentic_loop_entry;
+pub mod agentic_loop_format;
 pub mod actions_detect;
 pub mod dispatch;
 pub mod dispatch_actions;
@@ -26,3 +29,10 @@ pub mod sisters;
 pub mod obstacle_handler;
 pub mod dispatch_capability;
 pub mod dispatch_capability_exec;
+pub mod exec_engine;
+pub mod verify_response;
+pub mod model_escalation;
+pub mod phase_learn_intelligence;
+pub mod code_index_walker;
+pub mod code_index_query;
+pub mod perceive_mcp;

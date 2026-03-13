@@ -2,6 +2,8 @@
 //!
 //! Sends `CognitiveUpdate` messages via `tokio::sync::mpsc` so the UI can
 //! dispatch to Dioxus signals without the loop knowing about the rendering layer.
+//!
+//! CognitiveUpdate enum lives in `cognitive_update.rs` (extracted for file size).
 
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -11,195 +13,13 @@ use crate::cognitive::inventions::InventionEngine;
 use crate::cognitive::spawner::AgentSpawner;
 use crate::sisters::SistersHandle;
 use crate::swarm::SwarmManager;
-use hydra_native_state::state::hydra::PhaseStatus;
 use hydra_native_state::utils::safe_truncate;
 use hydra_db::HydraDb;
 use hydra_runtime::approval::ApprovalManager;
 use hydra_runtime::undo::UndoStack;
 
-/// Updates emitted by the cognitive loop for the UI to consume.
-#[derive(Debug, Clone)]
-pub enum CognitiveUpdate {
-    /// Set the current phase label (e.g. "Perceive", "Think").
-    Phase(String),
-    /// Set the icon state (e.g. "listening", "working", "success").
-    IconState(String),
-    /// Replace the full phase status vector.
-    PhaseStatuses(Vec<PhaseStatus>),
-    /// Show/hide the typing indicator.
-    Typing(bool),
-
-    // -- Plan panel --
-    /// Initialize plan panel for a complex task.
-    PlanInit { goal: String, steps: Vec<String> },
-    /// Clear plan panel (simple task).
-    PlanClear,
-    /// Mark a plan step as started.
-    PlanStepStart(usize),
-    /// Mark a plan step as completed with optional duration.
-    PlanStepComplete { index: usize, duration_ms: Option<u64> },
-
-    // -- Evidence panel --
-    /// Clear evidence panel.
-    EvidenceClear,
-    /// Add a memory context evidence item.
-    EvidenceMemory { title: String, content: String },
-    /// Add a code evidence item.
-    EvidenceCode {
-        title: String,
-        content: String,
-        language: Option<String>,
-        file_path: Option<String>,
-    },
-
-    // -- Timeline panel --
-    /// Clear timeline panel.
-    TimelineClear,
-
-    // -- Messages --
-    /// Append a message to the conversation.
-    Message { role: String, content: String, css_class: String },
-
-    // -- Sidebar --
-    /// Mark a task as completed in the sidebar.
-    SidebarCompleteTask(String),
-
-    // -- Celebration --
-    /// Show a small celebration toast.
-    Celebrate(String),
-
-    // -- Final state --
-    /// Reset to idle after completion.
-    ResetIdle,
-
-    /// Suggest mode based on complexity (Step 4.7: mode auto-selection).
-    SuggestMode(String),
-
-    // -- Approval flow (Step 3.7) --
-    /// Request user approval before proceeding. UI should render an ApprovalCard.
-    AwaitApproval {
-        /// Unique ID for this approval request (used to submit decision back)
-        approval_id: Option<String>,
-        risk_level: String,
-        action: String,
-        description: String,
-        challenge_phrase: Option<String>,
-    },
-
-    // -- Natural language settings (Step 4.9) --
-    /// A settings mutation was detected and applied.
-    SettingsApplied { confirmation: String },
-
-    // -- Sister visibility (Step 4.8) --
-    /// Report which sisters were called for this query.
-    SistersCalled { sisters: Vec<String> },
-
-    // -- Token budget (Step 3.10) --
-    /// Report token usage for budget tracking.
-    TokenUsage { input_tokens: u64, output_tokens: u64 },
-
-    // -- Streaming (Step 4.2) --
-    /// Append a streaming token chunk (partial message).
-    StreamChunk { content: String },
-    /// Streaming complete — finalize message.
-    StreamComplete,
-
-    // -- Undo/Redo (Sprint 1, Task 5) --
-    /// Undo stack status (can_undo, can_redo, last_description)
-    UndoStatus { can_undo: bool, can_redo: bool, last_action: Option<String> },
-
-    // -- Proactive notifications (Sprint 2, Task 10) --
-    /// Proactive notification alert
-    ProactiveAlert { title: String, message: String, priority: String },
-
-    // -- Sprint 4 inventions --
-    /// Sprint 4: Skill crystallized from repeated pattern
-    SkillCrystallized { name: String, actions_count: usize },
-    /// Sprint 4: Metacognition reflection insight
-    ReflectionInsight { insight: String },
-    /// Sprint 4: Token compression applied
-    CompressionApplied { original_tokens: usize, compressed_tokens: usize, ratio: f64 },
-    /// Dream insight surfaced from idle processing
-    DreamInsight { category: String, description: String, confidence: f64 },
-    /// Shadow validation result
-    ShadowValidation { safe: bool, recommendation: String },
-    /// Future echo prediction result
-    PredictionResult { action: String, confidence: f64, recommendation: String },
-    /// Pattern mutation/evolution completed
-    PatternEvolved { summary: String },
-    /// Temporal memory stored
-    TemporalStored { category: String, content: String },
-
-    // -- Ghost Cursor --
-    /// Move the ghost cursor to screen coordinates.
-    CursorMove { x: f64, y: f64, label: Option<String> },
-    /// Ghost cursor click animation.
-    CursorClick,
-    /// Ghost cursor typing animation.
-    CursorTyping { active: bool },
-    /// Show/hide the ghost cursor.
-    CursorVisibility { visible: bool },
-    /// Set cursor mode (visible, fast, invisible, replay).
-    CursorModeChange { mode: String },
-    /// Cursor paused (user interaction detected).
-    CursorPaused { paused: bool },
-
-    // -- Belief system --
-    /// Active beliefs loaded during PERCEIVE phase.
-    BeliefsLoaded { count: usize, summary: String },
-    /// A belief was updated or created during LEARN phase.
-    BeliefUpdated { subject: String, content: String, confidence: f64, is_new: bool },
-
-    // -- MCP Skill Discovery --
-    /// MCP skills discovered and registered.
-    McpSkillsDiscovered { server: String, tools: Vec<String>, count: usize },
-
-    // -- Federation --
-    /// Federation state synced.
-    FederationSync { peers_online: usize, last_sync_version: i64 },
-    /// Federation task delegated to a peer.
-    FederationDelegated { peer_name: String, task_summary: String },
-
-    // -- Self-Repair --
-    /// Self-repair started for a spec.
-    RepairStarted { spec: String, task: String },
-    /// Self-repair check result.
-    RepairCheckResult { name: String, passed: bool },
-    /// Self-repair iteration progress.
-    RepairIteration { iteration: u32, passed: usize, total: usize },
-    /// Self-repair completed.
-    RepairCompleted { task: String, status: String, iterations: u32 },
-
-    // -- Omniscience Loop --
-    /// Omniscience codebase analysis phase.
-    OmniscienceAnalyzing { phase: String },
-    /// Omniscience gap found.
-    OmniscienceGapFound { description: String, severity: String, category: String },
-    /// Omniscience spec generated via Forge.
-    OmniscienceSpecGenerated { spec_name: String, task: String },
-    /// Omniscience Aegis validation result.
-    OmniscienceValidation { spec_name: String, safe: bool, recommendation: String },
-    /// Omniscience scan complete.
-    OmniscienceScanComplete { gaps_found: usize, specs_generated: usize, health_score: f64 },
-
-    // -- Phase 3, C5: Phase-specific loading states --
-    /// Phase-specific loading message with elapsed time for meaningful loading states.
-    PhaseLoading { phase: String, elapsed_ms: u64 },
-
-    // -- Phase 3, C4: Consolidation daemon --
-    /// Consolidation cycle completed.
-    ConsolidationCycleComplete { cycle: u64, strengthened: usize, decayed: usize, gc_cleaned: usize },
-
-    // -- Obstacle resolution --
-    ObstacleDetected { pattern: String, error_summary: String },
-    ObstacleResolved { pattern: String, resolution: String, attempts: usize },
-    // -- Autonomous project execution --
-    ProjectExecPhase { repo: String, phase: String, detail: String },
-    // -- Agent Swarm --
-    SwarmSpawned { count: usize, agent_ids: Vec<String> },
-    SwarmTaskAssigned { agent_id: String, task_desc: String },
-    SwarmResults { total: usize, succeeded: usize, failed: usize, summary: String },
-}
+// Re-export CognitiveUpdate from extracted module
+pub use super::cognitive_update::CognitiveUpdate;
 
 /// Configuration for the cognitive loop (read-only inputs).
 #[derive(Debug, Clone)]
@@ -280,7 +100,7 @@ pub async fn run_cognitive_loop(
     use super::handlers::sister_ops;
 
     // Crystallized skill shortcut — bypass LLM for learned patterns
-    if dispatch::handle_crystallized_skill(text, &inventions, &tx).await { return; }
+    if dispatch::handle_crystallized_skill(text, &inventions, &decide_engine, &tx).await { return; }
 
     // Greeting / Farewell / Thanks — instant response
     if dispatch::handle_greeting_farewell_thanks(&intent, &config, &tx) { return; }
@@ -300,6 +120,9 @@ pub async fn run_cognitive_loop(
     // Omniscience scan — full semantic self-repair
     if sister_ops::handle_omniscience_scan(&intent, &sisters_handle, &tx).await { return; }
 
+    // Build system — full multi-phase builder (Forge + Codebase + Aegis + LLM)
+    if sister_ops::handle_build_system(text, &intent, &config, &sisters_handle, &approval_manager, &tx).await { return; }
+
     // Self-implement — self-modification pipeline (Forge first, LLM fallback)
     if sister_ops::handle_self_implement(text, &intent, &config, &sisters_handle, &approval_manager, &tx).await { return; }
 
@@ -310,7 +133,7 @@ pub async fn run_cognitive_loop(
     if dispatch::handle_memory_store(text, &intent, &sisters_handle, &tx).await { return; }
     if dispatch::handle_project_exec_natural(text, &tx).await { return; }
     // Slash commands — /test, /files, /git, /build, /run, etc.
-    if dispatch::handle_slash_command(text, &tx).await { return; }
+    if dispatch::handle_slash_command(text, &decide_engine, &tx).await { return; }
     // Direct action fast-path — execute immediately, skip LLM
     if dispatch::handle_direct_action(text, &sisters_handle, &decide_engine, &tx).await { return; }
 
@@ -328,6 +151,43 @@ pub async fn run_cognitive_loop(
     // Step 4.7: Auto-suggest mode based on complexity
     let suggested_mode = if is_simple { "companion" } else { "workspace" };
     let _ = tx.send(CognitiveUpdate::SuggestMode(suggested_mode.into()));
+
+    // ── INTELLIGENCE INIT — Phases 3/6/7: Outcome tracking + calibration ──
+    use super::handlers::phase_learn_intelligence;
+    let mut outcome_tracker = super::outcome_tracker::OutcomeTracker::new();
+    let mut calibration_tracker = super::metacognition::CalibrationTracker::new();
+    // Load persisted intelligence from DB (cross-session memory)
+    if let Some(ref db) = db {
+        phase_learn_intelligence::load_from_db(
+            &mut outcome_tracker, &mut calibration_tracker, db,
+        );
+    }
+    // Supplement with current session history
+    phase_learn_intelligence::populate_from_history(
+        &mut outcome_tracker, &mut calibration_tracker, &config.history,
+    );
+    let category_success_rate = outcome_tracker.category_success_rate(intent.category);
+    eprintln!("[hydra:intelligence] cat_success_rate={:.2} total_tracked={}",
+        category_success_rate, outcome_tracker.total_interactions());
+
+    // Phase 7: Metacognitive assessment before THINK
+    phase_learn_intelligence::assess_and_report(
+        &intent, &complexity, &outcome_tracker, &calibration_tracker, &tx,
+    );
+
+    // ── USER MODEL — adaptive personalization ──
+    let mut user_model = super::user_model::UserModel::new();
+    if let Some(ref db) = db {
+        if let Ok(traits) = db.load_user_traits() {
+            let rows: Vec<(String, String, f64, i64)> = traits.iter()
+                .map(|t| (t.trait_key.clone(), t.trait_value.clone(), t.confidence, t.observation_count))
+                .collect();
+            user_model.load_from_db(&rows);
+            if !rows.is_empty() {
+                eprintln!("[hydra:user_model] Loaded {} traits from DB", rows.len());
+            }
+        }
+    }
 
     // ── PHASE 1: PERCEIVE ──
     use super::handlers::phase_perceive;
@@ -379,15 +239,37 @@ pub async fn run_cognitive_loop(
         is_simple, is_complex, llm_ok,
         &llm_config, provider, &active_model,
         risk_level, decide.gate_decision,
+        &perceive.always_on_memory,
         &decide_engine, &sisters_handle, &undo_stack, &db,
         input_tokens, output_tokens,
         perceive_ms, think_ms, decide_ms,
         &tx,
     ).await;
 
+    // ── PHASE 4b: VERIFY RESPONSE (Phase 2 — Claim-Level Verification) ──
+    let verified_response = if let Some(ref sh) = sisters_handle {
+        use super::handlers::verify_response;
+        let verification = verify_response::verify_response(
+            &act.final_response, text, sh, &intent,
+        ).await;
+        if verification.claims_corrected > 0 {
+            let _ = tx.send(CognitiveUpdate::VerificationApplied {
+                checked: verification.claims_checked,
+                corrected: verification.claims_corrected,
+            });
+            eprintln!("[hydra:verify] {}/{} claims corrected in {}ms",
+                verification.claims_corrected, verification.claims_checked, verification.verification_ms);
+            verification.verified_response
+        } else {
+            act.final_response.clone()
+        }
+    } else {
+        act.final_response.clone()
+    };
+
     // ── PHASE 5: LEARN + DELIVER ──
     phase_learn::run_learn(
-        text, &config, &act.final_response,
+        text, &config, &verified_response,
         is_simple, is_complex, llm_ok,
         &llm_config, &active_model, &intent,
         &sisters_handle, &inventions, &db, &federation,
@@ -396,4 +278,51 @@ pub async fn run_cognitive_loop(
         input_tokens, output_tokens,
         &tx,
     ).await;
+
+    // ── POST-LEARN INTELLIGENCE — Phases 3/5/6 ──
+    // Phase 3: Record this interaction's outcome
+    let llm_outcome = if llm_ok {
+        super::outcome_tracker::Outcome::Success
+    } else {
+        super::outcome_tracker::Outcome::Failure
+    };
+    let topic = hydra_native_state::utils::safe_truncate(text, 50).to_string();
+    outcome_tracker.record(
+        intent.category, &topic, &active_model,
+        llm_outcome.clone(), input_tokens + output_tokens,
+    );
+
+    // Phase 3+7: Persist intelligence to DB (cross-session memory)
+    if let Some(ref db) = db {
+        phase_learn_intelligence::save_to_db(
+            &intent, &topic, &active_model, &llm_outcome,
+            input_tokens + output_tokens, &calibration_tracker, db,
+        );
+    }
+
+    // User model: observe this interaction and persist
+    user_model.observe_interaction(text, &verified_response, llm_ok);
+    if let Some(ref db) = db {
+        for (key, value, confidence) in user_model.traits_for_db() {
+            let _ = db.save_user_trait(key, value, confidence);
+        }
+    }
+
+    // Phase 6: Self-improvement check
+    phase_learn_intelligence::check_self_improvement(&outcome_tracker, &tx);
+
+    // Phase 5: Background scheduler — mark idle, check due tasks
+    let mut bg_scheduler = super::background_tasks::BackgroundScheduler::new();
+    bg_scheduler.user_idle();
+    let due_info: Vec<(String, String)> = bg_scheduler.due_tasks().iter()
+        .map(|t| (t.name.clone(), format!("{:?} ({:?})", t.task_type, t.priority)))
+        .collect();
+    for (name, summary) in &due_info {
+        let _ = tx.send(CognitiveUpdate::BackgroundTaskComplete {
+            task_name: name.clone(),
+            summary: format!("Scheduled: {}", summary),
+        });
+        eprintln!("[hydra:background] Due task: {}", name);
+        bg_scheduler.mark_completed(name);
+    }
 }

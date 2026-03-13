@@ -1,7 +1,4 @@
-//! PERCEIVE phase — extracted from loop_runner.rs for compilation performance.
-//!
-//! Queries sisters for context, retrieves memories, loads beliefs,
-//! discovers MCP tools, and loads federation state.
+//! PERCEIVE phase — queries sisters for context, memories, beliefs, MCP tools, federation state.
 
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -10,7 +7,7 @@ use crate::cognitive::inventions::InventionEngine;
 use crate::sisters::SistersHandle;
 use hydra_native_state::state::hydra::{CognitivePhase, PhaseState, PhaseStatus};
 use hydra_native_state::utils::generate_deliverable_steps;
-use hydra_db::{HydraDb, McpDiscoveredSkillRow, FederationStateRow};
+use hydra_db::{HydraDb, FederationStateRow};
 
 use super::super::loop_runner::CognitiveUpdate;
 use super::memory_intent;
@@ -22,6 +19,7 @@ pub(crate) struct PerceiveResult {
     pub beliefs_context: Option<String>,
     pub federation_context: Option<String>,
     pub skills_context: Option<String>,
+    pub code_index_context: Option<String>,
     pub perceive_ms: u64,
     /// Hash of memory response for dedup detection across queries.
     pub memory_hash: u64,
@@ -52,12 +50,14 @@ pub(crate) async fn run_perceive(
     // SESSION RESUME: Bootstrap from last session for continuity ("where did we stop?")
     let session_context = if config.session_count == 0 {
         if let Some(ref sh) = sisters_handle {
-            let (resume_ctx, _, _) = tokio::join!(
+            let (resume_ctx, _, _, _, contract_ctx, _) = tokio::join!(
                 sh.memory_session_resume(), sh.memory_session_start(&config.user_name),
-                sh.comm_session_start(&config.user_name));
-            if let Some(ref ctx) = resume_ctx {
-                let _ = tx.send(CognitiveUpdate::EvidenceMemory {
-                    title: "Previous Session".into(), content: ctx.clone() });
+                sh.comm_session_start(&config.user_name), sh.time_session_start(&config.user_name),
+                sh.contract_session_resume(), sh.aegis_session_create(&config.user_name));
+            for (title, ctx) in [("Previous Session", &resume_ctx), ("Contract Context", &contract_ctx)] {
+                if let Some(ref c) = ctx {
+                    let _ = tx.send(CognitiveUpdate::EvidenceMemory { title: title.into(), content: c.clone() });
+                }
             }
             resume_ctx
         } else { None }
@@ -102,12 +102,8 @@ pub(crate) async fn run_perceive(
             if !messages.is_empty() {
                 let summary = messages.iter()
                     .map(|m| format!("[{}] {}: {}", m.message_type, m.from, m.content))
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                let _ = tx.send(CognitiveUpdate::EvidenceMemory {
-                    title: "Pending Messages".to_string(),
-                    content: summary,
-                });
+                    .collect::<Vec<_>>().join("\n");
+                let _ = tx.send(CognitiveUpdate::EvidenceMemory { title: "Pending Messages".into(), content: summary });
             }
         }
     }
@@ -218,55 +214,25 @@ pub(crate) async fn run_perceive(
         }
     }
 
-    // MCP skill discovery (complex only)
+    // Code index: inject relevant symbols for complex queries
+    let code_index_context = if !is_simple {
+        if let Some(ref db) = db {
+            super::code_index_query::query_relevant_symbols(text, db)
+        } else { None }
+    } else { None };
+
+    // MCP skill discovery (complex only) — delegated to perceive_mcp
     let _mcp_context = if !is_complex {
         None
     } else if let Some(ref sh) = sisters_handle {
-        let tools = sh.discover_mcp_tools();
-        if !tools.is_empty() {
-            if let Some(ref db) = db {
-                let now = chrono::Utc::now().to_rfc3339();
-                let mut servers_seen: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
-                for (server, tool_name) in &tools {
-                    servers_seen.entry(server.clone()).or_default().push(tool_name.clone());
-                    let skill_id = format!("mcp-{}-{}", server.to_lowercase(), tool_name);
-                    let _ = db.upsert_mcp_skill(&McpDiscoveredSkillRow {
-                        id: skill_id,
-                        server_name: server.clone(),
-                        tool_name: tool_name.clone(),
-                        description: None,
-                        input_schema: None,
-                        discovered_at: now.clone(),
-                        last_used_at: None,
-                        use_count: 0,
-                        active: true,
-                    });
-                }
-                for (server, tool_names) in &servers_seen {
-                    let _ = tx.send(CognitiveUpdate::McpSkillsDiscovered {
-                        server: server.clone(),
-                        tools: tool_names.clone(),
-                        count: tool_names.len(),
-                    });
-                }
-            }
-            let mut by_server: std::collections::HashMap<&str, Vec<&str>> = std::collections::HashMap::new();
-            for (server, tool_name) in &tools {
-                by_server.entry(server).or_default().push(tool_name);
-            }
-            let summary: String = by_server.iter()
-                .map(|(server, tls)| format!("- {} ({} tools): {}", server, tls.len(), tls.join(", ")))
-                .collect::<Vec<_>>()
-                .join("\n");
-            Some(summary)
-        } else { None }
+        super::perceive_mcp::discover_mcp_skills(sh, db, tx)
     } else { None };
 
     // Skill discovery — match registered skills against user input
     let skills_context = {
         let registry = hydra_skills::SkillRegistry::new();
         for skill in hydra_skills::builtin_skills() {
-            let _ = registry.register(skill);
+            if let Err(e) = registry.register(skill) { eprintln!("[hydra:skills] Failed to register skill: {}", e); }
         }
         let matches = registry.discover(text);
         if !matches.is_empty() {
@@ -371,6 +337,13 @@ pub(crate) async fn run_perceive(
                 file_path: None,
             });
         }
+        // Surface deadlines and commitments from perceived context
+        if let Some(d) = perceived["deadlines"].as_str() {
+            let _ = tx.send(CognitiveUpdate::EvidenceMemory { title: "Upcoming Deadlines".into(), content: d.into() });
+        }
+        if let Some(c) = perceived["commitments_due"].as_str() {
+            let _ = tx.send(CognitiveUpdate::EvidenceMemory { title: "Commitments Due".into(), content: c.into() });
+        }
         let _ = tx.send(CognitiveUpdate::PlanStepComplete { index: 0, duration_ms: Some(perceive_ms) });
         let _ = tx.send(CognitiveUpdate::PlanStepStart(1));
     }
@@ -390,6 +363,7 @@ pub(crate) async fn run_perceive(
         beliefs_context,
         federation_context,
         skills_context,
+        code_index_context,
         perceive_ms,
         memory_hash,
     }

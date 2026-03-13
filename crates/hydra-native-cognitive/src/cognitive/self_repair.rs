@@ -121,8 +121,27 @@ impl SelfRepairEngine {
         specs
     }
 
+    /// Validate a check command against an allowlist of safe prefixes.
+    fn is_safe_check_command(cmd: &str) -> bool {
+        let safe_prefixes = ["cargo ", "wc ", "grep ", "test ", "cat ", "ls ", "head ", "tail ", "echo ", "diff "];
+        let trimmed = cmd.trim();
+        safe_prefixes.iter().any(|p| trimmed.starts_with(p))
+            || trimmed.starts_with('[') // shell test bracket
+            || trimmed.contains("| wc") || trimmed.contains("| grep")
+    }
+
     /// Run a single acceptance check. Returns (passed, output).
     pub async fn run_check(&self, check: &AcceptanceCheck) -> CheckResult {
+        // Validate command against safe allowlist
+        if !Self::is_safe_check_command(&check.check) {
+            eprintln!("[hydra:self-repair] BLOCKED unsafe check command: {}", check.check);
+            return CheckResult {
+                name: check.name.clone(),
+                passed: false,
+                output: format!("BLOCKED: command not in safe allowlist: {}", check.check),
+            };
+        }
+
         let output = match tokio::process::Command::new("sh")
             .arg("-c")
             .arg(&check.check)

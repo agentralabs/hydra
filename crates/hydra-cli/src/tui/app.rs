@@ -137,6 +137,8 @@ pub struct App {
     pub working_dir: String,
     pub model_name: String,
     pub tool_count: u64,
+    /// Memory capture mode: "all", "facts", "none"
+    pub memory_capture: String,
 
     // Recent tasks
     pub recent_tasks: VecDeque<RecentTask>,
@@ -207,9 +209,19 @@ pub struct App {
     pub last_ctrlc_tick: u64,
     pub last_submit_tick: u64,
     pub kill_ring: String,
+    // ── Email (SMTP) settings ──
+    pub smtp_host: String,
+    pub smtp_user: String,
+    pub smtp_password: String,
+    pub smtp_to: String,
+
     pub remote_executor: hydra_native::remote::RemoteExecutor,
     pub swarm_manager: hydra_native::swarm::SwarmManager,
     pub threat_correlator: hydra_native::threat::ThreatCorrelator,
+
+    // ── File watcher for proactive suggestions (P2) ──
+    pub file_watcher: Option<hydra_pulse::FileWatcher>,
+    pub proactive_file_engine: hydra_pulse::ProactiveFileEngine,
 }
 
 /// PR status for the footer indicator (spec §11).
@@ -246,21 +258,18 @@ pub enum CommandEvent {
 
 impl App {
     pub fn new() -> Self {
-        let sister_names = vec![
-            "Memory", "Identity", "Codebase", "Vision", "Comm", "Contract", "Time",
-            "Planning", "Cognition", "Reality",
-            "Forge", "Aegis", "Veritas", "Evolve",
-        ];
-
-        let sisters: Vec<SisterInfo> = sister_names
-            .iter()
-            .map(|short| SisterInfo {
-                name: format!("Agentic{}", short),
-                short_name: short.to_string(),
-                connected: false,
-                tool_count: 0,
-            })
-            .collect();
+        // Auto-migrate legacy install to multi-user if needed
+        if hydra_native::profile::active_user().is_none() {
+            if let Some(legacy) = hydra_native::profile::load_profile() {
+                let name = legacy.user_name.clone()
+                    .or_else(|| std::env::var("USER").ok())
+                    .unwrap_or_else(|| "default".into());
+                hydra_native::profile::migrate_legacy_profile(&name);
+            }
+        }
+        let sisters: Vec<SisterInfo> = ["Memory", "Identity", "Codebase", "Vision", "Comm", "Contract", "Time",
+            "Planning", "Cognition", "Reality", "Forge", "Aegis", "Veritas", "Evolve"]
+            .iter().map(|short| SisterInfo { name: format!("Agentic{}", short), short_name: short.to_string(), connected: false, tool_count: 0 }).collect();
 
         let working_dir = {
             let prof = hydra_native::profile::load_profile();
@@ -272,6 +281,9 @@ impl App {
 
         // Load user name from shared profile first, fall back to env
         let profile = hydra_native::profile::load_profile();
+        let memory_capture = profile.as_ref()
+            .and_then(|p| p.memory_capture.clone())
+            .unwrap_or_else(|| "all".into());
         let user_name = profile.as_ref()
             .and_then(|p| p.user_name.clone())
             .or_else(|| std::env::var("USER").ok())
@@ -281,12 +293,9 @@ impl App {
         // Detect project type from working directory
         let detected_project = project::detect_project(std::path::Path::new(&working_dir));
 
-        // Initialize DB (same path as Desktop)
+        // Initialize DB — uses active user's data directory
         let db = {
-            let db_path = std::env::var("HOME")
-                .map(std::path::PathBuf::from)
-                .unwrap_or_else(|_| std::path::PathBuf::from("."));
-            let db_path = db_path.join(".hydra").join("hydra.db");
+            let db_path = hydra_native::profile::active_db_path();
             hydra_db::HydraDb::init(&db_path).ok().map(Arc::new)
         };
 
@@ -321,6 +330,7 @@ impl App {
             working_dir,
             model_name: resolve_model_name(),
             tool_count: 740,
+            memory_capture,
 
             recent_tasks: load_recent_activity(),
             progress: None,
@@ -361,9 +371,19 @@ impl App {
             last_ctrlc_tick: 0,
             last_submit_tick: 0,
             kill_ring: String::new(),
+            smtp_host: profile.as_ref().and_then(|p| p.smtp_host.clone()).unwrap_or_default(),
+            smtp_user: profile.as_ref().and_then(|p| p.smtp_user.clone()).unwrap_or_default(),
+            smtp_password: profile.as_ref().and_then(|p| p.smtp_password.clone()).unwrap_or_default(),
+            smtp_to: profile.as_ref().and_then(|p| p.smtp_to.clone()).unwrap_or_default(),
             remote_executor: hydra_native::remote::RemoteExecutor::new(),
             swarm_manager: hydra_native::swarm::SwarmManager::default(),
             threat_correlator: hydra_native::threat::ThreatCorrelator::default(),
+
+            file_watcher: {
+                let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+                hydra_pulse::FileWatcher::start(cwd).ok()
+            },
+            proactive_file_engine: hydra_pulse::ProactiveFileEngine::new(),
         }
     }
 }

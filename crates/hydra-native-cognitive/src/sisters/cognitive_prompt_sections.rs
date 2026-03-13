@@ -64,6 +64,12 @@ impl Sisters {
         if let Some(impact) = perceived["impact_context"].as_str() {
             prompt.push_str(&format!("# Impact Analysis\n{}\n\n", impact));
         }
+        if let Some(arch) = perceived["architecture_context"].as_str() {
+            prompt.push_str(&format!("# Architecture\n{}\n\n", arch));
+        }
+        if let Some(prophecy) = perceived["prophecy_context"].as_str() {
+            prompt.push_str(&format!("# Code Prophecy\n{}\n\n", prophecy));
+        }
 
         if let Some(vis) = perceived["vision_context"].as_str() {
             prompt.push_str(&format!("# Visual Context\n{}\n\n", vis));

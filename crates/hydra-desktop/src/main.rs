@@ -48,7 +48,6 @@ fn main() {
         )
         .launch(App);
 }
-
 #[allow(non_snake_case)]
 fn App() -> Element {
     // ── Per-project lock — prevents two Hydras on the same project ──
@@ -66,10 +65,8 @@ fn App() -> Element {
     let persisted = load_profile();
     let onboarding_done = persisted.as_ref().map_or(false, |p| p.onboarding_complete);
     let chat_db = Arc::new(ChatPersistence::init_or_memory());
-    let (decide_engine, invention_engine, proactive_notifier, agent_spawner, undo_stack, approval_manager, federation_manager, hydra_db, swarm_manager) = include!("app_engines.rs");
-    let send_msg_approval_mgr = approval_manager.clone();
-    let palette_approval_mgr = approval_manager.clone();
-    let card_approval_mgr = approval_manager.clone();
+    let (decide_engine, invention_engine, proactive_notifier, agent_spawner, undo_stack, approval_manager, federation_manager, hydra_db, swarm_manager, file_watcher, proactive_file_engine) = include!("app_engines.rs");
+    let (send_msg_approval_mgr, palette_approval_mgr, card_approval_mgr) = (approval_manager.clone(), approval_manager.clone(), approval_manager.clone());
     let sisters: Signal<Option<SistersHandle>> = use_signal(|| None);
     let sisters_status = use_signal(|| "Connecting...".to_string());
     {
@@ -85,16 +82,11 @@ fn App() -> Element {
         });
     }
     let s = app_init_settings::extract_init_settings(&persisted);
-    let init_theme = s.theme;
-    let init_voice = s.voice;
-    let init_sounds = s.sounds;
-    let init_volume = s.volume;
-    let init_auto_approve = s.auto_approve;
-    let init_default_mode = s.default_mode;
-    let init_model = s.model;
-    let init_anthropic_key = s.anthropic_key;
-    let init_openai_key = s.openai_key;
-    let init_google_key = s.google_key;
+    let (init_theme, init_voice, init_sounds, init_volume) = (s.theme, s.voice, s.sounds, s.volume);
+    let (init_auto_approve, init_default_mode, init_model) = (s.auto_approve, s.default_mode, s.model);
+    let (init_anthropic_key, init_openai_key, init_google_key) = (s.anthropic_key, s.openai_key, s.google_key);
+    let init_memory_capture = s.memory_capture;
+    let (init_smtp_host, init_smtp_user, init_smtp_password, init_smtp_to) = (s.smtp_host, s.smtp_user, s.smtp_password, s.smtp_to);
     // ── Core state signals ──
     let mut input = use_signal(|| String::new());
     let chat_db_init = chat_db.clone();
@@ -115,7 +107,32 @@ fn App() -> Element {
         }
     });
     let mut show_onboarding = use_signal(move || !onboarding_done);
-
+    // ── Graceful session shutdown on window close ──
+    {
+        let sisters_drop = sisters.clone();
+        let msgs_drop = messages.clone();
+        let ob_drop = onboarding.clone();
+        use_drop(move || {
+            let sh = sisters_drop.read().clone();
+            let msgs = msgs_drop.read().clone();
+            let name = ob_drop.read().user_name.clone().unwrap_or_default();
+            if let Some(handle) = sh {
+                let history: Vec<(String, String)> = msgs.iter()
+                    .map(|(role, content, _)| (role.clone(), content.clone()))
+                    .collect();
+                std::thread::spawn(move || {
+                    if let Ok(rt) = tokio::runtime::Builder::new_current_thread()
+                        .enable_all().build()
+                    {
+                        let _ = rt.block_on(tokio::time::timeout(
+                            std::time::Duration::from_secs(5),
+                            handle.shutdown_session(&name, &history),
+                        ));
+                    }
+                });
+            }
+        });
+    }
     // ── Settings state ──
     let mut show_settings = use_signal(|| false);
     let mut settings_theme = use_signal(move || init_theme);
@@ -135,28 +152,16 @@ fn App() -> Element {
     let mut oauth_status = use_signal(|| {
         let oauth = AnthropicOAuth::new();
         if oauth.is_authenticated() {
-            let email = oauth.account_email().unwrap_or("").to_string();
-            let tier = oauth.subscription_tier().unwrap_or("").to_string();
-            ("authenticated".to_string(), email, tier)
-        } else {
-            ("not_authenticated".to_string(), String::new(), String::new())
-        }
+            (("authenticated".into(), oauth.account_email().unwrap_or("").to_string(), oauth.subscription_tier().unwrap_or("").to_string()))
+        } else { ("not_authenticated".to_string(), String::new(), String::new()) }
     });
     let mut oauth_loading = use_signal(|| false);
-    // ── Mode state ──
     let mut current_mode = use_signal(move || init_mode_for_current);
-    // ── Sidebar ──
-    let mut sidebar = use_signal(|| {
-        let mut sb = Sidebar::new();
-        sb.add_task("session-1", "Session 1");
-        sb
-    });
+    let mut sidebar = use_signal(|| { let mut sb = Sidebar::new(); sb.add_task("session-1", "Session 1"); sb });
     let mut show_sidebar = use_signal(move || init_mode_for_sidebar == "workspace");
-    // ── Approval, progress, error ──
     let mut pending_approval = use_signal(|| Option::<ApprovalCard>::None);
     let mut pending_approval_id = use_signal(|| Option::<String>::None);
     let mut challenge_input = use_signal(|| String::new());
-    // ── Ghost Cursor state ──
     let mut ghost_cursor = use_signal(|| GhostCursorState::new());
     let mut ghost_click_rings: Signal<Vec<(f64, f64, u64)>> = use_signal(|| Vec::new());
     let mut _active_progress = use_signal(|| Option::<ProgressJourney>::None);
@@ -164,13 +169,11 @@ fn App() -> Element {
     let mut celebration_dismiss_scheduled = use_signal(|| false);
     let mut active_error = use_signal(|| Option::<FriendlyError>::None);
     let mut approval_countdown = use_signal(|| 0u32);
-    // ── Voice settings (expanded) ──
     let mut settings_tts_voice = use_signal(|| "nova".to_string());
     let mut settings_stt_lang = use_signal(|| "en".to_string());
     let mut settings_wake_word = use_signal(|| false);
     let mut settings_audio_input = use_signal(|| "default".to_string());
     let mut settings_auto_listen = use_signal(|| false);
-    // ── Policy settings (expanded) ──
     let mut settings_risk_threshold = use_signal(|| "medium".to_string());
     let mut settings_file_write = use_signal(|| true);
     let mut settings_network_access = use_signal(|| true);
@@ -178,7 +181,6 @@ fn App() -> Element {
     let mut settings_max_file_edits = use_signal(|| "25".to_string());
     let mut settings_require_approval_critical = use_signal(|| true);
     let mut settings_sandbox_mode = use_signal(|| false);
-    // ── Behavior settings (wired to actual toggles) ──
     let mut settings_intent_cache = use_signal(|| true);
     let mut settings_cache_ttl = use_signal(|| "1h".to_string());
     let mut settings_learn_corrections = use_signal(|| true);
@@ -190,7 +192,11 @@ fn App() -> Element {
     let mut settings_dream_state = use_signal(|| true);
     let mut settings_proactive = use_signal(|| true);
     let mut settings_federation = use_signal(|| false);
-
+    let mut settings_memory_capture = use_signal(move || init_memory_capture);
+    let mut settings_smtp_host = use_signal(move || init_smtp_host);
+    let mut settings_smtp_user = use_signal(move || init_smtp_user);
+    let mut settings_smtp_password = use_signal(move || init_smtp_password);
+    let mut settings_smtp_to = use_signal(move || init_smtp_to);
     // ── Advanced settings ──
     let mut settings_server_port = use_signal(|| "3100".to_string());
     let mut settings_log_level = use_signal(|| "info".to_string());
@@ -209,29 +215,34 @@ fn App() -> Element {
     let mut active_session_id = use_signal(|| "session-1".to_string());
     let mut voice_listening = use_signal(|| false);
     let mut mic_stop_flag = use_signal(|| Arc::new(AtomicBool::new(false)));
+    let mut voice_pending_send = use_signal(|| Option::<String>::None);
+    let mut companion_auto_listen = use_signal(|| false);
+    let mut tts_playing = use_signal(|| false); // echo prevention: don't listen while speaking
+    let mut cognitive_done = use_signal(|| false); // auto-listen waits for this AND !tts_playing
     let mut show_search = use_signal(|| false);
     let mut search_query = use_signal(|| String::new());
     let mut show_receipts = use_signal(|| false);
-    // Store messages per session: session_id -> Vec<(role, content, css)>
     let mut session_store = use_signal(|| HashMap::<String, Vec<(String, String, String)>>::new());
-    // Pulse voice — instant ack + progressive TTS
     let pulse = use_signal(|| Arc::new(pulse_voice::PulseVoice::new()));
-    // System monitor — tracks metrics (tokens, latency, health)
     let monitor: Signal<Arc<parking_lot::Mutex<hydra_monitor::SystemMonitor>>> = use_signal(|| Arc::new(parking_lot::Mutex::new(hydra_monitor::SystemMonitor::new())));
-    // Trace collector — records cognitive loop spans for perf visibility
     let tracer: Signal<Arc<parking_lot::Mutex<hydra_trace::TraceCollector>>> = use_signal(|| Arc::new(parking_lot::Mutex::new(hydra_trace::TraceCollector::new(100))));
-
     // ── Undo/Redo state ──
     let mut can_undo = use_signal(|| false);
     let mut can_redo = use_signal(|| false);
     let mut last_undo_action = use_signal(|| Option::<String>::None);
     let undo_sig: Signal<Arc<parking_lot::Mutex<UndoStack>>> = use_signal(|| undo_stack.clone());
-
     // ── Workspace panels ──
     let mut plan_panel = use_signal(|| PlanPanel::default());
     let mut timeline_panel = use_signal(|| TimelinePanel::new());
     let mut evidence_panel = use_signal(|| EvidencePanel::new());
-
+    // ── File watcher polling (P2 proactive suggestions) ──
+    { let fw = file_watcher.clone(); let pfe = proactive_file_engine.clone(); let mut tp = timeline_panel.clone();
+      use_hook(move || { if fw.is_some() { spawn(async move { loop { tokio::time::sleep(std::time::Duration::from_secs(4)).await;
+        let changes = if let Some(ref w) = fw { w.lock().drain_changes() } else { vec![] };
+        if !changes.is_empty() { for s in pfe.lock().process_changes(&changes) { let now = chrono::Local::now().format("%H:%M:%S").to_string();
+            let kind = if matches!(s.priority, hydra_pulse::SuggestionPriority::Urgent) { TimelineEventKind::Error } else { TimelineEventKind::Info };
+            let detail = s.action.map(|a| format!("{} ({:?})", s.message, a)).unwrap_or_else(|| s.message.clone());
+            tp.write().push_event(&now, kind, &s.title, Some(&detail), Some("Watcher")); } } } }); } }); }
     // ── Global keyboard shortcuts via JS document listener ──
     let kb_approval_mgr = approval_manager.clone();
     use_hook(|| {
@@ -267,34 +278,16 @@ fn App() -> Element {
                     Ok(key) => {
                         match key.as_str() {
                             "shift+k" => {
-                                // Kill switch — emergency halt all activity
                                 kb_approval_mgr.cancel_all();
-                                is_typing.set(false);
-                                phase.set("Idle".into());
-                                icon_state.set("idle".into());
-                                pending_approval.set(None);
-                                pending_approval_id.set(None);
-                                phase_statuses.set(vec![]);
-                                active_error.set(Some(FriendlyError {
-                                    message: "Kill Switch Activated".into(),
+                                is_typing.set(false); phase.set("Idle".into()); icon_state.set("idle".into());
+                                pending_approval.set(None); pending_approval_id.set(None); phase_statuses.set(vec![]);
+                                active_error.set(Some(FriendlyError { message: "Kill Switch Activated".into(),
                                     explanation: "All operations halted. Press Escape to dismiss, or Cmd+N for a fresh session.".into(),
-                                    options: vec![],
-                                    icon_state: "error".into(),
-                                    can_undo: false,
-                                }));
+                                    options: vec![], icon_state: "error".into(), can_undo: false }));
                             }
-                            "k" => {
-                                let current = *show_command_palette.read();
-                                show_command_palette.set(!current);
-                                if !current { command_palette.write().reset(); }
-                            }
-                            "b" => {
-                                let c = *show_sidebar.read();
-                                show_sidebar.set(!c);
-                            }
-                            "," => {
-                                show_settings.set(true);
-                            }
+                            "k" => { let c = *show_command_palette.read(); show_command_palette.set(!c); if !c { command_palette.write().reset(); } }
+                            "b" => { let c = *show_sidebar.read(); show_sidebar.set(!c); }
+                            "," => { show_settings.set(true); }
                             "n" => {
                                 // Save current session
                                 let cur_id = active_session_id.read().clone();
@@ -369,7 +362,6 @@ fn App() -> Element {
             }
         });
     });
-
     // Show lock error if another instance owns this project
     if lock_error_msg.read().is_some() && active_error.read().is_none() {
         let err = lock_error_msg.read().clone().unwrap_or_default();
@@ -391,6 +383,15 @@ fn App() -> Element {
 
     // ── Send message handler + save profile (extracted for compilation memory) ──
     let (mut send_message, save_current_profile) = include!("app_send_handler.rs");
+
+    // Voice → send bridge: peek() reads without subscribing (avoids infinite loop).
+    // Re-render is triggered by input.set() in the voice trigger.
+    if voice_pending_send.peek().is_some() {
+        if let Some(text) = voice_pending_send.write().take() {
+            eprintln!("[hydra:voice-bridge] Sending: {}", &text[..text.len().min(60)]);
+            send_message(text);
+        }
+    }
 
     // ── RSX (split into fragment files for compilation memory) ──
     include!("app_rsx.rs")

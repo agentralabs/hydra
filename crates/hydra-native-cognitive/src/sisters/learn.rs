@@ -165,12 +165,20 @@ impl Sisters {
             }
         };
 
-        // Extract patterns from code-related interactions
+        // Extract patterns + hallucination check + truth registration for code
         let pattern_fut = async {
             if Self::detects_code(user_msg) {
                 if let Some(s) = &self.codebase {
                     let _ = s.call_tool("pattern_extract", serde_json::json!({
                         "context": safe_truncate(&user_msg, 200),
+                    })).await;
+                    // Verify our code response isn't hallucinated
+                    let _ = s.call_tool("hallucination_check", serde_json::json!({
+                        "output": safe_truncate(&response, 500),
+                    })).await;
+                    // Register any code claims for truth maintenance
+                    let _ = s.call_tool("truth_register", serde_json::json!({
+                        "claim": safe_truncate(&response, 300),
                     })).await;
                 }
             }
@@ -207,8 +215,38 @@ impl Sisters {
             self.comm_session_log(user_msg, response).await;
         };
 
+        // Phase G: Identity trust reinforcement — successful interaction builds trust
+        let trust_reinforce_fut = async {
+            self.identity_trust_reinforce("global", safe_truncate(user_msg, 100)).await;
+        };
+
+        // Phase G: Identity action log — audit trail
+        let identity_actions_fut = async {
+            self.identity_actions_log(
+                safe_truncate(user_msg, 100),
+                safe_truncate(response, 100),
+            ).await;
+        };
+
+        // Phase G: Contract decision record — audit receipt chain
+        let contract_record_fut = async {
+            if let Some(s) = &self.contract {
+                let _ = s.call_tool("contract_record_decision", serde_json::json!({
+                    "action": safe_truncate(user_msg, 200),
+                    "outcome": safe_truncate(response, 200),
+                    "source": "cognitive_loop",
+                })).await;
+            }
+        };
+
+        // Phase G: Evolve pattern record — track action success for pattern evolution
+        let evolve_record_fut = async {
+            self.evolve_record_pattern(safe_truncate(user_msg, 200), true).await;
+        };
+
         tokio::join!(v3_capture_fut, v2_log_fut, cognition_fut, cognition_model_fut, evolve_fut,
                      identity_fut, time_fut, quality_fut, reflect_fut, correct_fut, pattern_fut,
-                     planning_learn_fut, comm_learn_fut, immortal_capture_fut, comm_session_log_fut);
+                     planning_learn_fut, comm_learn_fut, immortal_capture_fut, comm_session_log_fut,
+                     trust_reinforce_fut, identity_actions_fut, contract_record_fut, evolve_record_fut);
     }
 }

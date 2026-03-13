@@ -981,6 +981,17 @@ html, body {
 }
 .chat-input::placeholder { color: var(--text-2); }
 
+/* ── Attach button (workspace file input) ── */
+.attach-btn {
+  width: 32px; height: 32px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: transparent; color: var(--text-2);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all 0.15s;
+}
+.attach-btn:hover { color: var(--accent); border-color: var(--accent); background: rgba(100, 149, 237, 0.08); }
+.attach-btn:active { transform: scale(0.9); }
+.chat-container.drag-active { outline: 2px dashed var(--accent); outline-offset: -4px; background: rgba(100, 149, 237, 0.04); }
+
 .send-btn {
   width: 32px; height: 32px;
   border-radius: var(--radius-sm);
@@ -1046,7 +1057,21 @@ html, body {
 .mic-btn:hover .mic-icon { opacity: 1; }
 .mic-icon.listening {
   opacity: 1;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23ef4444' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5.5' y='1.5' width='5' height='9' rx='2.5'/%3E%3Cpath d='M3 7.5a5 5 0 0010 0'/%3E%3Cline x1='8' y1='12.5' x2='8' y2='14.5'/%3E%3Cline x1='5.5' y1='14.5' x2='10.5' y2='14.5'/%3E%3C/svg%3E");
+  /* Stop square icon when listening */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23ef4444' stroke='none'%3E%3Crect x='3' y='3' width='10' height='10' rx='2'/%3E%3C/svg%3E");
+}
+
+/* Listening label next to mic button */
+.listening-label {
+  font-size: 12px;
+  color: var(--error);
+  animation: listening-blink 1s ease-in-out infinite;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+@keyframes listening-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .input-error {
@@ -2267,6 +2292,52 @@ html, body {
   line-height: 1;
 }
 .companion-mic-icon svg { display: block; }
+
+/* Listening indicator — three pulsing dots */
+.companion-listening-indicator {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 12px;
+}
+.companion-pulse-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: dot-bounce 1.4s ease-in-out infinite;
+}
+.companion-pulse-dot:nth-child(2) { animation-delay: 0.2s; }
+.companion-pulse-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dot-bounce {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.2); }
+}
+
+/* Mode toggle — compact icon pill */
+.mode-toggle-pill {
+  display: flex;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1px;
+  gap: 1px;
+}
+.mode-opt {
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  font-size: 10px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: all 0.12s;
+  border-radius: 9px;
+  line-height: 1.4;
+}
+.mode-opt:hover { color: var(--text-0); }
+.mode-opt.active {
+  background: var(--accent);
+  color: var(--bg-0);
+}
 
 /* ── Text bridge — seamless transition to chat ── */
 .companion-bridge {

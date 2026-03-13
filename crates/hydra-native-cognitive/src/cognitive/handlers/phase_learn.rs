@@ -152,11 +152,18 @@ pub(crate) async fn run_learn(
         }
     }
 
-    // ── IMMORTAL CAPTURE: Always capture exchanges for session continuity ──
-    // This is NOT gated by learn_corrections — it's core to "where did we stop?"
+    // ── IMMORTAL CAPTURE: Capture exchanges based on memory_capture setting ──
+    let rt = &config.runtime;
     if let Some(ref sh) = sisters_handle {
-        sh.memory_capture_exchange(text, final_response).await;
-        sh.comm_session_log(text, final_response).await;
+        if rt.should_capture_all() {
+            // Full capture — every exchange in V3 immortal log + comm trail
+            sh.memory_capture_exchange(text, final_response).await;
+            sh.comm_session_log(text, final_response).await;
+        } else if rt.should_capture_facts() {
+            // Facts-only — comm trail but no V3 immortal capture
+            sh.comm_session_log(text, final_response).await;
+        }
+        // "none" mode: no capture at all
     }
 
     // ── BELIEF UPDATE: Extract and persist beliefs from this interaction ──
@@ -287,6 +294,50 @@ pub(crate) async fn run_learn(
                 let _ = tx.send(CognitiveUpdate::PatternEvolved {
                     summary: evo_summary,
                 });
+            }
+        }
+    }
+
+    // ── PER-INTERACTION INTELLIGENCE: audit trail + identity fingerprinting ──
+    if let Some(ref sh) = sisters_handle {
+        sh.contract_context_log(safe_truncate(text, 200), safe_truncate(final_response, 200)).await;
+        let _ = sh.identity_fingerprint_build().await;
+    }
+
+    // ── PERIODIC DEEP INTELLIGENCE: sister calls gated by message count ──
+    let msg_count = config.history.len();
+    if msg_count > 0 {
+        if let Some(ref sh) = sisters_handle {
+            // Every 10 messages: drift, metabolism, pattern optimization
+            if msg_count % 10 == 0 {
+                sh.memory_metabolism_process().await;
+                for (title, result) in [
+                    ("Belief Drift", sh.cognition_drift_track().await),
+                    ("Pattern Optimization", sh.evolve_optimize().await),
+                ] { if let Some(c) = result { let _ = tx.send(CognitiveUpdate::EvidenceMemory { title: title.into(), content: c }); } }
+            }
+            // Every 15 messages: recurring themes
+            if msg_count % 15 == 0 {
+                if let Some(c) = sh.planning_identify_themes().await {
+                    let _ = tx.send(CognitiveUpdate::EvidenceMemory { title: "Recurring Themes".into(), content: c });
+                }
+            }
+            // Every 20 messages: gaps, trust, decay, dream, shadow, immune, calibration, vision
+            if msg_count % 20 == 0 {
+                for (title, result) in [
+                    ("Knowledge Gaps", sh.memory_meta_gaps(text).await),
+                    ("Trust Trajectory", sh.identity_trust_project("global").await),
+                    ("Stale Knowledge", sh.time_decay_alert().await),
+                    ("Blind Spots", sh.cognition_shadow_map().await),
+                    ("Memory Health", sh.memory_immune_scan().await),
+                    ("Calibration", sh.memory_meta_calibration().await),
+                    ("Visual Memory", sh.vision_consolidate("session").await),
+                ] { if let Some(c) = result { let _ = tx.send(CognitiveUpdate::EvidenceMemory { title: title.into(), content: c }); } }
+                let _ = sh.memory_dream_start("periodic consolidation").await;
+            }
+            // Every 50 messages: crystallize session consciousness
+            if msg_count % 50 == 0 {
+                let _ = sh.memory_crystal_create("session crystallization").await;
             }
         }
     }

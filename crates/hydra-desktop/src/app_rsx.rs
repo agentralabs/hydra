@@ -1,6 +1,19 @@
 // Main RSX composition — wrapped in a block so include!() sees a single expression.
 // Sub-elements use include!() for rsx! blocks (valid single expressions).
 {
+// Shared voice toggle closure — used by both companion and workspace
+let toggle_voice = include!("app_voice_trigger.rs");
+
+// Auto-listen bridge: start mic ONLY when cognitive is done AND TTS finished playing.
+// peek() avoids subscribing (prevents infinite re-render loop from read+write).
+if *companion_auto_listen.peek() && !*voice_listening.peek()
+    && *cognitive_done.peek() && !*tts_playing.peek()
+{
+    companion_auto_listen.set(false);
+    cognitive_done.set(false);
+    toggle_voice.call(());
+}
+
 // Pre-render independent sections
 let overlays_el: Element = include!("app_rsx_overlays_el.rs");
 let sidebar_el: Element = include!("app_rsx_sidebar_el.rs");
@@ -65,7 +78,24 @@ rsx! {
                                 "invisible" => "Invisible",
                                 other => other,
                             };
-                            rsx! { span { class: "topbar-mode", "{mode_label}" } }
+                            let is_comp = mode == "companion";
+                        rsx! {
+                            div {
+                                class: "mode-toggle-pill",
+                                button {
+                                    class: if !is_comp { "mode-opt active" } else { "mode-opt" },
+                                    title: "Text + Voice",
+                                    onclick: move |_| { current_mode.set("workspace".into()); show_sidebar.set(true); },
+                                    "\u{2338}"
+                                }
+                                button {
+                                    class: if is_comp { "mode-opt active" } else { "mode-opt" },
+                                    title: "Voice",
+                                    onclick: move |_| { current_mode.set("companion".into()); show_sidebar.set(false); },
+                                    "\u{266A}"
+                                }
+                            }
+                        }
                         }
                     }
                     div {
@@ -264,7 +294,7 @@ rsx! {
                                             title: "Voice",
                                             onclick: move |e| {
                                                 e.stop_propagation();
-                                                document::eval("document.querySelector('.mic-btn')?.click()");
+                                                toggle_voice.call(());
                                             },
                                             dangerous_inner_html: r#"<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/></svg>"#,
                                         }

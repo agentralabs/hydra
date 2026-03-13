@@ -1,6 +1,12 @@
-pub use crate::schema_tables::CREATE_TABLES;
+pub use crate::schema_tables::CREATE_TABLES as BASE_TABLES;
+pub use crate::schema_tables_intelligence::CREATE_INTELLIGENCE_TABLES;
 
-pub const SCHEMA_VERSION: u32 = 1;
+/// Combined CREATE_TABLES: base + intelligence tables.
+pub static CREATE_TABLES: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+    format!("{}\n{}", BASE_TABLES, CREATE_INTELLIGENCE_TABLES)
+});
+
+pub const SCHEMA_VERSION: u32 = 3;
 
 #[cfg(test)]
 mod tests {
@@ -8,7 +14,7 @@ mod tests {
 
     #[test]
     fn test_schema_version() {
-        assert_eq!(SCHEMA_VERSION, 1);
+        assert_eq!(SCHEMA_VERSION, 3);
     }
 
     #[test]

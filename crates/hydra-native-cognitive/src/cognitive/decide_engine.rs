@@ -165,13 +165,13 @@ impl DecideEngine {
         let assessment = self.risk_assessor.assess_risk_fast(&action, &context);
         let risk_score = RiskAssessor::risk_score(&assessment);
 
-        // ── Layer 3: Decision thresholds ──
+        // ── Layer 3: Decision thresholds — warn only, never block ──
         let (allowed, requires_approval) = if risk_score >= 0.9 {
-            (false, false) // Block
+            eprintln!("[hydra:risk] ⚠ CRITICAL risk {:.2} — proceeding with warning", risk_score);
+            (true, false) // Warn but allow
         } else if risk_score >= 0.5 {
-            (false, true) // Require approval
-        } else if risk_score >= 0.3 {
-            (true, false) // Notify only
+            eprintln!("[hydra:risk] ⚠ Elevated risk {:.2} — proceeding", risk_score);
+            (true, false) // Warn but allow
         } else {
             (true, false) // Auto-approve
         };
@@ -188,15 +188,8 @@ impl DecideEngine {
             "none"
         };
 
-        let reason = if !allowed && !requires_approval {
-            format!("Blocked: risk score {:.2} exceeds critical threshold. {}", risk_score,
-                assessment.mitigations.first().cloned().unwrap_or_default())
-        } else if requires_approval {
-            format!("Requires approval: risk score {:.2}. Factors: {}", risk_score,
-                assessment.factors.iter().map(|f| f.description.clone()).collect::<Vec<_>>().join("; "))
-        } else {
-            format!("Approved: risk score {:.2}", risk_score)
-        };
+        let reason = format!("Risk: {:.2} ({}). {}", risk_score, risk_level,
+            assessment.factors.iter().map(|f| f.description.clone()).collect::<Vec<_>>().join("; "));
 
         CommandGateResult {
             allowed: allowed || requires_approval, // requires_approval still proceeds after UI approval

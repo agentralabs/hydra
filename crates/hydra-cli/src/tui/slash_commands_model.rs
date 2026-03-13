@@ -115,29 +115,54 @@ impl App {
         });
     }
 
-    pub(crate) fn slash_cmd_login(&mut self, timestamp: &str) {
-        self.messages.push(Message {
-            role: MessageRole::System,
-            content: "Login\n\
-                     \n\
-                     Current: API key authentication\n\
-                     \n\
-                     Switch accounts:\n\
-                       hydra login\n\
-                       hydra login --provider anthropic\n\
-                       hydra login --provider openai".to_string(),
-            timestamp: timestamp.to_string(),
-            phase: None,
-        });
+    pub(crate) fn slash_cmd_login(&mut self, args: &str, timestamp: &str) {
+        let name = args.trim();
+        if name.is_empty() {
+            let current = hydra_native::profile::active_user().unwrap_or_else(|| self.user_name.clone());
+            let users = hydra_native::profile::list_users();
+            let list = if users.is_empty() { "  (none)".into() } else { users.iter().map(|u| {
+                if *u == current { format!("  {} (active)", u) } else { format!("  {}", u) }
+            }).collect::<Vec<_>>().join("\n") };
+            self.messages.push(Message {
+                role: MessageRole::System,
+                content: format!("Profiles\n\n{}\n\nSwitch: /login <name>\nSign out: /logout", list),
+                timestamp: timestamp.to_string(), phase: None,
+            });
+            return;
+        }
+        // Switch to user (create if new)
+        hydra_native::profile::set_active_user(name);
+        let profile = hydra_native::profile::load_profile();
+        let display = profile.as_ref().and_then(|p| p.user_name.clone()).unwrap_or_else(|| name.into());
+        self.user_name = display.clone();
+        // Reload SMTP settings from new profile
+        self.smtp_host = profile.as_ref().and_then(|p| p.smtp_host.clone()).unwrap_or_default();
+        self.smtp_user = profile.as_ref().and_then(|p| p.smtp_user.clone()).unwrap_or_default();
+        self.smtp_password = profile.as_ref().and_then(|p| p.smtp_password.clone()).unwrap_or_default();
+        self.smtp_to = profile.as_ref().and_then(|p| p.smtp_to.clone()).unwrap_or_default();
+        let is_new = profile.is_none();
+        if is_new {
+            let new_profile = hydra_native::profile::PersistedProfile { user_name: Some(name.into()), ..Default::default() };
+            hydra_native::profile::save_profile(&new_profile);
+        }
+        let msg = if is_new { format!("Welcome, {}! New profile created.", name) } else { format!("Switched to profile: {}", display) };
+        self.messages.push(Message { role: MessageRole::System, content: msg, timestamp: timestamp.into(), phase: None });
     }
 
     pub(crate) fn slash_cmd_logout(&mut self, timestamp: &str) {
+        let current = hydra_native::profile::active_user().unwrap_or_else(|| self.user_name.clone());
+        hydra_native::profile::clear_active_user();
+        let users = hydra_native::profile::list_users();
+        let others: Vec<&str> = users.iter().map(|s| s.as_str()).filter(|u| *u != current).collect();
+        let hint = if others.is_empty() {
+            "Restart Hydra to create a new profile, or /login <name> to sign in.".into()
+        } else {
+            format!("Other profiles: {}. Use /login <name> to switch.", others.join(", "))
+        };
         self.messages.push(Message {
             role: MessageRole::System,
-            content: "Signed out. API keys cleared for this session.\n\
-                     Use /login to re-authenticate.".to_string(),
-            timestamp: timestamp.to_string(),
-            phase: None,
+            content: format!("Signed out as {}. Data preserved in ~/.hydra/users/{}.\n{}", current, current, hint),
+            timestamp: timestamp.to_string(), phase: None,
         });
     }
 

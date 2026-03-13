@@ -180,82 +180,16 @@ rsx! {
     div {
         class: "input-bar",
         div { class: "input-wrapper",
-            // Mic button (only when voice is enabled)
+            // Mic button (only when voice is enabled) — uses shared toggle_voice
             if *settings_voice.read() {
                 button {
                     class: if *voice_listening.read() { "mic-btn listening" } else { "mic-btn" },
                     title: if *voice_listening.read() { "Stop listening" } else { "Start voice input" },
-                    onclick: move |_| {
-                        let listening = *voice_listening.read();
-                        if listening {
-                            // STOP recording
-                            mic_stop_flag.read().store(true, Ordering::Relaxed);
-                            // voice_listening will be set false when transcript arrives
-                        } else {
-                            // START recording
-                            let openai_key = settings_openai_key.read().clone();
-                            if openai_key.is_empty() {
-                                active_error.set(Some(FriendlyError {
-                                    message: "Voice input requires an OpenAI API key".into(),
-                                    explanation: "Go to Settings > Models and enter your OpenAI key to enable voice transcription.".into(),
-                                    options: vec![],
-                                    icon_state: "error".into(),
-                                    can_undo: false,
-                                }));
-                                return;
-                            }
-                            voice_listening.set(true);
-                            // Fresh stop flag
-                            let flag = Arc::new(AtomicBool::new(false));
-                            mic_stop_flag.set(flag.clone());
-
-                            // Record in a std::thread (cpal::Stream is not Send)
-                            let (tx, rx) = tokio::sync::oneshot::channel::<Option<(Vec<f32>, u32)>>();
-                            std::thread::spawn(move || {
-                                let result = voice_capture::record_until_stopped(flag);
-                                let _ = tx.send(result);
-                            });
-
-                            // Await result, transcribe, auto-send
-                            spawn(async move {
-                                if let Ok(Some((samples, sample_rate))) = rx.await {
-                                    if samples.len() > 1600 { // at least 0.1s of audio
-                                        let wav = voice_capture::encode_wav(&samples, sample_rate);
-                                        let key = settings_openai_key.read().clone();
-                                        let lang = settings_stt_lang.read().clone();
-                                        match voice_capture::transcribe_whisper(wav, &key, &lang).await {
-                                            Ok(text) if !text.is_empty() => {
-                                                input.set(text);
-                                                // Auto-click send
-                                                document::eval("setTimeout(function(){var b=document.querySelector('.send-btn');if(b)b.click();},50);");
-                                            }
-                                            Err(e) => {
-                                                eprintln!("[hydra] transcription error: {}", e);
-                                                active_error.set(Some(FriendlyError {
-                                                    message: "Transcription failed".into(),
-                                                    explanation: e,
-                                                    options: vec![],
-                                                    icon_state: "error".into(),
-                                                    can_undo: false,
-                                                }));
-                                            }
-                                            _ => {}
-                                        }
-                                    }
-                                } else {
-                                    active_error.set(Some(FriendlyError {
-                                        message: "Microphone not available".into(),
-                                        explanation: "No input device found. Check your microphone connection and system permissions.".into(),
-                                        options: vec![],
-                                        icon_state: "error".into(),
-                                        can_undo: false,
-                                    }));
-                                }
-                                voice_listening.set(false);
-                            });
-                        }
-                    },
+                    onclick: move |_| { toggle_voice.call(()); },
                     span { class: if *voice_listening.read() { "mic-icon listening" } else { "mic-icon" } }
+                }
+                if *voice_listening.read() {
+                    span { class: "listening-label", "Listening... click to stop" }
                 }
             }
             textarea {

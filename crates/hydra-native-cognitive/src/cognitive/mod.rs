@@ -1,6 +1,7 @@
 //! Cognitive loop — decoupled from UI via message passing.
 
 pub mod capability_registry;
+pub mod cognitive_update;
 pub mod conversation_engine;
 pub mod decide;
 pub mod decide_anomaly;
@@ -24,6 +25,10 @@ pub mod spawner;
 pub mod streaming;
 pub mod obstacles;
 pub mod runtime_settings;
+pub mod outcome_tracker;
+pub mod background_tasks;
+pub mod metacognition;
+pub mod user_model;
 
 pub use decide::{ChallengePhraseGate, DecideEngine, DecideResult, generate_challenge_phrase};
 pub use learn::{apply_belief_decay, gc_expired_beliefs, reconfirm_belief};
@@ -36,3 +41,7 @@ pub use conversation_engine::{ConversationBuffer, ConversationContext};
 pub use spawner::AgentSpawner;
 pub use obstacles::{ObstacleResolver, Obstacle, ObstaclePattern, Resolution, ResolverConfig};
 pub use capability_registry::CapabilityRegistry;
+pub use outcome_tracker::OutcomeTracker;
+pub use background_tasks::BackgroundScheduler;
+pub use metacognition::{CalibrationTracker, MetacognitiveAssessment};
+pub use user_model::UserModel;

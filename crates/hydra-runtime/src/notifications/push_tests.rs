@@ -160,22 +160,25 @@ mod tests {
         assert_eq!(reg.list_devices().len(), 2);
     }
 
-    #[tokio::test]
-    async fn test_email_provider_send() {
+    #[test]
+    fn test_email_provider_construction() {
         let provider = EmailProvider::new(
-            "smtp.example.com".to_string(),
+            "smtp.gmail.com".to_string(),
             "hydra@example.com".to_string(),
             "user@example.com".to_string(),
         );
-        let msg = PushMessage {
-            title: "Test".to_string(),
-            body: "Body".to_string(),
-            urgency: "normal".to_string(),
-            action_url: None,
-        };
-        // Email provider is a stub — should return Ok
-        assert!(provider.send(&msg).await.is_ok());
         assert_eq!(provider.provider_name(), "email");
+        assert_eq!(provider.smtp_host, "smtp.gmail.com");
+        assert_eq!(provider.smtp_port, 587);
+        assert_eq!(provider.username, "hydra@example.com");
+
+        let provider2 = EmailProvider::with_credentials(
+            "smtp.outlook.com".to_string(), 587,
+            "user@outlook.com".to_string(), "app-password".to_string(),
+            "user@outlook.com".to_string(), "dest@example.com".to_string(),
+        );
+        assert_eq!(provider2.smtp_port, 587);
+        assert_eq!(provider2.password, "app-password");
     }
 
     #[test]

@@ -1,4 +1,6 @@
-//! Self-implement and sister diagnostics handlers.
+//! Self-implement handler — self-modification pipeline with agentic retry loop.
+//!
+//! Flow: read spec -> approve -> gap analysis (LLM) -> patch gen (LLM) -> apply -> retry on failure -> report.
 
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -11,7 +13,7 @@ use super::super::super::intent_router::{IntentCategory, ClassifiedIntent};
 
 /// Handle self-implement — self-modification pipeline (Phase 5, Priority 1).
 ///
-/// Flow: read spec → approve → Forge/LLM gap analysis → Forge/LLM patch gen → apply → report.
+/// Flow: read spec -> approve -> Forge/LLM gap analysis -> Forge/LLM patch gen -> apply with retry -> report.
 pub(crate) async fn handle_self_implement(
     text: &str,
     intent: &ClassifiedIntent,
@@ -25,13 +27,10 @@ pub(crate) async fn handle_self_implement(
     let keyword_match = lower.contains("implement spec")
         || (lower.contains("implement") && (lower.contains(".md") || lower.contains(".txt")));
 
-    // Require either keyword match or high-confidence SelfImplement classification
     if intent.category != IntentCategory::SelfImplement && !keyword_match {
         return false;
     }
 
-    // Guard: SelfImplement requires a spec file path. If user just says "implement that"
-    // without a file, let it fall through to the normal LLM conversation.
     let has_spec_file = hydra_kernel::self_modify_llm::extract_spec_path(text).is_some();
     if !has_spec_file && !keyword_match {
         return false;
@@ -40,35 +39,14 @@ pub(crate) async fn handle_self_implement(
     let _ = tx.send(CognitiveUpdate::Phase("SelfImplement".into()));
     let _ = tx.send(CognitiveUpdate::IconState("needs-attention".into()));
 
-    // ── Step 1: Read spec (file or inline text) ──
+    // -- Step 1: Read spec --
     let repo_root = std::env::current_dir().unwrap_or_default();
-    let spec_content = if let Some(spec_path) = hydra_kernel::self_modify_llm::extract_spec_path(text) {
-        let full_path = repo_root.join(&spec_path);
-        match std::fs::read_to_string(&full_path) {
-            Ok(content) => {
-                let _ = tx.send(CognitiveUpdate::Message {
-                    role: "hydra".into(),
-                    content: format!("Read spec: **{}** ({} bytes)", spec_path.display(), content.len()),
-                    css_class: "message hydra thinking".into(),
-                });
-                content
-            }
-            Err(e) => {
-                let _ = tx.send(CognitiveUpdate::Message {
-                    role: "hydra".into(),
-                    content: format!("Cannot read spec file `{}`: {}", full_path.display(), e),
-                    css_class: "message hydra error".into(),
-                });
-                let _ = tx.send(CognitiveUpdate::ResetIdle);
-                return true;
-            }
-        }
-    } else {
-        // No file path found — use the raw text as inline spec
-        text.to_string()
+    let spec_content = match read_spec(text, &repo_root, tx) {
+        Some(s) => s,
+        None => return true,
     };
 
-    // ── Step 2: Request human approval ──
+    // -- Step 2: Request human approval --
     let approved = request_approval(text, config, approval_manager, tx).await;
     if !approved {
         let _ = tx.send(CognitiveUpdate::ResetIdle);
@@ -77,23 +55,85 @@ pub(crate) async fn handle_self_implement(
 
     let _ = tx.send(CognitiveUpdate::IconState("working".into()));
 
-    // ── Step 3: Build LLM config (sanitized keys) ──
+    // -- Step 3: Build LLM config --
     let llm_config = hydra_model::LlmConfig::from_env_with_overlay(
         &config.anthropic_key,
         &config.openai_key,
         config.anthropic_oauth_token.as_deref(),
     );
 
-    // ── Step 4: Gap analysis (Forge first, LLM fallback) ──
+    // -- Step 4: Gap analysis --
+    let (gaps, gap_summary) = match run_gap_analysis(
+        sisters_handle, &spec_content, &llm_config, &repo_root, tx,
+    ).await {
+        Some(g) => g,
+        None => return true,
+    };
+
+    // -- Step 5: Initial patch generation --
+    let patches = match generate_initial_patches(
+        sisters_handle, &spec_content, &gaps, &llm_config, &repo_root, tx,
+    ).await {
+        Some(p) => p,
+        None => return true,
+    };
+
+    // -- Step 6-7: Apply patches with agentic retry loop --
+    apply_with_retry(patches, gaps, &spec_content, &llm_config, &repo_root, tx).await;
+
+    let _ = tx.send(CognitiveUpdate::ResetIdle);
+    true
+}
+
+/// Read spec from file path or inline text. Returns None on error (already reported).
+fn read_spec(
+    text: &str,
+    repo_root: &std::path::Path,
+    tx: &mpsc::UnboundedSender<CognitiveUpdate>,
+) -> Option<String> {
+    if let Some(spec_path) = hydra_kernel::self_modify_llm::extract_spec_path(text) {
+        let full_path = repo_root.join(&spec_path);
+        match std::fs::read_to_string(&full_path) {
+            Ok(content) => {
+                let _ = tx.send(CognitiveUpdate::Message {
+                    role: "hydra".into(),
+                    content: format!("Read spec: **{}** ({} bytes)", spec_path.display(), content.len()),
+                    css_class: "message hydra thinking".into(),
+                });
+                Some(content)
+            }
+            Err(e) => {
+                let _ = tx.send(CognitiveUpdate::Message {
+                    role: "hydra".into(),
+                    content: format!("Cannot read spec file `{}`: {}", full_path.display(), e),
+                    css_class: "message hydra error".into(),
+                });
+                let _ = tx.send(CognitiveUpdate::ResetIdle);
+                None
+            }
+        }
+    } else {
+        Some(text.to_string())
+    }
+}
+
+/// Run gap analysis (Forge first, LLM fallback). Returns None if no gaps found (already reported).
+async fn run_gap_analysis(
+    sisters_handle: &Option<SistersHandle>,
+    spec_content: &str,
+    llm_config: &hydra_model::LlmConfig,
+    repo_root: &std::path::Path,
+    tx: &mpsc::UnboundedSender<CognitiveUpdate>,
+) -> Option<(Vec<hydra_kernel::self_modify::SpecGap>, String)> {
     let _ = tx.send(CognitiveUpdate::Message {
         role: "hydra".into(),
         content: "Analyzing spec for implementation gaps...".into(),
         css_class: "message hydra thinking".into(),
     });
 
-    let forge_gap_result = try_forge_analyze(sisters_handle, &spec_content).await;
+    let forge_gap_result = try_forge_analyze(sisters_handle, spec_content).await;
     let gaps = match hydra_kernel::self_modify_llm::analyze_spec_gaps(
-        &spec_content, forge_gap_result, &llm_config,
+        spec_content, forge_gap_result, llm_config, repo_root,
     ).await {
         Ok(g) => g,
         Err(e) => {
@@ -102,9 +142,8 @@ pub(crate) async fn handle_self_implement(
                 content: format!("Gap analysis failed: {}. Falling back to pattern matching...", e),
                 css_class: "message hydra error".into(),
             });
-            // Fall back to regex-based gap detection
-            let pipeline = hydra_kernel::self_modify::SelfModificationPipeline::new(&repo_root);
-            pipeline.find_gaps(&spec_content)
+            let pipeline = hydra_kernel::self_modify::SelfModificationPipeline::new(repo_root);
+            pipeline.find_gaps(spec_content)
         }
     };
 
@@ -115,7 +154,7 @@ pub(crate) async fn handle_self_implement(
             css_class: "message hydra".into(),
         });
         let _ = tx.send(CognitiveUpdate::ResetIdle);
-        return true;
+        return None;
     }
 
     let gap_summary = gaps.iter()
@@ -129,12 +168,30 @@ pub(crate) async fn handle_self_implement(
         css_class: "message hydra".into(),
     });
 
-    // ── Step 5: Patch generation (Forge first, LLM fallback) ──
-    let forge_patch_result = try_forge_generate(sisters_handle, &spec_content, &gaps).await;
-    let patches = match hydra_kernel::self_modify_llm::generate_patches(
-        &gaps, &spec_content, forge_patch_result, &llm_config,
+    Some((gaps, gap_summary))
+}
+
+/// Generate initial patches (Forge first, LLM fallback). Returns None on failure.
+async fn generate_initial_patches(
+    sisters_handle: &Option<SistersHandle>,
+    spec_content: &str,
+    gaps: &[hydra_kernel::self_modify::SpecGap],
+    llm_config: &hydra_model::LlmConfig,
+    repo_root: &std::path::Path,
+    tx: &mpsc::UnboundedSender<CognitiveUpdate>,
+) -> Option<Vec<hydra_kernel::self_modify::Patch>> {
+    let forge_patch_result = try_forge_generate(sisters_handle, spec_content, gaps).await;
+    match hydra_kernel::self_modify_llm::generate_patches(
+        gaps, spec_content, forge_patch_result, llm_config, repo_root,
     ).await {
-        Ok(p) => p,
+        Ok(p) => {
+            let _ = tx.send(CognitiveUpdate::Message {
+                role: "hydra".into(),
+                content: format!("Generated **{}** patch(es). Applying with checkpoint...", p.len()),
+                css_class: "message hydra".into(),
+            });
+            Some(p)
+        }
         Err(e) => {
             let _ = tx.send(CognitiveUpdate::Message {
                 role: "hydra".into(),
@@ -142,35 +199,96 @@ pub(crate) async fn handle_self_implement(
                 css_class: "message hydra error".into(),
             });
             let _ = tx.send(CognitiveUpdate::ResetIdle);
-            return true;
+            None
         }
-    };
+    }
+}
 
-    let _ = tx.send(CognitiveUpdate::Message {
-        role: "hydra".into(),
-        content: format!("Generated **{}** patch(es). Applying with checkpoint...", patches.len()),
-        css_class: "message hydra".into(),
-    });
+/// Apply patches with agentic retry loop (up to 3 attempts).
+/// On compile failure, feeds errors back to the LLM for correction.
+async fn apply_with_retry(
+    initial_patches: Vec<hydra_kernel::self_modify::Patch>,
+    gaps: Vec<hydra_kernel::self_modify::SpecGap>,
+    spec_content: &str,
+    llm_config: &hydra_model::LlmConfig,
+    repo_root: &std::path::Path,
+    tx: &mpsc::UnboundedSender<CognitiveUpdate>,
+) {
+    let max_retries: u8 = 3;
+    let mut current_patches = initial_patches;
+    let mut attempt: u8 = 0;
 
-    // ── Step 6: Apply patches via pipeline ──
-    let pipeline = hydra_kernel::self_modify::SelfModificationPipeline::new(&repo_root);
-    let result = pipeline.run_from_gaps(gaps, patches);
+    loop {
+        attempt += 1;
+        let attempt_label = if attempt == 1 { String::new() } else { format!(" (attempt {})", attempt) };
 
-    // ── Step 7: Report results ──
-    let summary = result.summary();
-    let status_icon = if result.is_success() { "✅" } else { "⚠️" };
+        let _ = tx.send(CognitiveUpdate::Message {
+            role: "hydra".into(),
+            content: format!("Applying **{}** patch(es){}...", current_patches.len(), attempt_label),
+            css_class: "message hydra thinking".into(),
+        });
 
-    let _ = tx.send(CognitiveUpdate::Message {
-        role: "hydra".into(),
-        content: format!(
-            "**Self-Implementation Report**\n\n{} {}\n\nRun `cargo check` to verify.",
-            status_icon, summary
-        ),
-        css_class: "message hydra".into(),
-    });
+        let pipeline = hydra_kernel::self_modify::SelfModificationPipeline::new(repo_root);
+        let result = pipeline.run_from_gaps(gaps.clone(), current_patches.clone());
 
-    let _ = tx.send(CognitiveUpdate::ResetIdle);
-    true
+        match result {
+            hydra_kernel::self_modify::ModResult::CompileFailed { ref error, .. } if attempt < max_retries => {
+                let truncated_err = &error[..error.len().min(500)];
+                let _ = tx.send(CognitiveUpdate::Message {
+                    role: "hydra".into(),
+                    content: format!(
+                        "Compile failed (attempt {}). Feeding errors back to LLM...\n```\n{}\n```",
+                        attempt, truncated_err
+                    ),
+                    css_class: "message hydra thinking".into(),
+                });
+
+                match hydra_kernel::self_modify_llm::fix_compile_errors(
+                    &current_patches, error, spec_content, llm_config, repo_root,
+                ).await {
+                    Ok(fixed_patches) => {
+                        eprintln!(
+                            "[hydra:self-impl] Retry {}: LLM returned {} corrected patches",
+                            attempt, fixed_patches.len()
+                        );
+                        current_patches = fixed_patches;
+                        continue;
+                    }
+                    Err(e) => {
+                        let _ = tx.send(CognitiveUpdate::Message {
+                            role: "hydra".into(),
+                            content: format!(
+                                "**Self-Implementation Failed**\n\nError correction failed: {}\nOriginal error: {}",
+                                e, &error[..error.len().min(300)]
+                            ),
+                            css_class: "message hydra error".into(),
+                        });
+                        break;
+                    }
+                }
+            }
+            _ => {
+                // Success, non-retryable failure, or max retries reached
+                let summary = result.summary();
+                let status_icon = if result.is_success() { "pass" } else { "warn" };
+                let retry_note = if attempt > 1 {
+                    format!(" (after {} attempts)", attempt)
+                } else {
+                    String::new()
+                };
+
+                let _ = tx.send(CognitiveUpdate::Message {
+                    role: "hydra".into(),
+                    content: format!(
+                        "**Self-Implementation Report{}**\n\n[{}] {}\n\nRun `cargo check` to verify.",
+                        retry_note, status_icon, summary
+                    ),
+                    css_class: "message hydra".into(),
+                });
+                break;
+            }
+        }
+    }
 }
 
 /// Request human approval for self-modification. Returns true if approved.
@@ -215,7 +333,6 @@ async fn request_approval(
             }
         }
     } else {
-        // Dev mode — auto-approve with notification
         let _ = tx.send(CognitiveUpdate::AwaitApproval {
             approval_id: None,
             risk_level: "high".to_string(),
@@ -252,115 +369,4 @@ async fn try_forge_generate(
         "spec": spec,
         "gaps": gaps_json,
     })).await)
-}
-
-/// Handle sister diagnostics — direct sister health check (no LLM needed).
-pub(crate) async fn handle_sister_diagnose(
-    text: &str,
-    intent: &ClassifiedIntent,
-    sisters_handle: &Option<SistersHandle>,
-    tx: &mpsc::UnboundedSender<CognitiveUpdate>,
-) -> bool {
-    // Skip SisterDiagnose if the user is asking about policies/rules/capabilities — let LLM handle it
-    let lower_for_policy = text.to_lowercase();
-    let is_policy_query = lower_for_policy.contains("policy") || lower_for_policy.contains("policies")
-        || lower_for_policy.contains("rules") || lower_for_policy.contains("what does")
-        || lower_for_policy.contains("capabilities") || lower_for_policy.contains("what can");
-    if intent.category != IntentCategory::SisterDiagnose || is_policy_query {
-        return false;
-    }
-
-    let _ = tx.send(CognitiveUpdate::Phase("Diagnostics".into()));
-    let _ = tx.send(CognitiveUpdate::IconState("working".into()));
-
-    if let Some(ref sh) = sisters_handle {
-        let target_sister = intent.target.clone();
-        let mut report = String::new();
-
-        // Header
-        report.push_str("## Sister Diagnostics\n\n");
-
-        // Overall status
-        let connected = sh.connected_count();
-        report.push_str(&format!("**{}/14 sisters connected**\n\n", connected));
-
-        // Per-sister detail
-        report.push_str("| Sister | Status | Tools |\n|--------|--------|-------|\n");
-        for (name, opt) in sh.all_sisters() {
-            let (status, tools) = if let Some(conn) = opt {
-                ("ONLINE", conn.tools.len().to_string())
-            } else {
-                ("OFFLINE", "-".to_string())
-            };
-            let icon = if opt.is_some() { "🟢" } else { "🔴" };
-            report.push_str(&format!("| {} {} | {} | {} |\n", icon, name, status, tools));
-        }
-
-        // If user asked about a specific sister, do a deeper probe
-        if let Some(ref target) = target_sister {
-            report.push_str(&format!("\n### Deep Probe: {}\n\n", target));
-            let probe_result = match target.to_lowercase().as_str() {
-                "memory" | "agenticmemory" => {
-                    if let Some(mem) = &sh.memory {
-                        let r = mem.call_tool("memory_longevity_stats", serde_json::json!({})).await;
-                        match r {
-                            Ok(v) => format!("Memory stats: {}", serde_json::to_string_pretty(&v).unwrap_or_default()),
-                            Err(e) => format!("Memory probe FAILED: {}", e),
-                        }
-                    } else {
-                        "Memory sister is NOT connected.".to_string()
-                    }
-                }
-                "identity" | "agenticidentity" => {
-                    if let Some(id) = &sh.identity {
-                        let r = id.call_tool("identity_whoami", serde_json::json!({})).await;
-                        match r {
-                            Ok(v) => format!("Identity probe: {}", serde_json::to_string_pretty(&v).unwrap_or_default()),
-                            Err(e) => format!("Identity probe FAILED: {}", e),
-                        }
-                    } else {
-                        "Identity sister is NOT connected.".to_string()
-                    }
-                }
-                "cognition" | "agenticcognition" => {
-                    if let Some(cog) = &sh.cognition {
-                        let r = cog.call_tool("cognition_model_query", serde_json::json!({"context": "diagnostic"})).await;
-                        match r {
-                            Ok(v) => format!("Cognition probe: {}", serde_json::to_string_pretty(&v).unwrap_or_default()),
-                            Err(e) => format!("Cognition probe FAILED: {}", e),
-                        }
-                    } else {
-                        "Cognition sister is NOT connected.".to_string()
-                    }
-                }
-                _ => {
-                    // Generic: check if the named sister is connected
-                    let found = sh.all_sisters().iter()
-                        .find(|(n, _)| n.to_lowercase() == target.to_lowercase())
-                        .map(|(_, opt)| opt.is_some());
-                    match found {
-                        Some(true) => format!("{} sister is connected and responsive.", target),
-                        Some(false) => format!("{} sister is NOT connected. It failed to spawn at startup.", target),
-                        None => format!("Unknown sister: {}. Known sisters: Memory, Identity, Codebase, Vision, Comm, Contract, Time, Planning, Cognition, Reality, Forge, Aegis, Veritas, Evolve.", target),
-                    }
-                }
-            };
-            report.push_str(&probe_result);
-        }
-
-        let _ = tx.send(CognitiveUpdate::Message {
-            role: "hydra".into(),
-            content: report,
-            css_class: "message hydra diagnostics".into(),
-        });
-    } else {
-        let _ = tx.send(CognitiveUpdate::Message {
-            role: "hydra".into(),
-            content: "No sisters available — running in offline mode.".into(),
-            css_class: "message hydra error".into(),
-        });
-    }
-
-    let _ = tx.send(CognitiveUpdate::ResetIdle);
-    true
 }

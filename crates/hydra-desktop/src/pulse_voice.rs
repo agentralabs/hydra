@@ -102,29 +102,20 @@ impl Clone for PulseVoice {
 /// Speak text through TTS, checking the cancel flag periodically.
 /// Returns Ok(true) if fully played, Ok(false) if cancelled.
 pub async fn speak_interruptible(
-    text: &str,
-    api_key: &str,
-    voice: &str,
-    cancel: Arc<AtomicBool>,
+    text: &str, api_key: &str, voice: &str, cancel: Arc<AtomicBool>, volume: u8,
 ) -> Result<bool, String> {
-    if text.is_empty() || api_key.is_empty() {
-        return Ok(false);
-    }
-    // Check cancel before even starting synthesis
-    if cancel.load(Ordering::Relaxed) {
-        return Ok(false);
-    }
+    if text.is_empty() || api_key.is_empty() { return Ok(false); }
+    if cancel.load(Ordering::Relaxed) { return Ok(false); }
+    eprintln!("[hydra:tts] OpenAI TTS ({} chars, voice={}, vol={})", text.len(), voice, volume);
     let samples = crate::voice_capture::synthesize_openai_tts(text, api_key, voice).await?;
-    if samples.is_empty() || cancel.load(Ordering::Relaxed) {
-        return Ok(false);
-    }
-    // Play in a thread, but check cancel flag
+    eprintln!("[hydra:tts] Got {} samples", samples.len());
+    if samples.is_empty() || cancel.load(Ordering::Relaxed) { return Ok(false); }
     let cancel_play = cancel.clone();
     let played = tokio::task::spawn_blocking(move || {
         if cancel_play.load(Ordering::Relaxed) { return false; }
-        match crate::voice_capture::play_audio(samples, 24000) {
-            Ok(()) => true,
-            Err(e) => { eprintln!("[hydra] TTS playback: {}", e); false }
+        match crate::voice_capture::play_audio(samples, 24000, volume) {
+            Ok(()) => { eprintln!("[hydra:tts] Playback OK"); true }
+            Err(e) => { eprintln!("[hydra:tts] Playback FAILED: {}", e); false }
         }
     }).await.unwrap_or(false);
     Ok(played)

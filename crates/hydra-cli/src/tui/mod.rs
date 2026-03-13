@@ -282,6 +282,14 @@ pub async fn run() -> io::Result<()> {
 
                 let result = run_loop(&mut terminal, &mut app, &event_handler).await;
 
+                // Graceful session shutdown — persist memory before exit
+                if let Some(ref sh) = app.sisters_handle {
+                    let history: Vec<(String, String)> = app.messages.iter()
+                        .map(|m| (format!("{:?}", m.role), m.content.clone()))
+                        .collect();
+                    sh.shutdown_session(&app.user_name, &history).await;
+                }
+
                 // Cleanup
                 restore_stderr(saved_stderr);
                 disable_raw_mode()?;
@@ -357,18 +365,12 @@ pub async fn run() -> io::Result<()> {
 fn print_conversation(app: &App) {
     let (v, w) = (env!("CARGO_PKG_VERSION"), 80usize);
     let title = format!(" Hydra v{} ", v);
-    let rd = w.saturating_sub(3 + title.len() + 2);
-    println!("\n┌{}{}{}┐", "─".repeat(3), title, "─".repeat(rd));
-    println!("│  Welcome back {}!", app.user_name);
-    println!("│  {} · {}", app.model_name, app.working_dir);
-    println!("│  {}/{} sisters · {}+ tools · {}%",
-        app.connected_count, app.total_sisters, app.tool_count, app.health_pct);
+    println!("\n┌{}{}{}┐", "─".repeat(3), title, "─".repeat(w.saturating_sub(3 + title.len() + 2)));
+    println!("│  Welcome back {}!  {} · {}", app.user_name, app.model_name, app.working_dir);
+    println!("│  {}/{} sisters · {}+ tools · {}%", app.connected_count, app.total_sisters, app.tool_count, app.health_pct);
     println!("└{}┘\n", "─".repeat(w.saturating_sub(2)));
     for msg in &app.messages {
-        match msg.role {
-            app::MessageRole::User => println!("> {}\n", msg.content),
-            _ => println!("  {}\n", msg.content),
-        }
+        match msg.role { app::MessageRole::User => println!("> {}\n", msg.content), _ => println!("  {}\n", msg.content) }
     }
 }
 

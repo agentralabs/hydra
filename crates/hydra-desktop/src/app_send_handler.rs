@@ -20,6 +20,11 @@
         input_error.set(None);
         let text = validation.trimmed;
 
+        // Cancel any in-flight TTS — new message takes priority
+        let pulse_ref = pulse.read().clone();
+        pulse_ref.cancel_tts(); pulse_ref.reset_tts_cancel();
+        tts_playing.set(false); cognitive_done.set(false);
+
         // Check that at least one API key or OAuth token is available
         let has_anthropic = !settings_anthropic_key.read().is_empty();
         let has_openai = !settings_openai_key.read().is_empty();
@@ -37,23 +42,10 @@
             return;
         }
 
-        // Pulse: cancel any in-flight TTS + fire instant spoken ack
+        // Cancel any in-flight TTS before starting new cognitive loop
         let pulse_ref = pulse.read().clone();
         pulse_ref.cancel_tts();
-        if *settings_voice.read() {
-            let ack = pulse_ref.instant_ack(&text);
-            let ack_key = settings_openai_key.read().clone();
-            let ack_voice = settings_tts_voice.read().clone();
-            pulse_ref.reset_tts_cancel();
-            let cancel = pulse_ref.tts_cancel.clone();
-            if !ack_key.is_empty() {
-                spawn(async move {
-                    let _ = crate::pulse_voice::speak_interruptible(
-                        &ack, &ack_key, &ack_voice, cancel,
-                    ).await;
-                });
-            }
-        }
+        pulse_ref.reset_tts_cancel();
 
         let is_first_message = messages.read().is_empty();
         messages.write().push(("user".into(), text.clone(), "message".into()));
@@ -78,9 +70,7 @@
         let task_id = active_session_id.read().clone();
         is_typing.set(true);
 
-        let anthropic_key_val = settings_anthropic_key.read().clone();
-        let openai_key_val = settings_openai_key.read().clone();
-        let google_key_val = settings_google_key.read().clone();
+        let (anthropic_key_val, openai_key_val, google_key_val) = (settings_anthropic_key.read().clone(), settings_openai_key.read().clone(), settings_google_key.read().clone());
         let model_val = settings_model.read().clone();
         let user_name = onboarding.read().user_name.clone().unwrap_or_default();
         let sisters_handle = sisters.read().clone();
@@ -118,6 +108,8 @@
                 max_file_edits: settings_max_file_edits.read().clone(), require_approval_critical: *settings_require_approval_critical.read(),
                 sandbox_mode: *settings_sandbox_mode.read(), debug_mode: *settings_debug_mode.read(),
                 log_level: settings_log_level.read().clone(), federation_enabled: *settings_federation.read(),
+                memory_capture: settings_memory_capture.read().clone(),
+                agentic_loop: true, agentic_max_turns: 8, agentic_token_budget: 50_000,
             },
         };
 
@@ -141,7 +133,37 @@
         let tracer_rx = tracer.read().clone();
         tracer_rx.lock().start_trace(&task_id);
         let trace_start = std::time::Instant::now();
+
+        // Progressive TTS: queue sentences as they stream in (COMPANION MODE ONLY)
+        let is_companion_mode = *current_mode.read() == "companion";
+        let voice_on_rx = is_companion_mode && *settings_voice.read();
+        let tts_key_rx = settings_openai_key.read().clone();
+        let tts_voice_rx = settings_tts_voice.read().clone();
+        let tts_vol: u8 = settings_volume.read().parse().unwrap_or(80);
+        let (tts_tx, mut tts_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+        let tts_cancel_rx = pulse_rx.tts_cancel.clone();
+        // TTS player task — companion mode only, workspace stays silent
+        if voice_on_rx && !tts_key_rx.is_empty() {
+            let key = tts_key_rx.clone(); let voice = tts_voice_rx.clone(); let cancel = tts_cancel_rx.clone();
+            spawn(async move {
+                while let Some(sentence) = tts_rx.recv().await {
+                    if cancel.load(std::sync::atomic::Ordering::Relaxed) { continue; }
+                    tts_playing.set(true);
+                    eprintln!("[hydra:tts:prog] Speaking: {}...", &sentence[..sentence.len().min(50)]);
+                    let _ = crate::pulse_voice::speak_interruptible(&sentence, &key, &voice, cancel.clone(), tts_vol).await;
+                    // Check if more sentences are queued — only clear tts_playing when queue empty
+                    if tts_rx.is_empty() {
+                        tts_playing.set(false);
+                        eprintln!("[hydra:tts:prog] TTS queue empty, ready for mic");
+                    }
+                }
+                tts_playing.set(false);
+            });
+        }
+
         spawn(async move {
+            let mut stream_buf = String::new(); // accumulates chunks for sentence splitting
+            let mut progressive_spoke = false;  // true if we already spoke via progressive TTS
             while let Some(update) = rx.recv().await {
                 match update {
                     CognitiveUpdate::Phase(ref p) => {
@@ -178,21 +200,11 @@
                     CognitiveUpdate::TimelineClear => { timeline_panel.write().clear(); }
                     CognitiveUpdate::Message { role, content, css_class } => {
                         chat_db_rx.save_message(&role, &content);
-                        // Pulse: speak via interruptible TTS + learn from exchange
-                        if role != "user" && *settings_voice.read() {
-                            let tts_text = content.clone();
-                            let tts_key = settings_openai_key.read().clone();
-                            let tts_voice = settings_tts_voice.read().clone();
-                            let cancel = pulse_rx.tts_cancel.clone();
-                            pulse_rx.reset_tts_cancel();
-                            if !tts_key.is_empty() {
-                                spawn(async move {
-                                    let _ = crate::pulse_voice::speak_interruptible(
-                                        &tts_text, &tts_key, &tts_voice, cancel,
-                                    ).await;
-                                });
-                            }
+                        // TTS: only speak full message if progressive didn't already
+                        if role != "user" && !progressive_spoke {
+                            let _ = tts_tx.send(content.clone());
                         }
+                        progressive_spoke = false;
                         // Pulse: learn from this exchange for future prediction
                         if role != "user" {
                             if let Some(last_user) = messages.read().iter().rev()
@@ -207,18 +219,17 @@
                     CognitiveUpdate::SidebarCompleteTask(id) => { sidebar.write().complete_task(&id); }
                     CognitiveUpdate::Celebrate(msg) => {
                         let statuses = phase_statuses.read().clone();
-                        let total_tokens: u64 = statuses.iter().filter_map(|s| s.tokens_used).sum();
+                        let total_tok: u64 = statuses.iter().filter_map(|s| s.tokens_used).sum();
                         let total_ms: u64 = statuses.iter().filter_map(|s| s.duration_ms).sum();
-                        let fmt_dur = |ms: u64| if ms >= 60_000 { format!("{:.1}m", ms as f64 / 60_000.0) } else if ms >= 1_000 { format!("{:.1}s", ms as f64 / 1_000.0) } else { format!("{}ms", ms) };
-                        let fmt_tok = |t: u64| if t >= 1_000 { format!("{:.1}k", t as f64 / 1_000.0) } else { format!("{}", t) };
-                        let mut phase_rows = String::new();
-                        for s in &statuses {
-                            let dur = s.duration_ms.map(|d| fmt_dur(d)).unwrap_or("-".into());
-                            let tok = s.tokens_used.map(|t| if t > 0 { fmt_tok(t) } else { "-".into() }).unwrap_or("-".into());
-                            phase_rows.push_str(&format!(r#"<div class="cs-phase-row"><span class="cs-phase-check">{}</span><span class="cs-phase-name">{:?}</span><span class="cs-phase-dur">{}</span><span class="cs-phase-tok">{}</span></div>"#, "\u{2713}", s.phase, dur, tok));
-                        }
-                        let summary_html = format!(r#"<div class="completion-summary"><div class="cs-header"><span class="cs-badge">Completed</span><span class="cs-title">{}</span></div><div class="cs-stats"><div class="cs-stat"><span class="cs-stat-value">{}</span><span class="cs-stat-label">Duration</span></div><div class="cs-stat"><span class="cs-stat-value">{}</span><span class="cs-stat-label">Tokens</span></div><div class="cs-stat"><span class="cs-stat-value">{}</span><span class="cs-stat-label">Phases</span></div></div><div class="cs-phases">{}</div></div>"#, msg, fmt_dur(total_ms), fmt_tok(total_tokens), statuses.len(), phase_rows);
-                        messages.write().push(("system".into(), summary_html, "completion".into()));
+                        let fd = |ms: u64| if ms >= 60_000 { format!("{:.1}m", ms as f64 / 60_000.0) } else if ms >= 1_000 { format!("{:.1}s", ms as f64 / 1_000.0) } else { format!("{}ms", ms) };
+                        let ft = |t: u64| if t >= 1_000 { format!("{:.1}k", t as f64 / 1_000.0) } else { format!("{}", t) };
+                        let rows: String = statuses.iter().map(|s| {
+                            let d = s.duration_ms.map(&fd).unwrap_or("-".into());
+                            let t = s.tokens_used.map(|v| if v > 0 { ft(v) } else { "-".into() }).unwrap_or("-".into());
+                            format!(r#"<div class="cs-phase-row"><span class="cs-phase-check">{}</span><span class="cs-phase-name">{:?}</span><span class="cs-phase-dur">{}</span><span class="cs-phase-tok">{}</span></div>"#, "\u{2713}", s.phase, d, t)
+                        }).collect();
+                        let html = format!(r#"<div class="completion-summary"><div class="cs-header"><span class="cs-badge">Completed</span><span class="cs-title">{}</span></div><div class="cs-stats"><div class="cs-stat"><span class="cs-stat-value">{}</span><span class="cs-stat-label">Duration</span></div><div class="cs-stat"><span class="cs-stat-value">{}</span><span class="cs-stat-label">Tokens</span></div><div class="cs-stat"><span class="cs-stat-value">{}</span><span class="cs-stat-label">Phases</span></div></div><div class="cs-phases">{}</div></div>"#, msg, fd(total_ms), ft(total_tok), statuses.len(), rows);
+                        messages.write().push(("system".into(), html, "completion".into()));
                         celebration.set(Some(Celebration::small(&msg)));
                     }
                     CognitiveUpdate::ResetIdle => {
@@ -228,7 +239,13 @@
                         is_typing.set(false);
                         _active_progress.set(None);
                         phase_statuses.set(vec![]);
-                        if *settings_auto_listen.read() && *settings_voice.read() { spawn(async move { tokio::time::sleep(std::time::Duration::from_millis(500)).await; document::eval("document.querySelector('.mic-btn')?.click()"); }); }
+                        // Signal cognitive done — auto-listen bridge waits for TTS to finish too
+                        let is_companion = *current_mode.read() == "companion";
+                        let voice_on = *settings_voice.read();
+                        if (is_companion || *settings_auto_listen.read()) && voice_on {
+                            cognitive_done.set(true);
+                            companion_auto_listen.set(true);
+                        }
                     }
                     CognitiveUpdate::SuggestMode(mode) => { current_mode.set(mode); }
                     CognitiveUpdate::AwaitApproval { approval_id, risk_level, action, description, challenge_phrase } => {
@@ -259,28 +276,17 @@
                         monitor_rx.lock().record_metric("tokens_input", input_tokens as f64);
                         monitor_rx.lock().record_metric("tokens_output", output_tokens as f64);
                     }
-                    CognitiveUpdate::StreamChunk { content } => {
-                        // Progressive TTS: speak complete sentences as they stream in
-                        if *settings_voice.read() {
-                            let sentences = crate::pulse_voice::split_into_sentences(&content);
-                            if let Some(sentence) = sentences.last() {
-                                if sentence.len() > 10 {
-                                    let tts_key = settings_openai_key.read().clone();
-                                    let tts_voice = settings_tts_voice.read().clone();
-                                    let cancel = pulse_rx.tts_cancel.clone();
-                                    let s = sentence.clone();
-                                    if !tts_key.is_empty() {
-                                        spawn(async move {
-                                            let _ = crate::pulse_voice::speak_interruptible(
-                                                &s, &tts_key, &tts_voice, cancel,
-                                            ).await;
-                                        });
-                                    }
-                                }
-                            }
+                    CognitiveUpdate::StreamChunk { content, .. } => {
+                        stream_buf.push_str(&content);
+                        if let Some(pos) = stream_buf.rfind(|c: char| matches!(c, '.' | '!' | '?')) {
+                            if pos > 5 { let sentence = stream_buf[..=pos].trim().to_string(); stream_buf = stream_buf[pos+1..].to_string(); let _ = tts_tx.send(sentence); progressive_spoke = true; }
                         }
                     }
-                    CognitiveUpdate::StreamComplete => { pulse_rx.reset_tts_cancel(); }
+                    CognitiveUpdate::StreamComplete => {
+                        let leftover = stream_buf.trim().to_string();
+                        if !leftover.is_empty() { let _ = tts_tx.send(leftover); progressive_spoke = true; }
+                        stream_buf.clear(); pulse_rx.reset_tts_cancel();
+                    }
                     CognitiveUpdate::UndoStatus { can_undo: cu, can_redo: cr, last_action } => { can_undo.set(cu); can_redo.set(cr); last_undo_action.set(last_action); }
                     CognitiveUpdate::ProactiveAlert { title, message, priority } => {
                         let kind = match priority.as_str() {
@@ -323,21 +329,15 @@
                     CognitiveUpdate::TemporalStored { category, content } => { let now = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Memory [{}]", category), Some(&content), Some("Learn")); }
                     CognitiveUpdate::CursorMove { x, y, label } => { ghost_cursor.write().move_to(x, y, label); }
                     CognitiveUpdate::CursorClick => {
-                        let gc = ghost_cursor.read();
-                        let (cx, cy) = (gc.x, gc.y);
-                        drop(gc);
+                        let (cx, cy) = { let gc = ghost_cursor.read(); (gc.x, gc.y) };
                         ghost_cursor.write().click();
-                        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
-                        ghost_click_rings.write().push((cx, cy, now));
+                        ghost_click_rings.write().push((cx, cy, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64));
                         let mut gc_sig = ghost_cursor.clone();
                         spawn(async move { tokio::time::sleep(std::time::Duration::from_millis(200)).await; gc_sig.write().idle(); });
                     }
                     CognitiveUpdate::CursorTyping { active } => { if active { ghost_cursor.write().start_typing(); } else { ghost_cursor.write().idle(); } }
                     CognitiveUpdate::CursorVisibility { visible } => { if visible { ghost_cursor.write().show(); } else { ghost_cursor.write().hide(); } }
-                    CognitiveUpdate::CursorModeChange { mode } => {
-                        let m = match mode.as_str() { "fast" => CursorMode::Fast, "invisible" => CursorMode::Invisible, "replay" => CursorMode::Replay, _ => CursorMode::Visible };
-                        ghost_cursor.write().set_mode(m);
-                    }
+                    CognitiveUpdate::CursorModeChange { mode } => { ghost_cursor.write().set_mode(match mode.as_str() { "fast" => CursorMode::Fast, "invisible" => CursorMode::Invisible, "replay" => CursorMode::Replay, _ => CursorMode::Visible }); }
                     CognitiveUpdate::CursorPaused { paused } => { if paused { ghost_cursor.write().pause(); } else { ghost_cursor.write().resume(); } }
                     CognitiveUpdate::BeliefsLoaded { count, summary } => { evidence_panel.write().add_memory_context(&format!("Active Beliefs ({})", count), &summary); }
                     CognitiveUpdate::BeliefUpdated { subject, confidence, is_new, .. } => { let label = if is_new { "New belief" } else { "Updated" }; let now = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("{}: {} ({:.0}%)", label, subject, confidence * 100.0), None, Some("Learn")); }
@@ -350,19 +350,26 @@
                     CognitiveUpdate::RepairCheckResult { name, passed } => { let now = chrono::Utc::now().to_rfc3339(); let status = if passed { "PASS" } else { "FAIL" }; timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Repair check [{}]: {}", status, name), None, Some("Repair")); }
                     CognitiveUpdate::RepairIteration { iteration, passed, total } => { let now = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Repair iteration {} — {}/{} checks passed", iteration, passed, total), None, Some("Repair")); }
                     CognitiveUpdate::RepairCompleted { task, status, iterations } => { let now = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Repair {}: {} ({}x)", status, task, iterations), None, Some("Repair")); if status == "Success" { celebration.set(Some(Celebration::small(&format!("Self-repair: {}", task)))); } }
-                    CognitiveUpdate::OmniscienceAnalyzing { phase } => { let now = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Omniscience: {}", phase), None, Some("Omniscience")); }
-                    CognitiveUpdate::OmniscienceGapFound { description, severity, category } => { let now = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Gap [{}|{}]: {}", severity, category, description), None, Some("Omniscience")); }
-                    CognitiveUpdate::OmniscienceSpecGenerated { spec_name, task } => { let now = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Forge generated spec: {} — {}", spec_name, task), None, Some("Omniscience")); }
-                    CognitiveUpdate::OmniscienceValidation { spec_name, safe, recommendation } => { let now = chrono::Utc::now().to_rfc3339(); let status = if safe { "SAFE" } else { "BLOCKED" }; timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Aegis [{}]: {} — {}", status, spec_name, recommendation), None, Some("Omniscience")); }
+                    CognitiveUpdate::OmniscienceAnalyzing { phase } | CognitiveUpdate::OmniscienceGapFound { description: phase, .. } | CognitiveUpdate::OmniscienceSpecGenerated { spec_name: phase, .. } => { let now = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Omniscience: {}", phase), None, Some("Omniscience")); }
+                    CognitiveUpdate::OmniscienceValidation { spec_name, safe, recommendation } => { let now = chrono::Utc::now().to_rfc3339(); let s = if safe { "SAFE" } else { "BLOCKED" }; timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Aegis [{}]: {} — {}", s, spec_name, recommendation), None, Some("Omniscience")); }
                     CognitiveUpdate::OmniscienceScanComplete { gaps_found, specs_generated, health_score } => { let now = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Omniscience: {:.0}% health, {} gaps, {} specs", health_score * 100.0, gaps_found, specs_generated), None, Some("Omniscience")); if health_score >= 0.9 { celebration.set(Some(Celebration::small("Codebase health: excellent!"))); } }
                     CognitiveUpdate::PhaseLoading { phase: p, elapsed_ms } => { let now = chrono::Local::now().format("%H:%M:%S").to_string(); let dur = if elapsed_ms >= 1000 { format!("{:.1}s", elapsed_ms as f64 / 1000.0) } else { format!("{}ms", elapsed_ms) }; timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("{} ({})", p, dur), None, Some(&p)); }
                     CognitiveUpdate::ConsolidationCycleComplete { cycle, strengthened, decayed, gc_cleaned } => { let now = chrono::Local::now().format("%H:%M:%S").to_string(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Consolidation #{}: +{} -{} gc:{}", cycle, strengthened, decayed, gc_cleaned), None, Some("Learn")); }
                     CognitiveUpdate::ObstacleDetected { pattern, error_summary, .. } => { let now = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Obstacle: {} — {}", pattern, error_summary), None, Some("Obstacle")); }
                     CognitiveUpdate::ObstacleResolved { pattern, resolution, attempts, .. } => { let now = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Resolved {}: {} ({}x)", pattern, resolution, attempts), None, Some("Obstacle")); }
                     CognitiveUpdate::ProjectExecPhase { repo, phase, detail, .. } => { let now = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("[{}] {} — {}", repo, phase, detail), None, Some("ProjectExec")); }
-                    CognitiveUpdate::SwarmSpawned { count, .. } => { let now = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Swarm: {} agents spawned", count), None, Some("Swarm")); }
-                    CognitiveUpdate::SwarmTaskAssigned { agent_id, task_desc } => { let now = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Swarm [{}]: {}", agent_id, task_desc), None, Some("Swarm")); }
-                    CognitiveUpdate::SwarmResults { total, succeeded, failed, summary } => { let now = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Swarm done: {}/{} ok, {} fail — {}", succeeded, total, failed, summary), None, Some("Swarm")); }
+                    CognitiveUpdate::SwarmSpawned { count, .. } => { let now = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Swarm: {} spawned", count), None, Some("Swarm")); }
+                    CognitiveUpdate::SwarmTaskAssigned { agent_id, task_desc } => { let n = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&n, TimelineEventKind::Info, &format!("Swarm [{}]: {}", agent_id, task_desc), None, Some("Swarm")); }
+                    CognitiveUpdate::SwarmResults { total, succeeded, failed, summary } => { let n = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&n, TimelineEventKind::Info, &format!("Swarm: {}/{} ok — {}", succeeded, total, summary), None, Some("Swarm")); }
+                    CognitiveUpdate::AgenticTurn { turn, tool_count, exec_count } => { let n = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&n, TimelineEventKind::Info, &format!("Agentic turn {}: {} tools, {} execs", turn, tool_count, exec_count), None, Some("Act")); }
+                    CognitiveUpdate::AgenticComplete { turns, total_tokens, stop_reason } => { let n = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&n, TimelineEventKind::Info, &format!("Agentic done: {} turns, {}tok — {}", turns, total_tokens, stop_reason), None, Some("Act")); }
+                    CognitiveUpdate::ProactiveFileSuggestion { ref title, ref message, ref priority, ref action } => { let now = chrono::Local::now().format("%H:%M:%S").to_string(); let kind = if priority == "Urgent" { TimelineEventKind::Error } else { TimelineEventKind::Info }; let detail = action.as_ref().map(|a| format!("{} ({})", message, a)).unwrap_or_else(|| message.clone()); timeline_panel.write().push_event(&now, kind, title, Some(&detail), Some("Watcher")); }
+                    CognitiveUpdate::VerificationApplied { .. } | CognitiveUpdate::ModelEscalated { .. } | CognitiveUpdate::BackgroundTaskComplete { .. } | CognitiveUpdate::MetacognitiveInsight { .. } | CognitiveUpdate::ToolAction { .. } => {}
+                    CognitiveUpdate::BuildPhaseStarted { phase, detail } => { let n = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&n, TimelineEventKind::Info, &format!("Build: {}", phase), Some(&detail), Some("Build")); }
+                    CognitiveUpdate::BuildProgress { .. } => {}
+                    CognitiveUpdate::BuildPhaseComplete { phase, duration_ms, summary } => { let n = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&n, TimelineEventKind::Info, &format!("{} ({:.1}s)", phase, duration_ms as f64 / 1000.0), Some(&summary), Some("Build")); }
+                    CognitiveUpdate::BuildComplete { report } => { let n = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&n, TimelineEventKind::Info, "Build complete", Some(&report), Some("Build")); celebration.set(Some(Celebration::small("Build complete!"))); }
+                    CognitiveUpdate::BuildFailed { phase, error } => { let n = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&n, TimelineEventKind::Error, &format!("Build failed: {}", phase), Some(&error), Some("Build")); }
                 }
             }
         });
@@ -370,24 +377,19 @@
 
     // ── Build save profile closure ──
     let save_current_profile = move || {
-        let profile = PersistedProfile {
-            user_name: onboarding.read().user_name.clone(),
-            voice_enabled: *settings_voice.read(),
-            onboarding_complete: true,
-            selected_model: Some(settings_model.read().clone()),
-            api_key: None,
-            anthropic_api_key: { let k = settings_anthropic_key.read().clone(); if k.is_empty() { None } else { Some(k) } },
-            openai_api_key: { let k = settings_openai_key.read().clone(); if k.is_empty() { None } else { Some(k) } },
-            google_api_key: { let k = settings_google_key.read().clone(); if k.is_empty() { None } else { Some(k) } },
-            theme: Some(settings_theme.read().clone()),
-            auto_approve: *settings_auto_approve.read(),
-            default_mode: Some(settings_default_mode.read().clone()),
-            sounds_enabled: *settings_sounds.read(),
-            sound_volume: settings_volume.read().parse::<u8>().unwrap_or(70),
-            working_directory: std::env::current_dir().ok().map(|p| p.display().to_string()),
-            autonomy_level: Default::default(),
-        };
-        save_profile(&profile);
+        let ne = |s: &Signal<String>| { let k = s.read().clone(); if k.is_empty() { None } else { Some(k) } };
+        save_profile(&PersistedProfile {
+            user_name: onboarding.read().user_name.clone(), voice_enabled: *settings_voice.read(),
+            onboarding_complete: true, selected_model: Some(settings_model.read().clone()), api_key: None,
+            anthropic_api_key: ne(&settings_anthropic_key), openai_api_key: ne(&settings_openai_key),
+            google_api_key: ne(&settings_google_key), theme: Some(settings_theme.read().clone()),
+            auto_approve: *settings_auto_approve.read(), default_mode: Some(settings_default_mode.read().clone()),
+            sounds_enabled: *settings_sounds.read(), sound_volume: settings_volume.read().parse::<u8>().unwrap_or(70),
+            working_directory: std::env::current_dir().ok().map(|p| p.display().to_string()), autonomy_level: Default::default(),
+            memory_capture: Some(settings_memory_capture.read().clone()),
+            smtp_host: ne(&settings_smtp_host), smtp_user: ne(&settings_smtp_user),
+            smtp_password: ne(&settings_smtp_password), smtp_to: ne(&settings_smtp_to),
+        });
     };
 
     (send_message, save_current_profile)

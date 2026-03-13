@@ -16,11 +16,27 @@ use super::actions::{detect_direct_action_command, format_command_output};
 use super::llm_helpers::handle_universal_slash_command;
 use super::platform_system::detect_system_control;
 
+/// Run a shell command and return (formatted_output, raw_output).
+async fn run_shell_cmd(cmd: &str) -> Result<(String, String), String> {
+    match tokio::process::Command::new("sh").arg("-c").arg(cmd).output().await {
+        Ok(output) => {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let raw = if stderr.is_empty() { stdout.to_string() }
+                else if stdout.is_empty() { stderr.to_string() }
+                else { format!("{}\n{}", stdout, stderr) };
+            Ok((format_command_output(&raw), raw))
+        }
+        Err(e) => Err(format!("Command failed: {}", e)),
+    }
+}
+
 /// Handle crystallized skill shortcut — bypass LLM for learned patterns.
 /// Returns `true` if the skill was handled (slash-command variant).
 pub(crate) async fn handle_crystallized_skill(
     text: &str,
     inventions: &Option<Arc<InventionEngine>>,
+    decide_engine: &Arc<DecideEngine>,
     tx: &mpsc::UnboundedSender<CognitiveUpdate>,
 ) -> bool {
     let inv = match inventions.as_ref() {
@@ -46,29 +62,22 @@ pub(crate) async fn handle_crystallized_skill(
     if text.starts_with('/') {
         if let Some(slash_result) = handle_universal_slash_command(text) {
             if !slash_result.starts_with("__TEXT__:") {
-                match tokio::process::Command::new("sh")
-                    .arg("-c")
-                    .arg(&slash_result)
-                    .output()
-                    .await
-                {
-                    Ok(output) => {
-                        let stdout = String::from_utf8_lossy(&output.stdout);
-                        let stderr = String::from_utf8_lossy(&output.stderr);
-                        let combined = if stderr.is_empty() { stdout.to_string() }
-                            else if stdout.is_empty() { stderr.to_string() }
-                            else { format!("{}\n{}", stdout, stderr) };
+                // Gate check before executing crystallized skill command
+                let gate_result = decide_engine.evaluate_command(&slash_result);
+                if gate_result.risk_score >= 0.5 || gate_result.anomaly_detected || gate_result.boundary_blocked {
+                    eprintln!("[hydra:dispatch] ⚠ Skill `{}` risk warning: {} — proceeding", skill_name, gate_result.reason);
+                }
+                match run_shell_cmd(&slash_result).await {
+                    Ok((_, raw)) => {
                         let _ = tx.send(CognitiveUpdate::Message {
                             role: "hydra".into(),
-                            content: format!("⚡ *Crystallized skill `{}`*\n\n```\n{}\n```",
-                                skill_name, combined.trim()),
+                            content: format!("⚡ *Crystallized skill `{}`*\n\n```\n{}\n```", skill_name, raw.trim()),
                             css_class: "message hydra".into(),
                         });
                     }
                     Err(e) => {
                         let _ = tx.send(CognitiveUpdate::Message {
-                            role: "hydra".into(),
-                            content: format!("Crystallized skill `{}` failed: {}", skill_name, e),
+                            role: "hydra".into(), content: format!("Crystallized skill `{}` failed: {}", skill_name, e),
                             css_class: "message hydra error".into(),
                         });
                     }
@@ -128,38 +137,13 @@ pub(crate) async fn handle_dep_query_precheck(
     let _ = tx.send(CognitiveUpdate::IconState("working".into()));
     let _ = tx.send(CognitiveUpdate::Typing(false));
     eprintln!("[hydra:direct-precheck] Executing: {}", safe_truncate(&direct_cmd, 100));
-    match tokio::process::Command::new("sh")
-        .arg("-c")
-        .arg(&direct_cmd)
-        .output()
-        .await
-    {
-        Ok(output) => {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let combined = if stderr.is_empty() {
-                stdout.to_string()
-            } else if stdout.is_empty() {
-                stderr.to_string()
-            } else {
-                format!("{}\n{}", stdout, stderr)
-            };
-            let display = format_command_output(&combined);
-            let _ = tx.send(CognitiveUpdate::Message {
-                role: "hydra".into(),
-                content: display,
-                css_class: "message hydra".into(),
-            });
-            if let Some(ref sh) = sisters_handle {
-                sh.learn(text, safe_truncate(&combined, 500)).await;
-            }
+    match run_shell_cmd(&direct_cmd).await {
+        Ok((display, raw)) => {
+            let _ = tx.send(CognitiveUpdate::Message { role: "hydra".into(), content: display, css_class: "message hydra".into() });
+            if let Some(ref sh) = sisters_handle { sh.learn(text, safe_truncate(&raw, 500)).await; }
         }
         Err(e) => {
-            let _ = tx.send(CognitiveUpdate::Message {
-                role: "hydra".into(),
-                content: format!("Command failed: {}", e),
-                css_class: "message hydra error".into(),
-            });
+            let _ = tx.send(CognitiveUpdate::Message { role: "hydra".into(), content: e, css_class: "message hydra error".into() });
         }
     }
     let _ = tx.send(CognitiveUpdate::ResetIdle);
@@ -169,6 +153,7 @@ pub(crate) async fn handle_dep_query_precheck(
 /// Handle slash commands — /test, /files, /git, /build, /run, etc.
 pub(crate) async fn handle_slash_command(
     text: &str,
+    decide_engine: &Arc<DecideEngine>,
     tx: &mpsc::UnboundedSender<CognitiveUpdate>,
 ) -> bool {
     if !text.starts_with('/') {
@@ -202,37 +187,20 @@ pub(crate) async fn handle_slash_command(
         return true;
     }
 
+    // Gate check — warn only
+    let gate_result = decide_engine.evaluate_command(&slash_result);
+    if gate_result.risk_score >= 0.5 || gate_result.anomaly_detected || gate_result.boundary_blocked {
+        eprintln!("[hydra:dispatch] ⚠ Slash command risk warning: {} — proceeding", gate_result.reason);
+    }
+
     // Execute the shell command
     eprintln!("[hydra:slash] Executing: {}", safe_truncate(&slash_result, 100));
-    match tokio::process::Command::new("sh")
-        .arg("-c")
-        .arg(&slash_result)
-        .output()
-        .await
-    {
-        Ok(output) => {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let combined = if stderr.is_empty() {
-                stdout.to_string()
-            } else if stdout.is_empty() {
-                stderr.to_string()
-            } else {
-                format!("{}\n{}", stdout, stderr)
-            };
-            let display = format_command_output(&combined);
-            let _ = tx.send(CognitiveUpdate::Message {
-                role: "hydra".into(),
-                content: display,
-                css_class: "message hydra".into(),
-            });
+    match run_shell_cmd(&slash_result).await {
+        Ok((display, _)) => {
+            let _ = tx.send(CognitiveUpdate::Message { role: "hydra".into(), content: display, css_class: "message hydra".into() });
         }
         Err(e) => {
-            let _ = tx.send(CognitiveUpdate::Message {
-                role: "hydra".into(),
-                content: format!("Command failed: {}", e),
-                css_class: "message hydra error".into(),
-            });
+            let _ = tx.send(CognitiveUpdate::Message { role: "hydra".into(), content: e, css_class: "message hydra error".into() });
         }
     }
     let _ = tx.send(CognitiveUpdate::ResetIdle);
@@ -267,55 +235,22 @@ pub(crate) async fn handle_direct_action(
     let _ = tx.send(CognitiveUpdate::Phase(phase.into()));
     let _ = tx.send(CognitiveUpdate::IconState("working".into()));
 
-    // Quick risk check — only block truly dangerous commands
+    // Risk check — warn only
     let gate_result = decide_engine.evaluate_command(&direct_cmd);
-    if gate_result.risk_score >= 0.9 || gate_result.anomaly_detected || gate_result.boundary_blocked {
-        let _ = tx.send(CognitiveUpdate::Message {
-            role: "hydra".into(),
-            content: format!("Blocked: {}", gate_result.reason),
-            css_class: "message hydra error".into(),
-        });
-        let _ = tx.send(CognitiveUpdate::ResetIdle);
-        return true;
+    if gate_result.risk_score >= 0.5 || gate_result.anomaly_detected || gate_result.boundary_blocked {
+        eprintln!("[hydra:dispatch] ⚠ Direct command risk warning: {} — proceeding", gate_result.reason);
     }
 
     // Execute the command directly
     let _ = tx.send(CognitiveUpdate::Typing(false));
     eprintln!("[hydra:direct] Executing: {}", safe_truncate(&direct_cmd, 100));
-    match tokio::process::Command::new("sh")
-        .arg("-c")
-        .arg(&direct_cmd)
-        .output()
-        .await
-    {
-        Ok(output) => {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let combined = if stderr.is_empty() {
-                stdout.to_string()
-            } else if stdout.is_empty() {
-                stderr.to_string()
-            } else {
-                format!("{}\n{}", stdout, stderr)
-            };
-            let display = format_command_output(&combined);
-            let _ = tx.send(CognitiveUpdate::Message {
-                role: "hydra".into(),
-                content: display,
-                css_class: "message hydra".into(),
-            });
-
-            // LEARN: capture this in memory
-            if let Some(ref sh) = sisters_handle {
-                sh.learn(text, safe_truncate(&combined, 500)).await;
-            }
+    match run_shell_cmd(&direct_cmd).await {
+        Ok((display, raw)) => {
+            let _ = tx.send(CognitiveUpdate::Message { role: "hydra".into(), content: display, css_class: "message hydra".into() });
+            if let Some(ref sh) = sisters_handle { sh.learn(text, safe_truncate(&raw, 500)).await; }
         }
         Err(e) => {
-            let _ = tx.send(CognitiveUpdate::Message {
-                role: "hydra".into(),
-                content: format!("Command failed: {}", e),
-                css_class: "message hydra error".into(),
-            });
+            let _ = tx.send(CognitiveUpdate::Message { role: "hydra".into(), content: e, css_class: "message hydra error".into() });
         }
     }
 

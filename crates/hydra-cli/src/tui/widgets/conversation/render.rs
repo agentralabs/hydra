@@ -121,64 +121,81 @@ fn render_rich_content_inner(content: &str, role: MessageRole, lines: &mut Vec<L
         if !expand_tools {
         if let Some(summary) = should_collapse_tool_result(line) {
             lines.push(Line::from(vec![
-                Span::styled("● ", Style::default().fg(theme::HYDRA_CYAN)),
-                Span::styled(
-                    summary,
-                    Style::default().fg(theme::HYDRA_DIM),
-                ),
+                Span::styled("  ● ", Style::default().fg(theme::HYDRA_GREEN)),
+                Span::styled(summary, Style::default().fg(theme::HYDRA_DIM)),
             ]));
-            // Skip subsequent lines that are part of the same tool output block
             i += 1;
             while i < content_lines.len() {
                 let next = content_lines[i];
-                // Stop collapsing at empty line, next header, or next tool use
-                if next.is_empty()
-                    || next.starts_with("Using ")
-                    || next.starts_with("## ")
-                    || next.starts_with("### ")
-                {
-                    break;
-                }
+                if next.is_empty() || next.starts_with("Using ") || next.starts_with("●") || next.starts_with("## ") { break; }
                 i += 1;
             }
             continue;
         }
         } // end !expand_tools
 
-        // Detect tool use lines: "Using Sister: tool(args)" — render as ● dot style
-        if line.starts_with("Using ") && line.contains(": ") {
+        // Claude Code-style tool action: "● ToolName(args)" header line
+        if line.starts_with("● ") {
+            let tool_text = line.trim_start_matches("● ");
             lines.push(Line::from(vec![
-                Span::styled("● ", Style::default().fg(theme::HYDRA_CYAN)),
+                Span::styled("  ● ", Style::default().fg(theme::HYDRA_GREEN)),
                 Span::styled(
-                    line.to_string(),
-                    Style::default().fg(theme::HYDRA_CYAN),
+                    tool_text.to_string(),
+                    Style::default().fg(theme::HYDRA_GREEN).add_modifier(Modifier::BOLD),
                 ),
             ]));
             i += 1;
-            // Collect subsequent output lines as └ tree style
+            // Collect result lines: "  └ result" or "  ✗ error"
             while i < content_lines.len() {
                 let next = content_lines[i];
-                if next.is_empty()
-                    || next.starts_with("Using ")
-                    || next.starts_with("## ")
-                    || next.starts_with("### ")
-                {
-                    break;
-                }
-                // Check if this looks like tool output (indented or result text)
+                if next.trim_start().starts_with("└ ") {
+                    let result_text = next.trim_start().trim_start_matches("└ ");
+                    lines.push(Line::from(vec![
+                        Span::styled("    └ ", Style::default().fg(theme::HYDRA_DIM)),
+                        Span::styled(result_text.to_string(), Style::default().fg(theme::HYDRA_DIM)),
+                    ]));
+                    i += 1;
+                } else if next.trim_start().starts_with("✗ ") {
+                    let err_text = next.trim_start().trim_start_matches("✗ ");
+                    lines.push(Line::from(vec![
+                        Span::styled("    ✗ ", Style::default().fg(theme::HYDRA_RED)),
+                        Span::styled(err_text.to_string(), Style::default().fg(theme::HYDRA_RED)),
+                    ]));
+                    i += 1;
+                } else { break; }
+            }
+            continue;
+        }
+
+        // Legacy tool use: "Using Sister: tool(args)" — reformat as ● dot style
+        if line.starts_with("Using ") && line.contains(": ") {
+            // Extract sister and tool from "Using Sister: tool(args)"
+            if let Some(colon_pos) = line.find(": ") {
+                let sister = &line[6..colon_pos]; // skip "Using "
+                let tool_part = &line[colon_pos + 2..];
+                lines.push(Line::from(vec![
+                    Span::styled("  ● ", Style::default().fg(theme::HYDRA_GREEN)),
+                    Span::styled(format!("{}", tool_part), Style::default().fg(theme::HYDRA_GREEN).add_modifier(Modifier::BOLD)),
+                    Span::styled(format!("  ({})", sister), Style::default().fg(theme::HYDRA_DIM)),
+                ]));
+            } else {
+                lines.push(Line::from(vec![
+                    Span::styled("  ● ", Style::default().fg(theme::HYDRA_GREEN)),
+                    Span::styled(line.to_string(), Style::default().fg(theme::HYDRA_GREEN)),
+                ]));
+            }
+            i += 1;
+            while i < content_lines.len() {
+                let next = content_lines[i];
+                if next.is_empty() || next.starts_with("Using ") || next.starts_with("●") || next.starts_with("## ") { break; }
                 let trimmed = next.trim();
                 if !trimmed.is_empty() && (next.starts_with("  ") || next.starts_with("\t")) {
                     lines.push(Line::from(vec![
-                        Span::styled("  └ ", Style::default().fg(theme::HYDRA_DIM)),
-                        Span::styled(
-                            trimmed.to_string(),
-                            Style::default().fg(theme::HYDRA_DIM),
-                        ),
+                        Span::styled("    └ ", Style::default().fg(theme::HYDRA_DIM)),
+                        Span::styled(trimmed.to_string(), Style::default().fg(theme::HYDRA_DIM)),
                     ]));
                     i += 1;
-                } else {
-                    break;
-                }
+                } else { break; }
             }
             continue;
         }
@@ -252,54 +269,25 @@ fn render_rich_content_inner(content: &str, role: MessageRole, lines: &mut Vec<L
             continue;
         }
 
-        // Detect risk labels
+        // Risk labels
         if line.starts_with("[HIGH RISK]") || line.starts_with("[CRITICAL RISK]") {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", line),
-                Style::default().fg(theme::HYDRA_RED).add_modifier(Modifier::BOLD),
-            )));
-            i += 1;
-            continue;
+            lines.push(Line::from(Span::styled(format!("  {}", line), Style::default().fg(theme::HYDRA_RED).add_modifier(Modifier::BOLD))));
+            i += 1; continue;
         }
         if line.starts_with("[MEDIUM RISK]") {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", line),
-                Style::default().fg(theme::HYDRA_YELLOW).add_modifier(Modifier::BOLD),
-            )));
-            i += 1;
-            continue;
+            lines.push(Line::from(Span::styled(format!("  {}", line), Style::default().fg(theme::HYDRA_YELLOW).add_modifier(Modifier::BOLD))));
+            i += 1; continue;
         }
 
-        // Detect table lines (box-drawing chars)
-        if line.contains('┌') || line.contains('├') || line.contains('└')
-            || line.contains('│') || line.contains('─')
-        {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", line),
-                Style::default().fg(theme::HYDRA_DIM),
-            )));
-            i += 1;
-            continue;
+        // Box-drawing / tree / file-tree lines
+        if line.contains('┌') || line.contains('├') || line.contains('│') || line.contains('─')
+            || line.contains("├─") || line.contains("└─") {
+            lines.push(Line::from(Span::styled(format!("  {}", line), Style::default().fg(theme::HYDRA_DIM))));
+            i += 1; continue;
         }
-
-        // Detect tree lines (from /health, /config)
-        if line.contains("├─") || line.contains("└─") {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", line),
-                Style::default().fg(theme::HYDRA_DIM),
-            )));
-            i += 1;
-            continue;
-        }
-
-        // Detect file tree entries (from /files)
         if line.contains("📁 ") {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", line),
-                Style::default().fg(theme::HYDRA_BLUE),
-            )));
-            i += 1;
-            continue;
+            lines.push(Line::from(Span::styled(format!("  {}", line), Style::default().fg(theme::HYDRA_BLUE))));
+            i += 1; continue;
         }
 
         // Detect search result lines: "path:N:content"

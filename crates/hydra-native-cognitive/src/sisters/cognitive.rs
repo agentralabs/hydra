@@ -201,6 +201,29 @@ impl Sisters {
     }
 
     // capabilities_prompt — extracted to cognitive_dispatch.rs
+
+    /// Graceful session shutdown — called on app close.
+    /// Runs Ghost Writer summary, session end for Memory/Comm/Time, and agent deregistration.
+    pub async fn shutdown_session(&self, user_name: &str, history: &[(String, String)]) {
+        eprintln!("[hydra:shutdown] Starting graceful session shutdown...");
+        // 1. Ghost Writer summary (captures session narrative before shutdown)
+        let summary = if let Some(ghost) = self.memory_ghost_write(history).await {
+            eprintln!("[hydra:shutdown] Ghost Writer summary: {} chars", ghost.len());
+            ghost
+        } else {
+            let msg_count = history.len();
+            format!("Session with {} messages completed", msg_count)
+        };
+        // 2. End all session trackers in parallel
+        let mem_end = self.memory_session_end(&summary);
+        let comm_end = self.comm_session_end(&summary);
+        let time_end = self.time_session_end(&summary);
+        let comm_dereg = self.comm_deregister_agent(user_name);
+        let aegis_end = self.aegis_session_end(&summary);
+        let contract_end = self.contract_session_end(&summary);
+        tokio::join!(mem_end, comm_end, time_end, comm_dereg, aegis_end, contract_end);
+        eprintln!("[hydra:shutdown] Session shutdown complete.");
+    }
 }
 
 /// Shared handle to sisters, safe to clone across async tasks

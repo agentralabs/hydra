@@ -243,13 +243,15 @@ impl PushProvider for TelegramProvider {
 // EMAIL PROVIDER
 // ═══════════════════════════════════════════════════════════
 
-/// Push provider using email (SMTP)
+/// Push provider using email (SMTP) via the `lettre` crate.
 ///
-/// A production implementation would use the `lettre` crate for SMTP.
-/// This provides the structure and returns Ok(()) as a placeholder for
-/// the actual SMTP integration.
+/// Sends real emails through any SMTP server (Gmail, Outlook, custom).
+/// For Gmail: use smtp.gmail.com with an App Password.
 pub struct EmailProvider {
     pub smtp_host: String,
+    pub smtp_port: u16,
+    pub username: String,
+    pub password: String,
     pub from_address: String,
     pub to_address: String,
 }
@@ -258,22 +260,70 @@ impl EmailProvider {
     pub fn new(smtp_host: String, from_address: String, to_address: String) -> Self {
         Self {
             smtp_host,
+            smtp_port: 587,
+            username: from_address.clone(),
+            password: String::new(),
             from_address,
             to_address,
         }
+    }
+
+    pub fn with_credentials(
+        smtp_host: String,
+        smtp_port: u16,
+        username: String,
+        password: String,
+        from_address: String,
+        to_address: String,
+    ) -> Self {
+        Self { smtp_host, smtp_port, username, password, from_address, to_address }
     }
 }
 
 #[async_trait]
 impl PushProvider for EmailProvider {
     async fn send(&self, message: &PushMessage) -> Result<(), PushError> {
-        // SMTP integration point: a production implementation would use the
-        // `lettre` crate to connect to self.smtp_host and send an email from
-        // self.from_address to self.to_address with the notification content.
+        use lettre::{
+            AsyncSmtpTransport, AsyncTransport, Tokio1Executor,
+            message::header::ContentType,
+            transport::smtp::authentication::Credentials,
+        };
+
         debug!(
-            "Email notification (SMTP integration point): from={} to={} via={} subject='{}'",
-            self.from_address, self.to_address, self.smtp_host, message.title
+            "Sending email via SMTP: from={} to={} via={}:{} subject='{}'",
+            self.from_address, self.to_address, self.smtp_host, self.smtp_port, message.title
         );
+
+        let email = lettre::Message::builder()
+            .from(self.from_address.parse().map_err(|e| {
+                PushError::ProviderError(format!("Invalid from address: {}", e))
+            })?)
+            .to(self.to_address.parse().map_err(|e| {
+                PushError::ProviderError(format!("Invalid to address: {}", e))
+            })?)
+            .subject(&message.title)
+            .header(ContentType::TEXT_PLAIN)
+            .body(message.body.clone())
+            .map_err(|e| PushError::ProviderError(format!("Failed to build email: {}", e)))?;
+
+        let creds = Credentials::new(self.username.clone(), self.password.clone());
+
+        let mailer = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&self.smtp_host)
+            .map_err(|e| PushError::ProviderError(format!("SMTP relay error: {}", e)))?
+            .port(self.smtp_port)
+            .credentials(creds)
+            .build();
+
+        mailer.send(email).await.map_err(|e| {
+            let msg = e.to_string();
+            if msg.contains("535") || msg.contains("authentication") || msg.contains("credential") {
+                PushError::AuthError(format!("SMTP auth failed: {}", msg))
+            } else {
+                PushError::NetworkError(format!("SMTP send failed: {}", msg))
+            }
+        })?;
+
+        debug!("Email sent successfully to {}", self.to_address);
         Ok(())
     }
 

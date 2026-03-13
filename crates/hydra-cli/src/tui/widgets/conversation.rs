@@ -3,7 +3,7 @@ mod empty;
 
 use ratatui::{
     layout::Rect,
-    style::Style,
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Paragraph, Wrap},
     Frame,
@@ -66,15 +66,13 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
 
         match msg.role {
             MessageRole::User => {
+                // Claude Code style: ❯ prompt with bold white text
                 lines.push(Line::from(vec![
-                    Span::styled("> ", theme::prompt()),
-                    Span::styled(msg.content.clone(), theme::user_msg()),
+                    Span::styled("❯ ", Style::default().fg(theme::HYDRA_BLUE).add_modifier(Modifier::BOLD)),
+                    Span::styled(msg.content.clone(), Style::default().add_modifier(Modifier::BOLD)),
                 ]));
             }
-            MessageRole::Hydra => {
-                render_rich_content_ex(&msg.content, msg.role.clone(), &mut lines, app.tool_output_expanded);
-            }
-            MessageRole::System => {
+            MessageRole::Hydra | MessageRole::System => {
                 render_rich_content_ex(&msg.content, msg.role.clone(), &mut lines, app.tool_output_expanded);
             }
         }

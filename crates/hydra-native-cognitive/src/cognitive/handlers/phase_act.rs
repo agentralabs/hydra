@@ -17,6 +17,8 @@ use hydra_db::{HydraDb, BeliefRow};
 use hydra_runtime::undo::UndoStack;
 
 use super::super::loop_runner::CognitiveUpdate;
+use super::agentic_loop;
+use super::agentic_loop_entry;
 use super::execution::{execute_json_plan, maybe_deepen_project};
 use super::llm_helpers::self_review_response;
 use super::memory::md5_simple;
@@ -42,6 +44,7 @@ pub(crate) async fn run_act(
     active_model: &str,
     risk_level: &str,
     gate_decision: &str,
+    perceive_memory: &Option<String>,
     decide_engine: &Arc<DecideEngine>,
     sisters_handle: &Option<SistersHandle>,
     undo_stack: &Option<Arc<parking_lot::Mutex<UndoStack>>>,
@@ -149,28 +152,87 @@ pub(crate) async fn run_act(
         all_exec_results = exec_results;
     }
 
-    // Phase 2, X2: Self-Review Before Delivery
-    // For complex queries only, do a quick validation of the response before delivering.
-    if is_complex && llm_result.is_ok() {
-        let review_result = self_review_response(text, &final_response, llm_config).await;
-        if let Some(issue) = review_result {
-            eprintln!("[hydra:review] Self-review flagged issue: {}", issue);
-            final_response.push_str(&format!(
-                "\n\n---\n*Note: {}*",
-                issue
-            ));
-        }
+    // ── MULTI-TURN AGENTIC LOOP ──
+    // If the response has tool/exec tags AND agentic loop is enabled,
+    // enter multi-turn mode: execute → feed results back to LLM → repeat.
+    if llm_result.is_ok() && is_complex && config.runtime.agentic_loop
+        && super::agentic_loop_format::has_actionable_tags(&final_response)
+    {
+        let loop_cfg = agentic_loop_entry::AgenticLoopConfig {
+            max_turns: config.runtime.agentic_max_turns.min(10),
+            turn_timeout_secs: 30,
+            total_budget_tokens: config.runtime.agentic_token_budget,
+        };
+        // Build a minimal system prompt for subsequent turns
+        let sys = "You are Hydra, continuing a multi-turn task. \
+            Use <hydra-tool> for sister MCP tools and <hydra-exec> for shell commands. \
+            When done, include <hydra-done/> at the end.";
+        let loop_result = agentic_loop::run_agentic_loop(
+            text, sys, &final_response, &loop_cfg,
+            llm_config, active_model, provider, config,
+            sisters_handle, decide_engine, undo_stack, db, tx,
+        ).await;
+        final_response = loop_result.final_response;
+        all_exec_results.extend(loop_result.all_exec_results);
+        let _ = tx.send(CognitiveUpdate::AgenticComplete {
+            turns: loop_result.turns_completed,
+            total_tokens: loop_result.total_tokens,
+            stop_reason: loop_result.stop_reason.to_string(),
+        });
+        eprintln!("[hydra:agentic] Loop done: {} turns, reason={}", loop_result.turns_completed, loop_result.stop_reason);
     }
 
-    // Aegis: validate output before delivery
-    if let Some(ref sh) = sisters_handle {
-        if let Some(validation) = sh.aegis_validate_output(text, &final_response).await {
-            if !validation.safe {
-                eprintln!("[hydra:aegis] Output validation warning: {}", validation.reason);
+    // ── RESPONSE VERIFICATION PIPELINE ──
+    // Claude-like pattern 8.1: verify before delivery using sisters in parallel.
+    if llm_result.is_ok() {
+        if let Some(ref sh) = sisters_handle {
+            let review_fut = async {
+                if is_complex { self_review_response(text, &final_response, llm_config).await } else { None }
+            };
+            let confidence_fut = sh.veritas_score_confidence(&final_response);
+            let consistency_fut = async {
+                if let Some(ref mem) = perceive_memory {
+                    sh.veritas_check_consistency(&final_response, mem).await
+                } else { None }
+            };
+            let aegis_fut = sh.aegis_validate_output(text, &final_response);
+            let (review_r, confidence_r, consistency_r, aegis_r) =
+                tokio::join!(review_fut, confidence_fut, consistency_fut, aegis_fut);
+            // Self-review
+            if let Some(issue) = review_r {
+                eprintln!("[hydra:review] Self-review flagged: {}", issue);
+                final_response.push_str(&format!("\n\n---\n*Note: {}*", issue));
+            }
+            // Veritas confidence — add caveat if low
+            if let Some(conf) = confidence_r {
+                if conf < 0.4 {
+                    final_response.push_str("\n\n*I'm not fully confident in this response — please verify.*");
+                } else if conf < 0.7 {
+                    eprintln!("[hydra:veritas] Moderate confidence: {:.0}%", conf * 100.0);
+                }
+            }
+            // Veritas consistency — flag contradictions
+            if let Some(ref contradiction) = consistency_r {
+                eprintln!("[hydra:veritas] Consistency issue: {}", contradiction);
                 let _ = tx.send(CognitiveUpdate::EvidenceMemory {
-                    title: "Output Security Check".to_string(),
-                    content: format!("[{:?}] {}", validation.severity, validation.reason),
+                    title: "Consistency Check".into(),
+                    content: contradiction.clone(),
                 });
+            }
+            // Aegis output validation
+            if let Some(validation) = aegis_r {
+                if !validation.safe {
+                    eprintln!("[hydra:aegis] Output warning: {}", validation.reason);
+                    let _ = tx.send(CognitiveUpdate::EvidenceMemory {
+                        title: "Output Security Check".into(),
+                        content: format!("[{:?}] {}", validation.severity, validation.reason),
+                    });
+                }
+            }
+        } else if is_complex {
+            // No sisters — still do self-review for complex queries
+            if let Some(issue) = self_review_response(text, &final_response, llm_config).await {
+                final_response.push_str(&format!("\n\n---\n*Note: {}*", issue));
             }
         }
     }

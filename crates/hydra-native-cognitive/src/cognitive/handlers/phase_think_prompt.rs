@@ -155,13 +155,36 @@ pub(crate) fn build_system_prompt(
                 }
             }
         }
-        // Trust level injection
+        // Trust level + metacognitive awareness injection
         let trust = decide_engine.current_trust();
         let autonomy = decide_engine.current_level();
         sp.push_str(&format!(
-            "\n# Trust & Autonomy\nCurrent trust score: {:.0}%\nAutonomy level: {:?}\nThis reflects how much the user trusts Hydra based on interaction history.\n\n",
+            "\n# Trust & Autonomy\nTrust: {:.0}% | Autonomy: {:?}\n",
             trust * 100.0, autonomy,
         ));
+        // Metacognition: session momentum + belief confidence signals
+        if let Some(ref inv) = inventions {
+            let (successes, failures, corrections) = inv.session_momentum();
+            let total = successes + failures;
+            if total > 3 && failures > successes {
+                sp.push_str("Session momentum is low — recent attempts have been struggling. Consider a different approach.\n");
+            }
+            if corrections > 2 {
+                sp.push_str("Multiple corrections received — pay extra attention to user preferences.\n");
+            }
+        }
+        if let Some(ref beliefs) = perceive.beliefs_context {
+            let low_conf = beliefs.lines()
+                .filter(|l| {
+                    l.contains("confidence:") && l.split("confidence:").nth(1)
+                        .and_then(|s| s.trim().trim_end_matches('%').trim_end_matches(')').parse::<f64>().ok())
+                        .map_or(false, |c| c < 50.0)
+                }).count();
+            if low_conf > 0 {
+                sp.push_str(&format!("⚠ {} beliefs have low confidence — express uncertainty on those topics.\n", low_conf));
+            }
+        }
+        sp.push('\n');
         // Tool routing
         let routed_tools = route_tools_for_prompt(intent, complexity, is_action_request, sh, text);
         let tool_line_count = routed_tools.lines().count();
@@ -172,6 +195,10 @@ pub(crate) fn build_system_prompt(
         // Federation status
         if let Some(ref fed_ctx) = perceive.federation_context {
             sp.push_str(&format!("\n# Federation Status\n{}\n\n", fed_ctx));
+        }
+        // Code index context — relevant symbols from the codebase
+        if let Some(ref code_ctx) = perceive.code_index_context {
+            sp.push_str(&format!("\n# Codebase Index\n{}\n\n", code_ctx));
         }
         // Matched skills from registry
         if let Some(ref skills_ctx) = perceive.skills_context {

@@ -73,6 +73,25 @@ impl Sisters {
         Some(AegisValidation { safe, reason, severity })
     }
 
+    /// SESSION: Create a security session with Aegis — initializes threat tracking.
+    pub async fn aegis_session_create(&self, user_name: &str) {
+        if let Some(aegis) = &self.aegis {
+            let _ = aegis.call_tool("aegis_session_create", serde_json::json!({
+                "agent_id": user_name,
+                "session_type": "conversation",
+            })).await;
+        }
+    }
+
+    /// SESSION: End Aegis security session — flushes threat log and audit trail.
+    pub async fn aegis_session_end(&self, summary: &str) {
+        if let Some(aegis) = &self.aegis {
+            let _ = aegis.call_tool("aegis_session_end", serde_json::json!({
+                "summary": safe_truncate(summary, 500),
+            })).await;
+        }
+    }
+
     /// DECIDE: Shadow execute a high-risk command in sandbox.
     /// Returns predicted outcome before real execution.
     pub async fn aegis_shadow_execute(&self, command: &str) -> Option<ShadowResult> {

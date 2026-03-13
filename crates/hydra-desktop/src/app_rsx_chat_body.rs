@@ -311,11 +311,11 @@ rsx! {
         }
     }
 
-    // Auto-scroll + code block copy
+    // Auto-scroll + code block copy (double rAF ensures DOM layout is complete before scrolling)
     {
         let _count = messages.read().len();
         let _typing = *is_typing.read();
-        rsx! { script { "requestAnimationFrame(function(){{ var el = document.getElementById('messages-container'); if(el) el.scrollTop = el.scrollHeight; }});
+        rsx! { script { "requestAnimationFrame(function(){{ requestAnimationFrame(function(){{ var el = document.getElementById('messages-container'); if(el) el.scrollTop = el.scrollHeight; }}); }});
             document.querySelectorAll('.message-content pre').forEach(function(pre){{
                 if(pre.dataset.copyBound) return;
                 pre.dataset.copyBound='1';

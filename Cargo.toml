@@ -59,6 +59,7 @@ async-trait = "0.1"
 dashmap = "5.5"
 parking_lot = "0.12"
 crossbeam-channel = "0.5"
+notify = { version = "6", default-features = false, features = ["macos_fsevent"] }
 tokio-util = "0.7"
 
 # Serialization
@@ -79,6 +80,9 @@ rand = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.6", features = ["v4", "v7", "serde"] }
 
+# Regex
+regex = "1"
+
 # Error Handling & Logging
 thiserror = "1.0"
 anyhow = "1.0"
@@ -87,6 +91,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 # HTTP
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+
+# Email
+lettre = { version = "0.11", default-features = false, features = ["tokio1-native-tls", "smtp-transport", "builder"] }
 
 # Internal crates
 hydra-core = { path = "crates/hydra-core" }

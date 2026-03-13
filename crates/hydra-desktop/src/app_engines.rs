@@ -47,5 +47,22 @@
         Arc::new(hydra_native::swarm::SwarmManager::default())
     });
 
-    (decide_engine, invention_engine, proactive_notifier, agent_spawner, undo_stack, approval_manager, federation_manager, hydra_db, swarm_manager)
+    // ── Init file watcher for proactive suggestions (P2) ──
+    let file_watcher: Option<Arc<parking_lot::Mutex<hydra_pulse::FileWatcher>>> = use_hook(|| {
+        let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+        match hydra_pulse::FileWatcher::start(cwd) {
+            Ok(watcher) => {
+                tracing::info!("[hydra] File watcher started");
+                Some(Arc::new(parking_lot::Mutex::new(watcher)))
+            }
+            Err(e) => {
+                tracing::warn!("[hydra] File watcher failed to start: {}", e);
+                None
+            }
+        }
+    });
+    let proactive_file_engine: Arc<parking_lot::Mutex<hydra_pulse::ProactiveFileEngine>> =
+        use_hook(|| Arc::new(parking_lot::Mutex::new(hydra_pulse::ProactiveFileEngine::new())));
+
+    (decide_engine, invention_engine, proactive_notifier, agent_spawner, undo_stack, approval_manager, federation_manager, hydra_db, swarm_manager, file_watcher, proactive_file_engine)
 }

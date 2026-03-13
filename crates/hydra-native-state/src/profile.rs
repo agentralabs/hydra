@@ -93,6 +93,21 @@ pub struct PersistedProfile {
     /// Phase 3, C2: User-configured autonomy level (1–5).
     #[serde(default)]
     pub autonomy_level: UserAutonomyLevel,
+    /// Memory capture mode: "all" (full conversation), "facts" (decisions only), "none" (no capture).
+    #[serde(default)]
+    pub memory_capture: Option<String>,
+    /// SMTP host for email sending (e.g. "smtp.gmail.com").
+    #[serde(default)]
+    pub smtp_host: Option<String>,
+    /// SMTP username (usually the email address).
+    #[serde(default)]
+    pub smtp_user: Option<String>,
+    /// SMTP app password (stored locally in profile.json).
+    #[serde(default)]
+    pub smtp_password: Option<String>,
+    /// Default recipient email address.
+    #[serde(default)]
+    pub smtp_to: Option<String>,
 }
 
 impl Default for PersistedProfile {
@@ -113,14 +128,94 @@ impl Default for PersistedProfile {
             sound_volume: 70,
             working_directory: None,
             autonomy_level: UserAutonomyLevel::default(),
+            memory_capture: Some("all".into()),
+            smtp_host: None,
+            smtp_user: None,
+            smtp_password: None,
+            smtp_to: None,
         }
     }
 }
 
+/// Base directory for all Hydra data: `~/.hydra/`
+pub fn hydra_base_dir() -> Option<PathBuf> {
+    std::env::var("HOME").ok().map(|h| PathBuf::from(h).join(".hydra"))
+}
+
+/// Read the currently active user name from `~/.hydra/active`.
+pub fn active_user() -> Option<String> {
+    let path = hydra_base_dir()?.join("active");
+    std::fs::read_to_string(path).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+}
+
+/// Set the active user. Creates `~/.hydra/active` and the user's data directory.
+pub fn set_active_user(name: &str) {
+    if let Some(base) = hydra_base_dir() {
+        let _ = std::fs::create_dir_all(base.join("users").join(name));
+        let _ = std::fs::write(base.join("active"), name);
+    }
+}
+
+/// Clear the active user (sign out). Removes `~/.hydra/active`.
+pub fn clear_active_user() {
+    if let Some(base) = hydra_base_dir() {
+        let _ = std::fs::remove_file(base.join("active"));
+    }
+}
+
+/// Data directory for a specific user: `~/.hydra/users/{name}/`
+pub fn user_data_dir(name: &str) -> Option<PathBuf> {
+    hydra_base_dir().map(|b| b.join("users").join(name))
+}
+
+/// List all known user names (directories under `~/.hydra/users/`).
+pub fn list_users() -> Vec<String> {
+    let Some(base) = hydra_base_dir() else { return vec![] };
+    let users_dir = base.join("users");
+    let Ok(entries) = std::fs::read_dir(users_dir) else { return vec![] };
+    entries.filter_map(|e| {
+        let e = e.ok()?;
+        if e.file_type().ok()?.is_dir() { Some(e.file_name().to_string_lossy().to_string()) } else { None }
+    }).collect()
+}
+
+/// Profile path for the active user. Falls back to legacy `~/.hydra/profile.json`.
 fn profile_path() -> Option<PathBuf> {
-    std::env::var("HOME")
-        .ok()
-        .map(|h| PathBuf::from(h).join(".hydra").join("profile.json"))
+    let base = hydra_base_dir()?;
+    if let Some(user) = active_user() {
+        return Some(base.join("users").join(user).join("profile.json"));
+    }
+    // Legacy path (pre-multi-user)
+    let legacy = base.join("profile.json");
+    if legacy.exists() { Some(legacy) } else { None }
+}
+
+/// Database path for the active user: `~/.hydra/users/{name}/hydra.db`.
+/// Falls back to legacy `~/.hydra/hydra.db`.
+pub fn active_db_path() -> PathBuf {
+    let base = hydra_base_dir().unwrap_or_else(|| PathBuf::from("."));
+    if let Some(user) = active_user() {
+        return base.join("users").join(user).join("hydra.db");
+    }
+    base.join("hydra.db")
+}
+
+/// Migrate a legacy install (`~/.hydra/profile.json`) into the multi-user structure.
+/// Called once when a user name is known but no user directory exists yet.
+pub fn migrate_legacy_profile(user_name: &str) {
+    let Some(base) = hydra_base_dir() else { return };
+    let legacy_profile = base.join("profile.json");
+    let legacy_db = base.join("hydra.db");
+    let user_dir = base.join("users").join(user_name);
+    let _ = std::fs::create_dir_all(&user_dir);
+    // Copy (don't move) legacy files so nothing breaks mid-migration
+    if legacy_profile.exists() {
+        let _ = std::fs::copy(&legacy_profile, user_dir.join("profile.json"));
+    }
+    if legacy_db.exists() {
+        let _ = std::fs::copy(&legacy_db, user_dir.join("hydra.db"));
+    }
+    set_active_user(user_name);
 }
 
 pub fn load_profile() -> Option<PersistedProfile> {
@@ -130,13 +225,19 @@ pub fn load_profile() -> Option<PersistedProfile> {
 }
 
 pub fn save_profile(profile: &PersistedProfile) {
-    if let Some(path) = profile_path() {
-        if let Some(parent) = path.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-        if let Ok(json) = serde_json::to_string_pretty(profile) {
-            let _ = std::fs::write(path, json);
-        }
+    // Ensure we have a valid path — if active user is set, use their dir
+    let path = if let Some(p) = profile_path() {
+        p
+    } else if let Some(base) = hydra_base_dir() {
+        base.join("profile.json")
+    } else {
+        return;
+    };
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Ok(json) = serde_json::to_string_pretty(profile) {
+        let _ = std::fs::write(path, json);
     }
 }
 
@@ -173,6 +274,11 @@ mod tests {
             sound_volume: 80,
             working_directory: Some("/tmp/test-project".into()),
             autonomy_level: UserAutonomyLevel::Autonomous,
+            memory_capture: Some("facts".into()),
+            smtp_host: Some("smtp.gmail.com".into()),
+            smtp_user: Some("test@gmail.com".into()),
+            smtp_password: None,
+            smtp_to: Some("dest@example.com".into()),
         };
         let json = serde_json::to_string(&p).unwrap();
         let back: PersistedProfile = serde_json::from_str(&json).unwrap();

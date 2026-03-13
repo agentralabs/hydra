@@ -92,15 +92,13 @@ rsx! {
             }
         }
 
-        // ── Mic button ──
+        // ── Mic button — direct voice capture (not delegated to hidden button) ──
         div {
             class: "companion-controls",
             button {
                 class: if *voice_listening.read() { "companion-mic active" } else { "companion-mic" },
                 title: if *voice_listening.read() { "Stop listening" } else { "Talk to Hydra" },
-                onclick: move |_| {
-                    document::eval("document.querySelector('.mic-btn')?.click()");
-                },
+                onclick: move |_| { toggle_voice.call(()); },
                 if *voice_listening.read() {
                     span {
                         class: "companion-mic-icon",
@@ -111,6 +109,14 @@ rsx! {
                         class: "companion-mic-icon",
                         dangerous_inner_html: r#"<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>"#,
                     }
+                }
+            }
+            // Visual feedback when listening
+            if *voice_listening.read() {
+                div { class: "companion-listening-indicator",
+                    span { class: "companion-pulse-dot" }
+                    span { class: "companion-pulse-dot" }
+                    span { class: "companion-pulse-dot" }
                 }
             }
         }
@@ -143,7 +149,6 @@ rsx! {
             }
         }
 
-        // ── Hint bar ──
-        p { class: "companion-hint", "\u{2318}K commands \u{00B7} \u{2318}N new session \u{00B7} \u{2318}2 workspace" }
+        p { class: "companion-hint", "Tap mic to start \u{00B7} Hydra listens and responds hands-free \u{00B7} \u{2318}K commands" }
     }
 }

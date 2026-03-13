@@ -24,6 +24,13 @@ pub struct RuntimeSettings {
     pub debug_mode: bool,
     pub log_level: String,
     pub federation_enabled: bool,
+    pub memory_capture: String,
+    /// Enable multi-turn agentic loop (tool results fed back to LLM)
+    pub agentic_loop: bool,
+    /// Max turns for agentic loop (default 8, max 15)
+    pub agentic_max_turns: u8,
+    /// Token budget for agentic loop (default 50000)
+    pub agentic_token_budget: u64,
 }
 
 impl Default for RuntimeSettings {
@@ -49,11 +56,25 @@ impl Default for RuntimeSettings {
             debug_mode: false,
             log_level: "info".into(),
             federation_enabled: false,
+            memory_capture: "all".into(),
+            agentic_loop: true,
+            agentic_max_turns: 8,
+            agentic_token_budget: 50_000,
         }
     }
 }
 
 impl RuntimeSettings {
+    /// Whether memory capture is set to "all" (full immortal + comm trail)
+    pub fn should_capture_all(&self) -> bool {
+        self.memory_capture == "all"
+    }
+
+    /// Whether memory capture allows at least facts (anything except "none")
+    pub fn should_capture_facts(&self) -> bool {
+        self.memory_capture != "none"
+    }
+
     /// Parse sister timeout to milliseconds
     pub fn sister_timeout_ms(&self) -> u64 {
         match self.sister_timeout.as_str() {

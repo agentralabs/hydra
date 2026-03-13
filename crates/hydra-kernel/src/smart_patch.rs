@@ -67,14 +67,17 @@ pub fn has_function(content: &str, fn_name: &str) -> bool {
 }
 
 /// Extract function names from Rust code.
+/// Handles: fn, pub fn, pub(crate) fn, async fn, pub async fn, unsafe fn, etc.
 fn extract_fn_names(code: &str) -> Vec<String> {
     code.lines()
         .filter_map(|line| {
             let trimmed = line.trim();
-            if trimmed.starts_with("fn ") || trimmed.starts_with("pub fn ") {
-                let after_fn = trimmed.split("fn ").nth(1)?;
-                let name = after_fn.split('(').next()?.trim();
-                if !name.is_empty() { Some(name.to_string()) } else { None }
+            // Find "fn " anywhere in the line to handle all visibility/async combos
+            let fn_pos = trimmed.find("fn ")?;
+            let after_fn = &trimmed[fn_pos + 3..];
+            let name = after_fn.split(|c: char| c == '(' || c == '<' || c == ' ').next()?.trim();
+            if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                Some(name.to_string())
             } else {
                 None
             }
@@ -130,5 +133,32 @@ mod tests {
     fn test_has_function_with_pub() {
         let code = "    pub fn my_func(a: u32) -> bool { true }\n";
         assert!(has_function(code, "my_func"));
+    }
+
+    #[test]
+    fn test_extract_fn_async_pub_crate() {
+        let code = "pub(crate) async fn my_handler(req: Request) -> Response {}\n";
+        let names = extract_fn_names(code);
+        assert!(names.contains(&"my_handler".to_string()));
+    }
+
+    #[test]
+    fn test_has_function_async_and_pub_crate() {
+        let code = "    pub(crate) async fn process(data: &[u8]) {}\n";
+        assert!(has_function(code, "process"));
+        let code2 = "    async fn background_task() {}\n";
+        assert!(has_function(code2, "background_task"));
+    }
+
+    #[test]
+    fn test_extract_fn_names_all_variants() {
+        let code = "fn plain() {}\npub fn visible() {}\nasync fn awaitable() {}\npub async fn both() {}\npub(crate) fn scoped() {}\nunsafe fn dangerous() {}\n";
+        let names = extract_fn_names(code);
+        assert!(names.contains(&"plain".to_string()));
+        assert!(names.contains(&"visible".to_string()));
+        assert!(names.contains(&"awaitable".to_string()));
+        assert!(names.contains(&"both".to_string()));
+        assert!(names.contains(&"scoped".to_string()));
+        assert!(names.contains(&"dangerous".to_string()));
     }
 }

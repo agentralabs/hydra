@@ -40,6 +40,7 @@ pub enum IntentCategory {
     SelfRepair,      // "fix yourself", "run self-repair"
     SelfScan,        // "scan yourself", "omniscience scan"
     SelfImplement,   // "implement this spec", "build this yourself"
+    BuildSystem,     // "build specs/X.md", "build system from spec"
 
     // Code
     CodeBuild,       // "build the project", "compile"
@@ -84,6 +85,38 @@ impl IntentCategory {
         !matches!(self, Self::Question | Self::Unknown | Self::CodeExplain)
     }
 
+    /// Stable string representation for DB storage (matches from_str input).
+    pub fn as_db_str(&self) -> &'static str {
+        match self {
+            Self::Greeting => "greeting",
+            Self::Farewell => "farewell",
+            Self::Thanks => "thanks",
+            Self::MemoryStore => "memory_store",
+            Self::MemoryRecall => "memory_recall",
+            Self::SisterDiagnose => "sister_diagnose",
+            Self::SisterRepair => "sister_repair",
+            Self::SisterImprove => "sister_improve",
+            Self::SelfRepair => "self_repair",
+            Self::SelfScan => "self_scan",
+            Self::SelfImplement => "self_implement",
+            Self::BuildSystem => "build_system",
+            Self::CodeBuild => "code_build",
+            Self::CodeExplain => "code_explain",
+            Self::CodeFix => "code_fix",
+            Self::SystemControl => "system_control",
+            Self::AppControl => "app_control",
+            Self::PlanningQuery => "planning_query",
+            Self::WebBrowse => "web_browse",
+            Self::FileOperation => "file_operation",
+            Self::Communicate => "communicate",
+            Self::Deploy => "deploy",
+            Self::Settings => "settings",
+            Self::ThreatQuery => "threat_query",
+            Self::Question => "question",
+            Self::Unknown => "unknown",
+        }
+    }
+
     /// Parse from the category string returned by the micro-LLM.
     pub(crate) fn from_str(s: &str) -> Self {
         match s.trim().to_lowercase().replace('-', "_").as_str() {
@@ -98,6 +131,7 @@ impl IntentCategory {
             "self_repair" => Self::SelfRepair,
             "self_scan" => Self::SelfScan,
             "self_implement" => Self::SelfImplement,
+            "build_system" | "build" => Self::BuildSystem,
             "code_build" => Self::CodeBuild,
             "code_explain" => Self::CodeExplain,
             "code_fix" => Self::CodeFix,
@@ -155,6 +189,7 @@ Categories:\n\
 - self_scan: analyzing own code/health/problems\n\
 - self_repair: fixing own issues\n\
 - self_implement: implementing a spec/feature on itself, building capabilities\n\
+- build_system: building a full system/product from a spec file (.md), multi-phase build\n\
 - memory_store: user wants to save/remember something\n\
 - memory_recall: user asking about something previously stored\n\
 - app_open: opening an application\n\

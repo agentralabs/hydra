@@ -154,12 +154,94 @@
                                 }
                             }
 
+                            // File drop zone (workspace/immersive only)
+                            {
+                                let mode = current_mode.read().clone();
+                                let is_workspace = mode == "workspace" || mode == "immersive";
+                                if is_workspace {
+                                    rsx! { script { r#"
+                                        (function(){{
+                                            if(window._hydraDropBound) return;
+                                            window._hydraDropBound=true;
+                                            var chat=document.querySelector('.chat-container')||document.body;
+                                            chat.addEventListener('dragover',function(e){{e.preventDefault();e.dataTransfer.dropEffect='copy';chat.classList.add('drag-active');}});
+                                            chat.addEventListener('dragleave',function(){{chat.classList.remove('drag-active');}});
+                                            chat.addEventListener('drop',function(e){{
+                                                e.preventDefault();chat.classList.remove('drag-active');
+                                                Array.from(e.dataTransfer.files).forEach(function(f){{
+                                                    var ext=f.name.split('.').pop().toLowerCase();
+                                                    var textExts=['md','txt','rs','py','js','ts','jsx','tsx','json','toml','yaml','yml','html','css','sh','go','java','c','cpp','h','rb','swift','kt','sql','xml','csv','env','cfg','ini','lock','log'];
+                                                    if(textExts.indexOf(ext)!==-1){{
+                                                        var r=new FileReader();
+                                                        r.onload=function(){{
+                                                            var inp=document.querySelector('.chat-input');
+                                                            if(inp){{
+                                                                var prev=inp.value||'';
+                                                                var content='[File: '+f.name+']\n```'+ext+'\n'+r.result+'\n```\n';
+                                                                inp.value=prev+content;
+                                                                inp.dispatchEvent(new Event('input',{{bubbles:true}}));
+                                                            }}
+                                                        }};
+                                                        r.readAsText(f);
+                                                    }} else if(['png','jpg','jpeg','gif','svg','webp','bmp','ico'].indexOf(ext)!==-1){{
+                                                        var r=new FileReader();
+                                                        r.onload=function(){{
+                                                            var inp=document.querySelector('.chat-input');
+                                                            if(inp){{
+                                                                var prev=inp.value||'';
+                                                                inp.value=prev+'[Image: '+f.name+' ('+Math.round(f.size/1024)+'KB)]\n';
+                                                                inp.dispatchEvent(new Event('input',{{bubbles:true}}));
+                                                            }}
+                                                        }};
+                                                        r.readAsDataURL(f);
+                                                    }}
+                                                }});
+                                            }});
+                                        }})();
+                                    "# } }
+                                } else { rsx! {} }
+                            }
+
                             // Input bar
                             div {
                                 class: "input-bar",
                                 div { class: "input-wrapper",
-                                    // Mic button (only when voice is enabled)
-                                    if *settings_voice.read() {
+                                    // Attach button (workspace/immersive only)
+                                    if *current_mode.read() == "workspace" || *current_mode.read() == "immersive" {
+                                        button {
+                                            class: "attach-btn",
+                                            title: "Attach file (.md, .txt, code, images)",
+                                            onclick: move |_| {
+                                                document::eval(r#"
+                                                    var fi=document.getElementById('hydra-file-input');
+                                                    if(!fi){
+                                                        fi=document.createElement('input');fi.type='file';fi.id='hydra-file-input';
+                                                        fi.multiple=true;fi.accept='.md,.txt,.rs,.py,.js,.ts,.json,.toml,.yaml,.yml,.html,.css,.go,.java,.c,.cpp,.h,.rb,.sh,.swift,.png,.jpg,.jpeg,.gif,.svg,.webp';
+                                                        fi.style.display='none';document.body.appendChild(fi);
+                                                        fi.addEventListener('change',function(){
+                                                            Array.from(fi.files).forEach(function(f){
+                                                                var ext=f.name.split('.').pop().toLowerCase();
+                                                                var textExts=['md','txt','rs','py','js','ts','jsx','tsx','json','toml','yaml','yml','html','css','sh','go','java','c','cpp','h','rb','swift','kt','sql','xml','csv'];
+                                                                if(textExts.indexOf(ext)!==-1){
+                                                                    var r=new FileReader();r.onload=function(){
+                                                                        var inp=document.querySelector('.chat-input');
+                                                                        if(inp){inp.value=(inp.value||'')+'[File: '+f.name+']\n```'+ext+'\n'+r.result+'\n```\n';inp.dispatchEvent(new Event('input',{bubbles:true}));}
+                                                                    };r.readAsText(f);
+                                                                } else if(['png','jpg','jpeg','gif','svg','webp'].indexOf(ext)!==-1){
+                                                                    var inp=document.querySelector('.chat-input');
+                                                                    if(inp){inp.value=(inp.value||'')+'[Image: '+f.name+' ('+Math.round(f.size/1024)+'KB)]\n';inp.dispatchEvent(new Event('input',{bubbles:true}));}
+                                                                }
+                                                            });fi.value='';
+                                                        });
+                                                    }
+                                                    fi.click();
+                                                "#);
+                                            },
+                                            dangerous_inner_html: r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>"#,
+                                        }
+                                    }
+                                    // Mic button (only in companion mode when voice is enabled)
+                                    if *settings_voice.read() && *current_mode.read() == "companion" {
                                         button {
                                             class: if *voice_listening.read() { "mic-btn listening" } else { "mic-btn" },
                                             title: if *voice_listening.read() { "Stop listening" } else { "Start voice input" },
@@ -235,6 +317,9 @@
                                             },
                                             span { class: if *voice_listening.read() { "mic-icon listening" } else { "mic-icon" } }
                                         }
+                                        if *voice_listening.read() {
+                                            span { class: "listening-label", "Listening... click to stop" }
+                                        }
                                     }
                                     input {
                                         class: "chat-input",
@@ -268,7 +353,14 @@
                                         rsx! {}
                                     }
                                 }
-                                p { class: "input-hint", "Enter to send \u{00B7} \u{2318}K commands \u{00B7} \u{2318}B sidebar" }
+                                {
+                                    let mode = current_mode.read().clone();
+                                    let hint = match mode.as_str() {
+                                        "companion" => "Enter to send \u{00B7} Voice active \u{00B7} \u{2318}2 workspace",
+                                        _ => "Enter to send \u{00B7} Drop files to attach \u{00B7} \u{2318}K commands \u{00B7} \u{2318}1 companion",
+                                    };
+                                    rsx! { p { class: "input-hint", "{hint}" } }
+                                }
                             }
                         }
                     }

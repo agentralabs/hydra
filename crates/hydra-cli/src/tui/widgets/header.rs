@@ -83,6 +83,19 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
             },
         ),
         Span::styled(" · ", theme::dim()),
+        Span::styled(
+            match app.memory_capture.as_str() {
+                "all" => "MEM:Full",
+                "facts" => "MEM:Facts",
+                _ => "MEM:Off",
+            },
+            match app.memory_capture.as_str() {
+                "all" => Style::default().fg(theme::HYDRA_GREEN),
+                "facts" => Style::default().fg(theme::HYDRA_YELLOW),
+                _ => Style::default().fg(theme::HYDRA_RED),
+            },
+        ),
+        Span::styled(" · ", theme::dim()),
         status_dot,
         Span::styled(status_text, theme::dim()),
     ]);

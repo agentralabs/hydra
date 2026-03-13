@@ -41,13 +41,17 @@ impl App {
             "/init"      => self.slash_cmd_init(timestamp),
             "/test-repo" => self.execute_intent(&format!("/test-repo {}", args).trim(), timestamp),
 
+            // ── Email ──
+            "/email"       => self.slash_cmd_email(args, timestamp),
+            "/email-setup" => self.slash_cmd_email_setup(args, timestamp),
+
             // ── System ──
             "/sisters"  => self.slash_cmd_sisters(timestamp),
             "/sister"   => self.slash_cmd_sister(args, timestamp),
             "/fix"      => self.slash_cmd_fix(timestamp),
             "/scan"     => self.slash_cmd_scan(timestamp),
             "/repair"   => self.slash_cmd_repair(timestamp),
-            "/memory"   => self.slash_cmd_memory(timestamp),
+            "/memory"   => self.slash_cmd_memory(args, timestamp),
             "/goals"    => self.slash_cmd_goals(timestamp),
             "/beliefs"  => self.slash_cmd_beliefs(timestamp),
             "/receipts" => self.slash_cmd_receipts(timestamp),
@@ -86,7 +90,7 @@ impl App {
             "/voice"          => self.slash_cmd_voice(timestamp),
             "/theme"          => self.slash_cmd_theme(timestamp),
             "/terminal-setup" => self.slash_cmd_terminal_setup(timestamp),
-            "/login"          => self.slash_cmd_login(timestamp),
+            "/login"          => self.slash_cmd_login(args, timestamp),
             "/logout"         => self.slash_cmd_logout(timestamp),
             "/keybindings"    => self.slash_cmd_keybindings(timestamp),
             "/output-style"   => self.slash_cmd_output_style(timestamp),

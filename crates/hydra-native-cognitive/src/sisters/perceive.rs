@@ -117,6 +117,22 @@ impl Sisters {
                 s.call_tool("comm_inbox", serde_json::json!({"limit": 5})).await.ok()
             } else { None }
         };
+        // ── Time: upcoming deadlines (complex only) ──
+        let deadline_fut = async {
+            if let Some(s) = &self.time {
+                s.call_tool("time_deadline_list", serde_json::json!({
+                    "status": "active", "sort": "soonest", "limit": 5,
+                })).await.ok()
+            } else { None }
+        };
+        // ── Planning: commitments approaching deadline ──
+        let commitments_fut = async {
+            if let Some(s) = &self.planning {
+                s.call_tool("planning_commitment", serde_json::json!({
+                    "operation": "due_soon",
+                })).await.ok()
+            } else { None }
+        };
         // ── Forge blueprint lookup (any existing blueprints for this topic?) ──
         let forge_fut = async {
             if let Some(s) = &self.forge {
@@ -135,14 +151,14 @@ impl Sisters {
 
         let (facts_r, memory_r, longevity_r, identity_r, time_r, cognition_r, reality_r,
              similar_r, ground_r, predict_r, mem_predict_r, dejavu_r, veritas_r, contract_r,
-             planning_r, comm_r, forge_r, temporal_r) =
+             planning_r, comm_r, deadline_r, commitments_r, forge_r, temporal_r) =
             tokio::join!(facts_fut, memory_fut, longevity_fut, identity_fut, time_fut, cognition_fut, reality_fut,
                          similar_fut, ground_fut, predict_fut, mem_predict_fut, dejavu_fut,
                          veritas_fut, contract_fut, planning_fut,
-                         comm_fut, forge_fut, temporal_fut);
+                         comm_fut, deadline_fut, commitments_fut, forge_fut, temporal_fut);
 
         // Conditional: Codebase tools (if code) — run in parallel
-        let (codebase_r, concept_r, impact_r) = if involves_code {
+        let (codebase_r, concept_r, impact_r, arch_r, prophecy_r) = if involves_code {
             let code_fut = async {
                 if let Some(s) = &self.codebase {
                     s.call_tool("search_semantic", serde_json::json!({"query": text})).await.ok()
@@ -158,9 +174,20 @@ impl Sisters {
                     s.call_tool("impact_analyze", serde_json::json!({"query": text})).await.ok()
                 } else { None }
             };
-            tokio::join!(code_fut, concept_fut, impact_fut)
+            let arch_fut = async {
+                if let Some(s) = &self.codebase {
+                    s.call_tool("architecture_infer", serde_json::json!({})).await.ok()
+                } else { None }
+            };
+            let prophecy_fut = async {
+                if let Some(s) = &self.codebase {
+                    s.call_tool("prophecy", serde_json::json!({"unit": text})).await.ok()
+                } else { None }
+            };
+            let (a, b, c, d, e) = tokio::join!(code_fut, concept_fut, impact_fut, arch_fut, prophecy_fut);
+            (a, b, c, d, e)
         } else {
-            (None, None, None)
+            (None, None, None, None, None)
         };
 
         // Conditional: Vision (if visual)
@@ -204,6 +231,8 @@ impl Sisters {
             "codebase_context": extract(&codebase_r),
             "concept_context": extract(&concept_r),
             "impact_context": extract(&impact_r),
+            "architecture_context": extract(&arch_r),
+            "prophecy_context": extract(&prophecy_r),
             "vision_context": extract(&vision_r),
             "similar_context": extract(&similar_r),
             "grounding_context": extract(&ground_r),
@@ -216,6 +245,8 @@ impl Sisters {
             "temporal_context": extract(&temporal_r),
             "memory_prediction": extract(&mem_predict_r),
             "dejavu_context": extract(&dejavu_r),
+            "deadlines": extract(&deadline_r),
+            "commitments_due": extract(&commitments_r),
             "sisters_online": self.connected_count(),
         })
     }

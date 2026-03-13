@@ -319,3 +319,77 @@
                             Some(&format!("{} failed", failed)), Some("Swarm"),
                         );
                     }
+                    // ── Agentic Loop events ──
+                    CognitiveUpdate::AgenticTurn { turn, tool_count, exec_count } => {
+                        let now = chrono::Local::now().format("%H:%M:%S").to_string();
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Info,
+                            &format!("Agentic turn {} — {} tools, {} commands", turn, tool_count, exec_count),
+                            None,
+                            Some("Act"),
+                        );
+                    }
+                    CognitiveUpdate::AgenticComplete { turns, total_tokens, stop_reason } => {
+                        let now = chrono::Local::now().format("%H:%M:%S").to_string();
+                        timeline_panel.write().push_event(
+                            &now,
+                            TimelineEventKind::Info,
+                            &format!("Agentic loop: {} turns, {} tokens", turns, total_tokens),
+                            Some(&format!("Reason: {}", stop_reason)),
+                            Some("Act"),
+                        );
+                    }
+                    // -- Phases 2-7: Superintelligence Pipeline --
+                    CognitiveUpdate::VerificationApplied { checked, corrected } => {
+                        if corrected > 0 {
+                            let now = chrono::Local::now().format("%H:%M:%S").to_string();
+                            timeline_panel.write().push_event(
+                                &now, TimelineEventKind::Info,
+                                &format!("Verified: {}/{} claims corrected", corrected, checked),
+                                None, Some("Verify"),
+                            );
+                        }
+                    }
+                    CognitiveUpdate::ModelEscalated { ref from, ref to, ref reason } => {
+                        let now = chrono::Local::now().format("%H:%M:%S").to_string();
+                        timeline_panel.write().push_event(
+                            &now, TimelineEventKind::Info,
+                            &format!("Model escalated: {} → {}", from, to),
+                            Some(reason), Some("Think"),
+                        );
+                    }
+                    CognitiveUpdate::BackgroundTaskComplete { ref task_name, ref summary } => {
+                        let now = chrono::Local::now().format("%H:%M:%S").to_string();
+                        timeline_panel.write().push_event(
+                            &now, TimelineEventKind::Info,
+                            &format!("Background: {}", task_name),
+                            Some(summary), Some("Background"),
+                        );
+                    }
+                    CognitiveUpdate::ProactiveFileSuggestion { ref title, ref message, ref priority, ref action } => {
+                        let now = chrono::Local::now().format("%H:%M:%S").to_string();
+                        let kind = match priority.as_str() {
+                            "Urgent" => TimelineEventKind::Error,
+                            _ => TimelineEventKind::Info,
+                        };
+                        let detail = action.as_ref().map(|a| format!("{} ({})", message, a)).unwrap_or_else(|| message.clone());
+                        timeline_panel.write().push_event(
+                            &now, kind, title, Some(&detail), Some("Watcher"),
+                        );
+                    }
+                    CognitiveUpdate::MetacognitiveInsight { ref assessment } => {
+                        let now = chrono::Local::now().format("%H:%M:%S").to_string();
+                        timeline_panel.write().push_event(
+                            &now, TimelineEventKind::Info,
+                            "Metacognitive insight",
+                            Some(assessment), Some("Learn"),
+                        );
+                    }
+                    // -- Build System + Tool Action events --
+                    CognitiveUpdate::BuildPhaseStarted { ref phase, ref detail } => { self.thinking_status = format!("Building: {}...", phase); let now = chrono::Local::now().format("%H:%M:%S").to_string(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Build: {}", phase), Some(detail), Some("Build")); }
+                    CognitiveUpdate::BuildProgress { ref phase, completed, total } => { self.thinking_status = format!("Build {}: {}/{}", phase, completed, total); }
+                    CognitiveUpdate::BuildPhaseComplete { ref phase, duration_ms, ref summary } => { let now = chrono::Local::now().format("%H:%M:%S").to_string(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("{} ({:.1}s)", phase, duration_ms as f64 / 1000.0), Some(summary), Some("Build")); }
+                    CognitiveUpdate::BuildComplete { ref report } => { let now = chrono::Local::now().format("%H:%M:%S").to_string(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, "Build complete", Some(report), Some("Build")); }
+                    CognitiveUpdate::BuildFailed { ref phase, ref error } => { let now = chrono::Local::now().format("%H:%M:%S").to_string(); timeline_panel.write().push_event(&now, TimelineEventKind::Error, &format!("Build failed: {}", phase), Some(error), Some("Build")); }
+                    CognitiveUpdate::ToolAction { .. } => {}

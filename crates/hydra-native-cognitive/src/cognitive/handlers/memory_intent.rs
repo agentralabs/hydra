@@ -104,21 +104,32 @@ pub(crate) async fn smart_memory_recall(
 
     match intent {
         MemoryIntent::AboutMe => {
-            // Broad search for user facts, preferences, decisions
             let result = mem.call_tool("memory_query", serde_json::json!({
                 "query": "user preferences facts decisions identity",
                 "event_types": ["fact", "correction", "decision"],
-                "max_results": mem_limit,
-                "sort_by": "highest_confidence"
+                "max_results": mem_limit, "sort_by": "highest_confidence"
             })).await.ok()?;
             let raw = extract_text(&result);
-            if raw.is_empty() || raw.contains("No memories found") {
-                return None;
+            let facts = if raw.is_empty() || raw.contains("No memories found") {
+                vec![]
+            } else { extract_memory_facts(&raw) };
+            if !facts.is_empty() {
+                eprintln!("[hydra:memory] AboutMe: {} facts", facts.len());
+                return Some(facts.join("\n"));
             }
-            let facts = extract_memory_facts(&raw);
-            if facts.is_empty() { return None; }
-            eprintln!("[hydra:memory] AboutMe: {} facts", facts.len());
-            Some(facts.join("\n"))
+            // Fallback cascade: longevity search → cognition model
+            eprintln!("[hydra:memory] AboutMe: primary empty, trying fallback cascade");
+            let longevity = mem.call_tool("memory_longevity_search", serde_json::json!({
+                "query": "user identity preferences", "limit": 3,
+                "include_layers": ["summary", "pattern"]
+            })).await.ok();
+            let lt = longevity.as_ref().map(|v| extract_text(v))
+                .filter(|t| !t.is_empty() && !t.contains("No memories"));
+            if let Some(t) = lt {
+                let f = extract_memory_facts(&t);
+                if !f.is_empty() { return Some(f.join("\n")); }
+            }
+            None
         }
 
         MemoryIntent::RecentConversation => {
@@ -191,19 +202,29 @@ pub(crate) async fn smart_memory_recall(
         }
 
         MemoryIntent::General => {
-            // Default: standard memory_query with relevance sorting
             let result = mem.call_tool("memory_query", serde_json::json!({
                 "query": text,
                 "max_results": if is_simple { 3 } else { 8 },
                 "sort_by": "highest_confidence"
             })).await.ok()?;
             let raw = extract_text(&result);
-            if raw.is_empty() || raw.contains("No memories found") {
+            let facts = if raw.is_empty() || raw.contains("No memories found") {
+                vec![]
+            } else { extract_memory_facts(&raw) };
+            if facts.is_empty() {
+                // Fallback cascade: similar → longevity → predict
+                eprintln!("[hydra:memory] General: primary empty, trying fallback");
+                let similar = mem.call_tool("memory_similar", serde_json::json!({
+                    "content": text, "limit": 3
+                })).await.ok();
+                let st = similar.as_ref().map(|v| extract_text(v))
+                    .filter(|t| !t.is_empty() && !t.contains("No memories"));
+                if let Some(t) = st {
+                    let f = extract_memory_facts(&t);
+                    if !f.is_empty() { return Some(f.join("\n")); }
+                }
                 return None;
             }
-            let facts = extract_memory_facts(&raw);
-            if facts.is_empty() { return None; }
-
             // Sort by relevance to input
             let input_lower = text.to_lowercase();
             let input_words: Vec<&str> = input_lower.split_whitespace()
@@ -211,13 +232,11 @@ pub(crate) async fn smart_memory_recall(
             let mut scored: Vec<(usize, &String)> = facts.iter()
                 .map(|f| {
                     let fl = f.to_lowercase();
-                    let score = input_words.iter()
-                        .filter(|w| fl.contains(*w)).count();
+                    let score = input_words.iter().filter(|w| fl.contains(*w)).count();
                     (score, f)
                 }).collect();
             scored.sort_by(|a, b| b.0.cmp(&a.0));
-            let sorted: Vec<String> = scored.iter()
-                .map(|(_, f)| (*f).clone()).collect();
+            let sorted: Vec<String> = scored.iter().map(|(_, f)| (*f).clone()).collect();
             eprintln!("[hydra:memory] General: {} facts (sorted)", sorted.len());
             Some(sorted.join("\n"))
         }

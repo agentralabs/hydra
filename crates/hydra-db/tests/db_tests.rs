@@ -40,7 +40,7 @@ fn make_step(id: &str, run_id: &str, seq: i32) -> StepRow {
 fn test_db_init_creates_tables() {
     let dir = tempfile::tempdir().unwrap();
     let db = HydraDb::init(&dir.path().join("hydra.db")).unwrap();
-    assert_eq!(db.schema_version().unwrap(), 1);
+    assert_eq!(db.schema_version().unwrap(), SCHEMA_VERSION);
 
     // Tables exist — can insert and query
     let run = make_run("r1", "test intent");
@@ -63,7 +63,7 @@ fn test_db_init_idempotent() {
     let db2 = HydraDb::init(&path).unwrap();
     let run = db2.get_run("r1").unwrap();
     assert_eq!(run.intent, "first");
-    assert_eq!(db2.schema_version().unwrap(), 1);
+    assert_eq!(db2.schema_version().unwrap(), SCHEMA_VERSION);
 }
 
 #[test]

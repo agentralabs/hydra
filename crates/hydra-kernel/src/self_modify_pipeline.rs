@@ -16,7 +16,7 @@ impl SelfModificationPipeline {
     pub fn new(project_dir: impl Into<PathBuf>) -> Self {
         Self {
             project_dir: project_dir.into(),
-            max_patches: 5,
+            max_patches: 10,
         }
     }
 
@@ -94,7 +94,7 @@ impl SelfModificationPipeline {
             }
         }
 
-        gaps.into_iter().take(5).collect()
+        gaps.into_iter().take(10).collect()
     }
 
     /// Check if a function already exists in the project source.
@@ -128,6 +128,21 @@ impl SelfModificationPipeline {
     /// - New files: creates and registers `pub mod` in parent lib.rs/mod.rs
     /// - Existing files: skips duplicate functions, deduplicates imports
     pub fn apply_patch(&self, patch: &Patch) -> Result<(), String> {
+        let file_path = self.project_dir.join(&patch.target_file);
+
+        // Pre-flight: check if patch + existing would exceed 400 lines
+        if file_path.exists() {
+            let existing = std::fs::read_to_string(&file_path).unwrap_or_default();
+            let existing_lines = existing.lines().count();
+            let patch_lines = patch.diff_content.lines().count();
+            if existing_lines + patch_lines > 420 {
+                return Err(format!(
+                    "Pre-flight: {} has {} lines + {} patch lines = {} (max 400). Split the file first.",
+                    patch.target_file, existing_lines, patch_lines, existing_lines + patch_lines
+                ));
+            }
+        }
+
         // Use smart_patch for intelligent application
         crate::smart_patch::apply_smart(
             &self.project_dir,
@@ -135,8 +150,7 @@ impl SelfModificationPipeline {
             &patch.diff_content,
         )?;
 
-        // Safety: enforce 400-line limit per CLAUDE.md OOM rules
-        let file_path = self.project_dir.join(&patch.target_file);
+        // Post-check: verify final line count
         let content = std::fs::read_to_string(&file_path).unwrap_or_default();
         let line_count = content.lines().count();
         if line_count > 400 {
@@ -198,13 +212,69 @@ impl SelfModificationPipeline {
             }
         }
 
-        // Note: actual cargo check/test would be run by the user
-        // (per the CARGO BAN). The pipeline reports what was applied.
+        // Verify: run cargo check on affected crates
+        let affected_crates = collect_affected_crates(&patches);
+        let mut check_errors = Vec::new();
+        for crate_name in &affected_crates {
+            match run_cargo_check(crate_name, &self.project_dir) {
+                Ok(_) => eprintln!("[hydra:self-impl] cargo check -p {} passed", crate_name),
+                Err(e) => check_errors.push(format!("{}: {}", crate_name, e)),
+            }
+        }
+
+        if !check_errors.is_empty() {
+            let _ = checkpoint.revert();
+            return ModResult::CompileFailed {
+                error: format!("Compilation failed (reverted):\n{}", check_errors.join("\n")),
+                reverted: true,
+            };
+        }
+
         ModResult::Success {
             gaps_filled: gaps.len(),
             patches_applied: patches.len(),
-            tests_passing: 0, // User must verify
+            tests_passing: 0, // cargo check passed; run `cargo test` to verify
         }
+    }
+}
+
+/// Extract crate names from patch target paths (e.g., "crates/hydra-kernel/src/foo.rs" -> "hydra-kernel").
+fn collect_affected_crates(patches: &[Patch]) -> Vec<String> {
+    let mut crates: Vec<String> = patches
+        .iter()
+        .filter_map(|p| {
+            let parts: Vec<&str> = p.target_file.split('/').collect();
+            if parts.len() >= 2 && parts[0] == "crates" {
+                Some(parts[1].to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
+    crates.sort();
+    crates.dedup();
+    crates
+}
+
+/// Run `cargo check -p <crate> -j 1` and return Ok(()) on success.
+pub fn run_cargo_check(crate_name: &str, project_dir: &Path) -> Result<(), String> {
+    let output = std::process::Command::new("cargo")
+        .args(["check", "-p", crate_name, "-j", "1", "--message-format=short"])
+        .current_dir(project_dir)
+        .output()
+        .map_err(|e| format!("Failed to run cargo: {}", e))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let errors: String = stderr
+            .lines()
+            .filter(|l| l.contains("error"))
+            .take(10)
+            .collect::<Vec<_>>()
+            .join("\n");
+        Err(if errors.is_empty() { stderr.to_string() } else { errors })
     }
 }
 

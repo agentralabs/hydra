@@ -2,8 +2,9 @@ use std::path::PathBuf;
 use crate::self_modify::{GapType, SpecGap};
 use super::{
     extract_spec_path, parse_gaps_from_response, parse_patches_from_response,
-    extract_mcp_text, parse_gaps_json_str, pick_cheapest_model,
+    pick_cheapest_model,
 };
+use crate::self_modify_llm_parse::{extract_mcp_text, parse_gaps_json_str};
 
 // ═══════════════════════════════════════════════════════════
 // SPEC PATH EXTRACTION
@@ -86,7 +87,7 @@ fn test_parse_gaps_max_five() {
         .join(",");
     let json = format!("[{}]", json);
     let gaps = parse_gaps_from_response(&json);
-    assert_eq!(gaps.len(), 5, "Should cap at 5 gaps");
+    assert_eq!(gaps.len(), 10, "Should cap at 10 gaps");
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -125,7 +126,7 @@ fn test_parse_patches_max_five() {
         .join(",");
     let json = format!("[{}]", json);
     let patches = parse_patches_from_response(&json, &[]);
-    assert_eq!(patches.len(), 5, "Should cap at 5 patches");
+    assert_eq!(patches.len(), 10, "Should cap at 10 patches");
 }
 
 // ═══════════════════════════════════════════════════════════

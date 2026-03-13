@@ -258,6 +258,10 @@ impl App {
                         debug_mode: std::env::var("HYDRA_DEBUG_MODE").map(|v| v == "1" || v == "true").unwrap_or(false),
                         log_level: std::env::var("HYDRA_LOG_LEVEL").unwrap_or_else(|_| "info".into()),
                         federation_enabled: std::env::var("HYDRA_FEDERATION_ENABLED").map(|v| v == "1" || v == "true").unwrap_or(false),
+                        memory_capture: self.memory_capture.clone(),
+                        agentic_loop: std::env::var("HYDRA_AGENTIC_LOOP").map(|v| v != "0" && v != "false").unwrap_or(true),
+                        agentic_max_turns: std::env::var("HYDRA_AGENTIC_MAX_TURNS").ok().and_then(|v| v.parse().ok()).unwrap_or(8),
+                        agentic_token_budget: std::env::var("HYDRA_AGENTIC_TOKEN_BUDGET").ok().and_then(|v| v.parse().ok()).unwrap_or(50_000),
                     },
                 };
 

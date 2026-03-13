@@ -77,6 +77,26 @@ impl App {
                 }
             }
         }
+        // File watcher: drain changes and generate suggestions every ~4 seconds
+        if self.tick_count % 16 == 8 {
+            if let Some(ref watcher) = self.file_watcher {
+                let changes = watcher.drain_changes();
+                if !changes.is_empty() {
+                    let suggestions = self.proactive_file_engine.process_changes(&changes);
+                    for s in suggestions {
+                        let priority = format!("{:?}", s.priority);
+                        let action_hint = s.action.map(|a| format!("{:?}", a));
+                        let suffix = action_hint.map(|a| format!(" ({})", a)).unwrap_or_default();
+                        self.messages.push(Message {
+                            role: MessageRole::System,
+                            content: format!("[{}] {} — {}{}", priority, s.title, s.message, suffix),
+                            timestamp: chrono::Local::now().format("%H:%M").to_string(),
+                            phase: None,
+                        });
+                    }
+                }
+            }
+        }
         // PR status check — every ~60 seconds (240 ticks × 250ms) (spec §11)
         if self.tick_count % 240 == 0 && self.tick_count > 0 {
             self.check_pr_status();

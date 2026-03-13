@@ -133,7 +133,7 @@ pub(crate) async fn execute_llm_call(
                 }
                 _ => Err("Unsupported provider".into()),
             };
-            if result.is_ok() { let _ = tx_stream.send(CognitiveUpdate::StreamComplete); }
+            let _ = tx_stream.send(CognitiveUpdate::StreamComplete);
             result
         };
 
@@ -141,6 +141,7 @@ pub(crate) async fn execute_llm_call(
             Ok(result) => result,
             Err(_) => {
                 eprintln!("[hydra:llm] TIMEOUT after {}s — provider={} model={}", llm_timeout.as_secs(), provider, active_model_owned);
+                let _ = tx.send(CognitiveUpdate::StreamComplete);
                 Err(format!("LLM request timed out after {}s. The {} API may be slow or unreachable.", llm_timeout.as_secs(), provider))
             }
         }
@@ -158,6 +159,26 @@ pub(crate) async fn execute_llm_call(
         Ok((content, model, inp, out)) => (content.clone(), model.clone(), *inp, *out),
         Err(err) => (format!("Error: {}", err), config_model.to_string(), 0u64, 0u64),
     };
+
+    // ── Phase 4: MODEL ESCALATION — detect low-quality responses ──
+    if llm_result.is_ok() {
+        if let Some(decision) = super::model_escalation::check_escalation(
+            &response_text, intent, complexity, active_model,
+        ) {
+            eprintln!(
+                "[hydra:escalation] DETECTED: {} → {} (reason: {})",
+                active_model, decision.target_model, decision.reason,
+            );
+            let _ = tx.send(CognitiveUpdate::ModelEscalated {
+                from: active_model.to_string(),
+                to: decision.target_model.clone(),
+                reason: decision.reason.to_string(),
+            });
+            // Escalation is recorded — future interactions will use
+            // select_initial_model() with category_success_rate to
+            // proactively pick stronger models for this category.
+        }
+    }
 
     // Record LLM turn in agentic session
     if let Some(ref mut session) = agentic_session {

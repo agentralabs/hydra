@@ -16,7 +16,6 @@ use hydra_runtime::approval::{ApprovalDecision, ApprovalManager};
 
 use super::super::loop_runner::CognitiveUpdate;
 use super::actions::detect_direct_action_command;
-use super::llm_helpers::generate_clarification_question;
 
 /// Output of the DECIDE phase, consumed by ACT.
 pub(crate) struct DecideResult {
@@ -51,7 +50,6 @@ pub(crate) async fn run_decide(
     let _ = tx.send(CognitiveUpdate::IconState("needs-attention".into()));
     let decide_start = Instant::now();
 
-    // Contract: precognition — predict likely outcome before deciding
     if let Some(ref sh) = sisters_handle {
         if let Some(p) = sh.contract_precognition(text).await {
             let _ = tx.send(CognitiveUpdate::EvidenceMemory {
@@ -59,17 +57,21 @@ pub(crate) async fn run_decide(
                 content: format!("Risk: {} | Allowed: {} | {}", p.risk_level, p.allowed, p.reason),
             });
         }
+        // Phase G: Trust impact prediction — how will this action affect trust?
+        if risk_level == "medium" || risk_level == "high" || risk_level == "critical" {
+            if let Some(prophecy) = sh.identity_trust_prophecy(text).await {
+                let _ = tx.send(CognitiveUpdate::EvidenceMemory {
+                    title: "Trust Impact".into(), content: prophecy,
+                });
+            }
+        }
     }
-    // Check graduated autonomy — trust level determines what proceeds automatically
     let decide_result = decide_engine.check(risk_level, "");
-
-    // ── Contract policy check: does policy allow this action? ──
     let contract_verdict = if let Some(ref sh) = sisters_handle {
         sh.decide_contract(text, risk_level).await
     } else { None };
 
-    // ── Veritas uncertainty check: how certain are we about the intent? ──
-    let _veritas_uncertainty = if let Some(ref sh) = sisters_handle {
+    let veritas_uncertainty = if let Some(ref sh) = sisters_handle {
         sh.decide_veritas(text).await
     } else { None };
 
@@ -149,10 +151,15 @@ pub(crate) async fn run_decide(
             1.0  // No penalty for confident classification
         };
 
+        // Veritas uncertainty factor — if Veritas flagged high uncertainty, reduce confidence
+        let veritas_factor: f32 = match veritas_uncertainty.as_deref() {
+            Some(v) if v.contains("high") || v.contains("uncertain") => 0.7,
+            Some(v) if v.contains("medium") => 0.85,
+            _ => 1.0,
+        };
         // Apply all adjustments to confidence
-        // Phase 2, L3: Apply session momentum penalty — more corrections = less confident
         let momentum_penalty = inv.momentum_confidence_penalty() as f32;
-        adjusted_confidence = (raw_confidence * confidence_adjustment * historical_factor * perception_factor) - momentum_penalty;
+        adjusted_confidence = (raw_confidence * confidence_adjustment * historical_factor * perception_factor * veritas_factor) - momentum_penalty;
         adjusted_confidence = adjusted_confidence.max(0.0); // Floor at 0
 
         let _ = tx.send(CognitiveUpdate::Phase(format!(
@@ -189,10 +196,10 @@ pub(crate) async fn run_decide(
                 recommendation: shadow_rec.clone(),
             });
 
-            // Phase 1: If shadow flags critical divergence on low-risk action,
-            // auto-escalate the risk level
-            if !safe && risk_level == "low" {
-                eprintln!("[hydra:shadow] Shadow flagged unsafe on low-risk action — consider escalation");
+            // Shadow flags unsafe on low-risk → escalate to shadow_first
+            if !safe && risk_level == "low" && gate_decision == "approved" {
+                eprintln!("[hydra:shadow] Shadow flagged unsafe on low-risk — escalating to shadow_first");
+                gate_decision = "shadow_first";
             }
         }
 
@@ -209,66 +216,21 @@ pub(crate) async fn run_decide(
             });
         }
 
-        // Phase 2, D1: Prediction-Gated Execution
-        // If prediction confidence is very low, escalate to require approval
-        if adjusted_confidence < 0.2 && gate_decision != "requires_approval" {
-            eprintln!("[hydra:predict] Confidence {:.0}% < 20% — escalating to requires_approval",
-                adjusted_confidence * 100.0);
-            gate_decision = "requires_approval";
+        // Low confidence + shadow unsafe → warn only, proceed with execution
+        if adjusted_confidence < 0.2 {
+            eprintln!("[hydra:predict] ⚠ Low confidence {:.0}% — proceeding anyway", adjusted_confidence * 100.0);
         }
-
-        // Phase 2, D2: Shadow Self Blocking (uses result from above, no double-call)
-        // If shadow flagged unsafe AND risk is medium+, escalate to require approval
-        if !shadow_was_safe
-            && (risk_level == "medium" || risk_level == "high" || risk_level == "critical")
-            && gate_decision != "requires_approval"
-        {
-            eprintln!("[hydra:shadow] Shadow flagged UNSAFE on {} risk — escalating to requires_approval", risk_level);
-            gate_decision = "requires_approval";
+        if !shadow_was_safe {
+            eprintln!("[hydra:shadow] ⚠ Shadow flagged unsafe on {} risk — proceeding", risk_level);
         }
     }
 
-    // Phase 2, X1: Uncertainty → Clarification
-    // When confidence is very low AND intent is unknown AND there are no commands to execute,
-    // ask the user for clarification instead of guessing.
-    // Safety: No clarification loops — check temporal memory to avoid re-asking within 60s.
+    // Low confidence + unknown intent — proceed anyway, Hydra tries its best
     if adjusted_confidence < 0.25
         && matches!(intent.category, super::super::intent_router::IntentCategory::Unknown)
-        && !is_action_request
-        && gate_decision != "requires_approval"
     {
-        // Anti-loop: Check if we asked for clarification recently
-        let recently_clarified = if let Some(ref inv) = inventions {
-            inv.recall_temporal_context("clarification_asked", 1)
-                .map(|ctx| {
-                    // If the temporal context contains a recent clarification, skip
-                    ctx.contains("clarification_asked")
-                })
-                .unwrap_or(false)
-        } else {
-            false
-        };
-
-        if !recently_clarified {
-            eprintln!("[hydra:clarify] Confidence {:.0}% + Unknown intent — asking for clarification",
-                adjusted_confidence * 100.0);
-
-            // Store that we asked for clarification (anti-loop)
-            if let Some(ref inv) = inventions {
-                inv.store_temporal("clarification_asked", "system_event", 0.5);
-            }
-
-            // Generate a clarifying question using micro-LLM (cheap, fast)
-            let clarify_question = generate_clarification_question(text, llm_config, active_model).await;
-
-            let _ = tx.send(CognitiveUpdate::Message {
-                role: "hydra".into(),
-                content: clarify_question,
-                css_class: "message hydra".into(),
-            });
-            let _ = tx.send(CognitiveUpdate::ResetIdle);
-            return None; // ABORT — clarification requested
-        }
+        eprintln!("[hydra:decide] ⚠ Low confidence {:.0}% + unknown intent — proceeding anyway",
+            adjusted_confidence * 100.0);
     }
 
     // Contract sister: request approval for auditable receipt chain

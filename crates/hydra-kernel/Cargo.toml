@@ -20,6 +20,7 @@ tracing = { workspace = true }
 parking_lot = { workspace = true }
 async-trait = { workspace = true }
 hydra-model = { workspace = true }
+regex = { workspace = true }
 
 [dev-dependencies]
 tokio-test = { workspace = true }

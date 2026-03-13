@@ -9,6 +9,7 @@ pub mod dispatch_phases;
 pub mod orchestration;
 pub mod self_modify;
 pub mod self_modify_llm;
+pub mod self_modify_llm_parse;
 pub mod self_modify_pipeline;
 pub mod state;
 
@@ -22,6 +23,7 @@ pub use self_modify_pipeline::SelfModificationPipeline;
 pub use state::{Checkpoint, CognitiveState, KernelRunState};
 
 
+pub mod code_index;
 pub mod intent_stats;
 pub mod smart_patch;
 pub mod uptime;
@@ -31,3 +33,6 @@ pub mod implementation_chain;
 pub mod self_improve;
 pub mod error_recovery;
 pub mod health_summary;
+pub mod cargo_ops;
+pub mod build_planner;
+pub mod build_orchestrator;

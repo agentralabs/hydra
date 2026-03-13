@@ -14,6 +14,9 @@ mod review;
 #[path = "llm_helpers_commands.rs"]
 mod commands;
 
+#[path = "llm_tool_routing.rs"]
+pub(crate) mod llm_tool_routing;
+
 // Re-export everything at the original path
 pub(crate) use core::recognize_error_pattern;
 pub(crate) use core::diagnose_and_retry;

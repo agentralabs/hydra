@@ -12,6 +12,9 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 parking_lot = { workspace = true }
 tracing = { workspace = true }
+notify = { workspace = true }
+tokio = { workspace = true }
+crossbeam-channel = { workspace = true }
 
 [dev-dependencies]
 tokio-test = { workspace = true }

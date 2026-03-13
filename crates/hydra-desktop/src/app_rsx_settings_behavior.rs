@@ -3,6 +3,53 @@
 rsx! {
     h2 { class: "settings-title", "Behavior" }
     div { class: "settings-section",
+        h3 { class: "settings-section-title", "Memory" }
+        p { class: "settings-desc", style: "margin-bottom: 12px;",
+            "Control how Hydra's memory sister stores your conversations."
+        }
+        div { class: "settings-row",
+            span { class: "settings-label", "Capture Mode" }
+            div { class: "segmented-control",
+                { let opts = [("all", "Full Conversation"), ("facts", "Facts Only"), ("none", "None")]; rsx! {
+                    for (val, label) in opts.iter() {
+                        button {
+                            class: if *settings_memory_capture.read() == *val { "segment active" } else { "segment" },
+                            onclick: { let v = val.to_string(); move |_| settings_memory_capture.set(v.clone()) },
+                            "{label}"
+                        }
+                    }
+                } }
+            }
+        }
+        {
+            let mode = settings_memory_capture.read().clone();
+            let (title, desc, tradeoff) = match mode.as_str() {
+                "all" => (
+                    "Full Conversation",
+                    "Every message, decision, and context is stored permanently. Enables \"where did we stop?\" recall across sessions.",
+                    "Storage: ~2-5 KB per exchange. Best for ongoing projects where continuity matters.",
+                ),
+                "facts" => (
+                    "Facts Only",
+                    "Hydra learns your preferences, decisions, and corrections but discards raw conversation text after the session ends.",
+                    "Storage: ~200-500 bytes per exchange. Balances privacy with usefulness \u{2014} Hydra still improves over time.",
+                ),
+                _ => (
+                    "No Capture",
+                    "Nothing is stored after this session. Hydra cannot learn from your interactions or recall previous context.",
+                    "Storage: none. Use for sensitive or one-off conversations. Beliefs and patterns still update within the session.",
+                ),
+            };
+            rsx! {
+                div { class: "settings-row", style: "background: var(--bg-elevated); border-radius: 8px; padding: 12px; flex-direction: column; align-items: flex-start; gap: 6px;",
+                    p { class: "settings-desc", style: "font-weight: 600;", "{title}" }
+                    p { class: "settings-desc", style: "line-height: 1.5;", "{desc}" }
+                    p { class: "settings-desc", style: "line-height: 1.5; opacity: 0.7; font-size: 12px;", "{tradeoff}" }
+                }
+            }
+        }
+    }
+    div { class: "settings-section",
         h3 { class: "settings-section-title", "Intent Cache" }
         div { class: "settings-row",
             div { class: "settings-label-group",
@@ -152,6 +199,32 @@ rsx! {
                 }
                 { let l = if *settings_proactive.read() { "On" } else { "Off" }; rsx! { span { class: "toggle-label", "{l}" } } }
             }
+        }
+    }
+    div { class: "settings-section",
+        h3 { class: "settings-section-title", "Email (SMTP)" }
+        p { class: "settings-desc", style: "margin-bottom: 12px;",
+            "Configure SMTP to let Hydra send emails. For Gmail, use an App Password."
+        }
+        div { class: "settings-row",
+            span { class: "settings-label", "SMTP Host" }
+            input { class: "settings-input", r#type: "text", placeholder: "smtp.gmail.com",
+                value: "{settings_smtp_host}", oninput: move |e| settings_smtp_host.set(e.value()) }
+        }
+        div { class: "settings-row",
+            span { class: "settings-label", "Email / Username" }
+            input { class: "settings-input", r#type: "text", placeholder: "you@gmail.com",
+                value: "{settings_smtp_user}", oninput: move |e| settings_smtp_user.set(e.value()) }
+        }
+        div { class: "settings-row",
+            span { class: "settings-label", "App Password" }
+            input { class: "settings-input", r#type: "password", placeholder: "App password",
+                value: "{settings_smtp_password}", oninput: move |e| settings_smtp_password.set(e.value()) }
+        }
+        div { class: "settings-row",
+            span { class: "settings-label", "Default Recipient" }
+            input { class: "settings-input", r#type: "text", placeholder: "recipient@example.com",
+                value: "{settings_smtp_to}", oninput: move |e| settings_smtp_to.set(e.value()) }
         }
     }
     div { class: "settings-section",

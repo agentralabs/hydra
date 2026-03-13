@@ -1,5 +1,4 @@
 //! LLM command utilities — slash commands, project detection, tool routing, topic extraction.
-
 /// Phase 2, L2: Extract the primary topic from user input for hot-topic tracking.
 pub(crate) fn extract_primary_topic(input: &str) -> String {
     let stop_words = ["the", "a", "an", "is", "are", "was", "were", "be", "been",
@@ -220,8 +219,7 @@ pub(crate) fn handle_universal_slash_command(input: &str) -> Option<String> {
 }
 
 /// Select which MCP tools to include in the LLM prompt based on intent.
-/// Returns a formatted string of tool names grouped by sister, or empty string
-/// if no tools are needed (Tier 0).
+/// Delegates to llm_tool_routing.rs for the full routing table across all 14 sisters.
 pub(crate) fn route_tools_for_prompt(
     intent: &crate::cognitive::intent_router::ClassifiedIntent,
     complexity: &str,
@@ -229,145 +227,13 @@ pub(crate) fn route_tools_for_prompt(
     sisters: &crate::sisters::cognitive::Sisters,
     user_text: &str,
 ) -> String {
-    use crate::cognitive::intent_router::IntentCategory;
-
     // Direct-handled intents don't need LLM tools
     if intent.category.has_direct_handler() && intent.confidence >= 0.6 {
         return String::new();
     }
-
-    let mut tools: Vec<String> = Vec::new();
-
-    match intent.category {
-        // Memory recall → memory + cognition tools
-        IntentCategory::MemoryRecall => {
-            tools.extend(sisters.tools_for_sister("memory", &[
-                "memory_query", "memory_similar", "memory_temporal",
-                "memory_context", "memory_search",
-            ]));
-            tools.extend(sisters.tools_for_sister("cognition", &[
-                "cognition_belief_query", "cognition_belief_list",
-            ]));
-        }
-        // Code tasks → forge + codebase + memory
-        IntentCategory::CodeBuild | IntentCategory::CodeFix | IntentCategory::CodeExplain => {
-            tools.extend(sisters.tools_for_sister("forge", &[
-                "forge_blueprint", "forge_skeleton", "forge_structure",
-            ]));
-            tools.extend(sisters.tools_for_sister("codebase", &[
-                "symbol_lookup", "impact_analysis", "graph_stats",
-                "search_semantic", "search_code",
-            ]));
-            tools.extend(sisters.tools_for_sister("memory", &[
-                "memory_query", "memory_context",
-            ]));
-        }
-        // Planning → planning + time + memory
-        IntentCategory::PlanningQuery => {
-            tools.extend(sisters.tools_for_sister("planning", &[
-                "planning_goal", "planning_progress", "planning_decision",
-            ]));
-            tools.extend(sisters.tools_for_sister("time", &[
-                "time_deadline_check", "time_deadline_add", "time_schedule_query",
-            ]));
-            tools.extend(sisters.tools_for_sister("memory", &[
-                "memory_query", "memory_temporal",
-            ]));
-        }
-        // Web/browse → vision tools
-        IntentCategory::WebBrowse => {
-            tools.extend(sisters.tools_for_sister("vision", &[
-                "vision_capture", "vision_query", "vision_ocr",
-                "vision_compare", "vision_ground",
-            ]));
-        }
-        // Communication → comm tools
-        IntentCategory::Communicate => {
-            tools.extend(sisters.tools_for_sister("comm", &[
-                "comm_message", "comm_channel", "comm_federation",
-                "comm_send", "comm_notify",
-            ]));
-        }
-        // Unknown/Question → route by complexity, with smart detection
-        IntentCategory::Unknown | IntentCategory::Question => {
-            let lower_input = user_text.to_lowercase();
-
-            // Even simple queries need tools if they mention specific sisters/capabilities
-            let needs_identity = lower_input.contains("receipt") || lower_input.contains("prove")
-                || lower_input.contains("trust") || lower_input.contains("what did you")
-                || lower_input.contains("what have you") || lower_input.contains("last action");
-            let needs_time = lower_input.contains("deadline") || lower_input.contains("schedule")
-                || lower_input.contains("when") || lower_input.contains("how long");
-            let needs_planning = lower_input.contains("goal") || lower_input.contains("plan")
-                || lower_input.contains("what should") || lower_input.contains("next step");
-
-            if needs_identity {
-                tools.extend(sisters.tools_for_sister("identity", &[
-                    "identity_show", "receipt_list",
-                ]));
-            }
-            if needs_time {
-                tools.extend(sisters.tools_for_sister("time", &[
-                    "time_schedule", "time_deadline", "time_deadline_check",
-                ]));
-            }
-            if needs_planning {
-                tools.extend(sisters.tools_for_sister("planning", &[
-                    "planning_goal", "planning_progress",
-                ]));
-            }
-
-            if complexity == "complex" || is_action {
-                // Broad tool set for complex unknown intents
-                tools.extend(sisters.tools_for_sister("memory", &[
-                    "memory_query", "memory_context", "memory_similar",
-                ]));
-                tools.extend(sisters.tools_for_sister("codebase", &[
-                    "symbol_lookup", "impact_analysis", "search_semantic",
-                ]));
-                tools.extend(sisters.tools_for_sister("forge", &[
-                    "forge_blueprint", "forge_skeleton",
-                ]));
-                tools.extend(sisters.tools_for_sister("vision", &[
-                    "vision_capture", "vision_query",
-                ]));
-                if !needs_identity {
-                    tools.extend(sisters.tools_for_sister("identity", &[
-                        "identity_show", "receipt_list",
-                    ]));
-                }
-                if !needs_planning {
-                    tools.extend(sisters.tools_for_sister("planning", &[
-                        "planning_goal", "planning_progress",
-                    ]));
-                }
-                tools.extend(sisters.tools_for_sister("cognition", &[
-                    "cognition_model", "cognition_predict",
-                ]));
-                tools.extend(sisters.tools_for_sister("reality", &[
-                    "reality_deployment", "reality_environment",
-                ]));
-                tools.extend(sisters.tools_for_sister("veritas", &[
-                    "veritas_compile", "veritas_verify",
-                ]));
-                tools.extend(sisters.tools_for_sister("aegis", &[
-                    "shadow_simulate", "aegis_validate",
-                ]));
-                tools.extend(sisters.tools_for_sister("comm", &[
-                    "comm_send", "comm_message",
-                ]));
-                if !needs_time {
-                    tools.extend(sisters.tools_for_sister("time", &[
-                        "time_schedule", "time_deadline",
-                    ]));
-                }
-                tools.truncate(30);
-            }
-        }
-        // All other categories are direct-handled (no LLM tools needed)
-        _ => {}
-    }
-
+    let tools = super::llm_tool_routing::route_tools_for_intent(
+        intent, sisters, user_text, complexity, is_action,
+    );
     format_tool_list(&tools)
 }
 
@@ -382,10 +248,11 @@ pub(crate) fn format_tool_list(tools: &[String]) -> String {
         by_prefix.entry(prefix).or_default().push(tool);
     }
     let mut out = String::new();
-    out.push_str("You can call these MCP tools using <hydra-tool> tags:\n");
+    out.push_str("You can call these MCP tools using <hydra-tool name=\"tool_name\">{\"param\": \"value\"}</hydra-tool> tags:\n");
     for (prefix, names) in &by_prefix {
         out.push_str(&format!("- {}: {}\n", prefix, names.join(", ")));
     }
     out.push_str(&format!("({} tools available)\n", tools.len()));
+    out.push_str("Tool results will be returned to you. When your task is complete, include <hydra-done/> at the end.\n");
     out
 }

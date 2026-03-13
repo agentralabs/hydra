@@ -14,6 +14,11 @@ pub struct InitSettings {
     pub anthropic_key: String,
     pub openai_key: String,
     pub google_key: String,
+    pub memory_capture: String,
+    pub smtp_host: String,
+    pub smtp_user: String,
+    pub smtp_password: String,
+    pub smtp_to: String,
 }
 
 /// Extract initial settings from profile (with env var fallbacks for API keys).
@@ -47,8 +52,17 @@ pub fn extract_init_settings(persisted: &Option<PersistedProfile>) -> InitSettin
         .or_else(|| std::env::var("GOOGLE_API_KEY").ok().filter(|s| !s.is_empty()))
         .unwrap_or_default();
 
+    let memory_capture = persisted.as_ref()
+        .and_then(|p| p.memory_capture.clone())
+        .unwrap_or_else(|| "all".into());
+    let smtp_host = persisted.as_ref().and_then(|p| p.smtp_host.clone()).unwrap_or_default();
+    let smtp_user = persisted.as_ref().and_then(|p| p.smtp_user.clone()).unwrap_or_default();
+    let smtp_password = persisted.as_ref().and_then(|p| p.smtp_password.clone()).unwrap_or_default();
+    let smtp_to = persisted.as_ref().and_then(|p| p.smtp_to.clone()).unwrap_or_default();
+
     InitSettings {
         theme, voice, sounds, volume, auto_approve,
-        default_mode, model, anthropic_key, openai_key, google_key,
+        default_mode, model, anthropic_key, openai_key, google_key, memory_capture,
+        smtp_host, smtp_user, smtp_password, smtp_to,
     }
 }

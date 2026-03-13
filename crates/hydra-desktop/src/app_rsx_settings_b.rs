@@ -27,15 +27,13 @@
                         class: "model-select",
                         value: "{settings_tts_voice}",
                         onchange: move |e| settings_tts_voice.set(e.value()),
-                        optgroup { label: "Piper (Local)",
+                        optgroup { label: "OpenAI TTS",
                             option { value: "nova", "Nova \u{2014} Warm, conversational" }
-                            option { value: "amy", "Amy \u{2014} Clear, professional" }
-                            option { value: "ryan", "Ryan \u{2014} Neutral, calm" }
-                            option { value: "jenny", "Jenny \u{2014} Friendly, bright" }
-                            option { value: "lessac", "Lessac \u{2014} Precise, articulate" }
-                        }
-                        optgroup { label: "System",
-                            option { value: "system-default", "System Default" }
+                            option { value: "alloy", "Alloy \u{2014} Balanced, neutral" }
+                            option { value: "echo", "Echo \u{2014} Deep, resonant" }
+                            option { value: "fable", "Fable \u{2014} Expressive, British" }
+                            option { value: "onyx", "Onyx \u{2014} Deep, authoritative" }
+                            option { value: "shimmer", "Shimmer \u{2014} Bright, upbeat" }
                         }
                     }
                 }
@@ -58,21 +56,14 @@
                 }
                 div { class: "settings-row",
                     span { class: "settings-label", "Audio Input" }
-                    select {
-                        class: "model-select",
-                        value: "{settings_audio_input}",
-                        onchange: move |e| settings_audio_input.set(e.value()),
-                        option { value: "default", "System Default" }
-                        option { value: "builtin", "Built-in Microphone" }
-                        option { value: "external", "External Microphone" }
-                    }
+                    span { class: "settings-desc", "Uses system default microphone (auto-detected)" }
                 }
             }
             div { class: "settings-section",
                 h3 { class: "settings-section-title", "Listening" }
                 div { class: "settings-row",
                     div { class: "settings-label-group",
-                        span { class: "settings-label", "Wake Word" }
+                        span { class: "settings-label", "Wake Word (Coming Soon)" }
                         span { class: "settings-desc", "Say \"Hey Hydra\" to activate voice input" }
                     }
                     div { class: "toggle-group",
@@ -102,6 +93,17 @@
                 }
             }
             div { class: "settings-section",
+                h3 { class: "settings-section-title", "Companion Voice Controls" }
+                div { class: "settings-row", style: "flex-direction: column; align-items: flex-start; gap: 8px;",
+                    p { class: "settings-desc", style: "line-height: 1.6;",
+                        strong { "Tap mic once" } " \u{2014} Start conversational loop (speak \u{2192} Hydra responds \u{2192} auto-listens \u{2192} repeat)" br {}
+                        strong { "Tap mic while listening" } " \u{2014} Stop listening and exit the voice loop" br {}
+                        strong { "Tap mic again" } " \u{2014} Re-enter the conversational loop" br {}
+                        strong { "Tap mic while Hydra is speaking" } " \u{2014} Barge-in: cancels speech, starts listening"
+                    }
+                }
+            }
+            div { class: "settings-section",
                 h3 { class: "settings-section-title", "Effects" }
                 div { class: "settings-row",
                     div { class: "settings-label-group",
@@ -127,7 +129,7 @@
                     }
                 }
             }
-            p { class: "settings-info", "All voice processing runs locally. STT: Whisper. TTS: Piper. No audio leaves your machine." }
+            p { class: "settings-info", "STT: OpenAI Whisper. TTS: OpenAI. Requires an OpenAI API key in Settings > Models." }
         },
         "policies" => rsx! {
             h2 { class: "settings-title", "Safety & Policies" }

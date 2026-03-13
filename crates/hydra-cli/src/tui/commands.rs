@@ -58,7 +58,7 @@ pub const COMMANDS: &[SlashCommand] = &[
 
     // ── Configuration (Hydra §5.4) ──
     SlashCommand { name: "/config",         description: "Open settings interface",           category: CommandCategory::Config },
-    SlashCommand { name: "/memory",         description: "Edit CLAUDE.md / Hydra memory",     category: CommandCategory::Config },
+    SlashCommand { name: "/memory",         description: "Set memory capture mode (all/facts/none)",  category: CommandCategory::Config },
     SlashCommand { name: "/init",           description: "Initialize project with HYDRA.md",  category: CommandCategory::Config },
     SlashCommand { name: "/doctor",         description: "Health check (API, MCP, perms)",    category: CommandCategory::Config },
     SlashCommand { name: "/sidebar",        description: "Toggle sidebar",                    category: CommandCategory::Config },
@@ -125,6 +125,10 @@ pub const COMMANDS: &[SlashCommand] = &[
 
     // ── Sister Improve (P10) ──
     SlashCommand { name: "/improve-sister", description: "Improve a sister codebase",        category: CommandCategory::Agent },
+
+    // ── Email ──
+    SlashCommand { name: "/email",       description: "Send email (usage: /email <to> <subject>)", category: CommandCategory::System },
+    SlashCommand { name: "/email-setup", description: "Configure SMTP email settings",             category: CommandCategory::Config },
 
     // ── System ──
     SlashCommand { name: "/sisters",  description: "Show sister status",               category: CommandCategory::System },

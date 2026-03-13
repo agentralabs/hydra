@@ -107,8 +107,8 @@ mod tests {
             priority: 1,
         }];
 
-        // Create 6 patches (over limit of 5)
-        let patches: Vec<Patch> = (0..6)
+        // Create 11 patches (over limit of 10)
+        let patches: Vec<Patch> = (0..11)
             .map(|i| Patch {
                 target_file: format!("src/file{}.rs", i),
                 gap: gaps[0].clone(),
