@@ -28,3 +28,4 @@ Thumbs.db
 # Test artifacts
 *.profraw
 coverage/
+/test-specs/
