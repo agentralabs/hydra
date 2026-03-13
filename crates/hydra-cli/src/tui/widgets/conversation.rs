@@ -39,8 +39,8 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
             if c.contains("Self-repair diagnostics") { continue; }
         }
 
-        // Hide internal cognitive phase tags
-        {
+        // Hide internal cognitive phase tags — ONLY for System messages
+        if msg.role == MessageRole::System {
             let c = &msg.content;
             if c.contains("[Think]") || c.contains("[Act]") || c.contains("[Learn")
                 || c.contains("[Diagnostics]") || c.contains("[Think (Forge")
@@ -102,14 +102,18 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
         ]));
     }
 
-    // Scroll — must count WRAPPED visual lines, not logical lines.
-    // Ratatui wraps lines before scrolling, so a single logical line that
-    // exceeds the terminal width becomes multiple visual rows.
+    // Scroll — count wrapped visual lines. Ratatui uses WORD wrapping which
+    // can produce more rows than simple char-division (words break early,
+    // leaving unused space on the line). Add +1 per wrapped line to ensure
+    // the scroll can always reach the very first message.
     let visible_height = inner.height as usize;
     let w = inner.width.max(1) as usize;
     let total_lines: usize = lines.iter().map(|l| {
         let lw = l.width();
-        if lw == 0 { 1 } else { (lw + w - 1) / w }
+        if lw <= w { 1 } else {
+            let rows = (lw + w - 1) / w;
+            rows + 1 // +1 accounts for word-wrap breaking earlier than char-wrap
+        }
     }).sum();
     let max_scroll = total_lines.saturating_sub(visible_height);
     let scroll_from_top = max_scroll.saturating_sub(app.scroll_offset.min(max_scroll));
