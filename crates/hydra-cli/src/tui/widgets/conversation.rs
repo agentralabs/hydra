@@ -107,9 +107,15 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
         ]));
     }
 
-    // Scroll
+    // Scroll — must count WRAPPED visual lines, not logical lines.
+    // Ratatui wraps lines before scrolling, so a single logical line that
+    // exceeds the terminal width becomes multiple visual rows.
     let visible_height = inner.height as usize;
-    let total_lines = lines.len();
+    let w = inner.width.max(1) as usize;
+    let total_lines: usize = lines.iter().map(|l| {
+        let lw = l.width();
+        if lw == 0 { 1 } else { (lw + w - 1) / w }
+    }).sum();
     let max_scroll = total_lines.saturating_sub(visible_height);
     let scroll_from_top = max_scroll.saturating_sub(app.scroll_offset.min(max_scroll));
 
