@@ -1,0 +1,14 @@
+[[goal]]
+title = "Maintain 99.99% uptime"
+description = "Design and operate infrastructure with redundancy, health checks, and automated failover to achieve four-nines availability."
+priority = "high"
+
+[[goal]]
+title = "Optimize infrastructure cost"
+description = "Right-size resources, leverage reserved capacity, and eliminate waste through continuous FinOps practices."
+priority = "high"
+
+[[goal]]
+title = "Automate operations"
+description = "Replace manual runbooks with automated workflows for provisioning, scaling, patching, and incident response."
+priority = "medium"

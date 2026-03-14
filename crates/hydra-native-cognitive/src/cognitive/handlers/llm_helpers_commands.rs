@@ -143,6 +143,16 @@ pub(crate) fn handle_universal_slash_command(input: &str) -> Option<String> {
             Some("__TEXT__:This command is handled by the UI layer. Use the Desktop or TUI interface directly.".to_string())
         }
 
+        "/memory" => {
+            match args {
+                "all" => Some("__TEXT__:__MEMORY_MODE__:all:Memory capture set to: **Full Conversation** -- every exchange stored.".to_string()),
+                "facts" => Some("__TEXT__:__MEMORY_MODE__:facts:Memory capture set to: **Facts Only** -- decisions and preferences stored.".to_string()),
+                "none" | "off" => Some("__TEXT__:__MEMORY_MODE__:none:Memory capture set to: **Disabled** -- nothing stored.".to_string()),
+                "" => Some("__TEXT__:**Memory Capture**\n\nUsage: `/memory all` | `/memory facts` | `/memory none`\n\n- **all**: Full conversation capture (every exchange)\n- **facts**: Facts only (decisions, preferences, corrections)\n- **none**: Disabled (session-only, nothing persisted)".to_string()),
+                _ => Some(format!("__TEXT__:Unknown mode '{}'. Use: `/memory all`, `/memory facts`, or `/memory none`", args)),
+            }
+        }
+
         "/model" => {
             if args.is_empty() {
                 Some("__TEXT__:Current model is set in Settings. Use `/model <name>` to change.".to_string())

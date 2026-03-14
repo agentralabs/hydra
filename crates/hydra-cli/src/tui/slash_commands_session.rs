@@ -9,6 +9,7 @@ impl App {
     pub(crate) fn slash_cmd_clear(&mut self) {
         self.messages.clear();
         self.scroll_offset = 0;
+        self.scroll_pinned_top = None;
         self.conversation_history.clear();
     }
 
@@ -17,7 +18,7 @@ impl App {
             let drain_count = self.messages.len() - 20;
             let archived: Vec<Message> = self.messages.drain(0..drain_count).collect();
 
-            let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+            let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_else(|_| "/tmp".into());
             let archive_path = format!("{}/.hydra/conversation-archive.log", home);
             if let Ok(mut file) = std::fs::OpenOptions::new()
                 .create(true)
@@ -69,7 +70,7 @@ impl App {
 
     pub(crate) fn slash_cmd_history(&mut self, args: &str, timestamp: &str) {
         if args == "archive" {
-            let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+            let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_else(|_| "/tmp".into());
             let archive_path = format!("{}/.hydra/conversation-archive.log", home);
             match std::fs::read_to_string(&archive_path) {
                 Ok(content) => {
@@ -113,7 +114,7 @@ impl App {
     }
 
     pub(crate) fn slash_cmd_resume(&mut self, args: &str, timestamp: &str) {
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+        let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_else(|_| "/tmp".into());
         let mut sessions: Vec<String> = Vec::new();
 
         if let Ok(content) = std::fs::read_to_string(
@@ -241,7 +242,7 @@ impl App {
 
     pub(crate) fn slash_cmd_export(&mut self, args: &str, timestamp: &str) {
         let filename = if args.is_empty() {
-            let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+            let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_else(|_| "/tmp".into());
             format!("{}/.hydra/export-{}.md", home, timestamp.replace(':', ""))
         } else {
             args.to_string()

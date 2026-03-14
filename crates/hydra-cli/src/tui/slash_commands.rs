@@ -57,6 +57,7 @@ impl App {
             "/receipts" => self.slash_cmd_receipts(timestamp),
             "/health"   => self.slash_cmd_health(timestamp),
             "/status"   => self.slash_cmd_status(timestamp),
+            "/stats"    => self.slash_cmd_stats(timestamp),
 
             // ── Session Management (Hydra) ──
             "/clear"    => self.slash_cmd_clear(),
@@ -134,6 +135,13 @@ impl App {
             "/tasks"       => self.slash_cmd_tasks(timestamp),
             "/resume-task" => self.slash_cmd_resume_task(args, timestamp),
             "/cancel-task" => self.slash_cmd_cancel_task(args, timestamp),
+
+            // ── Operational Profiles (P6) ──
+            "/profile"     => self.slash_cmd_profile(args, timestamp),
+
+            // ── Economics & Knowledge (Round 6) ──
+            "/roi"         => self.slash_cmd_roi(timestamp),
+            "/knowledge"   => self.slash_cmd_knowledge(timestamp),
 
             // ── Hydra-Exclusive ──
             "/version"     => self.slash_cmd_version(timestamp),

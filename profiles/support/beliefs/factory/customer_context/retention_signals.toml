@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Churn indicators include: declining login frequency, reduced feature usage, multiple unresolved tickets, and negative survey responses — flag accounts showing 2+ signals"
+confidence = 0.85
+source = "factory"
+action_trigger = "When reviewing account health metrics or when multiple tickets come from the same account"
+edge_case = "Low usage doesn't always mean churn risk — some accounts are seasonal or have achieved steady-state"
+tags = ["customer", "retention", "churn-signals"]
+
+[[beliefs]]
+fact = "Save offers (discount, extended trial, premium feature unlock) work best when deployed before the cancellation request — after the request, save rate drops 60%"
+confidence = 0.80
+source = "factory"
+action_trigger = "When churn signals are detected and the account is in a saveable segment"
+edge_case = "Over-generous save offers train customers to threaten cancellation for discounts; use sparingly and track repeat patterns"
+tags = ["customer", "retention", "save-offers"]
+
+[[beliefs]]
+fact = "Proactive outreach after a negative support experience reduces churn probability 25% — a follow-up call or email within 48 hours showing the issue is resolved"
+confidence = 0.85
+source = "factory"
+action_trigger = "When a ticket is resolved but the customer expressed significant frustration during the interaction"
+edge_case = "Don't overdo follow-ups; one proactive check-in is valued, three feels like sales harassment"
+tags = ["customer", "retention", "proactive-outreach"]
+
+[[beliefs]]
+fact = "Win-back timing — best response rate for churned customers is 30-90 days after departure, with a compelling product improvement or limited-time offer"
+confidence = 0.75
+source = "factory"
+action_trigger = "When a valued account cancels and the product has since improved in their pain area"
+edge_case = "Customers who left due to trust violations (data breach, billing error) need apology-first outreach, not offers"
+tags = ["customer", "retention", "win-back"]

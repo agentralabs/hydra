@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "Fed communication follows a predictable escalation pattern: 'monitoring' → 'watching closely' → 'prepared to act' → 'likely appropriate' → action. Each step in this language ladder is separated by 1-3 FOMC meetings. When the Chair uses 'likely appropriate' in a press conference or speech, the probability of action at the next meeting exceeds 90%. Markets that wait for the action itself are 2-4 weeks late."
+confidence = 0.92
+source = "FOMC statement text analysis 2000-2024, Lucca/Trebbi 2009 measuring central bank communication"
+action_trigger = "Fed language shifts one step up the escalation ladder → begin positioning for the implied action, do not wait for the action itself. Size the position proportionally to the escalation step (monitoring = 25% position, prepared to act = 75%)."
+edge_case = "In emergency situations (COVID March 2020, SVB March 2023), the Fed skips the escalation ladder entirely and acts between meetings. When a systemic crisis is underway, the language framework is irrelevant — position for aggressive action immediately."
+tags = ["macro", "central_bank", "fed_communication", "language"]
+
+[[beliefs]]
+fact = "The Fed dot plot (Summary of Economic Projections) is a systematically biased predictor of actual policy — the median dot overestimates future rate levels by 50-100 bps at 2-year horizons during tightening cycles (participants overestimate their own hawkishness) and underestimates by 50-75 bps during easing cycles (they underestimate their own dovishness). The market-implied forward rate is a better predictor than the dot plot at all horizons beyond 6 months."
+confidence = 0.88
+source = "Federal Reserve SEP data vs realized rates 2012-2024, Rudebusch/Williams 2008 Fed forecasting"
+action_trigger = "New dot plot released → compare dots to Fed funds futures. If dots are 75+ bps above futures at 2-year horizon (tightening cycle), fade the dots and position closer to the market price."
+edge_case = "At cycle inflection points (the last hike, the first cut), the dot plot is briefly accurate because participants are pricing a near-term decision they've already made. The 6-month dot is reliable within 25 bps; the 2-year dot is the one that is systematically biased."
+tags = ["macro", "central_bank", "dot_plot", "forecasting"]
+
+[[beliefs]]
+fact = "QE (quantitative easing) puts downward pressure on long-term rates by approximately 50-100 bps per $1T of purchases (declining marginal impact after $2T) and inflates risk asset prices by compressing the equity risk premium. QT (quantitative tightening) should theoretically reverse this, but the impact is asymmetric — QT's upward pressure on rates is approximately 25-50 bps per $1T of runoff, about half the QE effect, because markets have already adjusted to expect the tightening."
+confidence = 0.85
+source = "Gagnon/Raskin/Remache/Sack 2011 QE1 effects, Greenlaw/Hamilton/Harris/West 2018 QT analysis, Fed balance sheet data"
+action_trigger = "QT pace acceleration announced → estimate the incremental rate pressure (25-50 bps per $1T annualized), add to yield forecasts, but do NOT simply mirror the QE entry playbook — the asymmetry means QT is only half as impactful on rates."
+edge_case = "QT can trigger liquidity crises in Treasury markets (September 2019 repo crisis) even when the rate impact is modest. Monitor Treasury settlement fails and repo rate spikes as leading indicators of QT stress — these are plumbing issues, not rate issues."
+tags = ["macro", "central_bank", "qe_qt", "balance_sheet"]
+
+[[beliefs]]
+fact = "'Don't fight the Fed' is correct 80% of the time — when the Fed is easing, risk assets rally, and when tightening, they eventually decline. The 20% exception is critical: in the early stages of a tightening cycle (first 2-4 hikes), equities often RISE because the tightening signals economic strength that supports earnings. The equity decline typically begins only when the real fed funds rate turns positive or the 2-year yield exceeds trailing 12-month S&P 500 earnings yield."
+confidence = 0.89
+source = "Analysis of 12 Fed tightening cycles 1970-2024, equity performance relative to rate cycle phase"
+action_trigger = "Fed begins tightening → do NOT immediately go defensive. Monitor real fed funds rate — only shift to defensive when real rate turns positive OR when 2y yield > S&P earnings yield (the 'TINA reversal' point)."
+edge_case = "When the Fed is tightening into a supply-shock-driven inflation (2022), the equity market decline begins earlier because earnings are simultaneously compressed by input costs. In cost-push inflation cycles, the 'don't fight the Fed' rule applies from day one of tightening."
+tags = ["macro", "central_bank", "dont_fight_fed", "equity_cycle"]
+
+[[beliefs]]
+fact = "Central bank policy divergence — when the Fed and ECB/BoJ/PBoC are moving in opposite directions — creates the strongest currency trends and the most dangerous cross-border carry trades. Fed hiking while BoJ is on hold (2022-2024) drove USD/JPY from 115 to 160; the subsequent narrowing of the divergence triggered the August 2024 carry crash. Trade the divergence early (when it is widening) and exit early (when it peaks), never hold through convergence."
+confidence = 0.87
+source = "Historical policy divergence episodes 2014-2024, USD/JPY 2022-2024, EUR/USD 2014-2015"
+action_trigger = "Policy divergence widening between two major central banks → enter currency trade in the direction of divergence, size at half-Kelly, set exit trigger for when either bank's language shifts toward convergence"
+edge_case = "China's PBoC operates differently from Western central banks — it uses administrative tools (reserve requirements, window guidance) more than rate changes. PBoC divergence is harder to measure and trade; focus on the PBOC's medium-term lending facility rate and required reserve ratio changes rather than headline rates."
+tags = ["macro", "central_bank", "policy_divergence", "currency"]

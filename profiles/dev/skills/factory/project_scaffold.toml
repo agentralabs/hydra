@@ -1,0 +1,22 @@
+[metadata]
+name = "project_scaffold"
+description = "Create new project from requirements — architecture first, then code"
+version = "1.0.0"
+
+[trigger]
+patterns = ["create project", "new project", "scaffold", "build me", "start a"]
+intent = "project-creation"
+
+[steps]
+sequence = [
+    "Clarify requirements — language, framework, scale, constraints",
+    "Check architecture beliefs for appropriate patterns",
+    "Generate architecture blueprint via Forge sister",
+    "Create directory structure and boilerplate",
+    "Scaffold test files for each module",
+    "Generate CI config",
+]
+
+[sisters]
+primary = ["Forge", "Codebase", "Planning"]
+optional = ["Memory"]

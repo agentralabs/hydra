@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "Benchmarks must use criterion or divan with statistical analysis — ad-hoc timing with Instant::now is unreliable due to optimizer elision, cold caches, and frequency scaling"
+confidence = 0.95
+source = "factory"
+action_trigger = "When measuring or comparing performance of Rust code"
+edge_case = "Even criterion results can mislead if the benchmark input is unrealistically small or uniform — profile with real workloads and use black_box to prevent dead-code elimination"
+tags = ["rust", "performance", "benchmarking"]
+
+[[beliefs]]
+fact = "Small, frequent heap allocations (Vec::new() in a hot loop) are a top performance killer — reuse buffers with Vec::clear() or pre-allocate with Vec::with_capacity"
+confidence = 0.93
+source = "factory"
+action_trigger = "When writing hot loops that create temporary collections or strings"
+edge_case = "Over-allocating wastes memory and can hurt cache locality — profile with DHAT or heaptrack to find the right capacity, rather than guessing large"
+tags = ["rust", "performance", "allocations", "memory"]
+
+[[beliefs]]
+fact = "String building with repeated format! or push_str in a loop should use a single pre-sized String or the write! macro to avoid repeated reallocations"
+confidence = 0.90
+source = "factory"
+action_trigger = "When constructing large strings from many pieces, such as generating reports, logs, or serialized output"
+edge_case = "For truly large outputs (megabytes), consider writing directly to a BufWriter<File> or BufWriter<Vec<u8>> instead of building an in-memory String at all"
+tags = ["rust", "performance", "strings"]
+
+[[beliefs]]
+fact = "HashMap with the default SipHash hasher is DoS-resistant but slow for integer keys — switch to ahash or FxHashMap for internal non-adversarial lookups to get 2-5x speedups"
+confidence = 0.90
+source = "factory"
+action_trigger = "When profiling reveals HashMap operations as a bottleneck in internal data structures"
+edge_case = "Never use a fast non-cryptographic hasher for user-controlled keys exposed to untrusted input — the DoS resistance of SipHash exists for a reason"
+tags = ["rust", "performance", "hashmap", "hashing"]
+
+[[beliefs]]
+fact = "SIMD via std::simd (nightly) or libraries like pulp and wide can yield 4-16x speedups on data-parallel operations, but only after scalar code is already optimized and benchmarked"
+confidence = 0.85
+source = "factory"
+action_trigger = "When processing large arrays of numeric data such as image pixels, audio samples, or vector math"
+edge_case = "SIMD code is architecture-specific and harder to maintain — prefer auto-vectorization first (simple loops, no branches, known-size arrays) and check with cargo-show-asm before writing manual SIMD"
+tags = ["rust", "performance", "simd", "optimization"]

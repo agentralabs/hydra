@@ -1,0 +1,9 @@
+[sisters]
+emphasize = ["Memory", "Codebase", "Data", "Forge"]
+disable = []
+
+# Rationale: Dev profile emphasizes code-centric sisters.
+# Memory — recall prior solutions and patterns.
+# Codebase — deep semantic code search.
+# Data — structured analysis of logs and metrics.
+# Forge — code generation and scaffolding.

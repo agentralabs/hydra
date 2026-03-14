@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Forest plots visualize effect sizes and confidence intervals across studies — they reveal consistency, outliers, and overall pooled effects at a glance"
+confidence = 0.92
+source = "factory"
+action_trigger = "When synthesizing quantitative results from multiple studies"
+edge_case = "Forest plots can be misleading if studies are too heterogeneous to pool — always check I-squared before interpreting the pooled estimate"
+tags = ["meta-analysis", "forest-plots", "visualization"]
+
+[[beliefs]]
+fact = "Heterogeneity (I-squared, Q-statistic) measures whether studies are measuring the same thing — high heterogeneity means the pooled estimate may be meaningless"
+confidence = 0.93
+source = "factory"
+action_trigger = "When conducting or interpreting a meta-analysis"
+edge_case = "Some heterogeneity is expected — subgroup analysis and meta-regression can explain it, but only with enough studies to avoid overfitting"
+tags = ["meta-analysis", "heterogeneity", "i-squared"]
+
+[[beliefs]]
+fact = "Publication bias inflates meta-analytic estimates because studies with null results are less likely to be published"
+confidence = 0.94
+source = "factory"
+action_trigger = "When assessing the reliability of a meta-analytic conclusion"
+edge_case = "Trim-and-fill and selection models attempt correction but rely on assumptions about the missing studies — sensitivity analysis is essential"
+tags = ["meta-analysis", "publication-bias", "file-drawer"]
+
+[[beliefs]]
+fact = "Funnel plots detect publication bias by plotting effect size against precision — asymmetry suggests small studies with null results are missing"
+confidence = 0.90
+source = "factory"
+action_trigger = "When evaluating whether a meta-analysis is affected by publication bias"
+edge_case = "Funnel plot asymmetry can also be caused by genuine heterogeneity, poor methodology in small studies, or artifact — Egger's test adds a statistical check"
+tags = ["meta-analysis", "funnel-plots", "publication-bias"]

@@ -1,0 +1,23 @@
+[[beliefs]]
+fact = "DXY (US Dollar Index) strength above 105 creates systematic stress for emerging market assets: EM sovereign spreads widen 50-100 bps, EM equity returns decline 8-15% annualized (in USD), and EM corporate default rates double. The transmission mechanism is dollar-denominated debt servicing costs — EM corporates hold approximately $4T in USD debt. DXY above 110 has historically preceded at least one EM sovereign crisis within 12 months."
+confidence = 0.89
+source = "BIS Global Dollar Credit data, EM crisis history 1997/2013/2015/2018/2022, Shin 2012 global dollar credit"
+action_trigger = "DXY crosses 105 → reduce EM exposure by 25-50%, focus EM allocation on countries with current account surpluses and high FX reserves. DXY crosses 110 → exit EM except China/Taiwan/Korea (FX reserve buffer)"
+edge_case = "Countries with capital controls (China, India) are partially insulated from DXY strength because outflows are restricted. These countries can maintain stability even at DXY > 110, but their equity markets still suffer from sentiment contagion."
+tags = ["macro", "currency", "dxy", "emerging_markets"]
+
+[[beliefs]]
+fact = "Carry trade unwinds — when high-yield currencies crash against funding currencies (JPY, CHF) — are among the fastest and most violent moves in financial markets, with 3-5 sigma moves occurring in hours not days. The warning signs are: VIX term structure inversion, JPY strengthening despite no BoJ action, AND cross-currency basis swap rates widening. When all three occur simultaneously, a carry unwind is imminent or in progress."
+confidence = 0.90
+source = "Brunnermeier/Nagel/Pedersen 2009 carry trades and currency crashes, October 1998 JPY unwind, August 2024 JPY carry unwind"
+action_trigger = "VIX backwardation + JPY strengthening + basis swap widening → immediately reduce all carry trade positions by 75%, the risk/reward of holding through an unwind is asymmetrically negative"
+edge_case = "The Bank of Japan intervening to weaken JPY can temporarily arrest a carry unwind, but if the fundamental driver is risk-off (equity selloff), BoJ intervention only delays the unwind by hours or days. Do not re-enter carry after BoJ intervention during a risk-off episode."
+tags = ["macro", "currency", "carry_trade", "unwind"]
+
+[[beliefs]]
+fact = "Purchasing power parity (PPP) is a poor short-term currency predictor (essentially useless at horizons under 3 years) but becomes increasingly reliable at 5-10 year horizons, with a half-life of convergence of 3-5 years. Interest rate parity is the superior short-term model — but even it fails during flight-to-safety episodes when the dollar strengthens regardless of rate differentials. No single currency model works in all regimes; the optimal approach is model switching based on VIX levels."
+confidence = 0.86
+source = "Rogoff 1996 PPP puzzle, Taylor/Taylor 2004 PPP debate, Engel 2014 exchange rate models, regime-switching analysis"
+action_trigger = "VIX < 20 → use interest rate parity for short-term currency views. VIX 20-30 → use safe-haven flow models (USD, JPY, CHF strengthen). VIX > 30 → pure dollar strength regime, all models subordinate to flight-to-safety."
+edge_case = "During synchronized global easing (2020), the dollar initially strengthens on safe-haven flows but then weakens as Fed easing exceeds other central banks. The dollar's safe-haven status has a shelf life of 2-4 weeks during global crises before the relative-easing dynamic takes over."
+tags = ["macro", "currency", "ppp", "interest_rate_parity"]

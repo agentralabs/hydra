@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "Spoofing — placing large orders with the intent to cancel before execution to create false supply/demand signals — is detectable by the cancel-to-fill ratio at the individual trader level. A trader with a cancel-to-fill ratio exceeding 95% on orders placed within 5 price levels of the best bid/offer, combined with a pattern of cancellation within 500ms of placement, has a 90%+ probability of spoofing. The Dodd-Frank Act Section 747 makes spoofing a criminal offense with penalties up to $25M and 25 years imprisonment."
+confidence = 0.93
+source = "CFTC v. Sarao 2015 (Flash Crash spoofer), JPMorgan precious metals spoofing case 2020, Dodd-Frank Act Section 747"
+action_trigger = "Cancel-to-fill ratio > 95% at near-touch price levels with sub-500ms cancel times → generate spoofing alert, preserve full order audit trail, notify compliance within 1 hour"
+edge_case = "High-frequency market makers with legitimate speed-of-light quote updating can exhibit 95%+ cancel rates — distinguish by checking whether the trader has a bona fide market-making agreement and whether the cancellations are symmetric (both sides) or one-sided (spoofing is typically one-sided)."
+tags = ["fraud", "spoofing", "manipulation", "detection"]
+
+[[beliefs]]
+fact = "Layering — a more sophisticated form of spoofing where multiple orders are placed at ascending/descending price levels to create the illusion of deep supply or demand — is harder to detect than simple spoofing because each individual order layer may appear legitimate. The signature is sequential placement of 4+ orders at consecutive price levels within a 2-second window, followed by cancellation in reverse order (LIFO) within 10 seconds, with the profitable trade occurring on the opposite side of the book."
+confidence = 0.90
+source = "FCA Final Notice: DaVinci Invest Ltd 2015, FINRA layering cases 2016-2024, SEC Regulation SHO analysis"
+action_trigger = "Sequential order placement at 4+ price levels within 2 seconds + LIFO cancellation within 10 seconds + opposite-side execution → generate layering alert with full order chain reconstruction"
+edge_case = "Algorithmic trading strategies that legitimately enter limit orders at multiple price levels (scaled entry, iceberg strategies) can resemble layering. The key distinction is whether the opposite-side trade is executed DURING the layering period — legitimate scaled entries do not have a consistently profitable opposite-side component."
+tags = ["fraud", "layering", "manipulation", "pattern"]
+
+[[beliefs]]
+fact = "Wash trading — simultaneously buying and selling the same instrument to create artificial volume — inflates volume by an estimated 5-15% in US equities and up to 70% in cryptocurrency markets. Detection relies on matching buy-sell pairs from the same beneficial owner within a time window (typically 1-10 seconds) at the same or adjacent price levels. The purpose is to create the appearance of liquidity or to generate commissions for affiliated brokers."
+confidence = 0.91
+source = "CFTC v. Bitfinex 2021, SEC wash trading enforcement, Cong/Li/Wang 2023 crypto wash trading study"
+action_trigger = "Matched buy-sell pairs from same beneficial owner (or affiliated accounts) within 10 seconds at same price → flag as potential wash trade, check for common beneficial ownership across the accounts involved"
+edge_case = "Index fund rebalancing and ETF creation/redemption processes involve simultaneous buying and selling that can trigger wash trade alerts. Whitelist authorized participants and known index rebalance flows to reduce false positives in these mechanical processes."
+tags = ["fraud", "wash_trading", "volume_inflation", "detection"]
+
+[[beliefs]]
+fact = "Painting the tape — executing a series of small transactions at progressively higher (or lower) prices to create a misleading trend — is the oldest form of market manipulation but remains effective in thinly traded securities. The signature is a sequence of 10+ small trades (each below average trade size) executed by the same or affiliated accounts at monotonically increasing prices over 30-60 minutes, typically in the last hour of trading to set the closing price."
+confidence = 0.87
+source = "SEC enforcement actions, SEC v. Masri 2011, market manipulation case law, closing price manipulation studies"
+action_trigger = "10+ sequential small trades at increasing prices from the same origin in the last 60 minutes of trading → flag as potential tape painting, check if the trader has derivative positions (options, swaps) that benefit from the closing price movement"
+edge_case = "Legitimate accumulation by an institution can look like tape painting if the institution is using a participation algorithm that buys incrementally at improving prices. Check trade size relative to book depth — tape painting uses tiny orders relative to available liquidity, while legitimate accumulation matches the book depth."
+tags = ["fraud", "tape_painting", "closing_price", "manipulation"]
+
+[[beliefs]]
+fact = "The order-to-trade ratio (OTR) — total orders submitted divided by total trades executed — is a key surveillance metric for detecting manipulative trading patterns. An OTR exceeding 100:1 for a single participant on a single instrument during a trading session is a red flag that warrants investigation. EU regulators (MiFID II) require exchanges to implement OTR monitoring with penalties for excessive messaging. The typical OTR for a legitimate HFT market maker is 20-50:1; for a manipulator it is 200-500:1."
+confidence = 0.88
+source = "MiFID II RTS 9 order-to-trade ratio requirements, ESMA guidelines on algorithmic trading, exchange surveillance data"
+action_trigger = "OTR > 100:1 for a single participant on a single instrument → generate alert, cross-reference with that participant's cancel patterns and profitable trading activity to distinguish HFT market making from manipulative activity"
+edge_case = "During extreme volatility events (circuit breaker triggers, flash crashes), legitimate market makers' OTR spikes to 200+ because they rapidly update quotes without executing trades. Exclude periods within 5 minutes of circuit breaker events from OTR surveillance to avoid false positives on legitimate defensive behavior."
+tags = ["fraud", "order_to_trade", "surveillance", "hft"]

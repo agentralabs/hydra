@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 mod app_init_settings;
+mod app_profile;
 mod platform;
 mod pulse_voice;
 mod voice_capture;
@@ -61,32 +62,32 @@ fn App() -> Element {
         }
         Arc::new(parking_lot::Mutex::new(lock))
     });
-    // ── Load persisted profile ──
+    // ── Load persisted profile ── + seed factory profiles + auto-load operational profile
     let persisted = load_profile();
     let onboarding_done = persisted.as_ref().map_or(false, |p| p.onboarding_complete);
+    app_profile::seed_profiles_if_needed();
+    let (init_op_profile, init_overlay) = app_profile::auto_load_profile()
+        .map(|(p, o)| (Some(p), o)).unwrap_or((None, None));
     let chat_db = Arc::new(ChatPersistence::init_or_memory());
     let (decide_engine, invention_engine, proactive_notifier, agent_spawner, undo_stack, approval_manager, federation_manager, hydra_db, swarm_manager, file_watcher, proactive_file_engine) = include!("app_engines.rs");
     let (send_msg_approval_mgr, palette_approval_mgr, card_approval_mgr) = (approval_manager.clone(), approval_manager.clone(), approval_manager.clone());
     let sisters: Signal<Option<SistersHandle>> = use_signal(|| None);
     let sisters_status = use_signal(|| "Connecting...".to_string());
-    {
-        let mut sisters = sisters.clone();
-        let mut sisters_status = sisters_status.clone();
-        use_hook(move || {
-            spawn(async move {
-                let handle = hydra_native::sisters::init_sisters().await;
-                let status = handle.status_summary();
-                sisters.set(Some(handle));
-                sisters_status.set(status);
-            });
-        });
-    }
+    { let mut sisters = sisters.clone(); let mut sisters_status = sisters_status.clone();
+      use_hook(move || { spawn(async move {
+          let handle = hydra_native::sisters::init_sisters().await;
+          let status = handle.status_summary();
+          sisters.set(Some(handle)); sisters_status.set(status);
+      }); }); }
     let s = app_init_settings::extract_init_settings(&persisted);
     let (init_theme, init_voice, init_sounds, init_volume) = (s.theme, s.voice, s.sounds, s.volume);
     let (init_auto_approve, init_default_mode, init_model) = (s.auto_approve, s.default_mode, s.model);
     let (init_anthropic_key, init_openai_key, init_google_key) = (s.anthropic_key, s.openai_key, s.google_key);
     let init_memory_capture = s.memory_capture;
     let (init_smtp_host, init_smtp_user, init_smtp_password, init_smtp_to) = (s.smtp_host, s.smtp_user, s.smtp_password, s.smtp_to);
+    // ── Profile state (operational profiles with beliefs) ──
+    let mut active_op_profile: Signal<Option<hydra_native::OperationalProfile>> = use_signal(move || init_op_profile);
+    let mut profile_overlay: Signal<Option<String>> = use_signal(move || init_overlay);
     // ── Core state signals ──
     let mut input = use_signal(|| String::new());
     let chat_db_init = chat_db.clone();

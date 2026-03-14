@@ -2,6 +2,8 @@
 name = "hydra-native-cognitive"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
 description = "Cognitive loop, sisters, intent routing, and self-repair for Hydra"
 autobins = false
@@ -30,6 +32,7 @@ hydra-router = { workspace = true }
 hydra-federation = { workspace = true }
 hydra-collab = { workspace = true }
 hydra-skills = { workspace = true }
+toml = { workspace = true }
 
 [dev-dependencies]
 tokio-test = { workspace = true }

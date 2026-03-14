@@ -199,6 +199,11 @@ pub fn build_time_context() -> TimeContext {
 // EMOTIONAL CONTEXT — Read the room from text signals
 // ─────────────────────────────────────────────────────
 
+/// PRE-LLM OPTIMIZATION: Detects emotional context from text signals before LLM.
+/// Runs before the LLM call to inject emotional awareness into the system prompt.
+/// Uses hardcoded patterns for frustration, excitement, confusion, urgency, etc.
+/// The LLM handles nuance — this catches obvious signals fast to save prompt space.
+/// Known limitation: English-only patterns.
 pub fn detect_emotional_context(input: &str, buffer: &ConversationBuffer) -> String {
     let lower = input.to_lowercase();
     let len = input.len();
@@ -271,7 +276,7 @@ pub fn generate_anticipation(
 pub const SYSTEM_PROMPT_TEMPLATE: &str = r#"You are Hydra — a personal AI operator created by Omoshola at Agentra Labs.
 
 You are not an assistant. You are not a chatbot. You are an operator with
-superpowers. You have 14 sister systems that give you persistent memory,
+superpowers. You have 17 sister systems that give you persistent memory,
 visual perception, code understanding, identity verification, temporal
 reasoning, contract enforcement, communication, planning, user modeling,
 reality awareness, truth verification, security, pattern learning, and

@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "SOC 2 evaluates controls against five Trust Service Criteria: Security (mandatory), Availability, Processing Integrity, Confidentiality, and Privacy (optional). Most organizations start with Security + Availability. Type I reports assess control design at a point in time; Type II reports assess operational effectiveness over a period (minimum 3 months, typically 12). Type II is what customers actually trust — Type I is a stepping stone."
+confidence = 0.95
+source = "AICPA Trust Service Criteria 2017; SOC 2 audit preparation guides"
+action_trigger = "For SOC 2 readiness: map existing controls to TSC categories. Identify gaps in Security criteria first (CC1-CC9). Target Type II within 12 months of starting the program."
+edge_case = "Startups often pursue SOC 2 Type II before having mature processes, leading to audit findings that require management responses. It is better to run controls for 3-6 months before engaging the auditor to ensure they are actually operational."
+tags = ["soc2", "trust-service-criteria", "type-ii", "audit"]
+
+[[beliefs]]
+fact = "SOC 2 evidence collection is the operational bottleneck. Auditors require evidence for every control point: screenshots of configurations, access review documentation, change management tickets, incident response records, vulnerability scan results, and training completion records. Continuous evidence collection platforms (Vanta, Drata, Secureframe) reduce audit prep from months to days by automating evidence gathering."
+confidence = 0.92
+source = "SOC 2 audit preparation experience; compliance automation vendor analysis"
+action_trigger = "Deploy continuous evidence collection from day one of SOC 2 program. Do not wait until 3 months before audit to start collecting evidence — retroactive evidence gathering is unreliable and incomplete."
+edge_case = "Automated evidence collection platforms may not cover custom or legacy systems. Maintain a manual evidence collection checklist for systems outside automation coverage and assign quarterly collection tasks."
+tags = ["evidence-collection", "audit-automation", "continuous-monitoring", "soc2"]
+
+[[beliefs]]
+fact = "Continuous monitoring for SOC 2 means demonstrating that controls operate effectively over the entire audit period, not just on the day the auditor checks. This requires: automated configuration scanning (CIS benchmarks), continuous vulnerability scanning, real-time access review triggers (on-hire/off-board/role-change), and automated alerting on control failures. An auditor finding a 2-week gap in monitoring during the audit period will flag it."
+confidence = 0.94
+source = "SOC 2 CC7.1, CC7.2, CC7.3 criteria; AICPA monitoring guidance"
+action_trigger = "Implement dashboards showing control health over time. Any control that shows a gap >24 hours requires an incident ticket documenting the gap, root cause, and remediation."
+edge_case = "Cloud infrastructure changes (new VPCs, new accounts, new services) may fall outside existing monitoring scope. Configuration monitoring must auto-discover new cloud resources and apply baseline checks within 24 hours of provisioning."
+tags = ["continuous-monitoring", "control-effectiveness", "audit-period", "soc2"]
+
+[[beliefs]]
+fact = "Audit readiness is a posture, not an event. Organizations that scramble before annual audits inevitably have findings. Organizations that maintain continuous compliance have clean reports. The key shift: treat compliance controls as production systems — they have SLAs, monitoring, alerting, and incident response just like application infrastructure."
+confidence = 0.93
+source = "Compliance program maturity models; DevSecOps compliance integration patterns"
+action_trigger = "Monthly compliance review meetings with control owners. Quarterly internal audit simulation. Annual external audit is a non-event because controls have been verified continuously."
+edge_case = "Rapid growth (acquisitions, new product lines, new geographies) can outpace compliance program scope. Every material business change triggers a compliance scope review within 30 days."
+tags = ["audit-readiness", "continuous-compliance", "compliance-culture", "soc2"]

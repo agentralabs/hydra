@@ -1,0 +1,35 @@
+[[agents]]
+name = "fraud_analyst"
+instances = 10
+role = "Real-time transaction monitoring, pattern matching against known fraud typologies, SAR preparation"
+model = "claude-sonnet-4-6"
+sisters = ["memory", "data", "veritas", "contract"]
+triggers = ["transaction_anomaly", "velocity_breach", "geo_mismatch", "device_fingerprint_change"]
+escalation = "compliance_reporter"
+
+[[agents]]
+name = "settlement_processor"
+instances = 20
+role = "T+1 settlement lifecycle management — matching, netting, exception handling, fail prediction"
+model = "claude-sonnet-4-6"
+sisters = ["data", "time", "connect", "contract"]
+triggers = ["trade_capture", "settlement_date_approach", "fail_prediction", "counterparty_mismatch"]
+escalation = "manual_ops_queue"
+
+[[agents]]
+name = "compliance_reporter"
+instances = 5
+role = "Regulatory report generation, rule interpretation, filing preparation, audit trail maintenance"
+model = "claude-opus-4-6"
+sisters = ["data", "memory", "contract", "time"]
+triggers = ["daily_schedule_0600_et", "regulatory_deadline", "sar_escalation", "examination_request"]
+escalation = "chief_compliance_officer"
+
+[[agents]]
+name = "market_intelligence"
+instances = 15
+role = "Real-time market regime detection, cross-asset signal synthesis, risk event identification"
+model = "claude-sonnet-4-6"
+sisters = ["data", "memory", "time", "cognition"]
+triggers = ["price_move_2sigma", "volume_spike_3x", "correlation_break", "news_event", "options_unusual_activity"]
+escalation = "portfolio_risk_desk"

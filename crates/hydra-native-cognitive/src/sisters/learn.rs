@@ -4,13 +4,20 @@
 use hydra_native_state::utils::safe_truncate;
 use super::cognitive::Sisters;
 
+/// Log a sister call_tool result — never silently swallow errors.
+macro_rules! log_call {
+    ($label:expr, $result:expr) => {
+        match $result {
+            Ok(_) => {}
+            Err(e) => eprintln!("[hydra:learn] {} FAILED: {}", $label, e),
+        }
+    };
+}
+
 impl Sisters {
-    /// LEARN: After response, dispatch to all learning sisters with V3 causal capture.
-    ///
-    /// Uses memory_capture_message (V3) for structured capture with causal chains,
-    /// plus memory_capture_decision for corrections/preferences detected.
+    /// LEARN: After response, dispatch to all learning sisters.
+    /// RULE: Store everything, classify nothing. Let sisters handle intelligence.
     pub async fn learn(&self, user_msg: &str, response: &str) {
-        // Debug: log which sisters are connected
         eprintln!("[hydra:learn] memory={} identity={} cognition={} evolve={} time={}",
             if self.memory.is_some() { "CONNECTED" } else { "NONE" },
             if self.identity.is_some() { "CONNECTED" } else { "NONE" },
@@ -20,229 +27,141 @@ impl Sisters {
         );
         eprintln!("[hydra:learn] user_msg='{}'", safe_truncate(&user_msg, 80));
 
-        let lower = user_msg.to_lowercase();
-        let is_correction = lower.starts_with("no,")
-            || lower.starts_with("no ")
-            || lower.starts_with("actually,")
-            || lower.starts_with("actually ")
-            || lower.contains("that's wrong")
-            || lower.contains("that's not right")
-            || lower.contains("i meant")
-            || lower.starts_with("don't ")
-            || lower.contains("always use")
-            || lower.contains("never use")
-            || lower.contains("i prefer");
-
-        // Structured capture — uses memory_add for facts/preferences,
-        // conversation_log for exchange history.
-        // FIX 2: Skip storing questions and greetings — they pollute memory.
-        use crate::cognitive::handlers::memory_intent::{is_question, is_greeting, classify_event_type};
-        let should_store = is_correction
-            || (!is_question(user_msg) && !is_greeting(user_msg));
-
+        // Store EVERYTHING as episode. No classification.
         let v3_capture_fut = async {
-            if !should_store {
-                eprintln!("[hydra:learn] SKIPPED memory_add — question/greeting");
-                return;
-            }
             if let Some(mem) = &self.memory {
-                eprintln!("[hydra:learn] Calling memory_add...");
                 let content = format!("User: {}\nHydra: {}", user_msg, safe_truncate(&response, 200));
-                let event_type = if is_correction { "correction" } else { classify_event_type(user_msg) };
-                let result = mem.call_tool("memory_add", serde_json::json!({
-                    "event_type": event_type,
-                    "content": content,
-                    "confidence": if is_correction { 0.95 } else { 0.8 },
-                })).await;
-                match &result {
-                    Ok(v) => eprintln!("[hydra:learn] memory_add OK: {}", serde_json::to_string(v).unwrap_or_default()),
+                match mem.call_tool("memory_add", serde_json::json!({
+                    "event_type": "episode", "content": content, "confidence": 0.8,
+                })).await {
+                    Ok(v) => eprintln!("[hydra:learn] memory_add OK: {}", serde_json::to_string(&v).unwrap_or_default()),
                     Err(e) => eprintln!("[hydra:learn] memory_add FAILED: {}", e),
                 }
-
-                // If correction detected, also store as high-importance fact
-                if is_correction {
-                    let _ = mem.call_tool("memory_add", serde_json::json!({
-                        "event_type": "fact",
-                        "content": format!("User preference: {}", user_msg),
-                        "confidence": 0.95,
-                    })).await;
-                }
             } else {
-                eprintln!("[hydra:learn] SKIPPED memory_add — memory sister is None");
+                eprintln!("[hydra:learn] SKIPPED memory_add — memory sister not connected");
             }
         };
 
-        // V2 fallback: also log via conversation_log for backward compatibility
-        let v2_log_fut = async {
-            self.log_conversation(user_msg, response).await;
-        };
+        let v2_log_fut = async { self.log_conversation(user_msg, response).await; };
 
         let cognition_fut = async {
             if let Some(s) = &self.cognition {
-                let _ = s.call_tool("cognition_belief_revise", serde_json::json!({
-                    "interaction": user_msg,
-                    "response": safe_truncate(&response, 500),
-                    "is_correction": is_correction,
-                })).await;
+                log_call!("cognition_belief_revise", s.call_tool("cognition_belief_revise", serde_json::json!({
+                    "interaction": user_msg, "response": safe_truncate(&response, 500),
+                })).await);
             }
         };
 
-        // Cognition user model update — longitudinal learning
         let cognition_model_fut = async {
             if let Some(s) = &self.cognition {
-                let _ = s.call_tool("cognition_model_update", serde_json::json!({
+                log_call!("cognition_model_heartbeat", s.call_tool("cognition_model_heartbeat", serde_json::json!({
                     "context": "current_user",
                     "observation": {
                         "message": safe_truncate(&user_msg, 300),
                         "response": safe_truncate(&response, 300),
                         "signals": {
-                            "is_correction": is_correction,
                             "is_technical": Self::detects_code(user_msg),
                             "message_length": user_msg.len(),
-                            "uses_slang": user_msg.contains("lol") || user_msg.contains("lmao") || user_msg.contains("bruh"),
                             "is_direct": user_msg.len() < 50,
                             "is_detailed": user_msg.len() > 200,
                         }
                     }
-                })).await;
+                })).await);
             }
         };
 
         let evolve_fut = async {
             if let Some(s) = &self.evolve {
-                let _ = s.call_tool("evolve_crystallize", serde_json::json!({
-                    "interaction": user_msg,
-                    "response": safe_truncate(&response, 500),
-                })).await;
+                log_call!("evolve_crystallize", s.call_tool("evolve_crystallize", serde_json::json!({
+                    "interaction": user_msg, "response": safe_truncate(&response, 500),
+                })).await);
             }
         };
 
         let identity_fut = async {
             if let Some(s) = &self.identity {
-                let _ = s.call_tool("receipt_create", serde_json::json!({
+                log_call!("receipt_create", s.call_tool("receipt_create", serde_json::json!({
                     "action": "conversation",
                     "input_summary": safe_truncate(&user_msg, 100),
                     "output_summary": safe_truncate(&response, 100),
-                })).await;
+                })).await);
             }
         };
 
         let time_fut = async {
             if let Some(s) = &self.time {
-                let _ = s.call_tool("time_duration_track", serde_json::json!({
-                    "action": user_msg,
-                    "status": "completed",
-                })).await;
+                log_call!("time_duration_track", s.call_tool("time_duration_track", serde_json::json!({
+                    "action": user_msg, "status": "completed",
+                })).await);
             }
         };
 
         let quality_fut = async {
             if let Some(mem) = &self.memory {
-                let _ = mem.call_tool("memory_quality", serde_json::json!({
-                    "content": user_msg,
-                    "action": "score"
-                })).await;
+                log_call!("memory_quality", mem.call_tool("memory_quality", serde_json::json!({
+                    "content": user_msg, "action": "score"
+                })).await);
             }
         };
 
         let reflect_fut = async {
             if let Some(s) = &self.cognition {
-                let _ = s.call_tool("cognition_soul_reflect", serde_json::json!({
-                    "interaction": user_msg,
-                    "response": safe_truncate(&response, 500),
-                })).await;
+                log_call!("cognition_soul_reflect", s.call_tool("cognition_soul_reflect", serde_json::json!({
+                    "interaction": user_msg, "response": safe_truncate(&response, 500),
+                })).await);
             }
         };
 
-        let correct_fut = async {
-            if is_correction {
-                if let Some(mem) = &self.memory {
-                    let _ = mem.call_tool("memory_correct", serde_json::json!({
-                        "query": user_msg,
-                        "correction": response,
-                    })).await;
-                }
-            }
-        };
+        let correct_fut = async {};
 
-        // Extract patterns + hallucination check + truth registration for code
         let pattern_fut = async {
             if Self::detects_code(user_msg) {
                 if let Some(s) = &self.codebase {
-                    let _ = s.call_tool("pattern_extract", serde_json::json!({
+                    log_call!("pattern_extract", s.call_tool("pattern_extract", serde_json::json!({
                         "context": safe_truncate(&user_msg, 200),
-                    })).await;
-                    // Verify our code response isn't hallucinated
-                    let _ = s.call_tool("hallucination_check", serde_json::json!({
+                    })).await);
+                    log_call!("hallucination_check", s.call_tool("hallucination_check", serde_json::json!({
                         "output": safe_truncate(&response, 500),
-                    })).await;
-                    // Register any code claims for truth maintenance
-                    let _ = s.call_tool("truth_register", serde_json::json!({
+                    })).await);
+                    log_call!("truth_register", s.call_tool("truth_register", serde_json::json!({
                         "claim": safe_truncate(&response, 300),
-                    })).await;
+                    })).await);
                 }
             }
         };
 
         let planning_learn_fut = async {
             if let Some(s) = &self.planning {
-                let _ = s.call_tool("goal_progress", serde_json::json!({
-                    "interaction": user_msg,
-                    "outcome": safe_truncate(&response, 200),
-                })).await;
+                log_call!("goal_progress", s.call_tool("goal_progress", serde_json::json!({
+                    "interaction": user_msg, "outcome": safe_truncate(&response, 200),
+                })).await);
             }
         };
 
         let comm_learn_fut = async {
             if let Some(s) = &self.comm {
-                // Only share significant learnings (corrections, new patterns)
-                if is_correction {
-                    let _ = s.call_tool("broadcast_insight", serde_json::json!({
-                        "insight": format!("User correction: {}", user_msg),
-                        "source": "cognitive_loop",
-                    })).await;
-                }
+                log_call!("broadcast_insight", s.call_tool("broadcast_insight", serde_json::json!({
+                    "insight": safe_truncate(user_msg, 200), "source": "cognitive_loop",
+                })).await);
             }
         };
 
-        // V3 immortal capture — stores EVERY exchange for "where did we stop?" recall
-        let immortal_capture_fut = async {
-            self.memory_capture_exchange(user_msg, response).await;
-        };
+        let immortal_capture_fut = async { self.memory_capture_exchange(user_msg, response).await; };
+        let comm_session_log_fut = async { self.comm_session_log(user_msg, response).await; };
+        let trust_reinforce_fut = async { self.identity_trust_reinforce("global", safe_truncate(user_msg, 100)).await; };
+        let identity_actions_fut = async { self.identity_actions_log(safe_truncate(user_msg, 100), safe_truncate(response, 100)).await; };
 
-        // Comm session log — durable conversation trail for context continuity
-        let comm_session_log_fut = async {
-            self.comm_session_log(user_msg, response).await;
-        };
-
-        // Phase G: Identity trust reinforcement — successful interaction builds trust
-        let trust_reinforce_fut = async {
-            self.identity_trust_reinforce("global", safe_truncate(user_msg, 100)).await;
-        };
-
-        // Phase G: Identity action log — audit trail
-        let identity_actions_fut = async {
-            self.identity_actions_log(
-                safe_truncate(user_msg, 100),
-                safe_truncate(response, 100),
-            ).await;
-        };
-
-        // Phase G: Contract decision record — audit receipt chain
         let contract_record_fut = async {
             if let Some(s) = &self.contract {
-                let _ = s.call_tool("contract_record_decision", serde_json::json!({
+                log_call!("contract_record_decision", s.call_tool("contract_record_decision", serde_json::json!({
                     "action": safe_truncate(user_msg, 200),
                     "outcome": safe_truncate(response, 200),
                     "source": "cognitive_loop",
-                })).await;
+                })).await);
             }
         };
 
-        // Phase G: Evolve pattern record — track action success for pattern evolution
-        let evolve_record_fut = async {
-            self.evolve_record_pattern(safe_truncate(user_msg, 200), true).await;
-        };
+        let evolve_record_fut = async { self.evolve_record_pattern(safe_truncate(user_msg, 200), true).await; };
 
         tokio::join!(v3_capture_fut, v2_log_fut, cognition_fut, cognition_model_fut, evolve_fut,
                      identity_fut, time_fut, quality_fut, reflect_fut, correct_fut, pattern_fut,

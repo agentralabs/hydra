@@ -1,0 +1,43 @@
+[skill]
+name = "market_regime_detection"
+description = "Detect current market regime through cross-asset signal synthesis, historical comparison, and portfolio implication analysis"
+version = "1.0.0"
+
+[trigger]
+patterns = [
+    "market regime",
+    "risk on/off",
+    "market conditions",
+    "what regime are we in",
+    "risk environment",
+    "market state",
+]
+
+[[steps]]
+name = "collect_signals"
+action = "sister:data"
+tool = "data_query"
+description = "Collect regime classification inputs: VIX level and term structure, yield curve shape (2y-10y, 3m-10y), high-yield credit spreads (OAS), equity market breadth (advance-decline, % above 200 DMA), cross-asset correlations, put/call ratio, and MOVE index"
+parameters = { signals = ["vix", "vix_term_structure", "yield_curve", "hy_spreads", "breadth", "correlations", "put_call", "move_index"] }
+
+[[steps]]
+name = "classify_regime"
+action = "llm"
+description = "Classify current regime into one of 6 states: risk-on expansion, risk-on euphoria, transition (deteriorating), risk-off correction, risk-off crisis, or recovery. Assign probability to each state and identify the top 3 signals driving the classification."
+depends_on = ["collect_signals"]
+parameters = { model = "claude-sonnet-4-6", regimes = ["expansion", "euphoria", "transition", "correction", "crisis", "recovery"] }
+
+[[steps]]
+name = "compare_history"
+action = "sister:memory"
+tool = "memory_query"
+description = "Retrieve the 5 most similar historical regime periods based on signal similarity, including what happened next (regime duration, transition trigger, asset class performance)"
+depends_on = ["classify_regime"]
+parameters = { query = "historical market regime periods with similar signal profile", limit = 10 }
+
+[[steps]]
+name = "assess_implications"
+action = "llm"
+description = "Translate the regime classification into specific portfolio implications: recommended asset allocation shifts, sector rotation signals, risk limit adjustments, and hedging recommendations. Include confidence level and the key signal to watch for regime change."
+depends_on = ["classify_regime", "compare_history"]
+parameters = { model = "claude-sonnet-4-6", include_allocation = true, include_hedging = true, include_watchlist = true }

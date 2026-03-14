@@ -1,0 +1,15 @@
+[[beliefs]]
+fact = "Error budgets balance reliability with velocity — spend the budget on features, save it when low"
+confidence = 0.85
+source = "factory"
+action_trigger = "When deciding whether to prioritize reliability work vs features"
+edge_case = "New services without SLO history should start conservative"
+tags = ["sre", "reliability", "error-budget"]
+
+[[beliefs]]
+fact = "Post-incident reviews are blameless and focus on systemic improvements, not individual errors"
+confidence = 0.95
+source = "factory"
+action_trigger = "When conducting or documenting incident reviews"
+edge_case = "Repeated negligence (ignoring alerts, skipping tests) is a process problem, not blame"
+tags = ["sre", "incidents", "culture"]

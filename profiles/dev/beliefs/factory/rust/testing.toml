@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "Code coverage percentage is a lagging indicator, not a goal — aim for meaningful assertions on behavior and edge cases rather than hitting a numeric target"
+confidence = 0.92
+source = "factory"
+action_trigger = "When evaluating test quality or setting coverage requirements for a project"
+edge_case = "Low coverage (<50%) reliably indicates under-testing, but high coverage (>90%) does not guarantee correctness — a test that asserts nothing still counts as covered"
+tags = ["rust", "testing", "coverage"]
+
+[[beliefs]]
+fact = "Property-based testing with proptest or quickcheck finds edge cases that hand-written examples miss — define invariants the code must uphold and let the framework generate inputs"
+confidence = 0.90
+source = "factory"
+action_trigger = "When testing parsers, serializers, data structures, or any function with a wide input domain"
+edge_case = "Property tests can be slow if the input space is huge — use proptest's config to limit cases in CI and run extended fuzzing separately; shrinking is where the real value lies"
+tags = ["rust", "testing", "property-testing", "proptest"]
+
+[[beliefs]]
+fact = "Unit tests verify a single module in isolation with mocked dependencies; integration tests verify that real components work together — both are necessary, neither is sufficient alone"
+confidence = 0.93
+source = "factory"
+action_trigger = "When deciding what kind of test to write for new functionality"
+edge_case = "In Rust, each file in tests/ compiles as a separate binary which multiplies link time and memory — consolidate integration tests into tests/suite/main.rs with mod entries"
+tags = ["rust", "testing", "unit-tests", "integration-tests"]
+
+[[beliefs]]
+fact = "Test names should describe the scenario and expected outcome, not the function being tested — 'transfer_fails_when_balance_insufficient' beats 'test_transfer'"
+confidence = 0.88
+source = "factory"
+action_trigger = "When naming new test functions or reviewing test readability"
+edge_case = "Very long test names hurt readability in test output — keep them under ~60 characters by focusing on the distinguishing behavior, not restating the module name"
+tags = ["rust", "testing", "naming", "readability"]
+
+[[beliefs]]
+fact = "Snapshot testing with insta captures complex output (JSON, debug strings, rendered UI) and detects regressions by diffing against stored references — ideal for outputs too large to assert field-by-field"
+confidence = 0.88
+source = "factory"
+action_trigger = "When testing functions that produce structured or multi-line output like error messages, serialized data, or CLI output"
+edge_case = "Snapshot tests become brittle if they capture non-deterministic data like timestamps or random IDs — use insta's redaction feature to mask volatile fields before comparison"
+tags = ["rust", "testing", "snapshot", "insta"]

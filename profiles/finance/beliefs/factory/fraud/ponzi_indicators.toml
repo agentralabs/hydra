@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Consistently positive returns with minimal volatility — specifically, positive returns in more than 95% of months with a maximum monthly drawdown less than 1% — is mathematically incompatible with any legitimate investment strategy that holds market risk. Madoff's reported 10-12% annualized return with only 7 losing months out of 215 (96.7% win rate) was a statistical impossibility for an equity-linked strategy. A win rate above 90% on monthly returns with equity-market-level expected returns is the strongest Ponzi indicator."
+confidence = 0.94
+source = "SEC OIG report on Madoff investigation failure 2009, Markopolos 2005 whistleblower analysis, Griffin/Shu 2018 Ponzi scheme detection"
+action_trigger = "Fund reports >90% positive monthly returns over 3+ years with equity-like total returns → flag as potential Ponzi, request independent verification of NAV from the fund administrator (not the manager), cross-reference reported returns with any observable index or benchmark."
+edge_case = "Certain legitimate strategies (short-volatility selling, high-frequency market making) can produce 85-90% positive monthly returns — but they have occasional large negative months (5-15% losses). The absence of any significant negative month over a 3+ year period is the distinguishing Ponzi characteristic."
+tags = ["fraud", "ponzi", "return_consistency", "red_flag"]
+
+[[beliefs]]
+fact = "Withdrawal delays — when a fund that previously processed redemptions within the stated T+30 (or similar) period begins taking T+60 or T+90, or imposes 'gates' limiting withdrawals to a percentage of AUM per quarter — is the most time-critical Ponzi indicator because it signals that new investor inflows are insufficient to cover redemptions. Once withdrawal delays begin, a Ponzi scheme typically collapses within 3-12 months. Early redeemers recover 60-80% of their investment; late redeemers recover 10-30%."
+confidence = 0.92
+source = "Madoff collapse timeline 2008, Stanford Financial Group 2009, numerous Ponzi scheme case studies"
+action_trigger = "Redemption processed later than stated terms (even by 5 business days) without a clear operational explanation → submit full redemption request immediately, do not accept assurances, escalate to legal"
+edge_case = "Legitimate funds experiencing temporary liquidity stress (March 2020, UK LDI crisis 2022) may gate redemptions to prevent fire sales that harm remaining investors. Distinguish by checking: is the fund's underlying portfolio in illiquid assets? If yes, the gate may be protective. If the fund claims to hold liquid assets but cannot redeem, it is almost certainly a Ponzi."
+tags = ["fraud", "ponzi", "withdrawal_delay", "gate"]
+
+[[beliefs]]
+fact = "Small or unknown auditors are the enabling condition for most Ponzi schemes — Madoff's auditor (Friehling & Horowitz) was a 3-person firm auditing a $65B fund. The auditor cannot independently verify assets at scale if it lacks the staffing and infrastructure. Any fund managing more than $100M that uses an auditor outside the top 20 accounting firms should be subject to additional due diligence on the auditor's independence, staffing, and other clients."
+confidence = 0.91
+source = "SEC OIG Madoff report, PCAOB inspection findings, due diligence best practices for hedge fund allocators"
+action_trigger = "Fund uses unknown/small auditor → request auditor inspection reports from PCAOB, verify auditor is registered and in good standing, check how many other funds the auditor audits and their total AUM. If the auditor's total client AUM exceeds 10x the auditor's revenue, it cannot be performing adequate audits."
+edge_case = "Newly launched funds (<$50M AUM) legitimately use smaller auditors because Big Four minimum engagement fees ($200K+) are prohibitively expensive. Apply the small-auditor red flag only to funds above $100M AUM or funds that have been operating for more than 3 years."
+tags = ["fraud", "ponzi", "auditor", "due_diligence"]
+
+[[beliefs]]
+fact = "Unexplainable or un-replicable returns — when a fund's reported returns cannot be replicated by any combination of known risk factors, benchmark indices, or trading strategies — is the definitive Ponzi indicator. Markopolos demonstrated that Madoff's returns could not be replicated by the split-strike conversion strategy Madoff claimed to use, nor by any other known options strategy. If 10 hours of quantitative analysis cannot identify what market exposures generate the claimed returns within 2 standard deviations, the returns are fabricated."
+confidence = 0.90
+source = "Markopolos 2005 Madoff analysis, factor replication studies, hedge fund replication literature"
+action_trigger = "Fund returns show <0.3 R-squared with all major factors (market, size, value, momentum, credit, volatility) over 36+ months → flag as unexplainable returns, demand full transparency on strategy mechanics, request an independently calculated NAV"
+edge_case = "Genuinely novel strategies (early cryptocurrency arbitrage 2013-2016, certain AI/ML-driven approaches) may show low factor R-squared because they access returns orthogonal to traditional factors. In these cases, demand live trade records and real-time portfolio positions rather than relying solely on factor analysis."
+tags = ["fraud", "ponzi", "replication", "factor_analysis"]

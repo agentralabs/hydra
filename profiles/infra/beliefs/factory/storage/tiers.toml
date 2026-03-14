@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "S3 Standard for frequently accessed data, Infrequent Access for monthly access, Glacier for archival — lifecycle policies should transition objects automatically based on access age"
+confidence = 0.90
+source = "factory"
+action_trigger = "When designing object storage strategy or reviewing storage costs"
+edge_case = "Minimum storage duration charges apply to IA (30 days) and Glacier (90/180 days); frequent transitions can cost more than Standard"
+tags = ["storage", "s3", "lifecycle"]
+
+[[beliefs]]
+fact = "EBS gp3 is the default choice — 20% cheaper than gp2 with independently tunable IOPS and throughput; io2 only for sustained IOPS above 16,000"
+confidence = 0.90
+source = "factory"
+action_trigger = "When provisioning block storage for EC2 instances"
+edge_case = "Some legacy AMIs don't support gp3; test before migrating production volumes"
+tags = ["storage", "ebs", "block-storage"]
+
+[[beliefs]]
+fact = "EFS provides shared POSIX filesystem with automatic scaling — use for workloads needing multi-instance file sharing; FSx for Windows or Lustre-specific needs"
+confidence = 0.85
+source = "factory"
+action_trigger = "When multiple instances need concurrent access to the same file system"
+edge_case = "EFS performance scales with size; small filesystems may have low burst credit and high latency"
+tags = ["storage", "efs", "shared-filesystem"]
+
+[[beliefs]]
+fact = "Data lifecycle policies should define retention, transition, and deletion rules at creation time — retroactive cleanup of ungoverned data is 10x more expensive"
+confidence = 0.90
+source = "factory"
+action_trigger = "When creating new storage buckets, volumes, or databases"
+edge_case = "Compliance requirements may mandate specific retention periods that override cost optimization"
+tags = ["storage", "lifecycle", "governance"]

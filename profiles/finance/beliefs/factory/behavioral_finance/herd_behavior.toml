@@ -1,0 +1,23 @@
+[[beliefs]]
+fact = "Momentum ignition — when a large trader submits aggressive orders to trigger stop-losses and momentum-following algorithms, then reverses position to profit from the artificial move — accounts for an estimated 3-5% of daily volume in liquid equities. The signature is a sharp 0.5-1% move on no news that occurs within 2-5 minutes, followed by a full reversal within 15-30 minutes. These events cluster around round-number price levels where stop-losses accumulate."
+confidence = 0.86
+source = "SEC concept release on market structure 2010, Cartea/Jaimungal/Penalva 2015 algorithmic trading, FINRA enforcement actions"
+action_trigger = "Sharp move > 0.5% on no news with volume spike → do NOT chase, wait 15 minutes for potential reversal before acting. If stop-loss triggered by suspected momentum ignition, evaluate re-entry at pre-event price."
+edge_case = "Legitimate breakouts from consolidation patterns can look identical to momentum ignition in the first 5 minutes. The distinguishing factor is follow-through: real breakouts show sustained order flow in the breakout direction after 15 minutes, while ignition events show immediate reversal."
+tags = ["behavioral", "herd", "momentum_ignition", "manipulation"]
+
+[[beliefs]]
+fact = "Short squeezes generate the most violent upward price moves in equity markets — 20-50%+ in days — and occur when short interest exceeds 20% of float AND a positive catalyst emerges that forces covering. The covering itself becomes the catalyst for further price increase, creating a reflexive feedback loop (Soros's reflexivity in its purest form). Once a short squeeze begins, it typically runs 2-5 days before exhausting because the covering itself reduces short interest and eliminates the fuel."
+confidence = 0.91
+source = "GameStop 2021, Volkswagen 2008, numerous short squeeze episodes 2015-2024, Dechow/Hutton/Meulbroek/Sloan 2001"
+action_trigger = "Short interest > 20% of float + positive catalyst → potential short squeeze, do NOT short additional shares. If already short, cover immediately — the expected cost of covering increases non-linearly during a squeeze."
+edge_case = "Synthetic short positions through options (short calls + long puts) do not appear in short interest data but create similar covering pressure. True short squeeze potential is short interest + estimated synthetic short interest, which can be 1.5-2x the reported figure."
+tags = ["behavioral", "herd", "short_squeeze", "reflexivity"]
+
+[[beliefs]]
+fact = "Crowded trades — when a disproportionate share of hedge fund or mutual fund capital is concentrated in the same positions — create systemic risk because forced selling by one fund triggers losses at other funds holding the same positions, causing cascading liquidation. The most reliable crowding measure is the overlap ratio of top-25 holdings across 13F filings: when more than 30% of reporting hedge funds hold the same stock in their top 10, it is critically crowded. Crowded longs underperform by 3-5% annualized; crowded shorts underperform (rally) by 4-8% annualized."
+confidence = 0.88
+source = "13F filing analysis, Jotikasthira/Lundblad/Ramadorai 2012 asset fire sales, Goldman Sachs Hedge Fund VIP basket data"
+action_trigger = "Position appears in >30% of hedge fund top-10 holdings → flag as crowding risk, reduce position or add hedges specifically against the crowding unwind scenario (which is always sudden and correlation-1 with other crowded names)"
+edge_case = "Crowded positions can remain crowded and continue performing for extended periods (FAAMG 2017-2020). Crowding is a risk factor, not a timing signal — it tells you the potential magnitude of the unwind, not when the unwind will occur. Combine with a catalyst screen."
+tags = ["behavioral", "herd", "crowded_trades", "systemic_risk"]

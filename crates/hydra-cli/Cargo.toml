@@ -1,7 +1,10 @@
 [package]
+description = "Hydra CLI with TUI mode — cognitive AI orchestrator"
 name = "hydra-cli"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]

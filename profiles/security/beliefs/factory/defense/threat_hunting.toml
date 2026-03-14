@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Hypothesis-driven hunting starts with a specific testable theory based on threat intelligence: 'APT29 is using Teams OAuth tokens for persistence in our environment.' The hunter then identifies which data sources would reveal this behavior, crafts queries to test the hypothesis, and either confirms, refutes, or refines. Without a hypothesis, hunting degenerates into aimless log browsing."
+confidence = 0.93
+source = "SANS FOR508; Sqrrl (now AWS) hunting methodology; David Bianco's Pyramid of Pain"
+action_trigger = "New threat intel report matching our industry or tech stack -> formulate hypothesis -> identify required telemetry -> hunt. Each hunt has a defined scope, time box (2-4 hours), and documented outcome regardless of whether threats are found."
+edge_case = "Hypothesis formation requires threat intel relevant to the organization. Generic APT reports about sectors you do not operate in produce low-value hunts. Prioritize intel from ISACs, sector-specific feeds, and vendor advisories matching your technology stack."
+tags = ["hypothesis-driven", "threat-hunting", "threat-intel", "methodology"]
+
+[[beliefs]]
+fact = "Data-driven hunting uses statistical analysis to find anomalies without a specific threat hypothesis: rare process executions (frequency analysis), unusual outbound data volumes (statistical outliers), first-seen domain contacts (baseline deviation), and authentication graph anomalies (new edges in the access graph). This approach catches novel threats that hypothesis-driven hunting misses because no intel exists yet."
+confidence = 0.91
+source = "Elastic Security anomaly detection; UEBA research; data science for security operations"
+action_trigger = "Weekly automated anomaly reports: top 10 rarest process executions, top 10 largest outbound transfers, top 10 new external domains contacted, top 10 new authentication relationships. Analyst reviews for suspicious patterns."
+edge_case = "New software deployments, employee onboarding, and business changes create legitimate anomalies. Coordinate with IT change management to suppress known-benign anomalies and reduce false positives in anomaly hunts."
+tags = ["data-driven", "anomaly-detection", "statistical-hunting", "ueba"]
+
+[[beliefs]]
+fact = "Threat-intel-driven hunting uses IOCs (indicators of compromise) and TTPs from external intelligence to search for known threats in the environment. IOCs (hashes, IPs, domains) are low-value because attackers change them per-target. TTPs (behaviors, techniques) are high-value because changing tradecraft is expensive. Focus hunting on behavioral patterns described in threat reports, not just IOC matching."
+confidence = 0.94
+source = "David Bianco Pyramid of Pain; MITRE ATT&CK; threat intel platform best practices"
+action_trigger = "On new threat report: extract TTPs and map to ATT&CK techniques. For each technique, verify detection coverage exists. Where coverage gaps exist, perform targeted hunts. IOC sweeps are supplementary, not primary."
+edge_case = "Threat intel sharing communities (ISACs) sometimes distribute stale or low-confidence IOCs that generate false positives. Score IOCs by source reliability, age, and corroborating evidence before committing to SIEM rules."
+tags = ["threat-intel-driven", "ioc", "ttp", "pyramid-of-pain", "hunting"]
+
+[[beliefs]]
+fact = "The most effective hunting principle: hunt where the attacker MUST be, not where they MIGHT be. Every attacker must authenticate, must communicate with C2, must access target data, and must exfiltrate. These chokepoints have the highest signal-to-noise ratio. Authentication logs, DNS resolution, and data access audit logs are the three highest-yield hunting data sources because attackers cannot avoid generating telemetry in these channels."
+confidence = 0.95
+source = "SOC operational experience; SANS hunting maturity model; adversary tradecraft analysis"
+action_trigger = "Structure hunting programs around mandatory attacker activities: (1) authentication anomalies, (2) DNS resolution anomalies, (3) data access anomalies. These three data sources cover the widest range of post-compromise activity with the least attacker ability to evade."
+edge_case = "Attackers using stolen legitimate credentials with normal access patterns are invisible in authentication logs. Layer behavioral analytics (unusual access times, impossible travel, access to resources outside role) on top of credential-based detection."
+tags = ["chokepoint-hunting", "authentication", "dns", "data-access", "high-yield"]

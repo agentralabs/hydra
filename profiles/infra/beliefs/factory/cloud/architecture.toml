@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "AWS leads in service breadth and enterprise adoption, GCP in data/ML, Azure in Microsoft ecosystem integration — choose based on team expertise and existing stack"
+confidence = 0.85
+source = "factory"
+action_trigger = "When selecting a primary cloud provider for a new workload"
+edge_case = "Regulatory requirements may mandate specific providers or regions; check compliance first"
+tags = ["cloud", "architecture", "provider-selection"]
+
+[[beliefs]]
+fact = "Multi-cloud adds operational complexity — only adopt when driven by regulatory, vendor lock-in, or best-of-breed requirements, not as a default strategy"
+confidence = 0.85
+source = "factory"
+action_trigger = "When evaluating whether to deploy across multiple cloud providers"
+edge_case = "Abstraction layers (Kubernetes, Terraform) reduce multi-cloud pain but don't eliminate it; networking and IAM remain provider-specific"
+tags = ["cloud", "architecture", "multi-cloud"]
+
+[[beliefs]]
+fact = "Well-Architected Framework reviews should happen quarterly — check operational excellence, security, reliability, performance, cost, and sustainability pillars"
+confidence = 0.90
+source = "factory"
+action_trigger = "When launching new workloads or during quarterly infrastructure reviews"
+edge_case = "Framework recommendations sometimes conflict (e.g., multi-AZ for reliability increases cost); prioritize by business criticality"
+tags = ["cloud", "architecture", "well-architected"]
+
+[[beliefs]]
+fact = "Landing zones provide standardized account/project structure with guardrails — set up before the first workload, not after 50 teams have created ad-hoc accounts"
+confidence = 0.90
+source = "factory"
+action_trigger = "When onboarding a new organization to cloud or expanding into a new region"
+edge_case = "Retrofitting landing zones to existing environments is possible but requires migration planning and team coordination"
+tags = ["cloud", "architecture", "landing-zone"]
+
+[[beliefs]]
+fact = "Account strategy should separate workloads by environment (dev/staging/prod) and by team or business unit — blast radius containment is the primary driver"
+confidence = 0.90
+source = "factory"
+action_trigger = "When designing the organizational account structure"
+edge_case = "Too many accounts create management overhead; consolidate shared services (logging, networking) into dedicated accounts"
+tags = ["cloud", "architecture", "account-strategy"]

@@ -101,9 +101,11 @@ impl Sisters {
     /// End a contract session with a summary (fire-and-forget).
     pub async fn contract_session_end(&self, summary: &str) {
         if let Some(contract) = &self.contract {
-            let _ = contract.call_tool("session_end", serde_json::json!({
+            if let Err(e) = contract.call_tool("session_end", serde_json::json!({
                 "summary": safe_truncate(summary, 500),
-            })).await;
+            })).await {
+                eprintln!("[hydra:contract] session_end FAILED: {}", e);
+            }
         }
     }
 

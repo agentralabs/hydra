@@ -2,6 +2,8 @@
 name = "hydra-sisters"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
 description = "Sister bridges for agentic-hydra: 14 sister integrations, batcher, registry"
 

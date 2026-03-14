@@ -53,7 +53,7 @@ pub fn render(frame: &mut Frame, area: Rect) {
     ]));
     lines.push(Line::default());
     lines.push(Line::from(Span::styled(
-        "  14 sisters · 740+ tools · cognitive loop",
+        "  17 sisters · 980+ tools · cognitive loop",
         theme::dim(),
     )));
     lines.push(Line::default());

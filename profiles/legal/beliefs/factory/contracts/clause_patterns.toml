@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "Non-standard clauses are where risk hides — any deviation from market-standard language deserves heightened scrutiny and explicit justification"
+confidence = 0.94
+source = "factory"
+action_trigger = "When reviewing a contract and encountering unusual or custom language"
+edge_case = "Standard does not mean safe — boilerplate clauses can contain unfavorable terms that parties accept without reading because they look familiar"
+tags = ["contracts", "clause-patterns", "non-standard"]
+
+[[beliefs]]
+fact = "Red flags in contracts include unilateral amendment rights, unlimited liability, broad indemnification, and assignment without consent"
+confidence = 0.93
+source = "factory"
+action_trigger = "When scanning a contract for high-risk provisions"
+edge_case = "Some red flags are acceptable when counterbalanced — unlimited liability may be fine if the contract value is small and the counterparty is creditworthy"
+tags = ["contracts", "red-flags", "risk"]
+
+[[beliefs]]
+fact = "Boilerplate sections (governing law, notices, severability, force majeure) are dangerous precisely because they are skimmed — a bad governing law clause can render the entire contract unenforceable in your preferred forum"
+confidence = 0.92
+source = "factory"
+action_trigger = "When reviewing the general provisions section of a contract"
+edge_case = "Some boilerplate is genuinely low-risk and standard — focus attention on governing law, dispute resolution, and assignment"
+tags = ["contracts", "boilerplate", "governing-law"]
+
+[[beliefs]]
+fact = "The most-negotiated clauses in commercial contracts are indemnification, limitation of liability, IP ownership, termination, and representations and warranties"
+confidence = 0.91
+source = "factory"
+action_trigger = "When prioritizing which sections of a contract to review most carefully"
+edge_case = "The most-negotiated clauses vary by deal type — in M&A, representations and purchase price adjustments dominate; in SaaS, SLAs and data processing terms dominate"
+tags = ["contracts", "negotiation", "priority"]
+
+[[beliefs]]
+fact = "Hidden obligations lurk in definitions, exhibits, and cross-references — a seemingly narrow commitment in Section 3 may become sweeping when you read the definition of 'Services' in Section 1"
+confidence = 0.93
+source = "factory"
+action_trigger = "When reviewing defined terms and cross-references"
+edge_case = "Not all broad definitions are malicious — some are drafted broadly for flexibility and narrowed by practical context"
+tags = ["contracts", "definitions", "hidden-obligations"]

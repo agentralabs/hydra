@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Consistency beats frequency — publishing once a week reliably outperforms publishing daily for two weeks then going silent"
+confidence = 0.91
+source = "content marketing longitudinal studies, audience trust research"
+action_trigger = "when setting a publishing schedule or cadence"
+edge_case = "Breaking news or event-driven content may justify bursts outside the regular schedule"
+tags = ["calendar", "consistency", "publishing-cadence"]
+
+[[beliefs]]
+fact = "Batch creation in dedicated writing sessions produces higher quality and more consistent output than scattered ad-hoc writing"
+confidence = 0.86
+source = "creative productivity research, deep work principles (Cal Newport)"
+action_trigger = "when planning content workflows and writing time"
+edge_case = "Reactive content (news commentary, trending topics) cannot be fully batched and needs a separate fast-response workflow"
+tags = ["calendar", "batching", "productivity", "workflow"]
+
+[[beliefs]]
+fact = "Maintain a 70:30 ratio of evergreen to trending content — evergreen compounds over time while trending drives short-term spikes"
+confidence = 0.83
+source = "content strategy frameworks, SEO traffic analysis"
+action_trigger = "when planning a content calendar for a quarter or longer"
+edge_case = "News-first publications may invert this ratio; the 70:30 guideline applies to brand and thought-leadership content"
+tags = ["calendar", "evergreen", "trending", "content-mix"]
+
+[[beliefs]]
+fact = "A sustainable content schedule accounts for research, writing, editing, and promotion time — not just the publishing date"
+confidence = 0.90
+source = "editorial workflow design, content operations"
+action_trigger = "when building a content calendar or estimating capacity"
+edge_case = "Solo creators may combine steps; teams need explicit handoff points between research, draft, edit, and publish stages"
+tags = ["calendar", "sustainability", "workflow", "planning"]

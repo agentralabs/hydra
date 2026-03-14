@@ -1,0 +1,9 @@
+[sisters]
+emphasize = ["Connect", "Workflow", "Memory", "Reality"]
+disable = []
+
+# Rationale: DevOps profile emphasizes operational sisters.
+# Connect — SSH and remote server management.
+# Workflow — CI/CD pipeline orchestration.
+# Memory — recall past incidents and runbooks.
+# Reality — environment and infrastructure context.

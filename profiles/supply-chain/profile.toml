@@ -1,0 +1,6 @@
+# Supply Chain Profile — Supply Chain Management
+[metadata]
+name = "supply-chain"
+version = "1.0.0"
+description = "Supply chain brain — tracks shipments, predicts delays, reroutes automatically"
+domain = "supply-chain-management"

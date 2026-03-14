@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Reviewers look for three things above all: novelty (is this new?), rigor (is this correct?), and significance (does this matter?)"
+confidence = 0.93
+source = "factory"
+action_trigger = "When preparing a manuscript for submission"
+edge_case = "Different venues weight these differently — top conferences prioritize novelty, specialized journals may value rigor over novelty"
+tags = ["writing", "peer-review", "criteria"]
+
+[[beliefs]]
+fact = "The most common rejection reason is 'incremental contribution' — if you cannot articulate in one sentence what is new, the paper is not ready"
+confidence = 0.92
+source = "factory"
+action_trigger = "When deciding whether a manuscript is ready for submission"
+edge_case = "Incremental does not mean unimportant — replication studies and negative results are valuable but need journals that value them"
+tags = ["writing", "peer-review", "rejection"]
+
+[[beliefs]]
+fact = "Revision strategy should address every reviewer comment explicitly — a point-by-point response letter is expected, and ignoring comments guarantees rejection"
+confidence = 0.94
+source = "factory"
+action_trigger = "When revising a manuscript after receiving reviews"
+edge_case = "You can respectfully disagree with a reviewer if you provide evidence — blind compliance with bad advice weakens the paper"
+tags = ["writing", "peer-review", "revision"]
+
+[[beliefs]]
+fact = "Reviewer 2 is a meme for a reason — expect at least one reviewer who misunderstands your work, and write defensively to prevent misreadings"
+confidence = 0.85
+source = "factory"
+action_trigger = "When writing to prevent misinterpretation"
+edge_case = "If a reviewer misunderstands, the fault is usually in the writing — use the misreading as diagnostic information about unclear passages"
+tags = ["writing", "peer-review", "clarity"]

@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "High-risk clauses are those with unlimited or uncapped exposure, unilateral rights favoring the counterparty, or obligations that survive termination indefinitely"
+confidence = 0.93
+source = "factory"
+action_trigger = "When classifying contract risk levels"
+edge_case = "Risk is contextual — a clause that is high-risk for a startup may be acceptable for an enterprise with insurance and reserves to absorb the exposure"
+tags = ["risk", "classification", "high-risk"]
+
+[[beliefs]]
+fact = "Risk matrices map likelihood against impact to prioritize which risks deserve attention — they prevent spending equal time on unlikely catastrophes and likely trivialities"
+confidence = 0.90
+source = "factory"
+action_trigger = "When prioritizing legal risks across a portfolio of contracts or issues"
+edge_case = "Risk matrices oversimplify by collapsing complex distributions into discrete categories — they are communication tools, not precise measurements"
+tags = ["risk", "classification", "risk-matrix"]
+
+[[beliefs]]
+fact = "Medium-risk clauses include those with ambiguous language, unusual definitions, or obligations that exceed market norms but have caps or other limiting mechanisms"
+confidence = 0.89
+source = "factory"
+action_trigger = "When triaging contract review findings"
+edge_case = "Ambiguity is the most dangerous medium risk — it becomes high risk the moment a dispute arises and the ambiguity is resolved against you"
+tags = ["risk", "classification", "medium-risk"]
+
+[[beliefs]]
+fact = "Low-risk clauses conform to market standards, have balanced obligations, clear language, and well-defined remedies — they still require review but not negotiation"
+confidence = 0.91
+source = "factory"
+action_trigger = "When deciding which clauses to accept without modification"
+edge_case = "Low-risk classification assumes the contract is read as a whole — a low-risk clause can become problematic when combined with another clause that changes its effective meaning"
+tags = ["risk", "classification", "low-risk"]

@@ -1,0 +1,21 @@
+[metadata]
+name = "knowledge_search"
+description = "Search the knowledge base for relevant articles, known issues, and resolution steps"
+version = "1.0.0"
+
+[trigger]
+patterns = ["search knowledge base", "find article", "how do I", "is there a guide for"]
+intent = "knowledge-retrieval"
+
+[steps]
+sequence = [
+    "Parse the customer's question into searchable terms and intent",
+    "Search knowledge base articles, known issues, and FAQ entries",
+    "Rank results by relevance and recency",
+    "Verify the top result still applies to the customer's version and environment",
+    "Deliver the answer with a link to the full article",
+]
+
+[sisters]
+primary = ["Memory", "Data"]
+optional = ["Cognition"]

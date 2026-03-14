@@ -1,0 +1,58 @@
+[skill]
+name = "portfolio_risk_assessment"
+description = "Comprehensive portfolio risk assessment — VaR, CVaR, stress tests, concentration, and factor exposure analysis"
+version = "1.0.0"
+
+[trigger]
+patterns = [
+    "assess risk",
+    "portfolio risk",
+    "exposure analysis",
+    "risk report",
+    "position limits",
+    "concentration risk",
+    "what is our risk",
+]
+
+[[steps]]
+name = "query_positions"
+action = "sister:data"
+tool = "data_query"
+description = "Retrieve current portfolio positions, notional values, and mark-to-market P&L from the position management system"
+parameters = { query_type = "portfolio_positions", include_greeks = true, include_fx_exposure = true }
+
+[[steps]]
+name = "calculate_var"
+action = "compute"
+description = "Calculate 1-day and 10-day VaR at 95% and 99% confidence levels using GARCH-updated covariance matrix. Compare to regulatory and internal limits."
+depends_on = ["query_positions"]
+parameters = { method = "parametric_garch", confidence_levels = [0.95, 0.99], horizons_days = [1, 10] }
+
+[[steps]]
+name = "calculate_max_drawdown"
+action = "compute"
+description = "Calculate current drawdown from peak, maximum historical drawdown, and Calmar ratio. Flag if current drawdown exceeds 50% of historical max."
+depends_on = ["query_positions"]
+parameters = { lookback_days = 252, alert_threshold_pct = 50 }
+
+[[steps]]
+name = "memory_query_historical"
+action = "sister:memory"
+tool = "memory_query"
+description = "Retrieve historical risk events, past limit breaches, and lessons learned from similar portfolio configurations"
+depends_on = ["query_positions"]
+parameters = { query = "portfolio risk events and limit breaches", limit = 20 }
+
+[[steps]]
+name = "stress_test"
+action = "compute"
+description = "Run portfolio through 6 stress scenarios: 2008 GFC, 2020 COVID, 2022 rate shock, correlation break, liquidity crisis, and a bespoke scenario targeting the portfolio's top concentration"
+depends_on = ["query_positions"]
+parameters = { scenarios = ["gfc_2008", "covid_2020", "rates_2022", "correlation_break", "liquidity_crisis", "bespoke_concentration"] }
+
+[[steps]]
+name = "synthesize"
+action = "llm"
+description = "Synthesize all risk metrics into an actionable risk report with traffic-light ratings (green/amber/red) for each risk dimension, specific position-level recommendations, and comparison to historical risk events"
+depends_on = ["calculate_var", "calculate_max_drawdown", "memory_query_historical", "stress_test"]
+parameters = { model = "claude-sonnet-4-6", output_format = "risk_report" }

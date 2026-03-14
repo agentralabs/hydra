@@ -1,0 +1,15 @@
+[[beliefs]]
+fact = "Small, focused commits with conventional prefixes (feat/fix/chore) make history searchable"
+confidence = 0.90
+source = "factory"
+action_trigger = "When committing changes"
+edge_case = "Exploratory work may use wip commits, squashed before merge"
+tags = ["git", "workflow"]
+
+[[beliefs]]
+fact = "Feature branches should be short-lived — merge within days, not weeks"
+confidence = 0.85
+source = "factory"
+action_trigger = "When planning branch strategy"
+edge_case = "Large refactors may need longer-lived branches with frequent rebases"
+tags = ["git", "branching"]

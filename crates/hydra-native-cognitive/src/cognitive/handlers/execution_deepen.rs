@@ -189,7 +189,8 @@ async fn call_llm_for_deepening(
         "ollama" => {
             let mut ollama_config = llm_config.clone();
             ollama_config.openai_api_key = Some("ollama".into());
-            ollama_config.openai_base_url = "http://localhost:11434".into();
+            ollama_config.openai_base_url = std::env::var("OLLAMA_HOST")
+                .unwrap_or_else(|_| "http://localhost:11434".to_string());
             let client = hydra_model::providers::openai::OpenAiClient::new(&ollama_config)
                 .map_err(|e| format!("{}", e))?;
             client.complete(request).await
@@ -267,9 +268,13 @@ pub(crate) async fn maybe_deepen_project(
                 for (rel_path, content) in &expanded {
                     let full_path = format!("{}/{}", base_dir, rel_path);
                     if let Some(parent) = std::path::Path::new(&full_path).parent() {
-                        let _ = tokio::fs::create_dir_all(parent).await;
+                        if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                            eprintln!("[hydra:deepen] create_dir_all({}) FAILED: {}", parent.display(), e);
+                        }
                     }
-                    let _ = tokio::fs::write(&full_path, content).await;
+                    if let Err(e) = tokio::fs::write(&full_path, content).await {
+                        eprintln!("[hydra:deepen] fs::write({}) FAILED: {}", full_path, e);
+                    }
                     files_expanded += 1;
 
                     let line_count = content.lines().count();

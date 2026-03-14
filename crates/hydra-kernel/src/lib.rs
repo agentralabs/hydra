@@ -36,3 +36,8 @@ pub mod health_summary;
 pub mod cargo_ops;
 pub mod build_planner;
 pub mod build_orchestrator;
+pub mod project_creation;
+pub mod project_creation_code;
+pub mod project_creation_templates;
+pub mod project_creation_llm;
+pub mod project_creation_phases;

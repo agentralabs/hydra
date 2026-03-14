@@ -56,6 +56,12 @@ pub enum CognitiveUpdate {
     // -- Settings --
     SettingsApplied { confirmation: String },
 
+    // -- Memory mode change (from /memory command) --
+    MemoryModeChanged { mode: String },
+
+    // -- Memory stats update (from LEARN phase after capture) --
+    MemoryStatsUpdate { facts: u64, tokens_avg: u64, receipts: u64 },
+
     // -- Sister visibility --
     SistersCalled { sisters: Vec<String> },
 
@@ -162,4 +168,7 @@ pub enum CognitiveUpdate {
 
     // -- Tool Actions (Claude Code-style display) --
     ToolAction { tool: String, args: String, result: String, success: bool },
+
+    // -- Sister Gateway stats --
+    GatewayStats { display: String },
 }

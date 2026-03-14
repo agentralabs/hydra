@@ -236,7 +236,9 @@ pub(crate) async fn run_decide(
     // Contract sister: request approval for auditable receipt chain
     if gate_decision == "requires_approval" {
         if let Some(ref sh) = sisters_handle {
-            let _ = sh.contract_request_approval(text, risk_level, "Cognitive loop action").await;
+            if sh.contract_request_approval(text, risk_level, "Cognitive loop action").await.is_none() {
+                eprintln!("[hydra:decide] contract_request_approval returned None");
+            }
         }
     }
 
@@ -331,10 +333,12 @@ pub(crate) async fn run_decide(
         // Shadow simulation: run action in sandbox first via Aegis sister
         if let Some(ref sh) = sisters_handle {
             if let Some(aegis) = &sh.aegis {
-                let _ = aegis.call_tool("shadow_simulate", serde_json::json!({
+                if let Err(e) = aegis.call_tool("shadow_simulate", serde_json::json!({
                     "action": text,
                     "risk_level": risk_level,
-                })).await;
+                })).await {
+                    eprintln!("[hydra:aegis] shadow_simulate FAILED: {}", e);
+                }
             }
         }
     }
@@ -351,6 +355,11 @@ pub(crate) async fn run_decide(
         PhaseStatus { phase: CognitivePhase::Decide, state: PhaseState::Completed, tokens_used: Some(0), duration_ms: Some(decide_ms) },
         PhaseStatus { phase: CognitivePhase::Act, state: PhaseState::Running, tokens_used: None, duration_ms: None },
     ]));
+
+    // UCU coherence_checker: pre-delivery consistency check
+    // (coherence score is computed here but the actual response check
+    //  happens in phase_think_call.rs — here we check intent coherence)
+    eprintln!("[hydra:decide] gate={} confidence={:.2} ms={}", gate_decision, adjusted_confidence, decide_start.elapsed().as_millis());
 
     Some(DecideResult {
         gate_decision,

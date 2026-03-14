@@ -1,0 +1,23 @@
+[[beliefs]]
+fact = "Inventory carrying cost is typically 20-30% of inventory value annually — includes capital cost, storage, insurance, obsolescence, and shrinkage"
+confidence = 0.85
+source = "factory"
+action_trigger = "When evaluating the financial impact of inventory policy changes"
+edge_case = "Technology products with rapid obsolescence can have carrying costs exceeding 40%"
+tags = ["inventory", "carrying-cost", "finance"]
+
+[[beliefs]]
+fact = "Every dollar of excess inventory is a dollar not available for growth — track days of inventory outstanding (DIO) and target industry benchmarks"
+confidence = 0.85
+source = "factory"
+action_trigger = "When reviewing working capital performance or preparing for quarterly business reviews"
+edge_case = "Strategic inventory builds ahead of disruptions are justified even if they temporarily worsen DIO"
+tags = ["inventory", "working-capital", "dio"]
+
+[[beliefs]]
+fact = "Markdown timing matters — fashion and seasonal goods lose 10-15% of value per week past peak season; trigger markdowns at 60% sell-through by midseason"
+confidence = 0.80
+source = "factory"
+action_trigger = "When seasonal or fashion inventory reaches midseason with below-plan sell-through"
+edge_case = "Deep markdowns damage brand perception; consider off-price channels or donation for tax benefit instead"
+tags = ["inventory", "markdown", "seasonal"]

@@ -1,0 +1,21 @@
+[metadata]
+name = "content_calendar"
+description = "Plan and manage content publishing schedule across platforms"
+version = "1.0.0"
+
+[trigger]
+patterns = ["content calendar", "publishing schedule", "what to post", "plan content", "content plan"]
+intent = "content-planning"
+
+[steps]
+sequence = [
+    "Review existing content inventory and performance data",
+    "Identify content gaps and opportunities",
+    "Balance evergreen (70%) and trending (30%) topics",
+    "Assign topics to dates with platform-specific adaptations",
+    "Set reminders and deadlines for drafting and review",
+]
+
+[sisters]
+primary = ["Memory", "Time", "Planning"]
+optional = ["Data"]

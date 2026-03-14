@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "Match search intent before optimizing keywords — a perfectly optimized page that answers the wrong question will not rank or convert"
+confidence = 0.93
+source = "Google Search Quality Guidelines, SEO industry consensus"
+action_trigger = "when selecting a topic or keyword to target"
+edge_case = "Emerging topics may have ambiguous intent; create content that addresses multiple intents or pick the dominant one"
+tags = ["seo", "search-intent", "keywords"]
+
+[[beliefs]]
+fact = "Title tags should be under 60 characters, front-load the primary keyword, and promise a clear benefit or answer"
+confidence = 0.88
+source = "Moz, Ahrefs title tag studies"
+action_trigger = "when writing or reviewing page titles and H1 headings"
+edge_case = "Brand-driven queries may benefit from the brand name in the title even if it pushes past 60 characters"
+tags = ["seo", "titles", "optimization"]
+
+[[beliefs]]
+fact = "Meta descriptions do not directly affect ranking but strongly affect click-through rate — write them as a 150-character ad for the page"
+confidence = 0.86
+source = "Google documentation, CTR studies"
+action_trigger = "when publishing any page intended to rank in search"
+edge_case = "Google often rewrites meta descriptions; focus on accuracy so the rewrite still represents the page well"
+tags = ["seo", "meta-descriptions", "ctr"]
+
+[[beliefs]]
+fact = "Internal linking distributes authority and helps readers discover related content — every new page should link to at least two existing pages and be linked from at least one"
+confidence = 0.87
+source = "information architecture, SEO link equity models"
+action_trigger = "when publishing any new content on a site with existing pages"
+edge_case = "Very small sites with few pages may not have relevant internal link targets yet"
+tags = ["seo", "internal-linking", "site-structure"]
+
+[[beliefs]]
+fact = "Write for humans first, then optimize for search engines — content that genuinely helps readers will outperform keyword-stuffed content long-term"
+confidence = 0.94
+source = "Google Helpful Content Update, E-E-A-T guidelines"
+action_trigger = "when tempted to sacrifice readability for keyword density"
+edge_case = "Highly competitive SERP niches may require deliberate keyword placement that feels slightly unnatural"
+tags = ["seo", "quality", "humans-first"]

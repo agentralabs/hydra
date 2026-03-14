@@ -1,0 +1,22 @@
+[metadata]
+name = "literature_search"
+description = "Conduct a systematic literature search across databases and synthesize relevant papers"
+version = "1.0.0"
+
+[trigger]
+patterns = ["find papers on", "literature search", "what does the research say", "search the literature"]
+intent = "literature-discovery"
+
+[steps]
+sequence = [
+    "Clarify the research question and scope (population, intervention, outcome, timeframe)",
+    "Select appropriate databases based on the domain",
+    "Develop search terms using Boolean operators, synonyms, and controlled vocabulary",
+    "Execute searches and deduplicate results",
+    "Screen titles and abstracts for relevance",
+    "Summarize included papers with key findings, methods, and limitations",
+]
+
+[sisters]
+primary = ["Data", "Memory", "Veritas"]
+optional = ["Codebase"]

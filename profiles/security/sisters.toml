@@ -1,0 +1,68 @@
+[sisters]
+
+[sisters.aegis]
+priority = "critical"
+description = "Primary threat assessment, risk scoring, and security posture evaluation"
+tools_emphasis = [
+    "aegis_threat_assess",
+    "aegis_risk_score",
+    "aegis_vulnerability_check",
+    "aegis_posture_evaluate",
+    "aegis_anomaly_detect",
+]
+
+[sisters.contract]
+priority = "critical"
+description = "Policy enforcement, compliance verification, and access control validation"
+tools_emphasis = [
+    "contract_policy_check",
+    "contract_compliance_verify",
+    "contract_access_validate",
+    "contract_audit_trail",
+]
+
+[sisters.identity]
+priority = "high"
+description = "Authentication verification, credential management, identity correlation"
+tools_emphasis = [
+    "identity_verify",
+    "identity_correlate",
+    "identity_session_check",
+    "identity_privilege_audit",
+]
+
+[sisters.memory]
+priority = "high"
+description = "IOC storage, incident history, threat intel retention, pattern recall"
+tools_emphasis = [
+    "memory_add",
+    "memory_search",
+    "memory_recall",
+    "memory_pattern_match",
+]
+
+[sisters.connect]
+priority = "high"
+description = "Cross-system communication, alert routing, team notification"
+tools_emphasis = [
+    "comm_message",
+    "comm_broadcast",
+    "comm_escalate",
+]
+
+[sisters.codebase]
+priority = "medium"
+description = "Source code analysis for vulnerabilities, dependency auditing"
+tools_emphasis = [
+    "search_semantic",
+    "file_search",
+    "symbol_lookup",
+]
+
+[sisters.reality]
+priority = "medium"
+description = "Environment context — what infrastructure exists, what is running"
+tools_emphasis = [
+    "reality_context",
+    "reality_inventory",
+]

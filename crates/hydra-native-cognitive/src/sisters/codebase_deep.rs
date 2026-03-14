@@ -54,10 +54,12 @@ impl Sisters {
     /// Log an analysis event (fire-and-forget).
     pub async fn codebase_analysis_log(&self, intent: &str, context: &str) {
         let Some(cb) = self.codebase.as_ref() else { return };
-        let _ = cb.call_tool("analysis_log", serde_json::json!({
+        if let Err(e) = cb.call_tool("analysis_log", serde_json::json!({
             "intent": safe_truncate(intent, 500),
             "context": safe_truncate(context, 500),
-        })).await;
+        })).await {
+            eprintln!("[hydra:codebase] analysis_log FAILED: {}", e);
+        }
     }
 
     /// Start a codebase analysis session.
@@ -73,7 +75,9 @@ impl Sisters {
     /// End the current codebase session (fire-and-forget).
     pub async fn codebase_session_end(&self) {
         let Some(cb) = self.codebase.as_ref() else { return };
-        let _ = cb.call_tool("session_end", serde_json::json!({})).await;
+        if let Err(e) = cb.call_tool("session_end", serde_json::json!({})).await {
+            eprintln!("[hydra:codebase] session_end FAILED: {}", e);
+        }
     }
 
     /// Resume a previous codebase session.

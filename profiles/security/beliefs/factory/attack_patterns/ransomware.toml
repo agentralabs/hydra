@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Pre-encryption indicators appear 3-21 days before ransomware deployment: reconnaissance (AdFind, BloodHound), credential harvesting (Mimikatz, LSASS dumps), lateral movement to domain controllers, volume shadow copy deletion (vssadmin delete shadows), and Group Policy modification for mass deployment. The encryption event is the END of the attack — detection must happen during the preparation phase."
+confidence = 0.95
+source = "DFIR reports from Conti, LockBit, BlackCat incidents; Mandiant ransomware playbook analysis"
+action_trigger = "vssadmin.exe or wmic shadowcopy delete execution, bcdedit /set recovery disabled, Group Policy modifications outside change windows, or mass RDP connections from a single source to multiple endpoints"
+edge_case = "Legitimate backup software and IT maintenance scripts may delete shadow copies or modify boot configuration. Key differentiator: legitimate operations follow change management tickets and are executed from known admin workstations."
+tags = ["ransomware", "pre-encryption", "shadow-copies", "detection-window"]
+
+[[beliefs]]
+fact = "Double extortion ransomware (encrypt + exfiltrate + threaten to publish) is now the dominant model: 80%+ of ransomware groups exfiltrate data before encryption. This means backup-based recovery is insufficient — even with perfect backups, the data leak threat persists. Detection of staging behavior (data compressed into archives in temp directories, upload to cloud storage or attacker infrastructure) is critical."
+confidence = 0.94
+source = "Coveware quarterly reports; Palo Alto Unit 42 Ransomware Threat Report 2024"
+action_trigger = "Large archive creation (7z, rar, zip) in unusual directories, bulk file access patterns across network shares, or outbound transfers >1GB to cloud storage endpoints not in approved list"
+edge_case = "Legitimate data migration and backup operations create large archives. Correlate with change management: if no migration is scheduled and a workstation is creating 50GB archives from the file server, that is exfil staging."
+tags = ["double-extortion", "data-exfil", "ransomware", "staging-detection"]
+
+[[beliefs]]
+fact = "Ransomware-as-a-Service (RaaS) ecosystems mean the operator who deploys ransomware and the developer who created it are different entities. Initial access is often purchased from Initial Access Brokers (IABs) who sell compromised VPN credentials, RDP access, or webshells. This means the vulnerability that enabled the breach may have been exploited weeks or months before ransomware deployment."
+confidence = 0.93
+source = "Kela, Flashpoint dark web monitoring; CISA ransomware advisories; IAB marketplace analysis"
+action_trigger = "Compromised credential alerts for VPN or RDP accounts, dark web monitoring hits for corporate credentials, or authentication from unusual geographies on VPN infrastructure"
+edge_case = "Employees traveling or using VPNs from personal devices create geo-anomalies. Implement risk-based authentication that considers device posture + location + time rather than location alone."
+tags = ["raas", "initial-access-broker", "credential-markets", "vpn-compromise"]
+
+[[beliefs]]
+fact = "Ransomware recovery priority must follow: (1) contain to stop spread, (2) identify encryption variant for potential decryptor availability, (3) assess backup integrity OFFLINE before connecting backup systems, (4) rebuild from clean images rather than decrypting where possible, (5) hunt for persistence mechanisms before declaring recovery complete. Skipping step 5 results in re-infection within days — attackers pre-plant backdoors anticipating recovery."
+confidence = 0.96
+source = "CISA ransomware recovery guide; No More Ransom project; IR engagement post-mortems"
+action_trigger = "Upon confirmed ransomware encryption: immediately isolate affected segments at network level, preserve a sample of encrypted files + ransom note for variant identification, and air-gap backup infrastructure"
+edge_case = "Organizations with flat networks cannot isolate segments without taking everything offline. This is why network segmentation is a pre-incident requirement, not an incident response step."
+tags = ["ransomware-recovery", "containment", "backup-integrity", "persistence-hunting"]

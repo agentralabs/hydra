@@ -1,0 +1,21 @@
+[metadata]
+name = "supplier_assessment"
+description = "Evaluate and score suppliers on quality, delivery, cost, and flexibility metrics"
+version = "1.0.0"
+
+[trigger]
+patterns = ["assess supplier", "supplier scorecard", "evaluate vendor", "supplier performance"]
+intent = "supplier-management"
+
+[steps]
+sequence = [
+    "Pull supplier performance data (OTIF, PPM, lead times, pricing history)",
+    "Calculate weighted scores across quality, delivery, cost, and flexibility",
+    "Compare against category benchmarks and peer suppliers",
+    "Identify risk factors (financial health, geographic concentration, capacity)",
+    "Generate scorecard with trend analysis and improvement recommendations",
+]
+
+[sisters]
+primary = ["Data", "Planning"]
+optional = ["Connect", "Memory"]

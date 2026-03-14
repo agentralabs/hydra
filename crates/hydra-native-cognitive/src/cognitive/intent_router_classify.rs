@@ -210,6 +210,10 @@ pub(crate) fn extract_memory_payload(input: &str) -> Option<String> {
 // Only handles trivially recognizable patterns. Everything else → Unknown.
 // ═══════════════════════════════════════════════════════════════════
 
+/// PRE-LLM FALLBACK: Emergency intent classifier for when no API key is available.
+/// Uses hardcoded patterns for common intents. The LLM classifier (classify()) handles
+/// the full range of natural language. This fallback ensures basic functionality offline.
+/// Known limitation: English-only patterns. Future: use local model or sister classification.
 pub(crate) fn emergency_classify(input: &str) -> ClassifiedIntent {
     let lower = input.to_lowercase();
     let trimmed = lower.trim().trim_end_matches('!');

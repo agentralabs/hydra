@@ -10,9 +10,11 @@ impl Sisters {
     /// Record a continuity event for identity persistence tracking.
     pub async fn identity_continuity_record(&self, event: &str) {
         if let Some(id) = &self.identity {
-            let _ = id.call_tool("continuity_record", serde_json::json!({
+            if let Err(e) = id.call_tool("continuity_record", serde_json::json!({
                 "event": safe_truncate(event, 500),
-            })).await;
+            })).await {
+                eprintln!("[hydra:identity] continuity_record FAILED: {}", e);
+            }
         }
     }
 
@@ -28,7 +30,9 @@ impl Sisters {
     /// Send a continuity heartbeat to confirm identity is alive.
     pub async fn identity_continuity_heartbeat(&self) {
         if let Some(id) = &self.identity {
-            let _ = id.call_tool("continuity_heartbeat", serde_json::json!({})).await;
+            if let Err(e) = id.call_tool("continuity_heartbeat", serde_json::json!({})).await {
+                eprintln!("[hydra:identity] continuity_heartbeat FAILED: {}", e);
+            }
         }
     }
 
@@ -72,10 +76,12 @@ impl Sisters {
         &self, capability: &str, reason: &str,
     ) {
         if let Some(id) = &self.identity {
-            let _ = id.call_tool("negative_declare", serde_json::json!({
+            if let Err(e) = id.call_tool("negative_declare", serde_json::json!({
                 "capability": safe_truncate(capability, 500),
                 "reason": safe_truncate(reason, 500),
-            })).await;
+            })).await {
+                eprintln!("[hydra:identity] negative_declare FAILED: {}", e);
+            }
         }
     }
 
@@ -139,7 +145,9 @@ impl Sisters {
     /// which calls "identity_session_end").
     pub async fn identity_session_end_raw(&self) {
         if let Some(id) = &self.identity {
-            let _ = id.call_tool("session_end", serde_json::json!({})).await;
+            if let Err(e) = id.call_tool("session_end", serde_json::json!({})).await {
+                eprintln!("[hydra:identity] session_end FAILED: {}", e);
+            }
         }
     }
 }

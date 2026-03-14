@@ -1,0 +1,22 @@
+[metadata]
+name = "negotiation_strategy"
+description = "Develop a negotiation strategy for contract terms with prioritized positions and fallbacks"
+version = "1.0.0"
+
+[trigger]
+patterns = ["negotiation strategy", "how should we negotiate", "what positions should we take", "contract negotiation"]
+intent = "negotiation-planning"
+
+[steps]
+sequence = [
+    "Identify the must-have, nice-to-have, and tradeable terms",
+    "Assess the counterparty's likely priorities and constraints",
+    "Define the ideal position, acceptable fallback, and walk-away point for each key term",
+    "Identify potential trade-offs (concede X to gain Y)",
+    "Draft specific alternative language for each negotiation point",
+    "Prepare a concession strategy with sequencing",
+]
+
+[sisters]
+primary = ["Contract", "Memory"]
+optional = ["Data", "Veritas"]

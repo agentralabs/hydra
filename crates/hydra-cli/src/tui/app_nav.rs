@@ -4,43 +4,69 @@
 use super::app::{App, FocusArea};
 
 impl App {
-    // Scroll — line-based offset from the bottom.
-    // 0 = pinned to bottom (auto-scroll), >0 = scrolled up by N lines.
+    // Scroll uses a dual model:
+    // - scroll_pinned_top = None → auto-scroll to bottom (normal mode)
+    // - scroll_pinned_top = Some(row) → viewport pinned at row N from top
+    // The pinned model means new content at the bottom doesn't move the viewport,
+    // so the user's first message stays visible when they've scrolled up.
+
     pub fn scroll_down(&mut self) {
+        if let Some(ref mut top) = self.scroll_pinned_top { *top += 1; }
         self.scroll_offset = self.scroll_offset.saturating_sub(1);
+        if self.scroll_offset == 0 { self.scroll_pinned_top = None; }
     }
 
     pub fn scroll_up(&mut self) {
+        if self.scroll_pinned_top.is_none() {
+            // First scroll up: anchor to "near bottom" — render will clamp to max_scroll
+            self.scroll_pinned_top = Some(usize::MAX);
+        }
+        if let Some(ref mut top) = self.scroll_pinned_top {
+            *top = top.saturating_sub(1);
+        }
         self.scroll_offset += 1;
     }
 
-    /// Scroll by N lines (for keyboard: 3 lines per arrow key).
     pub fn scroll_down_n(&mut self, n: usize) {
+        if let Some(ref mut top) = self.scroll_pinned_top { *top += n; }
         self.scroll_offset = self.scroll_offset.saturating_sub(n);
+        if self.scroll_offset == 0 { self.scroll_pinned_top = None; }
     }
 
     pub fn scroll_up_n(&mut self, n: usize) {
+        if self.scroll_pinned_top.is_none() {
+            self.scroll_pinned_top = Some(usize::MAX);
+        }
+        if let Some(ref mut top) = self.scroll_pinned_top { *top = top.saturating_sub(n); }
         self.scroll_offset += n;
     }
 
     pub fn scroll_to_bottom(&mut self) {
         self.scroll_offset = 0;
+        self.scroll_pinned_top = None;
     }
 
     pub fn scroll_to_top(&mut self) {
         self.scroll_offset = usize::MAX / 2;
+        self.scroll_pinned_top = Some(0);
     }
 
     pub fn page_up(&mut self) {
+        if self.scroll_pinned_top.is_none() {
+            self.scroll_pinned_top = Some(usize::MAX);
+        }
+        if let Some(ref mut top) = self.scroll_pinned_top { *top = top.saturating_sub(20); }
         self.scroll_offset += 20;
     }
 
     pub fn page_down(&mut self) {
+        if let Some(ref mut top) = self.scroll_pinned_top { *top += 20; }
         self.scroll_offset = self.scroll_offset.saturating_sub(20);
+        if self.scroll_offset == 0 { self.scroll_pinned_top = None; }
     }
 
     pub fn is_at_bottom(&self) -> bool {
-        self.scroll_offset == 0
+        self.scroll_pinned_top.is_none()
     }
 
     // History navigation

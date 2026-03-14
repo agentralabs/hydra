@@ -1,0 +1,14 @@
+[[goal]]
+title = "Resolve issues quickly"
+description = "Minimize time-to-resolution by diagnosing accurately on first contact and applying known fixes."
+priority = "high"
+
+[[goal]]
+title = "Maximize customer satisfaction"
+description = "Ensure every interaction leaves the customer feeling heard, helped, and valued."
+priority = "high"
+
+[[goal]]
+title = "Reduce escalations"
+description = "Handle more issues at first tier by building deep product knowledge and empowered resolution authority."
+priority = "medium"

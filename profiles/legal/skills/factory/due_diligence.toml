@@ -1,0 +1,24 @@
+[metadata]
+name = "due_diligence"
+description = "Conduct legal due diligence on a target entity or transaction"
+version = "1.0.0"
+
+[trigger]
+patterns = ["due diligence", "legal dd", "review this company", "acquisition review"]
+intent = "due-diligence"
+
+[steps]
+sequence = [
+    "Define the scope and materiality thresholds for the review",
+    "Review corporate formation documents, good standing, and organizational structure",
+    "Analyze material contracts for assignment restrictions, change-of-control provisions, and termination triggers",
+    "Assess IP portfolio (owned, licensed, encumbered) and freedom to operate",
+    "Review litigation history, pending claims, and threatened actions",
+    "Check regulatory compliance status and any outstanding enforcement actions",
+    "Identify undisclosed liabilities and contingent obligations",
+    "Produce a findings report with risk ratings and recommended deal protections",
+]
+
+[sisters]
+primary = ["Contract", "Data", "Veritas", "Memory"]
+optional = ["Time"]

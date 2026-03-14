@@ -80,41 +80,36 @@ impl Sisters {
     /// ACT: Planning goal checkpoint (update goal progress after action)
     pub async fn act_planning_checkpoint(&self, action: &str, status: &str) {
         if let Some(s) = &self.planning {
-            let _ = s.call_tool("goal_checkpoint", serde_json::json!({
-                "action": action,
-                "status": status,
-            })).await;
+            if let Err(e) = s.call_tool("goal_checkpoint", serde_json::json!({"action": action, "status": status})).await {
+                eprintln!("[hydra:delegation] goal_checkpoint FAILED: {}", e);
+            }
         }
     }
 
     /// ACT: Identity receipt for command execution
     pub async fn act_receipt(&self, command: &str, risk_level: &str, success: bool) {
         if let Some(s) = &self.identity {
-            let _ = s.call_tool("receipt_create", serde_json::json!({
-                "action": format!("command_execution: {}", command),
-                "risk_level": risk_level,
-                "success": success,
-            })).await;
+            if let Err(e) = s.call_tool("receipt_create", serde_json::json!({
+                "action": format!("command_execution: {}", command), "risk_level": risk_level, "success": success,
+            })).await { eprintln!("[hydra:delegation] receipt_create FAILED: {}", e); }
         }
     }
 
     /// LEARN: Planning goal progress update
     pub async fn learn_planning(&self, user_msg: &str, outcome: &str) {
         if let Some(s) = &self.planning {
-            let _ = s.call_tool("goal_progress", serde_json::json!({
-                "interaction": user_msg,
-                "outcome": outcome,
-            })).await;
+            if let Err(e) = s.call_tool("goal_progress", serde_json::json!({"interaction": user_msg, "outcome": outcome})).await {
+                eprintln!("[hydra:delegation] goal_progress FAILED: {}", e);
+            }
         }
     }
 
     /// LEARN: Comm share learnings with federated peers
     pub async fn learn_comm_share(&self, insight: &str) {
         if let Some(s) = &self.comm {
-            let _ = s.call_tool("broadcast_insight", serde_json::json!({
-                "insight": insight,
-                "source": "cognitive_loop",
-            })).await;
+            if let Err(e) = s.call_tool("broadcast_insight", serde_json::json!({"insight": insight, "source": "cognitive_loop"})).await {
+                eprintln!("[hydra:delegation] broadcast_insight FAILED: {}", e);
+            }
         }
     }
 
@@ -122,10 +117,9 @@ impl Sisters {
     pub async fn learn_capture_files(&self, files: &[String]) {
         if let Some(mem) = &self.memory {
             for file in files {
-                let _ = mem.call_tool("memory_capture_file", serde_json::json!({
-                    "path": file,
-                    "source": "hydra_native",
-                })).await;
+                if let Err(e) = mem.call_tool("memory_capture_file", serde_json::json!({"path": file, "source": "hydra_native"})).await {
+                    eprintln!("[hydra:delegation] capture_file FAILED: {}", e);
+                }
             }
         }
     }
@@ -133,12 +127,9 @@ impl Sisters {
     /// LEARN: Memory capture command execution
     pub async fn learn_capture_command(&self, command: &str, output: &str, success: bool) {
         if let Some(mem) = &self.memory {
-            let _ = mem.call_tool("memory_capture_tool", serde_json::json!({
-                "tool_name": "shell",
-                "input": command,
-                "output": safe_truncate(&output, 500),
-                "success": success,
-            })).await;
+            if let Err(e) = mem.call_tool("memory_capture_tool", serde_json::json!({
+                "tool_name": "shell", "input": command, "output": safe_truncate(&output, 500), "success": success,
+            })).await { eprintln!("[hydra:delegation] capture_tool FAILED: {}", e); }
         }
     }
 
@@ -184,7 +175,7 @@ impl Sisters {
         {
             let tmp = std::env::temp_dir().join("hydra-screencapture.png");
             let output = tokio::process::Command::new("screencapture")
-                .args(["-x", "-t", "png", tmp.to_str().unwrap_or("/tmp/hydra-screencapture.png")])
+                .args(["-x", "-t", "png", &tmp.display().to_string()])
                 .output()
                 .await
                 .ok();

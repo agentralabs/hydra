@@ -1,0 +1,38 @@
+[skill]
+name = "incident_containment"
+description = "Execute containment procedures for confirmed security incidents"
+trigger_phrases = ["incident", "breach", "contain", "compromised system", "active threat"]
+agent = "incident_responder"
+model = "claude-sonnet-4-6"
+timeout_seconds = 300
+
+[[steps]]
+name = "assess_scope"
+description = "Determine blast radius by identifying all affected systems, accounts, and data"
+action = "Query EDR for all systems communicating with known-compromised indicators. Check authentication logs for credential reuse from compromised accounts. Map lateral movement paths from initial compromise point. Produce a blast radius diagram."
+sisters = ["aegis", "identity", "memory"]
+
+[[steps]]
+name = "isolate_systems"
+description = "Network-isolate compromised systems while preserving forensic evidence"
+action = "Before isolation: trigger memory dump and volatile evidence collection on each affected system. Then apply network isolation via EDR agent (preferred) or switch port disable (fallback). Verify isolation by confirming no outbound connections. Log isolation timestamp per host."
+sisters = ["aegis", "connect"]
+requires_approval = false
+
+[[steps]]
+name = "preserve_evidence"
+description = "Ensure all forensic evidence is captured and chain of custody initiated"
+action = "For each isolated system: verify memory dump completed, initiate disk image if warranted, collect relevant log files. Hash all evidence artifacts (SHA-256). Create evidence manifest with collector, timestamp, and hash for each item. Store in evidence repository with write-protection."
+sisters = ["memory", "contract"]
+
+[[steps]]
+name = "initiate_response"
+description = "Activate incident response procedures and assign roles"
+action = "Declare incident with severity level. Assign roles: incident commander, technical lead, communications lead. Open incident channel (out-of-band if email compromise suspected). Start incident timeline document. Notify stakeholders per communication plan."
+sisters = ["connect", "identity"]
+
+[[steps]]
+name = "communicate"
+description = "Execute communication plan for internal and external stakeholders"
+action = "Internal: notify SOC lead, CISO, and affected system owners. Legal: brief on potential regulatory notification requirements. Executive: provide situation summary with business impact assessment. External: prepare holding statement but do not release without legal approval. All communications logged in incident record."
+sisters = ["connect", "contract"]

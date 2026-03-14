@@ -1,0 +1,23 @@
+[[beliefs]]
+fact = "Citing to agree signals that you build on the cited work — this is the default assumption readers make, so disagreement citations must be explicit"
+confidence = 0.90
+source = "factory"
+action_trigger = "When writing citations or interpreting how a paper positions itself relative to prior work"
+edge_case = "Some fields use citation-as-acknowledgment (listing everything vaguely related) which dilutes the signal — look for verb cues like 'confirmed' vs 'listed'"
+tags = ["literature", "citation-semantics", "agreement"]
+
+[[beliefs]]
+fact = "Citing to disagree requires precision — state exactly what the cited work claims, exactly where you diverge, and what evidence supports your position"
+confidence = 0.92
+source = "factory"
+action_trigger = "When challenging prior findings or reinterpreting existing evidence"
+edge_case = "Disagreement citations are riskier politically — reviewers who authored the cited work may not respond well, so the evidence must be airtight"
+tags = ["literature", "citation-semantics", "disagreement"]
+
+[[beliefs]]
+fact = "Citing to extend acknowledges that your work could not exist without the prior result, then shows what new territory you cover"
+confidence = 0.89
+source = "factory"
+action_trigger = "When your research builds directly on a specific prior study or method"
+edge_case = "Extension can be mistaken for incremental work — clearly articulate the non-obvious step between what was known and what you contribute"
+tags = ["literature", "citation-semantics", "extension"]

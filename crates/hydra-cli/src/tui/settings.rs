@@ -49,7 +49,7 @@ pub struct KeybindingContext {
 /// Load settings from project and global config files.
 /// Project settings override global settings.
 pub fn load_settings() -> HydraSettings {
-    let home = std::env::var("HOME").unwrap_or_default();
+    let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_default();
 
     // Load global settings first
     let global_path = format!("{}/.hydra/settings.json", home);
@@ -86,7 +86,7 @@ fn load_settings_file(path: &str) -> Option<HydraSettings> {
 
 /// Load keybindings from ~/.hydra/keybindings.json
 pub fn load_keybindings() -> KeybindingsConfig {
-    let home = std::env::var("HOME").unwrap_or_default();
+    let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_default();
     let path = format!("{}/.hydra/keybindings.json", home);
     std::fs::read_to_string(&path)
         .ok()

@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "Mean-variance optimization (Markowitz) is theoretically optimal but practically dangerous — small estimation errors in expected returns (the hardest input to estimate) cause massive swings in portfolio weights. A 1% change in expected return for a single asset can shift its optimal weight by 20-40%. In practice, constrained optimization (max weight 5-10%, sector limits) plus shrinkage estimators (Ledoit-Wolf) produces portfolios that outperform unconstrained MVO out-of-sample by 2-4% annualized."
+confidence = 0.92
+source = "Michaud 1989 Markowitz optimization enigma, Ledoit/Wolf 2004 shrinkage, DeMiguel/Garlappi/Uppal 2009 1/N comparison"
+action_trigger = "Portfolio optimization requested → always use constrained optimization with Ledoit-Wolf covariance shrinkage, never trust unconstrained MVO weights, compare optimized portfolio to equal-weight as a sanity check"
+edge_case = "For highly concentrated portfolios (PE, VC) where position sizes are driven by deal availability not optimization, MVO is irrelevant — use risk budgeting (allocate risk, not capital) instead."
+tags = ["portfolio", "markowitz", "optimization", "estimation_error"]
+
+[[beliefs]]
+fact = "Black-Litterman model solves Markowitz's biggest problem by starting from market-implied equilibrium returns and blending in investor views with explicit confidence levels. A view expressed with 50% confidence shifts the portfolio 25-30% of the way from equilibrium to the view-implied portfolio. This produces more stable, intuitive portfolios that require fewer constraints. The key insight: if you have no view on an asset, Black-Litterman defaults to the market-cap-weighted position — a sensible baseline."
+confidence = 0.90
+source = "Black/Litterman 1992, He/Litterman 1999 implementation, Goldman Sachs Asset Management practice"
+action_trigger = "Portfolio construction with active views → use Black-Litterman with views expressed as relative (A outperforms B by X%) rather than absolute (A returns X%), calibrate view confidence between 25-75% to avoid extreme positions"
+edge_case = "Black-Litterman assumes the market portfolio is efficient, which fails during bubbles (tech 2000, meme stocks 2021). If market-cap weights are distorted by speculative excesses, adjust the equilibrium by using fundamental-weighted rather than cap-weighted market portfolio as the prior."
+tags = ["portfolio", "black_litterman", "views", "equilibrium"]
+
+[[beliefs]]
+fact = "Risk parity (equal risk contribution) portfolios outperform traditional 60/40 by 1-3% annualized with 20-30% lower drawdowns over 30-year periods — but only when implemented with leverage (typically 1.5-2x) to bring the expected return up to equity-like levels. Unlevered risk parity has equity-like Sharpe ratios but bond-like absolute returns, which is unsatisfying for most investors."
+confidence = 0.87
+source = "Bridgewater All Weather concept, Maillard/Roncalli/Teiletche 2010, Asness/Frazzini/Pedersen 2012 risk parity analysis"
+action_trigger = "Risk parity allocation → target 10% portfolio volatility (matching long-term equity vol), use leverage to achieve this, rebalance monthly, monitor funding costs as they directly reduce the premium"
+edge_case = "Risk parity's bond allocation creates a massive duration bet — in a sustained rising rate environment (2022), risk parity can underperform 60/40 by 10%+ because bonds and equities both decline. Add inflation hedges (TIPS, commodities, short-duration real assets) as a fourth risk bucket."
+tags = ["portfolio", "risk_parity", "leverage", "diversification"]
+
+[[beliefs]]
+fact = "The Kelly criterion (bet size = edge / odds) maximizes long-term geometric growth rate but produces position sizes that are psychologically intolerable — a strategy with 55% win rate and 1:1 payoff yields a 10% Kelly bet, but the drawdown path includes 50%+ declines from peak. In practice, half-Kelly (50% of the Kelly-optimal size) sacrifices only 25% of the geometric growth rate while reducing maximum drawdown by approximately 40%."
+confidence = 0.91
+source = "Kelly 1956, Thorp 2006 Kelly in practice, MacLean/Thorp/Ziemba 2011 Kelly capital growth"
+action_trigger = "Position sizing for a new strategy → calculate full Kelly bet, then implement at 25-50% Kelly depending on confidence in the edge estimate and drawdown tolerance. Never exceed full Kelly — the growth rate is strictly lower above Kelly."
+edge_case = "Kelly assumes known edge and odds, but in financial markets both are estimated with error. When the edge estimate has a standard error greater than 50% of the point estimate, Kelly sizing is unreliable — use a fixed fractional approach (1-2% risk per trade) instead."
+tags = ["portfolio", "kelly_criterion", "position_sizing", "geometric_growth"]
+
+[[beliefs]]
+fact = "Rebalancing frequency matters less than rebalancing bands. Calendar rebalancing (monthly, quarterly) is slightly inferior to threshold rebalancing (rebalance when any position drifts more than 5% from target weight) because calendar rebalancing triggers unnecessary trades in low-volatility periods and delays necessary trades in high-volatility periods. Threshold rebalancing with 5% bands reduces turnover by 30-40% versus monthly calendar rebalancing while capturing the same or better rebalancing premium."
+confidence = 0.88
+source = "Masters 2003 rebalancing frequency, Daryanani 2008 opportunistic rebalancing, Vanguard research 2015"
+action_trigger = "Portfolio maintenance → implement 5% absolute drift bands for major asset classes, 3% for concentrated single-name positions, check daily but only rebalance when threshold breached"
+edge_case = "In rapidly trending markets (March 2020 crash, 2022 rate shock), threshold rebalancing with tight bands generates excessive contrarian trading into a trend. Consider widening bands to 8-10% during confirmed regime changes (VIX > 30 sustained for 2+ weeks)."
+tags = ["portfolio", "rebalancing", "threshold", "turnover"]

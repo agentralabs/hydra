@@ -145,7 +145,10 @@ Swarm Commands:
             self.push_system(timestamp, "No agents to terminate.".into());
             return;
         }
-        self.push_system(timestamp, format!("Terminating {} agents...", count));
+        self.push_system(timestamp, format!("All {} agents terminated.", count));
+        // Clear overlay immediately so "Running N agents" disappears
+        self.running_sub_agents.clear();
+        self.thinking_status.clear();
         let mgr = self.swarm_manager.clone_handle();
         tokio::spawn(async move {
             mgr.kill_all().await;

@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "DCF models are only as good as their terminal value assumption, which typically accounts for 60-80% of the total enterprise value. A 1% change in the terminal growth rate assumption changes the valuation by 15-25%. Most analyst DCF disagreements are not about near-term cash flows but about the terminal growth rate and WACC — focus due diligence there."
+confidence = 0.94
+source = "Damodaran 2012 valuation framework, empirical analysis of sell-side DCF models 2020-2024"
+action_trigger = "When reviewing any DCF → immediately check terminal value as % of total, sensitivity to terminal growth rate +/- 1%, and whether terminal growth exceeds long-term GDP (a red flag)"
+edge_case = "For companies with natural resource depletion (mining, oil), terminal value should be near zero or negative (remediation costs). A positive terminal value in a mining DCF is almost certainly wrong."
+tags = ["valuation", "dcf", "terminal_value", "sensitivity"]
+
+[[beliefs]]
+fact = "Comparable company analysis using EV/EBITDA is reliable only when the peer group shares similar capital intensity, growth rates, and margin profiles. A 'comparable' set where EBITDA margins range from 10% to 40% will produce a valuation range so wide (often 50-100% spread) that it provides no actionable information. Narrow the peer set to companies within 5 percentage points of the target's EBITDA margin."
+confidence = 0.88
+source = "Liu/Nissim/Thomas 2002 equity valuation using multiples, institutional practice at bulge bracket banks"
+action_trigger = "Comps analysis requested → first filter peers by margin similarity (within 5pp), then by growth rate (within 3pp), then by size (within 0.5x-2x revenue). If fewer than 4 peers remain, the comps approach may not be reliable."
+edge_case = "For recently IPO'd companies or companies undergoing transformation, historical margins are not representative — use forward margin estimates, but apply a wider confidence interval to the resulting valuation."
+tags = ["valuation", "comparables", "ev_ebitda", "peer_selection"]
+
+[[beliefs]]
+fact = "Precedent transaction analysis systematically overstates fair value by 20-40% because transaction premiums include control premium (15-25%), synergy value (5-15%), and competitive auction dynamics (5-10%). Using precedent transactions without decomposing the premium components leads to overvaluation of minority stakes."
+confidence = 0.90
+source = "Mergerstat Review historical premiums data, Damodaran control premium studies, M&A advisory practice"
+action_trigger = "Using precedent transactions → explicitly decompose the transaction premium into control, synergy, and auction components. For minority valuation, subtract all three. For control valuation, subtract synergies and auction premium only."
+edge_case = "In distressed M&A (target in bankruptcy or near-insolvent), precedent transactions may actually understate value because the seller had no negotiating leverage. Distressed deal multiples should not be mixed with strategic deal multiples."
+tags = ["valuation", "precedent_transactions", "control_premium", "m_and_a"]
+
+[[beliefs]]
+fact = "Sum-of-the-parts (SOTP) valuation reveals conglomerate discounts averaging 10-15% in US markets and 15-25% in emerging markets. When the SOTP value exceeds the market cap by more than 20%, it signals either an activist opportunity (spin-off/breakup catalyst) or a market assessment that management is destroying value through capital misallocation across segments."
+confidence = 0.86
+source = "Berger/Ofek 1995 diversification discount, updated by Laeven/Levine 2007, activist campaign analysis 2018-2024"
+action_trigger = "SOTP premium > 20% over market cap → screen for activist involvement (13D filings), assess spin-off feasibility, evaluate management's capital allocation track record across segments"
+edge_case = "Some conglomerate discounts are justified because the segments have negative synergies (shared debt, cross-subsidization of failing units, regulatory contagion). If the weakest segment consumes disproportionate capital, the discount is rational, not an opportunity."
+tags = ["valuation", "sotp", "conglomerate_discount", "activist"]
+
+[[beliefs]]
+fact = "EV/EBITDA multiples mean-revert to sector medians over 3-5 year periods with 75% reliability, but the path is non-linear — multiples can expand for 2-3 years before compressing sharply. Buying at the 25th percentile of a sector's historical EV/EBITDA distribution and selling at the 75th percentile has generated 8-12% annualized alpha over the last two decades, net of the value trap problem."
+confidence = 0.83
+source = "O'Shaughnessy 2011 What Works on Wall Street, AQR value factor research, empirical validation 2004-2024"
+action_trigger = "EV/EBITDA at 25th percentile of sector 10-year range → flag as potential value opportunity, but require a catalyst (management change, restructuring, cyclical upturn) before acting — value without catalyst is a value trap"
+edge_case = "Secular disruption permanently resets sector multiples — newspapers, traditional retail, and coal mining saw permanent multiple compression that never mean-reverted. If the business model faces existential technological threat, historical multiple ranges are irrelevant."
+tags = ["valuation", "mean_reversion", "ev_ebitda", "value_investing"]

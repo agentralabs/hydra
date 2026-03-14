@@ -7,7 +7,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 
 use crate::sisters::SistersHandle;
-use hydra_native_state::utils::safe_truncate;
+use hydra_native_state::utils::{safe_truncate, strip_emojis};
 
 use super::super::loop_runner::{CognitiveLoopConfig, CognitiveUpdate};
 use super::super::intent_router::{IntentCategory, ClassifiedIntent};
@@ -35,7 +35,7 @@ pub(crate) fn handle_greeting_farewell_thanks(
             let greeting = pick_greeting(&name);
             let _ = tx.send(CognitiveUpdate::Message {
                 role: "hydra".into(),
-                content: greeting,
+                content: strip_emojis(&greeting),
                 css_class: "message hydra".into(),
             });
             let _ = tx.send(CognitiveUpdate::ResetIdle);
@@ -122,26 +122,68 @@ pub(crate) async fn handle_memory_recall(
     let recall_llm_config = hydra_model::LlmConfig::from_env_with_overlay(
         &config.anthropic_key, &config.openai_key, config.anthropic_oauth_token.as_deref(),
     );
-    // Auto-detect cheapest model for the formatting micro-call — must match the connected provider
     let recall_model = hydra_model::pick_cheapest_model(&recall_llm_config);
     let recall_topic = extract_memory_topic(text);
     eprintln!("[hydra:recall] topic='{}' is_why={}", recall_topic, crate::sisters::memory_deep::is_why_question(text));
 
+    // Strategy 0: Recent buffer — "what did I just..." questions
+    // Check conversation history FIRST for anything that happened in this session
+    if is_recent_query(text) {
+        if let Some(answer) = find_in_recent_history(text, &config.history) {
+            eprintln!("[hydra:recall] Found answer in recent buffer");
+            return send_recall_response(&answer, tx);
+        }
+    }
+
+    // Strategy 0b: Session history — "what did we talk about last?"
+    if is_session_history_query(text) {
+        eprintln!("[hydra:recall] Session history query detected");
+        // Check if we have history from this session
+        if !config.history.is_empty() {
+            if let Some(answer) = summarize_recent_session(&config.history) {
+                return send_recall_response(&answer, tx);
+            }
+        }
+        let msg = "This is a fresh session — I don't have our previous conversation history to reference. \
+                   But I do remember your preferences and decisions across sessions. Ask me about those!";
+        return send_recall_response(msg, tx);
+    }
+
     // Strategy 1: "Why" questions → decision query (deeper reasoning)
+    // CRITICAL: If no causal data found, be honest — NEVER let LLM fabricate a reason
     if crate::sisters::memory_deep::is_why_question(text) {
+        let mut found_causal = false;
         if let Some(ref sh) = sisters_handle {
             if let Some(causal_raw) = sh.memory_causal_query(text).await {
                 eprintln!("[hydra:recall] Causal query returned: {}", safe_truncate(&causal_raw, 200));
                 let facts = extract_memory_facts(&causal_raw);
-                let facts = filter_facts_by_relevance(&facts, &recall_topic);
-                if !facts.is_empty() {
+                // STRICT filter for "why" questions — only facts containing the topic word.
+                // Do NOT fall back to all facts, or the LLM will hallucinate reasons.
+                let topic_lower = recall_topic.to_lowercase();
+                let strict_facts: Vec<String> = if topic_lower.is_empty() {
+                    facts
+                } else {
+                    facts.into_iter()
+                        .filter(|f| f.to_lowercase().split(|c: char| !c.is_alphanumeric())
+                            .any(|w| w == topic_lower))
+                        .collect()
+                };
+                if !strict_facts.is_empty() {
+                    found_causal = true;
                     let formatted = format_memory_recall_naturally(
-                        text, &facts, &config.user_name, &recall_llm_config, recall_model,
+                        text, &strict_facts, &config.user_name, &recall_llm_config, recall_model,
                     ).await;
                     return send_recall_response(&formatted, tx);
                 }
             }
         }
+        // No causal data for this specific topic — be honest, don't hallucinate
+        eprintln!("[hydra:recall] No causal data for 'why' question — responding honestly");
+        let msg = format!(
+            "I know you prefer {} but I don't have the reason stored. \
+             Want to tell me why so I remember next time?", recall_topic
+        );
+        return send_recall_response(&msg, tx);
     }
 
     // Strategy 2: Sister memory query (facts, general, beliefs)
@@ -173,42 +215,51 @@ pub(crate) async fn handle_memory_recall(
 /// Send a recall response and reset idle.
 fn send_recall_response(content: &str, tx: &mpsc::UnboundedSender<CognitiveUpdate>) -> bool {
     let _ = tx.send(CognitiveUpdate::Message {
-        role: "hydra".into(), content: content.to_string(), css_class: "message hydra".into(),
+        role: "hydra".into(), content: strip_emojis(content), css_class: "message hydra".into(),
     });
     let _ = tx.send(CognitiveUpdate::ResetIdle);
     true
 }
 
-/// Query sister memory — facts, general, beliefs (returns None if sisters offline).
+/// Query sister memory — generic two-query approach. No event_type filters.
+/// Query 1: Semantic search (max 20). Query 2: Recent (max 10). Merge + dedup.
 async fn query_sister_memory(
     text: &str,
-    topic: &str,
+    _topic: &str,
     sisters_handle: &Option<SistersHandle>,
 ) -> Option<Vec<String>> {
     let sh = sisters_handle.as_ref()?;
     let mem = sh.memory.as_ref()?;
-    let query = if topic.is_empty() { text.to_string() } else { topic.to_string() };
 
-    // Try high-signal facts first
-    if let Ok(v) = mem.call_tool("memory_query", serde_json::json!({
-        "query": query, "event_types": ["fact", "correction", "decision"],
-        "max_results": 5, "sort_by": "highest_confidence"
+    let mut all_facts = Vec::new();
+    // 1. Semantic search — no event_type filter, max 20
+    match mem.call_tool("memory_query", serde_json::json!({
+        "query": text, "max_results": 20
     })).await {
-        let raw = crate::sisters::extract_text(&v);
-        if !raw.is_empty() && !raw.contains("No memories found") {
-            let facts = extract_memory_facts(&raw);
-            if !facts.is_empty() { return Some(facts); }
+        Ok(v) => {
+            let raw = crate::sisters::extract_text(&v);
+            if !raw.is_empty() && !raw.contains("No memories found") {
+                all_facts.extend(extract_memory_facts(&raw));
+            }
         }
+        Err(e) => eprintln!("[hydra:recall] semantic query FAILED: {}", e),
     }
-    // Try general memory
-    if let Ok(v) = mem.call_tool("memory_query", serde_json::json!({"query": text, "max_results": 5})).await {
-        let raw = crate::sisters::extract_text(&v);
-        if !raw.is_empty() && !raw.contains("No memories found") {
-            let facts = extract_memory_facts(&raw);
-            if !facts.is_empty() { return Some(facts); }
+    // 2. Recent memories (max 10)
+    match mem.call_tool("memory_query", serde_json::json!({
+        "query": text, "max_results": 10, "sort_by": "most_recent"
+    })).await {
+        Ok(v) => {
+            let raw = crate::sisters::extract_text(&v);
+            if !raw.is_empty() && !raw.contains("No memories found") {
+                for f in extract_memory_facts(&raw) {
+                    if !all_facts.iter().any(|existing| existing == &f) { all_facts.push(f); }
+                }
+            }
         }
+        Err(e) => eprintln!("[hydra:recall] recent query FAILED: {}", e),
     }
-    // Try beliefs
+    if !all_facts.is_empty() { return Some(all_facts); }
+    // 3. Beliefs fallback
     if let Some(ref cog) = sh.cognition {
         if let Ok(v) = cog.call_tool("cognition_belief_query", serde_json::json!({"query": text})).await {
             let raw = crate::sisters::extract_text(&v);
@@ -240,102 +291,73 @@ fn extract_facts_from_history(history: &[(String, String)]) -> Vec<String> {
     facts
 }
 
-/// Handle natural language settings detection.
-pub(crate) fn handle_settings(
-    text: &str,
-    intent: &ClassifiedIntent,
-    tx: &mpsc::UnboundedSender<CognitiveUpdate>,
-) -> bool {
-    if intent.category != IntentCategory::Settings {
-        return false;
-    }
-    let mut settings = hydra_native_state::state::settings::SettingsStore::default();
-    if let Some(confirmation) = settings.apply_natural_language(text) {
-        let _ = tx.send(CognitiveUpdate::SettingsApplied { confirmation: confirmation.clone() });
-        let _ = tx.send(CognitiveUpdate::Message {
-            role: "hydra".into(),
-            content: confirmation,
-            css_class: "message hydra settings-applied".into(),
-        });
-        let _ = tx.send(CognitiveUpdate::ResetIdle);
-        return true;
-    }
-    false
+/// Detect questions about things that happened in the current session.
+fn is_recent_query(text: &str) -> bool {
+    let lower = text.to_lowercase();
+    lower.contains("just test") || lower.contains("just do")
+        || lower.contains("just run") || lower.contains("just happen")
+        || lower.contains("i just") || lower.contains("we just")
+        || lower.contains("did i just") || lower.contains("did we just")
+        || (lower.contains("what did") && (lower.contains("test") || lower.contains("run") || lower.contains("do")))
+        // "why did the tests pass/fail?" — about recent test results, not stored decisions
+        || (lower.contains("why did") && (lower.contains("test") || lower.contains("pass") || lower.contains("fail")))
+        || (lower.contains("the tests") && (lower.contains("why") || lower.contains("how")))
 }
 
-/// Handle direct memory store — "remember X" / "note that X".
-pub(crate) async fn handle_memory_store(
-    text: &str,
-    intent: &ClassifiedIntent,
-    sisters_handle: &Option<SistersHandle>,
-    tx: &mpsc::UnboundedSender<CognitiveUpdate>,
-) -> bool {
-    let memory_payload = if intent.category == IntentCategory::MemoryStore {
-        intent.payload.clone().or_else(|| Some(text.to_string()))
-    } else {
-        return false;
-    };
-    let fact = match memory_payload {
-        Some(f) => f,
-        None => return false,
-    };
-
-    let _ = tx.send(CognitiveUpdate::Phase("Learn (direct)".into()));
-    let _ = tx.send(CognitiveUpdate::IconState("working".into()));
-
-    // Normalize pronouns before storage
-    let fact = normalize_memory_for_storage(&fact);
-    eprintln!("[hydra:memory] Saving directly: {}", safe_truncate(&fact, 80));
-
-    // Detect decision vs. preference for proper event typing
-    let lower_fact = fact.to_lowercase();
-    let is_decision = lower_fact.contains("decided") || lower_fact.contains("chose")
-        || lower_fact.contains("going with") || lower_fact.contains("switching to")
-        || text.to_lowercase().contains("decided") || text.to_lowercase().contains("chose");
-    let (event_type, prefix) = if is_decision {
-        ("decision", "User decision: ")
-    } else {
-        ("fact", "User preference: ")
-    };
-
-    let mut saved = false;
-    if let Some(ref sh) = sisters_handle {
-        if let Some(ref mem) = sh.memory {
-            let payload = serde_json::json!({
-                "event_type": event_type,
-                "content": format!("{}{}", prefix, fact),
-                "confidence": 0.95
-            });
-            match mem.call_tool("memory_add", payload).await {
-                Ok(v) => {
-                    saved = true;
-                    eprintln!("[hydra:memory] memory_add OK ({}): {}", event_type, serde_json::to_string(&v).unwrap_or_default());
-                }
-                Err(e) => { eprintln!("[hydra:memory] memory_add FAILED: {}", e); }
+/// Search recent conversation history for answers to "what did I just..." questions.
+fn find_in_recent_history(text: &str, history: &[(String, String)]) -> Option<String> {
+    let lower = text.to_lowercase();
+    // Look through recent assistant messages (last 15 turns) for relevant content
+    for (_role, content) in history.iter().rev().take(15) {
+        let content_lower = content.to_lowercase();
+        // Match test reports
+        if (lower.contains("test") || lower.contains("run"))
+            && (content_lower.contains("passed") || content_lower.contains("success")
+                || content_lower.contains("failed") || content_lower.contains("report"))
+        {
+            return Some(content.clone());
+        }
+        // Match swarm results
+        if lower.contains("swarm") || lower.contains("agent") {
+            if content_lower.contains("spawned") || content_lower.contains("terminated")
+                || content_lower.contains("swarm") {
+                return Some(content.clone());
             }
         }
-        // Also store as a belief via cognition
-        if let Some(ref cog) = sh.cognition {
-            let subject = if is_decision { "user_decision" } else { "user_preference" };
-            let _ = cog.call_tool("cognition_belief_add", serde_json::json!({
-                "subject": subject,
-                "content": fact,
-                "confidence": 1.0,
-                "source": "explicit_user_statement"
-            })).await;
+        // Match improvement results
+        if lower.contains("improve") {
+            if content_lower.contains("improvement") || content_lower.contains("analyzing") {
+                return Some(content.clone());
+            }
         }
     }
-
-    let msg = if saved {
-        format!("Got it! I'll remember that: **{}**", fact)
-    } else {
-        format!("I'll remember: **{}** (note: memory sister may be offline)", fact)
-    };
-    let _ = tx.send(CognitiveUpdate::Message {
-        role: "hydra".into(),
-        content: msg,
-        css_class: "message hydra".into(),
-    });
-    let _ = tx.send(CognitiveUpdate::ResetIdle);
-    true
+    None
 }
+
+/// Summarize recent session for "what did we talk about" questions.
+fn summarize_recent_session(history: &[(String, String)]) -> Option<String> {
+    if history.is_empty() { return None; }
+    let mut topics = Vec::new();
+    for (role, content) in history.iter().rev().take(10) {
+        if role == "user" {
+            let brief = safe_truncate(content, 60);
+            if !brief.is_empty() { topics.push(brief.to_string()); }
+        }
+    }
+    if topics.is_empty() { return None; }
+    topics.reverse();
+    Some(format!("In this session, you asked about: {}", topics.join(", ")))
+}
+
+/// Detect if the user is asking about session history vs stored facts.
+/// "what did we talk about last?" = session history (needs session events)
+/// "what's my favorite color?" = stored facts (needs memory query)
+fn is_session_history_query(text: &str) -> bool {
+    let lower = text.to_lowercase();
+    lower.contains("talk about last") || lower.contains("talked about last")
+        || lower.contains("last session") || lower.contains("last conversation")
+        || lower.contains("last time") || lower.contains("previous session")
+        || lower.contains("what did we discuss") || lower.contains("what were we doing")
+}
+
+// handle_settings and handle_memory_store live in dispatch_intents_store.rs

@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Rate-sensitive sectors (REITs, utilities, homebuilders) begin underperforming 2-4 months BEFORE the first Fed rate hike and begin outperforming 1-2 months BEFORE the last rate cut. The market prices the full cycle early — waiting for the actual pivot is too late by 15-25% of the sector move."
+confidence = 0.88
+source = "Fed funds rate cycle analysis 1990-2024 (7 complete cycles), sector rotation studies by Fidelity and Schwab"
+action_trigger = "Fed language shifts from 'patient' to 'data dependent' on inflation → begin reducing rate-sensitive sector overweight, do not wait for the first hike. Conversely, 'sufficiently restrictive' language → begin accumulating."
+edge_case = "When the rate cycle is compressed (emergency cuts like 2020, or rapid hikes like 2022), the lead time shrinks to days or weeks rather than months — the typical 2-4 month early signal compresses to 2-4 weeks."
+tags = ["sector_cycles", "rate_sensitive", "fed", "rotation"]
+
+[[beliefs]]
+fact = "Consumer staples outperform the broad market by 4-8% during the 6 months surrounding a recession's onset (NBER dating) but underperform by 3-5% in the first year of recovery. The rotation FROM staples TO cyclicals at recession trough is one of the most reliable and tradeable sector rotation signals — it works because institutional investors use staples as recession hedges and mechanically rotate out at recovery."
+confidence = 0.90
+source = "NBER recession dating 1973-2024 (8 recessions), sector performance analysis, Stovall 1996 sector investing"
+action_trigger = "Leading indicators (ISM < 45, yield curve uninversion, initial claims peak) signal recession trough → begin rotating from consumer staples to consumer discretionary, industrials, and financials"
+edge_case = "In a stagflationary environment (2022-style: inflation + slowing growth), staples outperform even into recovery because pricing power allows them to pass through inflation. The staples-to-cyclicals rotation is unreliable when inflation remains above 5% at the trough."
+tags = ["sector_cycles", "consumer_staples", "recession", "rotation"]
+
+[[beliefs]]
+fact = "Technology sector recovery after a bear market follows a specific sequence: semiconductors lead (they are the earliest cyclical within tech, tied to inventory cycles), then software (recurring revenue stabilizes first), then hardware (capex-dependent, recovers last). Semis typically bottom 3-6 months before the Nasdaq composite, making SOX index direction changes a leading indicator for the broader tech recovery."
+confidence = 0.87
+source = "Semiconductor cycle analysis 2000-2024, WSTS data, sector performance sequencing in 2002-2003, 2009, 2020, 2022-2023 recoveries"
+action_trigger = "SOX index makes a higher high after 20%+ decline → flag as tech recovery signal, begin accumulating software names with strong recurring revenue, wait 1-2 months for hardware"
+edge_case = "AI-driven capex cycles (2023-2025) disrupted the traditional sequence — hardware/infrastructure (GPU, networking) led the recovery ahead of software because the demand driver was capex-heavy AI buildout, not the typical consumption recovery."
+tags = ["sector_cycles", "technology", "semiconductors", "recovery"]
+
+[[beliefs]]
+fact = "Energy sector returns lag oil price moves by 4-8 weeks for large-cap integrated companies and 1-2 weeks for E&P pure plays. This lag exists because integrated companies' downstream margins (refining, chemicals) move inversely to crude — the equity market waits to see the net effect. This creates a tradeable window: when oil spikes 15%+ in a week, E&P names jump immediately but large-cap energy takes a month to fully reprice."
+confidence = 0.85
+source = "Oil price / energy equity correlation analysis 2010-2024, Driesprong/Jacobsen/Maat 2008 oil and stock returns"
+action_trigger = "Crude oil move > 15% in one week → for E&P positions adjust immediately, for integrated majors allow 4-8 weeks for repricing before concluding the market has mispriced the move"
+edge_case = "Demand-driven oil moves (China reopening 2023) create sustained repricing across the sector, while supply-driven spikes (OPEC cuts, geopolitical disruption) create temporary moves that often reverse — the lag is most exploitable for demand-driven moves."
+tags = ["sector_cycles", "energy", "oil", "lag_effect"]

@@ -1,0 +1,22 @@
+[metadata]
+name = "provision_infrastructure"
+description = "Provision cloud infrastructure with proper tagging, security groups, and monitoring"
+version = "1.0.0"
+
+[trigger]
+patterns = ["provision server", "create instance", "set up infrastructure", "deploy to cloud"]
+intent = "infrastructure-provisioning"
+
+[steps]
+sequence = [
+    "Determine resource requirements (compute, storage, networking, region)",
+    "Select appropriate instance types and storage tiers based on workload profile",
+    "Apply security groups, IAM roles, and network placement per architecture standards",
+    "Configure monitoring, logging, and alerting from day one",
+    "Apply cost allocation tags and resource naming conventions",
+    "Validate deployment with health checks and smoke tests",
+]
+
+[sisters]
+primary = ["Connect", "Workflow"]
+optional = ["Reality", "Aegis"]

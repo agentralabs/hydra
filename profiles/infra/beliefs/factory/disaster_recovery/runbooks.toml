@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Failover procedures must be executable by any on-call engineer, not just the person who wrote them — write for the 3am scenario with clear decision points and commands"
+confidence = 0.90
+source = "factory"
+action_trigger = "When creating or reviewing failover runbooks"
+edge_case = "Runbooks become stale as infrastructure changes; tie runbook updates to infrastructure change management"
+tags = ["dr", "runbooks", "failover"]
+
+[[beliefs]]
+fact = "Communication plans should define who gets notified, when, through which channels, and with what information — include internal stakeholders, customers, and partners"
+confidence = 0.90
+source = "factory"
+action_trigger = "When an incident triggers the DR plan or when reviewing DR communication readiness"
+edge_case = "Communication channels may themselves be affected by the disaster; have out-of-band notification methods"
+tags = ["dr", "runbooks", "communication"]
+
+[[beliefs]]
+fact = "Role assignment during DR events should follow ICS (Incident Command System) — incident commander, communications lead, operations lead, and scribe as minimum roles"
+confidence = 0.85
+source = "factory"
+action_trigger = "When organizing the DR response team or running DR drills"
+edge_case = "Small teams may need individuals to cover multiple roles; but incident commander should never also be the one executing changes"
+tags = ["dr", "runbooks", "roles"]
+
+[[beliefs]]
+fact = "Post-recovery validation must verify data integrity, application functionality, and performance before declaring recovery complete — rushed hand-back causes secondary incidents"
+confidence = 0.90
+source = "factory"
+action_trigger = "When the DR failover has completed and the team is considering returning to normal operations"
+edge_case = "Failback to primary is itself a risky operation; treat it with the same rigor as the original failover"
+tags = ["dr", "runbooks", "validation"]

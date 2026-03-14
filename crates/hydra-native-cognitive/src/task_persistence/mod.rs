@@ -14,8 +14,8 @@ use std::path::PathBuf;
 
 /// Default checkpoint directory.
 pub fn checkpoint_dir() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-    PathBuf::from(home).join(".hydra").join("checkpoints")
+    let home = hydra_native_state::utils::home_dir();
+    PathBuf::from(&home).join(".hydra").join("checkpoints")
 }
 
 /// Format a task summary for display.

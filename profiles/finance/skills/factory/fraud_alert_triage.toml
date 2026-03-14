@@ -1,0 +1,50 @@
+[skill]
+name = "fraud_alert_triage"
+description = "Triage suspicious activity alerts — pattern matching, historical comparison, risk scoring, and action recommendation"
+version = "1.0.0"
+
+[trigger]
+patterns = [
+    "suspicious activity",
+    "fraud alert",
+    "unusual transaction",
+    "AML alert",
+    "suspicious pattern",
+    "potential fraud",
+]
+
+[[steps]]
+name = "query_transaction"
+action = "sister:data"
+tool = "data_query"
+description = "Retrieve full transaction details: parties involved, amount, timing, geolocation, device fingerprint, account history, and related transactions within +/- 7 days"
+parameters = { include_counterparties = true, include_device_data = true, history_window_days = 7 }
+
+[[steps]]
+name = "match_patterns"
+action = "compute"
+description = "Match the transaction against known fraud typologies: structuring, layering, round-tripping, velocity abuse, geo-mismatch, dormant account activation, and beneficiary manipulation. Score each pattern match 0-100."
+depends_on = ["query_transaction"]
+parameters = { typologies = ["structuring", "layering", "round_tripping", "velocity", "geo_mismatch", "dormant_activation", "beneficiary_manipulation"] }
+
+[[steps]]
+name = "memory_query_similar"
+action = "sister:memory"
+tool = "memory_query"
+description = "Retrieve similar past alerts, their investigation outcomes (confirmed fraud, false positive, or escalated), and any lessons learned. Use similarity matching on transaction pattern, amount range, and entity type."
+depends_on = ["query_transaction"]
+parameters = { query = "fraud alerts with similar patterns and outcomes", limit = 25, similarity_threshold = 0.7 }
+
+[[steps]]
+name = "score_risk"
+action = "llm"
+description = "Calculate composite fraud risk score (0-100) weighting pattern match scores, historical alert outcomes, entity risk profile, and contextual factors. Provide confidence interval and the top 3 contributing factors."
+depends_on = ["match_patterns", "memory_query_similar"]
+parameters = { model = "claude-sonnet-4-6", output = "risk_score_with_factors" }
+
+[[steps]]
+name = "recommend_action"
+action = "llm"
+description = "Recommend action based on risk score: <30 = dismiss with documentation, 30-60 = flag for Level 2 review, 60-80 = escalate to BSA officer, >80 = recommend account freeze pending investigation. Include SAR filing timeline if applicable."
+depends_on = ["score_risk"]
+parameters = { model = "claude-sonnet-4-6", include_sar_timeline = true, include_regulatory_obligations = true }

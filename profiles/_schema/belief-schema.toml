@@ -1,0 +1,17 @@
+# Belief File Schema
+# Each belief file contains a [[beliefs]] array.
+
+# [[beliefs]]
+# fact = "string (required) — the belief statement"
+# confidence = 0.0..1.0 (required) — how certain this belief is
+# source = "factory|learned" (required) — origin of the belief
+# action_trigger = "string (optional) — when this belief should influence behavior"
+# edge_case = "string (optional) — known exceptions to this belief"
+# tags = ["string"] (optional) — categorization tags
+
+[schema]
+version = "1.0.0"
+required_fields = ["fact", "confidence", "source"]
+optional_fields = ["action_trigger", "edge_case", "tags"]
+confidence_range = [0.0, 1.0]
+valid_sources = ["factory", "learned"]

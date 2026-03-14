@@ -1,0 +1,22 @@
+[metadata]
+name = "refund_assessment"
+description = "Evaluate refund eligibility and process approved refunds per policy"
+version = "1.0.0"
+
+[trigger]
+patterns = ["refund request", "money back", "want a refund", "billing dispute"]
+intent = "refund-processing"
+
+[steps]
+sequence = [
+    "Verify customer identity and account ownership",
+    "Review the specific charges in question and account history",
+    "Check refund eligibility against current refund policy and account tier",
+    "Calculate the refund amount (full, partial, credit)",
+    "Process the approved refund and confirm timeline with the customer",
+    "Document the decision rationale for audit trail",
+]
+
+[sisters]
+primary = ["Contract", "Data"]
+optional = ["Memory", "Comm"]

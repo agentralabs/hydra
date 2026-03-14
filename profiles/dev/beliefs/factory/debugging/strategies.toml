@@ -1,0 +1,15 @@
+[[beliefs]]
+fact = "Reproduce the bug reliably before attempting a fix — write a failing test first"
+confidence = 0.95
+source = "factory"
+action_trigger = "When investigating a reported bug"
+edge_case = "Intermittent bugs may need logging/tracing before a deterministic repro"
+tags = ["debugging", "testing"]
+
+[[beliefs]]
+fact = "Binary search through git history (bisect) locates regressions faster than reading diffs"
+confidence = 0.85
+source = "factory"
+action_trigger = "When a previously working feature broke and the cause is unclear"
+edge_case = "Only works when commits are small and tests exist"
+tags = ["debugging", "git"]

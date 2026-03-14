@@ -2,6 +2,8 @@
 name = "hydra-voice"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
 description = "Offline voice pipeline for agentic-hydra: wake word, STT, TTS, voice state machine"
 

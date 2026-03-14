@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "P-hacking inflates false positive rates — running multiple analyses and reporting only significant results is scientific malpractice"
+confidence = 0.95
+source = "factory"
+action_trigger = "When a study reports surprisingly clean results or many exploratory analyses"
+edge_case = "Pre-registration and the distinction between confirmatory and exploratory analysis mitigate this — exploratory findings are valid if labeled as such"
+tags = ["statistics", "p-hacking", "false-positives"]
+
+[[beliefs]]
+fact = "Multiple comparisons require correction — testing 20 hypotheses at alpha=0.05 guarantees one false positive on average"
+confidence = 0.94
+source = "factory"
+action_trigger = "When a study tests multiple outcomes or subgroups without adjustment"
+edge_case = "Bonferroni is conservative; FDR control (Benjamini-Hochberg) is often more appropriate for discovery-oriented research"
+tags = ["statistics", "multiple-comparisons", "fdr"]
+
+[[beliefs]]
+fact = "Effect sizes matter more than p-values — a statistically significant result can be practically meaningless with a large enough sample"
+confidence = 0.93
+source = "factory"
+action_trigger = "When interpreting study results or comparing findings across studies"
+edge_case = "Effect size interpretation is domain-specific — a small Cohen's d might be highly meaningful in a low-cost, population-wide intervention"
+tags = ["statistics", "effect-size", "practical-significance"]
+
+[[beliefs]]
+fact = "Confidence intervals convey more information than point estimates — they show precision, range of plausible values, and whether the null is excluded"
+confidence = 0.91
+source = "factory"
+action_trigger = "When summarizing or presenting quantitative results"
+edge_case = "CIs are frequently misinterpreted as containing the true value 95% of the time — they describe the procedure, not the specific interval"
+tags = ["statistics", "confidence-intervals", "estimation"]
+
+[[beliefs]]
+fact = "Bayesian and frequentist approaches answer different questions — Bayesian gives P(hypothesis|data), frequentist gives P(data|hypothesis)"
+confidence = 0.90
+source = "factory"
+action_trigger = "When choosing a statistical framework or interpreting results"
+edge_case = "Prior selection in Bayesian analysis is subjective and can dominate results with small samples — sensitivity to priors should always be reported"
+tags = ["statistics", "bayesian", "frequentist"]

@@ -3,6 +3,8 @@ use ratatui::{
     text::{Line, Span},
 };
 
+#[path = "render_format.rs"]
+mod render_format;
 use crate::tui::app::MessageRole;
 use crate::tui::theme;
 
@@ -134,7 +136,7 @@ fn render_rich_content_inner(content: &str, role: MessageRole, lines: &mut Vec<L
         }
         } // end !expand_tools
 
-        // Claude Code-style tool action: "● ToolName(args)" header line
+        // Tool action: "● ToolName(args)" header line
         if line.starts_with("● ") {
             let tool_text = line.trim_start_matches("● ");
             lines.push(Line::from(vec![
@@ -316,6 +318,23 @@ fn render_rich_content_inner(content: &str, role: MessageRole, lines: &mut Vec<L
             }
         }
 
+        // Task completion summary block
+        if line.starts_with("───") {
+            lines.push(Line::from(Span::styled(format!("  {}", "─".repeat(44)), Style::default().fg(theme::HYDRA_DIM))));
+            i += 1; continue;
+        }
+        if line.starts_with("✓ ") {
+            let rest = &line[4..];
+            let (action, stats) = rest.split_once("  ").unwrap_or((rest, ""));
+            let mut spans = vec![
+                Span::styled("  ✓ ", Style::default().fg(theme::HYDRA_GREEN).add_modifier(Modifier::BOLD)),
+                Span::styled(action.to_string(), Style::default().add_modifier(Modifier::BOLD)),
+            ];
+            if !stats.is_empty() { spans.push(Span::styled(format!("  {}", stats), Style::default().fg(theme::HYDRA_DIM))); }
+            lines.push(Line::from(spans));
+            i += 1; continue;
+        }
+
         // Detect status messages
         if line.contains("completed successfully") || line.contains("failed with exit code") {
             let color = if line.contains("failed") { theme::HYDRA_RED } else { theme::HYDRA_GREEN };
@@ -324,57 +343,40 @@ fn render_rich_content_inner(content: &str, role: MessageRole, lines: &mut Vec<L
             continue;
         }
 
-        // Default: regular text — strip markdown bold markers
+        // Try structured formatting (progress steps, test results, headers, paths)
+        if render_format::try_format_structured(line, lines) { i += 1; continue; }
+
+        // Default: regular text with inline bold (**text**) rendering
         if line.is_empty() {
             lines.push(Line::default());
         } else {
-            let clean = strip_markdown_bold(line);
-            let body_style = match role {
+            let base = match role {
                 MessageRole::System => Style::default().fg(theme::HYDRA_BLUE),
                 _ => Style::default(),
             };
-            lines.push(Line::from(Span::styled(
-                format!("  {}", clean),
-                body_style,
-            )));
+            lines.push(render_inline_bold(line, base));
         }
         i += 1;
     }
 }
 
-/// Strip markdown bold markers: "**text**" → "text", "*text*" → "text"
-pub fn strip_markdown_bold(s: &str) -> String {
-    s.replace("**", "").replace("__", "")
+pub fn strip_markdown_bold(s: &str) -> String { s.replace("**", "").replace("__", "") }
+
+/// Render inline **bold** markers as actual bold spans. Returns a styled Line.
+fn render_inline_bold(line: &str, base: Style) -> Line<'static> {
+    let bold = base.add_modifier(Modifier::BOLD);
+    let mut spans = vec![Span::styled("  ", Style::default())];
+    let mut rest = line;
+    while let Some(start) = rest.find("**") {
+        if !rest[..start].is_empty() { spans.push(Span::styled(rest[..start].to_string(), base)); }
+        rest = &rest[start + 2..];
+        if let Some(end) = rest.find("**") {
+            spans.push(Span::styled(rest[..end].to_string(), bold));
+            rest = &rest[end + 2..];
+        } else { spans.push(Span::styled("**".to_string(), base)); }
+    }
+    if !rest.is_empty() { spans.push(Span::styled(rest.to_string(), base)); }
+    Line::from(spans)
 }
 
-/// Phase 3, C5.2: Detect tool result blocks that should be collapsed to a one-liner.
-/// Returns Some(summary) if the line starts a collapsible block.
-pub fn should_collapse_tool_result(line: &str) -> Option<String> {
-    let trimmed = line.trim();
-
-    // Pattern: "Found N references in M files" or similar search results
-    if trimmed.contains("Found") && (trimmed.contains("reference") || trimmed.contains("match")) {
-        return Some(format!("Searched codebase — {}", trimmed));
-    }
-
-    // Pattern: "N files analyzed" or "Scanned N files"
-    if (trimmed.contains("files analyzed") || trimmed.contains("Scanned"))
-        && trimmed.chars().any(|c| c.is_ascii_digit())
-    {
-        return Some(format!("Analysis complete — {}", trimmed));
-    }
-
-    // Pattern: build/compile success lines
-    if (trimmed.contains("Compiling") || trimmed.contains("Finished"))
-        && (trimmed.contains("target") || trimmed.contains("release") || trimmed.contains("debug"))
-    {
-        return Some("Build successful".to_string());
-    }
-
-    // Pattern: "Generated blueprint" or similar forge output
-    if trimmed.contains("Generated") && trimmed.contains("blueprint") {
-        return Some("Blueprint generated".to_string());
-    }
-
-    None
-}
+pub use render_format::should_collapse_tool_result;

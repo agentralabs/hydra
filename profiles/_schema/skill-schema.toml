@@ -1,0 +1,23 @@
+# Skill File Schema
+# Each skill file has [metadata], [trigger], [steps], [sisters] sections.
+
+# [metadata]
+# name = "string (required)" — unique skill identifier
+# description = "string (required)" — what the skill does
+# version = "string (optional)" — semver
+
+# [trigger]
+# patterns = ["string"] (required) — phrases that activate this skill
+# intent = "string (optional)" — intent category
+
+# [steps]
+# sequence = ["string"] (required) — ordered execution steps
+
+# [sisters]
+# primary = ["string"] (optional) — required sisters
+# optional = ["string"] (optional) — helpful but not required sisters
+
+[schema]
+version = "1.0.0"
+required_sections = ["metadata", "trigger", "steps"]
+optional_sections = ["sisters"]

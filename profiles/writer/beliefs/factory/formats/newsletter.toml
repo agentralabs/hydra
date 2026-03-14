@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Subject lines under 50 characters with a specific promise outperform clever or vague ones — 'How I cut my writing time in half' beats 'This week's thoughts'"
+confidence = 0.89
+source = "Mailchimp subject line research, email marketing benchmarks"
+action_trigger = "when writing the subject line for any newsletter edition"
+edge_case = "Established newsletters with strong brand recognition can use shorter, more cryptic subjects because subscribers already trust the sender"
+tags = ["formats", "newsletter", "subject-lines", "email"]
+
+[[beliefs]]
+fact = "Preview text (the first line visible in the inbox) is a second headline — craft it deliberately rather than letting it default to 'View in browser'"
+confidence = 0.86
+source = "email marketing best practices, Litmus inbox display studies"
+action_trigger = "when setting up any newsletter for send"
+edge_case = "Some email platforms do not render preview text consistently; test across major clients before relying on it"
+tags = ["formats", "newsletter", "preview-text", "email"]
+
+[[beliefs]]
+fact = "Each newsletter edition should have one primary topic or takeaway — readers open for a focused insight, not a content dump"
+confidence = 0.88
+source = "newsletter growth analysis, Substack top-performer patterns"
+action_trigger = "when outlining a newsletter edition"
+edge_case = "Curated-link newsletters are an exception; their value proposition is breadth, but even they benefit from a unifying theme"
+tags = ["formats", "newsletter", "focus", "structure"]
+
+[[beliefs]]
+fact = "End every newsletter with a personal sign-off or direct question — it transforms a broadcast into a conversation and drives replies"
+confidence = 0.84
+source = "community-building newsletter strategies, engagement rate data"
+action_trigger = "when writing the closing section of any newsletter"
+edge_case = "Corporate or brand newsletters may use a team sign-off rather than a personal one; the key is warmth, not necessarily a single name"
+tags = ["formats", "newsletter", "sign-off", "engagement"]

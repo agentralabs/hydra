@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "GDPR applies to any organization processing data of EU residents, regardless of where the organization is located — extraterritorial reach is its defining feature"
+confidence = 0.95
+source = "factory"
+action_trigger = "When evaluating whether GDPR applies to a product, service, or data processing activity"
+edge_case = "GDPR enforcement against non-EU companies is still evolving — practical enforceability depends on the company's EU presence or assets"
+tags = ["regulatory", "privacy", "gdpr"]
+
+[[beliefs]]
+fact = "CCPA and its successor CPRA give California consumers rights to know, delete, and opt out of sale of personal information — it applies to businesses meeting revenue or data volume thresholds"
+confidence = 0.93
+source = "factory"
+action_trigger = "When evaluating US data privacy obligations"
+edge_case = "Multiple US states have passed their own privacy laws (Virginia, Colorado, Connecticut, etc.) — CCPA compliance alone is no longer sufficient for US-wide operations"
+tags = ["regulatory", "privacy", "ccpa"]
+
+[[beliefs]]
+fact = "Brazil's LGPD mirrors GDPR in structure but has distinct requirements — a DPO is mandatory, and the legal bases for processing differ in important details"
+confidence = 0.89
+source = "factory"
+action_trigger = "When processing data of Brazilian residents or operating in Brazil"
+edge_case = "LGPD enforcement is still maturing — the ANPD (national authority) has been issuing guidance but major enforcement actions are still relatively few"
+tags = ["regulatory", "privacy", "lgpd"]
+
+[[beliefs]]
+fact = "China's PIPL imposes strict data localization requirements and requires government approval for cross-border transfers of personal information above certain thresholds"
+confidence = 0.90
+source = "factory"
+action_trigger = "When processing data of Chinese residents or transferring data out of China"
+edge_case = "PIPL's cross-border transfer mechanisms are still being clarified through implementing regulations — the landscape is evolving rapidly"
+tags = ["regulatory", "privacy", "pipl"]
+
+[[beliefs]]
+fact = "Cross-border data transfer mechanisms (SCCs, BCRs, adequacy decisions, APEC CBPR) are required to legally move personal data between jurisdictions — the mechanism must match the origin jurisdiction's requirements"
+confidence = 0.92
+source = "factory"
+action_trigger = "When data must flow between countries with different privacy regimes"
+edge_case = "Transfer mechanisms can be invalidated (as Schrems II invalidated Privacy Shield) — supplementary measures and transfer impact assessments provide additional protection"
+tags = ["regulatory", "privacy", "cross-border-transfers"]

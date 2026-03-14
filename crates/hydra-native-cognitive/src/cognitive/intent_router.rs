@@ -171,7 +171,7 @@ pub struct ClassifiedIntent {
 pub(crate) const SISTER_NAMES: &[&str] = &[
     "memory", "identity", "codebase", "vision", "comm", "contract",
     "time", "planning", "cognition", "reality", "forge", "aegis",
-    "veritas", "evolve",
+    "veritas", "evolve", "data", "connect", "workflow",
 ];
 
 // ═══════════════════════════════════════════════════════════════════

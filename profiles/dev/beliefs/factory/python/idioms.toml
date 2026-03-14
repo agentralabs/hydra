@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "List comprehensions are clearer and faster than map/filter chains for simple transformations — they compile to tighter bytecode and avoid lambda overhead"
+confidence = 0.93
+source = "factory"
+action_trigger = "When transforming or filtering sequences in Python"
+edge_case = "Nested comprehensions beyond two levels become unreadable — extract into a named function or use a regular for-loop when the logic involves conditionals on multiple iterables"
+tags = ["python", "idioms", "list-comprehensions"]
+
+[[beliefs]]
+fact = "dataclasses replace boilerplate __init__/__repr__/__eq__ with a decorator — use them for any class that primarily holds data rather than writing manual constructors"
+confidence = 0.92
+source = "factory"
+action_trigger = "When defining classes that group related data fields together"
+edge_case = "For immutable data, use frozen=True; for validation and serialization beyond simple fields, Pydantic's BaseModel is more appropriate than dataclasses"
+tags = ["python", "idioms", "dataclasses"]
+
+[[beliefs]]
+fact = "Type hints with mypy or pyright catch type mismatches before runtime — annotate all function signatures and use strict mode in new projects"
+confidence = 0.90
+source = "factory"
+action_trigger = "When writing new Python modules or adding to an existing typed codebase"
+edge_case = "Third-party libraries without stubs require type: ignore or stub packages — do not let missing stubs be an excuse to skip typing in your own code"
+tags = ["python", "idioms", "type-hints", "mypy"]
+
+[[beliefs]]
+fact = "Context managers (with statements) guarantee resource cleanup even when exceptions occur — use them for files, database connections, locks, and any acquire/release pattern"
+confidence = 0.95
+source = "factory"
+action_trigger = "When opening files, acquiring locks, or managing any resource with a lifecycle"
+edge_case = "Custom context managers using contextlib.contextmanager must ensure cleanup code runs after the yield — put the yield in a try/finally block"
+tags = ["python", "idioms", "context-managers", "resources"]
+
+[[beliefs]]
+fact = "__slots__ on classes reduces per-instance memory by 40-50% and speeds up attribute access — use it for classes instantiated thousands of times"
+confidence = 0.88
+source = "factory"
+action_trigger = "When defining classes that will be created in large quantities, such as tree nodes, ORM-like rows, or event objects"
+edge_case = "__slots__ prevents dynamic attribute assignment and breaks multiple inheritance if parent classes also define __slots__ differently — do not use on classes that need flexibility or plugin-style extension"
+tags = ["python", "idioms", "performance", "slots"]

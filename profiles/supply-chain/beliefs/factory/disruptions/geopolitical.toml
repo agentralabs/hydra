@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Trade war tariffs can increase landed cost 10-25% overnight — maintain scenario models for top 5 sourcing corridors with tariff sensitivity analysis"
+confidence = 0.85
+source = "factory"
+action_trigger = "When geopolitical tensions escalate between major trading partners"
+edge_case = "Tariff exclusion processes exist but take 6-12 months; pre-file applications for critical components"
+tags = ["disruption", "geopolitical", "tariffs"]
+
+[[beliefs]]
+fact = "Sanctions block specific entities, banks, and shipping routes — screen every supplier and logistics partner against OFAC/EU sanctions lists continuously"
+confidence = 0.95
+source = "factory"
+action_trigger = "When onboarding new suppliers or when sanctions regimes change"
+edge_case = "Secondary sanctions can affect non-sanctioned entities that transact with sanctioned parties"
+tags = ["disruption", "geopolitical", "sanctions"]
+
+[[beliefs]]
+fact = "Port strikes disrupt 5-15% of global container throughput — pre-position 2-4 weeks of safety stock when labor contract negotiations approach expiry"
+confidence = 0.80
+source = "factory"
+action_trigger = "When major port labor contracts are within 90 days of expiration"
+edge_case = "Post-strike surge congestion lasts 4-8 weeks; alternative port routing adds cost but preserves flow"
+tags = ["disruption", "geopolitical", "port-strikes"]
+
+[[beliefs]]
+fact = "Canal blockages (Suez, Panama) add 7-14 days and 30-50% fuel cost when ships reroute — trigger alternate routing plans when canal risk indicators elevate"
+confidence = 0.85
+source = "factory"
+action_trigger = "When canal incident reports or drought conditions threaten transit capacity"
+edge_case = "Panama Canal drought restrictions limit vessel draft and daily transits; book slots further in advance"
+tags = ["disruption", "geopolitical", "canal-blockage"]

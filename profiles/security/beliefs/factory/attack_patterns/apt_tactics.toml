@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "MITRE ATT&CK is the universal taxonomy for adversary behavior, organizing TTPs into 14 tactics (columns) from Reconnaissance to Impact. Effective detection requires coverage across all tactics, not just Initial Access. Most SOCs over-index on perimeter detection (Initial Access) and under-index on Defense Evasion and Lateral Movement, which is exactly where APTs spend most of their operational time."
+confidence = 0.97
+source = "MITRE ATT&CK framework; MITRE Engenuity evaluations; SOC maturity assessments"
+action_trigger = "Quarterly ATT&CK coverage mapping: for every technique in the matrix, document whether detection exists, is tuned, and has been tested. Gaps in Defense Evasion and Lateral Movement columns are highest priority."
+edge_case = "100% ATT&CK coverage is neither achievable nor necessary. Prioritize techniques used by threat groups that target your industry (use ATT&CK Navigator threat group overlays)."
+tags = ["mitre-attack", "detection-coverage", "ttp-mapping", "soc-maturity"]
+
+[[beliefs]]
+fact = "Nation-state APT dwell time averages 21 days (down from 78 days in 2020) but outliers persist for years. APT groups like Volt Typhoon pre-position in critical infrastructure with no immediate objective — they maintain access for future contingency operations. Detection of long-dwell actors requires periodic retroactive hunting against historical telemetry with updated IOCs, not just real-time alerting."
+confidence = 0.93
+source = "Mandiant M-Trends 2024; CISA Volt Typhoon advisory; CrowdStrike Global Threat Report"
+action_trigger = "Quarterly retro-hunts: re-scan 90 days of stored telemetry against latest threat intel IOCs. Any newly-matched historical activity triggers a full investigation regardless of current alert state."
+edge_case = "Telemetry retention costs money. Minimum viable retention: 90 days full fidelity EDR, 1 year DNS/proxy logs, 1 year authentication logs. Anything less and retro-hunting is impossible."
+tags = ["apt", "dwell-time", "retro-hunting", "volt-typhoon", "pre-positioning"]
+
+[[beliefs]]
+fact = "APT persistence mechanisms are layered and redundant: a sophisticated actor will establish 3-5 independent persistence methods (scheduled tasks, registry run keys, WMI subscriptions, DLL search order hijacking, legitimate remote access tool installation). Removing one persistence mechanism while others remain means the attacker returns within hours. Eradication must be total or it is pointless."
+confidence = 0.95
+source = "MITRE ATT&CK Persistence tactic; APT29/Cozy Bear analysis; DFIR case studies"
+action_trigger = "During incident eradication: enumerate ALL persistence mechanisms before removing any. Create a complete persistence inventory, then remove all simultaneously during a coordinated eradication window."
+edge_case = "Legitimate software uses identical persistence mechanisms (scheduled tasks, services, run keys). Eradication teams must distinguish attacker persistence from business-critical software — maintain a golden image baseline of expected persistence entries per system role."
+tags = ["persistence", "eradication", "apt", "layered-access", "registry"]
+
+[[beliefs]]
+fact = "Nation-state actors operate with patience measured in years and budgets measured in millions. They will burn a zero-day to gain access to a high-value target and then use only LOLBins to avoid triggering signatures. They will wait months between actions to avoid temporal correlation. They adapt tooling per-target to defeat IOC sharing. Detection cannot rely on known signatures — it must rely on behavioral anomalies: unusual process relationships, anomalous data access patterns, and authentication graph changes."
+confidence = 0.94
+source = "NSA/CISA joint advisories; Kaspersky APT reports; Equation Group analysis"
+action_trigger = "Focus detection engineering on behavioral baselines rather than IOC matching: unusual parent-child process trees, first-seen binaries in sensitive directories, authentication to systems outside role-based access patterns, and data access volume anomalies"
+edge_case = "Building behavioral baselines requires 30-90 days of clean telemetry. If the environment is already compromised when baselining begins, the attacker's activity becomes part of the 'normal' baseline. Validate baselines against known-good reference environments."
+tags = ["nation-state", "zero-day", "behavioral-detection", "patience", "apt"]

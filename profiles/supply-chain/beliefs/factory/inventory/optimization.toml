@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Safety stock should be calculated as Z-score multiplied by standard deviation of demand during lead time — use Z=1.65 for 95% service level, Z=2.33 for 99%"
+confidence = 0.90
+source = "factory"
+action_trigger = "When setting or reviewing safety stock levels for any SKU"
+edge_case = "Assumes normally distributed demand; lumpy or intermittent demand requires Croston's method instead"
+tags = ["inventory", "safety-stock", "service-level"]
+
+[[beliefs]]
+fact = "Reorder point equals average daily demand multiplied by lead time plus safety stock — recalculate monthly or when lead times change"
+confidence = 0.90
+source = "factory"
+action_trigger = "When configuring automatic replenishment triggers in the inventory system"
+edge_case = "Promotional periods require temporary ROP overrides; supplier lead time variability needs probabilistic modeling"
+tags = ["inventory", "reorder-point", "replenishment"]
+
+[[beliefs]]
+fact = "Economic order quantity balances ordering costs against holding costs — but should be adjusted for volume discounts, shelf life, and storage capacity"
+confidence = 0.85
+source = "factory"
+action_trigger = "When determining purchase order quantities for routine replenishment"
+edge_case = "EOQ assumes constant demand; pair with demand forecast adjustments for seasonal products"
+tags = ["inventory", "eoq", "order-quantity"]
+
+[[beliefs]]
+fact = "ABC analysis classifies inventory by value contribution — A items (top 80% of value, ~20% of SKUs) get tightest controls and most frequent review"
+confidence = 0.90
+source = "factory"
+action_trigger = "When prioritizing inventory management effort or setting cycle count frequency"
+edge_case = "Critical items with low value (bolts, fasteners) may be C-class by value but need A-class availability"
+tags = ["inventory", "abc-analysis", "prioritization"]

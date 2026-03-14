@@ -78,7 +78,9 @@ pub(crate) async fn format_memory_recall_naturally(
          - Keep it to 1-2 sentences. Be warm, direct, personal.\n\
          - If relevant, offer to help with something related.\n\
          - If multiple facts, naturally weave them together.\n\
-         - If any fact says 'my X' or 'I am' or 'User\\'s X', rewrite as 'your X' or 'you are' in your response.\n\n\
+         - If any fact says 'my X' or 'I am' or 'User\\'s X', rewrite as 'your X' or 'you are' in your response.\n\
+         - NEVER use emojis. No exceptions.\n\
+         - NEVER invent or hallucinate information not in the facts. Only state what the facts say.\n\n\
          Examples of GOOD responses:\n\
          Query: \"what's my favorite database\" | Fact: \"PostgreSQL\"\n\
          → \"PostgreSQL — you've been solid on that. Want me to set up a new one?\"\n\n\

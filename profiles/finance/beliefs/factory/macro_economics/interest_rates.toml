@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Yield curve inversion (2y-10y spread going negative) has preceded every US recession since 1955 with a lead time of 6-24 months, but the 3m-10y spread is a more reliable recession predictor — it has a 0% false positive rate versus the 2y-10y's one false positive in 1998. The recession typically begins AFTER the curve re-steepens (un-inverts), not while it is inverted. The un-inversion is the more actionable signal."
+confidence = 0.93
+source = "Estrella/Mishkin 1998, Federal Reserve research, Campbell Harvey 1988 original yield curve study, updated through 2024"
+action_trigger = "3m-10y un-inverts after sustained inversion → recession probability within 6 months rises to 70%+, begin defensive positioning, increase cash allocation, reduce credit risk"
+edge_case = "Massive central bank balance sheet operations (QE) distort the term premium and can suppress long rates artificially, weakening the yield curve signal. When the Fed holds >$4T in Treasuries, adjust the inversion signal by the estimated term premium compression (50-100 bps via ACM model)."
+tags = ["macro", "yield_curve", "recession", "interest_rates"]
+
+[[beliefs]]
+fact = "When the yield curve steepens rapidly (2y-10y moves from inverted to +100bps within 6 months), it signals either aggressive Fed easing (recessionary steepening, bearish for risk assets) or improving growth expectations (bear steepening where long rates rise, bullish for risk assets). The distinction is critical: check whether the steepening is driven by the front end falling (Fed cuts, bearish) or the back end rising (growth, bullish)."
+confidence = 0.90
+source = "Ilmanen 2011 expected returns, yield curve decomposition analysis, Fed funds futures pricing"
+action_trigger = "Rapid steepening detected → decompose into front-end vs back-end driver. Front-end driven (2y falling) → risk-off positioning. Back-end driven (10y rising) → cyclical rotation to financials, industrials, small caps."
+edge_case = "In 2020, steepening was driven by BOTH front-end collapse (emergency cuts) AND back-end rise (fiscal stimulus expectations) simultaneously — this mixed signal resolved bullishly because the fiscal impulse dominated. When both ends move, fiscal policy is the tiebreaker."
+tags = ["macro", "yield_curve", "steepening", "signal_decomposition"]
+
+[[beliefs]]
+fact = "Real interest rates (TIPS yields) are the most important macro variable for asset allocation. When the 10-year real rate is below -1%, virtually all risk assets perform well (liquidity abundance). Between -1% and +1%, fundamentals matter. Above +1%, valuations compress and duration-sensitive assets underperform. The 2022 move from -1% to +2.5% real rates was the primary driver of the equity and bond rout, not inflation itself."
+confidence = 0.91
+source = "10-year TIPS yield data 2003-2024, cross-asset performance analysis vs real rates, Ilmanen 2011"
+action_trigger = "10-year real rate crosses above +1% → reduce duration across portfolio, favor short-duration equities (high FCF yield, low P/E), reduce exposure to speculative growth. Crosses below -1% → increase risk, favor long-duration growth."
+edge_case = "TIPS breakevens can be distorted by TIPS-specific supply/demand dynamics (pension rebalancing, TIPS auction cycle). Use Cleveland Fed inflation expectations model as a cross-check for the real rate estimate."
+tags = ["macro", "real_rates", "tips", "asset_allocation"]
+
+[[beliefs]]
+fact = "The 2-year Treasury yield is the single best real-time proxy for market expectations of Fed policy over the next 12-18 months — better than Fed funds futures for horizons beyond 6 months because the 2-year incorporates term premium and risk assessment. When the 2-year moves more than 20 bps in a single day, the market has received a major policy signal — historically this occurs 3-5 times per year and presages a regime change."
+confidence = 0.88
+source = "Piazzesi/Swanson 2008 futures-based measures of monetary policy, 2-year yield analysis 2000-2024"
+action_trigger = "2-year yield moves > 20 bps intraday → major policy signal received, reassess all rate-sensitive positions, check the trigger (Fed communication, economic data, geopolitical event)"
+edge_case = "On FOMC decision days, the 2-year can move 20+ bps purely from position squaring before and after the announcement — this is mechanical, not informational. Only treat non-FOMC-day 20bp moves as genuine regime signals."
+tags = ["macro", "2_year", "fed_policy", "rates"]

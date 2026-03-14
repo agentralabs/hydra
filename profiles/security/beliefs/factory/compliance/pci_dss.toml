@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "PCI DSS v4.0 organizes requirements into 12 groups spanning network security, data protection, vulnerability management, access control, monitoring, and policy. The fundamental principle: minimize cardholder data exposure. If you do not store, process, or transmit cardholder data, you are out of scope. The single most effective PCI strategy is scope reduction: use tokenization, hosted payment pages, and P2PE to keep card data off your systems entirely."
+confidence = 0.96
+source = "PCI DSS v4.0; PCI SSC guidance on scope reduction; QSA assessment experience"
+action_trigger = "Before any PCI assessment: perform a data flow analysis to identify every system that stores, processes, or transmits cardholder data. Reduce scope first through tokenization and hosted payment pages. Then secure what remains."
+edge_case = "Scope creep is the biggest PCI risk: a developer logging full card numbers to a debug file, a support agent screenshotting a payment page, or a backup system capturing cardholder data. Continuous DLP scanning for card number patterns (Luhn-valid 16-digit sequences) catches scope creep."
+tags = ["pci-dss", "scope-reduction", "tokenization", "cardholder-data"]
+
+[[beliefs]]
+fact = "PCI DSS cardholder data environment (CDE) scope extends to any system that stores, processes, or transmits cardholder data AND any system connected to those systems without adequate segmentation. This connected-to scope is where most organizations fail: a flat network means the entire network is in scope. Network segmentation validated by a QSA is the prerequisite for manageable PCI compliance."
+confidence = 0.95
+source = "PCI DSS v4.0 Requirement 1; PCI SSC segmentation testing guidance"
+action_trigger = "Validate CDE segmentation annually with penetration testing that specifically attempts to cross segment boundaries. Any successful cross-segment access means segmentation has failed and scope expands."
+edge_case = "Cloud environments complicate scope: shared VPCs, peered networks, and service mesh communication can create implicit connectivity. Map cloud network topology explicitly and validate isolation at the cloud provider level."
+tags = ["cde-scope", "segmentation", "connected-to", "pci-dss"]
+
+[[beliefs]]
+fact = "PCI DSS Self-Assessment Questionnaires (SAQs) range from SAQ A (33 questions, merchants using only hosted payment pages) to SAQ D (329 questions, full assessment). SAQ type determines compliance burden by an order of magnitude. Architecture decisions made during payment integration determine SAQ type permanently. Using a hosted payment page (Stripe Checkout, Adyen Drop-in) keeps you at SAQ A; building a custom payment form pushes you to SAQ A-EP or SAQ D."
+confidence = 0.94
+source = "PCI SSC SAQ documentation; payment integration architecture guides"
+action_trigger = "At payment system design time: choose architecture that minimizes SAQ level. If already at SAQ D, evaluate migration to hosted payment pages for scope reduction."
+edge_case = "SAQ A requires that no cardholder data touches your servers, including in transit. A misconfigured reverse proxy that logs POST bodies containing card data can silently upgrade your SAQ requirement from A to D."
+tags = ["saq", "compliance-burden", "hosted-payments", "pci-dss"]
+
+[[beliefs]]
+fact = "PCI DSS v4.0 Requirement 11.3 mandates both internal and external vulnerability scanning quarterly (by ASV for external) and penetration testing annually. But v4.0 adds a critical change effective March 2025: Requirement 6.4.3 requires a web application firewall (WAF) or equivalent for all public-facing web applications, and Requirement 11.6.1 requires detection mechanisms for unauthorized changes to payment pages (client-side JavaScript monitoring for Magecart-style attacks)."
+confidence = 0.95
+source = "PCI DSS v4.0 Requirements 6.4.3 and 11.6.1; PCI SSC v4.0 migration timeline"
+action_trigger = "Verify WAF deployment on all public-facing payment applications. Implement JavaScript integrity monitoring (Subresource Integrity, Content Security Policy, or commercial page monitoring) on all payment pages."
+edge_case = "Single-page applications with dynamic JavaScript loading may break SRI (Subresource Integrity) on every deployment. Use CSP with nonce-based script allowlisting as an alternative to hash-based SRI for dynamic content."
+tags = ["pci-v4", "waf", "javascript-monitoring", "magecart", "vulnerability-scanning"]

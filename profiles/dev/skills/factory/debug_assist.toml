@@ -1,0 +1,21 @@
+[metadata]
+name = "debug_assist"
+description = "Help diagnose and fix bugs by analyzing symptoms, code, and logs"
+version = "1.0.0"
+
+[trigger]
+patterns = ["debug", "why is this failing", "this doesn't work", "error"]
+intent = "debugging"
+
+[steps]
+sequence = [
+    "Understand the symptom from user description or error output",
+    "Locate relevant code using Codebase sister",
+    "Form a hypothesis about the root cause",
+    "Suggest a minimal fix or diagnostic step",
+    "Recommend a test to prevent regression",
+]
+
+[sisters]
+primary = ["Codebase", "Memory"]
+optional = ["Forge"]

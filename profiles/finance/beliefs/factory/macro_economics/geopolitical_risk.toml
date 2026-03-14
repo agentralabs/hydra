@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Geopolitical events follow a 'war premium' pattern: markets sell off 5-15% on the initial shock (invasion, attack, assassination), then recover 60-80% of the decline within 3-6 months UNLESS the event causes a sustained commodity supply disruption or triggers a broader military escalation. The buy-the-invasion trade has worked in 11 of 14 major geopolitical events since 1990 — the three exceptions (Gulf War I oil shock, Russia 2022 energy crisis, Middle East 2023 shipping disruption) all involved persistent commodity supply cuts."
+confidence = 0.86
+source = "Caldara/Iacoviello 2022 geopolitical risk index, equity market response to geopolitical events 1990-2024"
+action_trigger = "Major geopolitical event → assess whether it disrupts commodity supply chains. If no sustained supply impact → begin accumulating equities at -10% from pre-event levels. If supply chain disruption → wait for supply normalization before buying."
+edge_case = "Nuclear escalation risk (even if unrealized) creates a sustained risk premium that does not follow the normal recovery pattern. Any scenario with credible nuclear escalation (even 5% probability) should be treated as the exception, not the rule."
+tags = ["macro", "geopolitical", "war_premium", "event_driven"]
+
+[[beliefs]]
+fact = "Sanctions (OFAC, EU, UK) create immediate price spikes in the sanctioned country's exports but the global economy adapts within 6-18 months through supply chain rerouting, grey market flows, and substitution. Russia sanctions in 2022 spiked European gas 10x but by 2024 prices had returned to 2x pre-war levels as LNG imports from US/Qatar substituted. The trading implication: trade the initial spike aggressively, but fade it at the 3-month mark as substitution begins."
+confidence = 0.84
+source = "Hufbauer/Schott/Elliott sanctions effectiveness study, Russia/Iran/Venezuela sanctions analysis 2014-2024"
+action_trigger = "New major sanctions announced → go long the disrupted commodity for 1-3 months, then begin fading. Monitor ship tracking data (AIS) and trade flow data for evidence of rerouting — this is the signal that substitution is working."
+edge_case = "Secondary sanctions (penalizing third countries that trade with the sanctioned entity) are harder to evade and create more persistent disruptions. If secondary sanctions are enforced aggressively (as with Iran pre-2015), the supply disruption can last years, not months."
+tags = ["macro", "geopolitical", "sanctions", "supply_disruption"]
+
+[[beliefs]]
+fact = "Taiwan Strait risk is the single largest unpriced geopolitical tail risk in global markets. Taiwan produces 90% of advanced semiconductors (<7nm) — a blockade or invasion would cause a global semiconductor shortage 10x worse than 2021, with estimated GDP impact of 5-10% for affected economies. The market assigns approximately 2-5% annual probability to this event based on options pricing, but the actual strategic assessment ranges from 5-15% over the next decade."
+confidence = 0.80
+source = "CSIS Taiwan wargame simulations, semiconductor supply chain analysis, Taiwan Strait geopolitical risk assessment 2023-2024"
+action_trigger = "PLA military exercises around Taiwan escalating beyond historical pattern → increase portfolio hedges (long VIX calls, long oil calls, short semiconductor-dependent manufacturers), size hedges to survive a 30% equity drawdown"
+edge_case = "A gradual decoupling scenario (technology export controls, onshoring incentives) reduces the tail risk over a 5-10 year horizon by diversifying semiconductor production. Track TSMC Arizona/Japan/Germany fab construction timelines as a measure of risk reduction."
+tags = ["macro", "geopolitical", "taiwan", "semiconductors"]
+
+[[beliefs]]
+fact = "Markets systematically overprice geopolitical risk in the first 48 hours (panic selling overshoots fundamental impact by 2-3x) and then systematically underprice it once the initial shock fades (risk premium evaporates too quickly). The optimal strategy is to sell into the initial panic if you are long, wait 48-72 hours for the overshoot, then buy back. But maintain tail hedges permanently because the 5% of events that escalate do so within the first week."
+confidence = 0.85
+source = "Baker/Bloom/Davis 2016 policy uncertainty index, market microstructure of geopolitical events, behavioral finance overreaction studies"
+action_trigger = "Geopolitical shock detected → do NOT sell into the first 2-hour panic. Wait 48 hours for the overshoot to peak, then selectively add risk. Maintain permanent tail hedges (1-2% of portfolio in 3-month 20% OTM puts) to cover the escalation scenario."
+edge_case = "Weekend geopolitical events are more dangerous because markets cannot price them in real time — the Monday open can gap 3-5% beyond what futures indicated on Sunday night. Reduce gross exposure on Fridays when geopolitical tension is elevated."
+tags = ["macro", "geopolitical", "overreaction", "timing"]

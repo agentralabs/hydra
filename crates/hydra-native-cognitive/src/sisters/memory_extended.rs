@@ -123,7 +123,7 @@ impl Sisters {
     /// Capture a file change in memory — links code changes to conversation.
     pub async fn memory_capture_file_change(&self, path: &str, change: &str) {
         if let Some(mem) = &self.memory {
-            let _ = mem.call_tool("memory_add", serde_json::json!({
+            if let Err(e) = mem.call_tool("memory_add", serde_json::json!({
                 "event_type": "file_change",
                 "content": format!("File: {}\nChange: {}",
                     safe_truncate(path, 200),
@@ -133,7 +133,9 @@ impl Sisters {
                     "edge_type": "produced_by",
                     "file_path": safe_truncate(path, 200),
                 }
-            })).await;
+            })).await {
+                eprintln!("[hydra:memory] memory_add FAILED: {}", e);
+            }
         }
     }
 
@@ -150,6 +152,30 @@ impl Sisters {
         })).await.ok()?;
         let text = extract_text(&result);
         if text.is_empty() { None } else { Some(text) }
+    }
+
+    /// Query recent observations from memory for metabolism.
+    pub async fn memory_query_observations(&self, max: usize) -> Option<Vec<String>> {
+        let mem = self.memory.as_ref()?;
+        let result = mem.call_tool("memory_search_semantic_v3", serde_json::json!({
+            "query": "observation",
+            "limit": max,
+        })).await.ok()?;
+        let text = extract_text(&result);
+        if text.is_empty() { return None; }
+        Some(text.lines().map(|l| l.to_string()).filter(|l| !l.is_empty()).collect())
+    }
+
+    /// Query crystallized beliefs from memory.
+    pub async fn memory_query_crystallizations(&self, max: usize) -> Option<Vec<String>> {
+        let mem = self.memory.as_ref()?;
+        let result = mem.call_tool("memory_search_semantic_v3", serde_json::json!({
+            "query": "crystallized",
+            "limit": max,
+        })).await.ok()?;
+        let text = extract_text(&result);
+        if text.is_empty() { return None; }
+        Some(text.lines().map(|l| l.to_string()).filter(|l| !l.is_empty()).collect())
     }
 }
 

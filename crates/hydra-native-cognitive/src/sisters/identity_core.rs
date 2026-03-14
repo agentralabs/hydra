@@ -104,10 +104,12 @@ impl Sisters {
     /// Record action context for identity audit trail.
     pub async fn identity_action_context(&self, action: &str, context: &str) {
         if let Some(id) = &self.identity {
-            let _ = id.call_tool("action_context", serde_json::json!({
+            if let Err(e) = id.call_tool("action_context", serde_json::json!({
                 "action": safe_truncate(action, 500),
                 "context": safe_truncate(context, 500),
-            })).await;
+            })).await {
+                eprintln!("[hydra:identity] action_context FAILED: {}", e);
+            }
         }
     }
 
@@ -123,9 +125,11 @@ impl Sisters {
     /// End the current identity session with a summary.
     pub async fn identity_session_end(&self, summary: &str) {
         if let Some(id) = &self.identity {
-            let _ = id.call_tool("identity_session_end", serde_json::json!({
+            if let Err(e) = id.call_tool("identity_session_end", serde_json::json!({
                 "summary": safe_truncate(summary, 500),
-            })).await;
+            })).await {
+                eprintln!("[hydra:identity] identity_session_end FAILED: {}", e);
+            }
         }
     }
 

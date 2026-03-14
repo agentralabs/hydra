@@ -20,10 +20,53 @@ impl SelfModificationPipeline {
         }
     }
 
-    /// Read and parse a spec file.
+    /// Read a spec file. If not found at the given path, search common locations.
     pub fn read_spec(&self, spec_path: &Path) -> Result<String, ModResult> {
-        std::fs::read_to_string(spec_path).map_err(|e| ModResult::PipelineError {
-            message: format!("Cannot read spec: {}", e),
+        // Try exact path first
+        if let Ok(content) = std::fs::read_to_string(spec_path) {
+            return Ok(content);
+        }
+        // Extract filename for search
+        let filename = spec_path.file_name()
+            .map(|f| f.to_string_lossy().to_string())
+            .unwrap_or_default();
+        if filename.is_empty() {
+            return Err(ModResult::PipelineError {
+                message: format!("Cannot read spec: {}", spec_path.display()),
+            });
+        }
+        // Try common alternative locations
+        let candidates = [
+            self.project_dir.join("test-specs").join(&filename),
+            self.project_dir.join("specs").join(&filename),
+            self.project_dir.join("spec").join(&filename),
+            self.project_dir.join("docs").join(&filename),
+            self.project_dir.join(&filename),
+        ];
+        for candidate in &candidates {
+            if let Ok(content) = std::fs::read_to_string(candidate) {
+                eprintln!("[hydra:self-impl] Spec found at {} (not {})",
+                    candidate.display(), spec_path.display());
+                return Ok(content);
+            }
+        }
+        // Last resort: `find` from project root
+        if let Ok(output) = std::process::Command::new("find")
+            .args([self.project_dir.to_str().unwrap_or("."), "-name", &filename, "-type", "f"])
+            .output()
+        {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            if let Some(found) = stdout.lines().next() {
+                let found_path = Path::new(found.trim());
+                if let Ok(content) = std::fs::read_to_string(found_path) {
+                    eprintln!("[hydra:self-impl] Spec found via search at {}", found_path.display());
+                    return Ok(content);
+                }
+            }
+        }
+        Err(ModResult::PipelineError {
+            message: format!("Spec file '{}' not found. Searched: {}, test-specs/, specs/, spec/, docs/, project root, and full filesystem.",
+                filename, spec_path.display()),
         })
     }
 

@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "Open with a person, a moment, or a problem — never with abstract context or background"
+confidence = 0.91
+source = "narrative journalism, Pixar storytelling rules"
+action_trigger = "when writing the first paragraph of any piece"
+edge_case = "Academic or policy writing may require a brief context frame before the narrative hook"
+tags = ["storytelling", "openings", "engagement"]
+
+[[beliefs]]
+fact = "Every good story has tension — the reader must feel a gap between what is and what could be before you resolve it"
+confidence = 0.89
+source = "Robert McKee (Story), Nancy Duarte (Resonate)"
+action_trigger = "when outlining or reviewing the arc of any narrative piece"
+edge_case = "Informational reference content (docs, FAQs) does not need narrative tension; forcing it feels contrived"
+tags = ["storytelling", "tension", "narrative-arc"]
+
+[[beliefs]]
+fact = "Specificity is more compelling than generality — 'a 3am Slack message from the CEO' beats 'an urgent request'"
+confidence = 0.93
+source = "creative nonfiction craft, show-don't-tell principle"
+action_trigger = "when any sentence uses vague nouns or adjectives that could be replaced with concrete details"
+edge_case = "Over-specificity can slow pacing in fast-moving sections; balance detail with momentum"
+tags = ["storytelling", "specificity", "vivid-writing"]
+
+[[beliefs]]
+fact = "Callbacks create cohesion — reference an image, phrase, or detail from your opening in your closing"
+confidence = 0.84
+source = "essay craft, screenwriting technique"
+action_trigger = "when writing conclusions or final sections of any narrative piece"
+edge_case = "Forced callbacks feel gimmicky; only use when the opening detail naturally resonates with the conclusion"
+tags = ["storytelling", "callbacks", "structure"]
+
+[[beliefs]]
+fact = "Pair data with stories and stories with data — numbers without narrative are forgettable, narratives without evidence are unconvincing"
+confidence = 0.90
+source = "Chip & Dan Heath (Made to Stick), data journalism"
+action_trigger = "when a draft relies entirely on anecdotes or entirely on statistics"
+edge_case = "Some formats (poetry, personal essays) may legitimately omit data; some (dashboards) may omit narrative"
+tags = ["storytelling", "data", "evidence", "balance"]

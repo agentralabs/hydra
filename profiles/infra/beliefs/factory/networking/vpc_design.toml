@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Subnet strategy should use /24 minimum per AZ per tier (public, private, data) — plan CIDR allocation for 3x expected growth to avoid painful re-IP later"
+confidence = 0.90
+source = "factory"
+action_trigger = "When designing VPC layout for a new environment or region"
+edge_case = "Non-overlapping CIDR ranges are critical for VPC peering and VPN; coordinate with on-premise network team"
+tags = ["networking", "vpc", "subnet"]
+
+[[beliefs]]
+fact = "Security groups are stateful and instance-level — use them for application-layer access control; reference other security groups instead of IP ranges where possible"
+confidence = 0.90
+source = "factory"
+action_trigger = "When defining network access rules for services"
+edge_case = "Security group limits (rules per group, groups per ENI) can be hit in complex environments; request limit increases proactively"
+tags = ["networking", "vpc", "security-groups"]
+
+[[beliefs]]
+fact = "NACLs are stateless and subnet-level — use them as a coarse-grained defense layer; keep rules simple and prefer security groups for fine-grained control"
+confidence = 0.85
+source = "factory"
+action_trigger = "When adding network-level defense beyond security groups"
+edge_case = "NACL rule ordering matters (lowest number first); a common mistake is adding a deny rule with a higher number than an allow"
+tags = ["networking", "vpc", "nacl"]
+
+[[beliefs]]
+fact = "Transit gateway centralizes VPC-to-VPC and VPC-to-on-premise routing — replaces mesh peering when connecting more than 3 VPCs"
+confidence = 0.85
+source = "factory"
+action_trigger = "When the number of VPC peering connections exceeds manageable limits"
+edge_case = "Transit gateway adds per-GB data processing charges; for high-throughput east-west traffic, evaluate cost vs direct peering"
+tags = ["networking", "vpc", "transit-gateway"]

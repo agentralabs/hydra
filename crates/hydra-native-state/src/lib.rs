@@ -10,6 +10,7 @@ pub mod design {
 }
 pub mod utils;
 pub mod profile;
+pub mod operational_profile;
 pub mod persistence;
 pub mod proactive;
 pub mod federation;
@@ -23,6 +24,7 @@ pub use state::settings::SettingsStore;
 pub use utils::{detect_language, extract_json_plan, format_bytes, generate_deliverable_steps};
 pub use utils::markdown::markdown_to_html;
 pub use profile::{load_profile, save_profile, PersistedProfile, UserAutonomyLevel};
+pub use operational_profile::OperationalProfile;
 pub use proactive::{ProactiveAlert, AlertPriority, ProactiveNotifier};
 pub use federation::FederationManager;
 pub use design::{DesignColors, DesignTheme, Radius, Spacing, Typography};

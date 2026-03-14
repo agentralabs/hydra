@@ -1,0 +1,6 @@
+# Profile Template — copy this directory to create a new profile
+[metadata]
+name = "my-profile"
+version = "1.0.0"
+description = "Description of this profile's purpose"
+domain = "general"

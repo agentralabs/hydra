@@ -212,12 +212,14 @@ impl SisterConnection {
                 continue;
             }
 
-            // Skip server-initiated notifications (no "id" field)
+            // Skip notifications and null-id responses (not our response)
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(trimmed) {
-                if val.get("id").is_some() {
-                    break; // This is our response
+                if let Some(id_val) = val.get("id") {
+                    if !id_val.is_null() {
+                        break; // This is our response (has a real id)
+                    }
                 }
-                // Otherwise it's a notification, skip it
+                // null id or no id = notification/error from server, skip
                 continue;
             }
             break; // Non-JSON line, try to parse anyway

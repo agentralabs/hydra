@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Volatile evidence must be collected first because it exists only in RAM and is destroyed by power loss, reboot, or system changes. Collection priority: (1) system memory (contains decryption keys, malware in execution, network connections), (2) running processes with full command lines, (3) active network connections and DNS cache, (4) logged-in users and active sessions, (5) open file handles, (6) clipboard contents. Non-volatile evidence (disk) can wait; volatile evidence cannot."
+confidence = 0.97
+source = "RFC 3227; SANS FOR508; NIST SP 800-86"
+action_trigger = "On any system flagged for forensic collection: deploy memory acquisition tool (winpmem for Windows, LiME for Linux, osxpmem for macOS) BEFORE any other action. Do not run antivirus scans, do not reboot, do not log in interactively if avoidable."
+edge_case = "Cloud instances (EC2, GCE) may not support traditional memory acquisition. Use cloud-native snapshots (EBS snapshots include memory on nitro instances) and API-level evidence (CloudTrail, VPC Flow Logs) as substitutes."
+tags = ["volatile-evidence", "memory-acquisition", "collection-order", "forensics"]
+
+[[beliefs]]
+fact = "Chain of custody must be maintained from the moment evidence is identified through storage, analysis, and potential legal proceedings. Every evidence item requires: unique identifier, who collected it, when, using what tool and version, cryptographic hash (SHA-256 minimum) at collection and at every transfer, and storage location with access controls. A single break in the chain renders evidence potentially inadmissible."
+confidence = 0.96
+source = "NIST SP 800-86; legal precedent in digital evidence cases; ACPO Good Practice Guide"
+action_trigger = "At evidence collection: immediately hash the artifact, log collector identity and timestamp, store in write-protected evidence locker with access audit logging. Every subsequent access logged with purpose and accessor identity."
+edge_case = "Live response tools that run on the compromised system alter the system state (loading drivers, allocating memory). Document the specific footprint of each forensic tool used so that investigator artifacts can be distinguished from attacker artifacts."
+tags = ["chain-of-custody", "evidence-integrity", "hashing", "legal-admissibility"]
+
+[[beliefs]]
+fact = "Timeline reconstruction — building a unified chronological view across all evidence sources — is the core deliverable of digital forensics. Merge timelines from: filesystem MAC times, event logs (Security, System, PowerShell), SIEM alerts, EDR telemetry, network flow data, authentication logs, and cloud audit trails. Use UTC throughout. A 5-minute gap in the timeline during an incident is a red flag: either telemetry was destroyed, or a blind spot exists."
+confidence = 0.94
+source = "SANS FOR508 timeline analysis; log2timeline/Plaso documentation; IR case studies"
+action_trigger = "During any investigation: build a unified timeline (using tools like log2timeline/Plaso or Timeline Explorer) as the FIRST analytical step. All subsequent analysis references the timeline. Gaps in the timeline are investigated before conclusions are drawn."
+edge_case = "Clock skew between systems can create false timelines. NTP synchronization status must be verified for every evidence source, and timestamps adjusted if skew is detected. Without this, correlation across systems is unreliable."
+tags = ["timeline-analysis", "log-correlation", "plaso", "utc", "forensic-analysis"]
+
+[[beliefs]]
+fact = "Memory forensics reveals what disk forensics cannot: fileless malware that never touches disk, decryption keys for encrypted communications, process injection evidence, credential material in LSASS, and attacker tools loaded only in memory. Tools like Volatility 3 can extract process trees, network connections, injected code, and registry hives from a memory dump. Memory analysis should be performed on EVERY incident, not just when disk forensics is inconclusive."
+confidence = 0.95
+source = "Volatility Foundation research; SANS FOR508; fileless malware analysis papers"
+action_trigger = "For every P1/P2 incident: acquire memory dump and run baseline Volatility plugins (pslist, psscan, netscan, malfind, handles, dlllist). Discrepancies between pslist and psscan indicate hidden processes — immediate escalation."
+edge_case = "Memory dumps from systems with >64GB RAM are unwieldy. Use targeted acquisition (specific process dumps) when full memory acquisition is impractical, focusing on suspicious processes identified by EDR."
+tags = ["memory-forensics", "volatility", "fileless-malware", "process-injection"]

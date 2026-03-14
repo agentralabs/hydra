@@ -1,0 +1,22 @@
+[metadata]
+name = "experiment_design"
+description = "Design a rigorous experiment or study to test a specific hypothesis"
+version = "1.0.0"
+
+[trigger]
+patterns = ["design an experiment", "how would I test", "study design", "research design"]
+intent = "experiment-planning"
+
+[steps]
+sequence = [
+    "Clarify the hypothesis and the minimal result that would confirm or refute it",
+    "Select the appropriate design (RCT, quasi-experimental, observational, qualitative)",
+    "Define the sample (population, inclusion/exclusion, recruitment strategy)",
+    "Specify measures and instruments with reliability and validity evidence",
+    "Conduct power analysis to determine required sample size",
+    "Identify threats to validity and planned mitigations",
+]
+
+[sisters]
+primary = ["Data", "Cognition"]
+optional = ["Memory", "Veritas"]

@@ -1,0 +1,15 @@
+[[beliefs]]
+fact = "Know the audience before writing — developer docs differ from end-user guides in vocabulary and depth"
+confidence = 0.95
+source = "factory"
+action_trigger = "When starting any new document"
+edge_case = "Internal notes can be less formal but should still be clear"
+tags = ["content", "audience", "strategy"]
+
+[[beliefs]]
+fact = "Consistency in terminology prevents confusion — define terms in a glossary and use them uniformly"
+confidence = 0.90
+source = "factory"
+action_trigger = "When a document introduces domain-specific terms"
+edge_case = "Well-known industry terms don't need redefinition"
+tags = ["content", "terminology", "consistency"]

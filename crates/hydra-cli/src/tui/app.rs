@@ -102,27 +102,22 @@ pub struct PendingApproval {
 
 /// Main application state.
 pub struct App {
-    // Core state
     pub should_quit: bool,
     pub input_mode: InputMode,
     pub focus: FocusArea,
     pub sidebar_visible: bool,
     pub boot_state: BootState,
     pub permission_mode: PermissionMode,
-    /// Welcome screen stays visible until the user sends their first input.
     pub welcome_dismissed: bool,
-
-    // Input
     pub input: String,
     pub cursor_pos: usize,
     pub history: Vec<String>,
     pub history_index: Option<usize>,
-
-    // Conversation
     pub messages: Vec<Message>,
     pub scroll_offset: usize,
-
-    // System info
+    /// When Some(n), viewport is pinned to row n from top (top-anchored scroll).
+    /// When None, auto-scroll to bottom (default). Set by scroll_up, cleared by scroll_to_bottom.
+    pub scroll_pinned_top: Option<usize>,
     pub sisters: Vec<SisterInfo>,
     pub connected_count: usize,
     pub total_sisters: usize,
@@ -136,30 +131,16 @@ pub struct App {
     pub user_name: String,
     pub working_dir: String,
     pub model_name: String,
+    pub provider_name: String,
     pub tool_count: u64,
-    /// Memory capture mode: "all", "facts", "none"
     pub memory_capture: String,
-
-    // Recent tasks
     pub recent_tasks: VecDeque<RecentTask>,
-
-    // Progress
-    pub progress: Option<(String, f64)>, // (label, 0.0..1.0)
-
-    // Tick counter for animations
+    pub progress: Option<(String, f64)>,
     pub tick_count: u64,
-
-    // Sisters handle — live connection to all sister processes
     pub sisters_handle: Option<SistersHandle>,
-
-    // HTTP client (fallback for server mode)
     pub(crate) client: HydraClient,
-
-    // Tab completion
     pub completions: Vec<String>,
     pub completion_index: usize,
-
-    // ── Cognitive loop infrastructure (same as Desktop) ──
     pub cognitive_rx: Option<mpsc::UnboundedReceiver<CognitiveUpdate>>,
     pub(crate) decide_engine: Arc<DecideEngine>,
     pub(crate) invention_engine: Arc<InventionEngine>,
@@ -169,59 +150,40 @@ pub struct App {
     pub(crate) approval_manager: Arc<ApprovalManager>,
     pub(crate) federation_manager: Arc<FederationManager>,
     pub(crate) db: Option<Arc<hydra_db::HydraDb>>,
-
-    // Conversation history for cognitive loop
     pub conversation_history: Vec<(String, String)>,
-
-    // Approval flow — pending approval for y/n prompt
     pub pending_approval: Option<PendingApproval>,
-
-    // Challenge phrase gate for CRITICAL actions (Visual Overhaul spec)
     pub challenge_phrase: Option<String>,
     pub challenge_action: Option<String>,
-
-    // Double-Esc detection (§6.1: Esc+Esc opens rewind menu)
     pub last_esc_tick: u64,
-
-    // Is the cognitive loop currently running?
     pub is_thinking: bool,
-    /// Contextual status for what Hydra is doing right now (replaces generic "Thinking...")
     pub thinking_status: String,
-    /// Phase 3, C5.3: Elapsed time for current thinking phase (milliseconds)
     pub thinking_elapsed_ms: u64,
-
-    // Slash command dropdown
     pub command_dropdown: CommandDropdown,
-
-    // Project awareness
     pub project_info: Option<ProjectInfo>,
-
-    // Async command execution — child process handle for /test, /build, etc.
     pub running_cmd: Option<RunningCommand>,
-
     pub tool_output_expanded: bool,
-
     pub pr_status: Option<PrStatus>,
     pub pr_check_tick: u64,
-
     pub search_mode: bool,
     pub search_query: String,
     pub last_ctrlc_tick: u64,
     pub last_submit_tick: u64,
     pub kill_ring: String,
-    // ── Email (SMTP) settings ──
     pub smtp_host: String,
     pub smtp_user: String,
     pub smtp_password: String,
     pub smtp_to: String,
-
     pub remote_executor: hydra_native::remote::RemoteExecutor,
     pub swarm_manager: hydra_native::swarm::SwarmManager,
     pub threat_correlator: hydra_native::threat::ThreatCorrelator,
-
-    // ── File watcher for proactive suggestions (P2) ──
     pub file_watcher: Option<hydra_pulse::FileWatcher>,
     pub proactive_file_engine: hydra_pulse::ProactiveFileEngine,
+    pub running_sub_agents: Vec<super::app_helpers::SubAgentState>,
+    pub tokens_received: u64,
+    pub task_stats: super::app_helpers::TaskStats,
+    pub gateway_stats: String,
+    pub active_profile: Option<hydra_native::OperationalProfile>,
+    pub profile_prompt_overlay: Option<String>,
 }
 
 /// PR status for the footer indicator (spec §11).
@@ -267,8 +229,11 @@ impl App {
                 hydra_native::profile::migrate_legacy_profile(&name);
             }
         }
+        // Profile seeding moved to tui::run() — happens before terminal takeover
+
         let sisters: Vec<SisterInfo> = ["Memory", "Identity", "Codebase", "Vision", "Comm", "Contract", "Time",
-            "Planning", "Cognition", "Reality", "Forge", "Aegis", "Veritas", "Evolve"]
+            "Planning", "Cognition", "Reality", "Forge", "Aegis", "Veritas", "Evolve",
+            "Data", "Connect", "Workflow"]
             .iter().map(|short| SisterInfo { name: format!("Agentic{}", short), short_name: short.to_string(), connected: false, tool_count: 0 }).collect();
 
         let working_dir = {
@@ -315,10 +280,11 @@ impl App {
 
             messages: Vec::new(),
             scroll_offset: 0,
+            scroll_pinned_top: None,
 
             sisters,
             connected_count: 0,
-            total_sisters: 14,
+            total_sisters: 17,
             health_pct: 0,
             trust_level: "Unknown".to_string(),
             memory_facts: 0,
@@ -328,8 +294,9 @@ impl App {
             server_online: false,
             user_name,
             working_dir,
-            model_name: resolve_model_name(),
-            tool_count: 740,
+            model_name: { let (m, _) = super::app_helpers::resolve_model_and_provider(); m },
+            provider_name: { let (_, p) = super::app_helpers::resolve_model_and_provider(); p },
+            tool_count: 980,
             memory_capture,
 
             recent_tasks: load_recent_activity(),
@@ -384,6 +351,12 @@ impl App {
                 hydra_pulse::FileWatcher::start(cwd).ok()
             },
             proactive_file_engine: hydra_pulse::ProactiveFileEngine::new(),
+            running_sub_agents: Vec::new(),
+            tokens_received: 0,
+            task_stats: Default::default(),
+            gateway_stats: String::new(),
+            active_profile: None,
+            profile_prompt_overlay: None,
         }
     }
 }

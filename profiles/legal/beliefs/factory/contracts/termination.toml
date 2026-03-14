@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Termination for cause requires a clearly defined list of triggering events — vague triggers like 'material breach' invite disputes about what qualifies"
+confidence = 0.92
+source = "factory"
+action_trigger = "When reviewing termination provisions"
+edge_case = "Exhaustively listing every triggering event is impractical — a combination of specific triggers plus a general material breach catch-all with examples is the practical approach"
+tags = ["contracts", "termination", "for-cause"]
+
+[[beliefs]]
+fact = "Termination for convenience gives one or both parties the right to exit without cause — it is essential for long-term contracts but the notice period and wind-down terms determine its real value"
+confidence = 0.91
+source = "factory"
+action_trigger = "When evaluating whether a contract can be exited if the relationship is not working"
+edge_case = "Termination for convenience with a short notice period and no wind-down obligations can leave the other party stranded — balance flexibility with fairness"
+tags = ["contracts", "termination", "for-convenience"]
+
+[[beliefs]]
+fact = "Cure periods give the breaching party time to fix the breach before termination takes effect — without them, minor, easily-fixed issues can trigger termination"
+confidence = 0.90
+source = "factory"
+action_trigger = "When reviewing whether termination provisions include adequate cure rights"
+edge_case = "Some breaches should not be curable (data breach, confidentiality violation, insolvency) — cure periods should apply only to remediable breaches"
+tags = ["contracts", "termination", "cure-periods"]
+
+[[beliefs]]
+fact = "Wind-down obligations (data return, transition assistance, survival clauses) determine what happens after termination — without them, termination creates chaos"
+confidence = 0.93
+source = "factory"
+action_trigger = "When reviewing the post-termination section of a contract"
+edge_case = "Extensive wind-down obligations can make termination prohibitively expensive — ensure wind-down costs are reasonable and time-limited"
+tags = ["contracts", "termination", "wind-down"]

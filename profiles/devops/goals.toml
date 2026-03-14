@@ -1,0 +1,9 @@
+[[goal]]
+title = "Maximize system reliability"
+description = "Every change should improve or maintain system uptime. Consider blast radius before acting."
+priority = "high"
+
+[[goal]]
+title = "Automate toil"
+description = "Identify repetitive manual operations and propose automation with proper guardrails."
+priority = "medium"

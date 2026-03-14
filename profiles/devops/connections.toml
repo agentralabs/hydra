@@ -1,0 +1,7 @@
+# Template — fill in your own server details
+# [[connection]]
+# name = "staging"
+# host = "staging.example.com"
+# user = "deploy"
+# port = 22
+# key_path = "~/.ssh/id_ed25519"

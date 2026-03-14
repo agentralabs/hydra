@@ -56,9 +56,6 @@ pub fn build_welcome_frame(app: &App, width: usize, out: &mut Vec<Line<'static>>
         Span::styled("┐", bs),
     ]));
 
-    // Empty row
-    out.push(row(vec![], vec![], w, sp));
-
     // Welcome | Tips header
     out.push(row(
         vec![
@@ -72,10 +69,11 @@ pub fn build_welcome_frame(app: &App, width: usize, out: &mut Vec<Line<'static>>
 
     // (empty) | tip text
     out.push(row(vec![], vec![
-        Span::styled(" Run /init to create a HYDRA.md file with", dim),
+        Span::styled(" /memory all · facts · none", dim),
+        Span::styled(" to change", Style::default().fg(theme::HYDRA_DIM)),
     ], w, sp));
     out.push(row(vec![], vec![
-        Span::styled(" instructions for Hydra.", dim),
+        Span::styled(" /init to set up project instructions", dim),
     ], w, sp));
 
     // Logo ◉ | separator
@@ -128,12 +126,15 @@ pub fn build_welcome_frame(app: &App, width: usize, out: &mut Vec<Line<'static>>
         Span::styled(" System", bb),
     ], w, sp));
 
-    // Model + Branch | Sisters
+    // Model + Provider + Branch | Sisters
     let sister_style = if app.connected_count == app.total_sisters { green } else { yellow };
     let mut model_spans = vec![
         Span::styled("  ", Style::default()),
         Span::styled(app.model_name.clone(), purple),
     ];
+    if !app.provider_name.is_empty() {
+        model_spans.push(Span::styled(format!(" ({})", app.provider_name), dim));
+    }
     if let Some(ref info) = app.project_info {
         if let Some(ref branch) = info.git_branch {
             model_spans.push(Span::styled(" · ", dim));
@@ -185,20 +186,24 @@ pub fn build_welcome_frame(app: &App, width: usize, out: &mut Vec<Line<'static>>
         ], w, sp));
     }
 
-    // Mode row
+    // Memory capture + Mode row
+    let (mem_active, mem_dim) = match app.memory_capture.as_str() {
+        "all"   => ("all", " · facts · none"),
+        "facts" => ("facts", " · none"),
+        _       => ("none", ""),
+    };
+    let mem_active_style = if mem_active == "none" { Style::default().fg(theme::HYDRA_RED) } else { green };
     let (status_dot, status_label) = if app.sisters_handle.is_some() && app.connected_count > 0 {
         ("●", "Local")
-    } else if app.server_online {
-        ("●", "Server")
-    } else {
-        ("●", "Offline")
-    };
-    let dot_style = if status_label == "Offline" {
-        Style::default().fg(theme::HYDRA_RED)
-    } else { green };
+    } else if app.server_online { ("●", "Server") } else { ("●", "Offline") };
+    let dot_style = if status_label == "Offline" { Style::default().fg(theme::HYDRA_RED) } else { green };
 
     out.push(row(
-        vec![],
+        vec![
+            Span::styled("  /memory ", dim),
+            Span::styled(mem_active, mem_active_style),
+            Span::styled(mem_dim, Style::default().fg(theme::HYDRA_DIM)),
+        ],
         vec![
             Span::styled(" Mode       ", dim),
             Span::styled(status_dot, dot_style),
@@ -228,7 +233,7 @@ fn truncate_str(s: &str, max: usize) -> String {
 }
 
 fn shorten_path(path: &str, max: usize) -> String {
-    let home = std::env::var("HOME").unwrap_or_default();
+    let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_default();
     let s = if !home.is_empty() && path.starts_with(&home) {
         format!("~{}", &path[home.len()..])
     } else { path.to_string() };

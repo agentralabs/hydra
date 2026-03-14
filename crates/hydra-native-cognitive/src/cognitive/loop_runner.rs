@@ -11,7 +11,7 @@ use tokio::sync::mpsc;
 use crate::cognitive::decide::DecideEngine;
 use crate::cognitive::inventions::InventionEngine;
 use crate::cognitive::spawner::AgentSpawner;
-use crate::sisters::SistersHandle;
+use crate::sisters::{SistersHandle, SisterGateway};
 use crate::swarm::SwarmManager;
 use hydra_native_state::utils::safe_truncate;
 use hydra_db::HydraDb;
@@ -37,6 +37,10 @@ pub struct CognitiveLoopConfig {
     pub anthropic_oauth_token: Option<String>,
     /// Runtime behavior settings from UI
     pub runtime: super::runtime_settings::RuntimeSettings,
+    /// Operational profile prompt overlay (Phase 6)
+    pub prompt_overlay: Option<String>,
+    /// Active profile beliefs for Living Knowledge Engine
+    pub active_beliefs: Vec<hydra_native_state::operational_profile::ProfileBelief>,
 }
 
 /// Run the 5-phase cognitive loop, sending updates via the channel.
@@ -56,6 +60,10 @@ pub async fn run_cognitive_loop(
 ) {
     use crate::sisters::Sisters;
 
+    // Create SisterGateway — enforces sister-first pattern with stats tracking
+    let gateway: Option<Arc<SisterGateway>> = sisters_handle.as_ref()
+        .map(|sh| Arc::new(SisterGateway::new(sh.clone())));
+
     let text = &config.text;
     let debug = config.runtime.debug_mode;
     eprintln!("[hydra:loop] INPUT: {:?}", safe_truncate(text, 120));
@@ -64,6 +72,11 @@ pub async fn run_cognitive_loop(
     // Register as active agent in comm network (once per session)
     if config.session_count == 0 { if let Some(ref sh) = &sisters_handle { sh.comm_register_agent(&config.user_name, "primary").await; } }
 
+    // ── MORNING BRIEFING — show on first message of session ──
+    if config.session_count == 0 && !config.active_beliefs.is_empty() {
+        let b = crate::knowledge::morning_briefing::generate(&config.user_name, &config.active_beliefs, "active");
+        let _ = tx.send(CognitiveUpdate::EvidenceMemory { title: "Morning Briefing".into(), content: crate::knowledge::morning_briefing::format_briefing(&b) });
+    }
     // ── CAPABILITY REGISTRY — pattern-match BEFORE LLM classification ──
     use super::handlers::dispatch_capability;
     // Shared threat correlator — persistent across queries in this loop
@@ -73,7 +86,15 @@ pub async fn run_cognitive_loop(
     let remote_executor: Option<Arc<parking_lot::RwLock<crate::remote::RemoteExecutor>>> = Some(
         Arc::new(parking_lot::RwLock::new(crate::remote::RemoteExecutor::new()))
     );
-    if dispatch_capability::handle_capability_match(text, &swarm_manager, &threat_correlator, &remote_executor, &tx).await {
+    if dispatch_capability::handle_capability_match(text, &swarm_manager, &threat_correlator, &remote_executor, &sisters_handle, &tx).await {
+        return;
+    }
+
+    // ── UTILITY SISTER PRE-DISPATCH — call Data/Connect/Workflow directly (0 LLM tokens) ──
+    if super::handlers::dispatch_utility::handle_data_operation(text, &sisters_handle, &tx).await {
+        return;
+    }
+    if super::handlers::dispatch_utility::handle_connect_operation(text, &sisters_handle, &tx).await {
         return;
     }
 
@@ -99,43 +120,40 @@ pub async fn run_cognitive_loop(
     use super::handlers::dispatch;
     use super::handlers::sister_ops;
 
-    // Crystallized skill shortcut — bypass LLM for learned patterns
-    if dispatch::handle_crystallized_skill(text, &inventions, &decide_engine, &tx).await { return; }
+    let pre_dispatched =
+        dispatch::handle_crystallized_skill(text, &inventions, &decide_engine, &tx).await
+        || dispatch::handle_greeting_farewell_thanks(&intent, &config, &tx)
+        || dispatch::handle_dep_query_precheck(text, &sisters_handle, &tx).await
+        || dispatch::handle_memory_recall(text, &intent, &config, &sisters_handle, &tx).await
+        || dispatch::handle_settings(text, &intent, &tx)
+        || sister_ops::handle_self_repair(text, &intent, &tx).await
+        || sister_ops::handle_omniscience_scan(&intent, &sisters_handle, &tx).await
+        || sister_ops::handle_build_system(text, &intent, &config, &sisters_handle, &approval_manager, &tx).await
+        || sister_ops::handle_self_implement(text, &intent, &config, &sisters_handle, &approval_manager, &tx).await
+        || sister_ops::handle_sister_diagnose(text, &intent, &sisters_handle, &tx).await
+        || sister_ops::handle_sister_repair(text, &intent, &sisters_handle, &tx).await
+        || sister_ops::handle_sister_improve(text, &intent, &config, &sisters_handle, &tx).await
+        || sister_ops::handle_threat_query(text, &intent, &tx)
+        || dispatch::handle_memory_store(text, &intent, &sisters_handle, &tx).await
+        || dispatch::handle_project_exec_natural(text, &sisters_handle, &tx).await
+        || dispatch::handle_slash_command(text, &decide_engine, &tx).await
+        || dispatch::handle_direct_action(text, &sisters_handle, &decide_engine, &tx).await;
 
-    // Greeting / Farewell / Thanks — instant response
-    if dispatch::handle_greeting_farewell_thanks(&intent, &config, &tx) { return; }
-
-    // Dependency/usage queries pre-check — before memory recall misroute
-    if dispatch::handle_dep_query_precheck(text, &sisters_handle, &tx).await { return; }
-
-    // Memory recall — natural conversational response
-    if dispatch::handle_memory_recall(text, &intent, &config, &sisters_handle, &tx).await { return; }
-
-    // Natural language settings detection
-    if dispatch::handle_settings(text, &intent, &tx) { return; }
-
-    // Self-repair — "fix yourself" intent
-    if sister_ops::handle_self_repair(text, &intent, &tx).await { return; }
-
-    // Omniscience scan — full semantic self-repair
-    if sister_ops::handle_omniscience_scan(&intent, &sisters_handle, &tx).await { return; }
-
-    // Build system — full multi-phase builder (Forge + Codebase + Aegis + LLM)
-    if sister_ops::handle_build_system(text, &intent, &config, &sisters_handle, &approval_manager, &tx).await { return; }
-
-    // Self-implement — self-modification pipeline (Forge first, LLM fallback)
-    if sister_ops::handle_self_implement(text, &intent, &config, &sisters_handle, &approval_manager, &tx).await { return; }
-
-    if sister_ops::handle_sister_diagnose(text, &intent, &sisters_handle, &tx).await { return; }
-    if sister_ops::handle_sister_repair(text, &intent, &sisters_handle, &tx).await { return; }
-    if sister_ops::handle_sister_improve(text, &intent, &tx).await { return; }
-    if sister_ops::handle_threat_query(text, &intent, &tx) { return; }
-    if dispatch::handle_memory_store(text, &intent, &sisters_handle, &tx).await { return; }
-    if dispatch::handle_project_exec_natural(text, &tx).await { return; }
-    // Slash commands — /test, /files, /git, /build, /run, etc.
-    if dispatch::handle_slash_command(text, &decide_engine, &tx).await { return; }
-    // Direct action fast-path — execute immediately, skip LLM
-    if dispatch::handle_direct_action(text, &sisters_handle, &decide_engine, &tx).await { return; }
+    if pre_dispatched {
+        // Memory capture for pre-dispatch handlers (they bypass the LEARN phase)
+        if let Some(ref sh) = sisters_handle {
+            if config.runtime.should_capture_all() {
+                eprintln!("[hydra:memory] Pre-dispatch capture for: {}", safe_truncate(text, 80));
+                sh.memory_capture_exchange(text, "(quick response)").await;
+            }
+            // Emit memory stats so UI dashboard stays current
+            if let Some(stats_raw) = sh.memory_stats().await {
+                let (f, t, r) = super::handlers::phase_learn::parse_memory_stats(&stats_raw);
+                let _ = tx.send(CognitiveUpdate::MemoryStatsUpdate { facts: f, tokens_avg: t, receipts: r });
+            }
+        }
+        return;
+    }
 
     // ── CLASSIFY — Determine complexity and risk ──
     let complexity = Sisters::classify_complexity(text);
@@ -200,11 +218,22 @@ pub async fn run_cognitive_loop(
     let perceive_ms = perceive.perceive_ms;
     if debug { eprintln!("[hydra:debug] PERCEIVE completed in {}ms", perceive_ms); }
 
+    // ── PHASE 1.5: COMPILED REASONING — record pattern for future compilation ──
+    {
+        let ps = crate::knowledge::compiled_reasoning::pattern_store();
+        if let Ok(mut store) = ps.lock() {
+            let steps = vec![format!("{:?}:{}", intent.category, complexity)];
+            if let Some(name) = store.record_observation(&complexity, &steps, true) {
+                eprintln!("[hydra:compiled] New pattern compiled: {}", name);
+            }
+        }
+    }
+
     // ── PHASE 2: THINK ──
     let think = phase_think::run_think(
         text, &config, &intent, &perceive,
         is_simple, is_complex, is_action_request, &complexity, risk_level,
-        &sisters_handle, &decide_engine, &inventions, &spawner, &tx,
+        &sisters_handle, &decide_engine, &inventions, &spawner, &gateway, &tx,
     ).await;
     let response_text = think.response_text;
     let active_model = think.active_model;
@@ -240,10 +269,11 @@ pub async fn run_cognitive_loop(
         &llm_config, provider, &active_model,
         risk_level, decide.gate_decision,
         &perceive.always_on_memory,
+        &perceive.task_plan,
         &decide_engine, &sisters_handle, &undo_stack, &db,
         input_tokens, output_tokens,
         perceive_ms, think_ms, decide_ms,
-        &tx,
+        &gateway, &tx,
     ).await;
 
     // ── PHASE 4b: VERIFY RESPONSE (Phase 2 — Claim-Level Verification) ──
@@ -267,6 +297,22 @@ pub async fn run_cognitive_loop(
         act.final_response.clone()
     };
 
+    // ── PHASE 4c: BELIEF VERIFICATION (Cognitive Amplification) ──
+    let verified_response = {
+        let beliefs = config.prompt_overlay.as_ref()
+            .map(|_| Vec::new()) // Beliefs are in the overlay
+            .unwrap_or_default();
+        let vr = crate::knowledge::reasoning_verifier::verify_response(
+            &verified_response, &beliefs, &config.history,
+        );
+        if let Some(modified) = vr.modified_response {
+            eprintln!("[hydra:belief_verify] {} issues found, response modified", vr.issues.len());
+            modified
+        } else {
+            verified_response
+        }
+    };
+
     // ── PHASE 5: LEARN + DELIVER ──
     phase_learn::run_learn(
         text, &config, &verified_response,
@@ -279,12 +325,35 @@ pub async fn run_cognitive_loop(
         &tx,
     ).await;
 
+    // ── GATEWAY STATS — emit sister-first usage metrics ──
+    if let Some(ref gw) = gateway {
+        let (s, f) = gw.stats();
+        if s + f > 0 {
+            eprintln!("[hydra:gateway] Session stats: {} sister calls, {} fallbacks", s, f);
+            let _ = tx.send(CognitiveUpdate::GatewayStats { display: gw.stats_display() });
+        }
+    }
+
+    // ── UCU OUTCOME VALIDATION — functional result verification ──
+    let validation = super::outcome_validator::validate_outcome(
+        &super::outcome_validator::ValidationContext {
+            user_input: text,
+            intent: intent.category,
+            response: &verified_response,
+            exec_results: &act.all_exec_results,
+            plan: perceive.task_plan.as_ref(),
+            llm_ok,
+        }
+    );
+    eprintln!("[hydra:validate] score={:.2} valid={} passed={} failed={}",
+        validation.score, validation.valid, validation.checks_passed.len(), validation.checks_failed.len());
+
     // ── POST-LEARN INTELLIGENCE — Phases 3/5/6 ──
-    // Phase 3: Record this interaction's outcome
-    let llm_outcome = if llm_ok {
-        super::outcome_tracker::Outcome::Success
-    } else {
-        super::outcome_tracker::Outcome::Failure
+    // Phase 3: Record this interaction's outcome (using UCU validation)
+    let llm_outcome = match validation.suggested_outcome {
+        super::outcome_validator::SuggestedOutcome::Success => super::outcome_tracker::Outcome::Success,
+        super::outcome_validator::SuggestedOutcome::PartialSuccess => super::outcome_tracker::Outcome::Success,
+        super::outcome_validator::SuggestedOutcome::Failure => super::outcome_tracker::Outcome::Failure,
     };
     let topic = hydra_native_state::utils::safe_truncate(text, 50).to_string();
     outcome_tracker.record(

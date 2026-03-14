@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "CIS Benchmarks provide the most actionable hardening baselines, organized in two implementation groups: IG1 (essential cyber hygiene, ~60 controls) and IG2 (for organizations with dedicated security staff, ~130 controls). Compliance with CIS IG1 alone mitigates 83% of ATT&CK techniques according to CIS/MITRE mapping. Start with IG1, measure, then progress to IG2. Attempting full CIS compliance without phasing causes operational disruption."
+confidence = 0.94
+source = "CIS Controls v8; CIS/MITRE ATT&CK mapping study; NIST CSF alignment"
+action_trigger = "For any new system or environment: apply CIS Level 1 benchmark before production deployment. Scan with CIS-CAT or OpenSCAP monthly. Deviations from baseline require documented exception with compensating control."
+edge_case = "Some CIS recommendations break specific applications (e.g., disabling SMBv1 breaks legacy scanners, PowerShell Constrained Language Mode breaks admin scripts). Maintain an exception register with compensating controls for each deviation."
+tags = ["cis-benchmarks", "hardening-baseline", "implementation-groups", "compliance"]
+
+[[beliefs]]
+fact = "Zero Trust architecture operates on the principle 'never trust, always verify' — every access request is authenticated, authorized, and encrypted regardless of network location. The core components: strong identity verification (MFA everywhere), device health validation, least-privilege access, microsegmentation, and continuous session monitoring. Zero Trust is not a product to buy; it is an architecture to implement incrementally, starting with identity."
+confidence = 0.95
+source = "NIST SP 800-207; CISA Zero Trust Maturity Model; Google BeyondCorp papers"
+action_trigger = "Zero Trust implementation priority: (1) MFA on all accounts including service accounts, (2) conditional access policies based on device + user + location risk, (3) microsegmentation of critical assets, (4) continuous session validation rather than one-time authentication"
+edge_case = "Legacy systems (SCADA, mainframes, medical devices) may not support modern authentication protocols. These require compensating controls: network microsegmentation, jump boxes with strong auth, and enhanced monitoring of all access to legacy systems."
+tags = ["zero-trust", "beyondcorp", "identity-first", "microsegmentation"]
+
+[[beliefs]]
+fact = "Network segmentation is the single most effective control for limiting lateral movement blast radius. Flat networks allow an attacker who compromises one workstation to reach domain controllers, databases, and backups directly. Effective segmentation isolates: user workstations from servers, production from development, IT from OT, backup infrastructure from everything, and domain controllers into Tier 0 with restricted access."
+confidence = 0.96
+source = "Active Directory tiering model; NIST network segmentation guidance; ransomware IR lessons"
+action_trigger = "Validate segmentation quarterly: can a workstation directly reach a domain controller? Can a developer laptop reach the production database? Can any system reach backup infrastructure without going through a bastion? If yes to any, segmentation is insufficient."
+edge_case = "Over-segmentation creates operational friction and workaround culture (users share credentials to access needed resources). Segmentation must align with actual workflow patterns — involve operations teams in segmentation design."
+tags = ["network-segmentation", "lateral-movement", "tier-model", "blast-radius"]
+
+[[beliefs]]
+fact = "Modern endpoint protection requires EDR (Endpoint Detection and Response), not just antivirus. AV detects known malware by signature; EDR provides behavioral detection, process telemetry, remote response capability, and threat hunting data. EDR blind spots: kernel-level rootkits, attacks during EDR agent updates, and fileless attacks that operate entirely within legitimate process memory. EDR is necessary but not sufficient — layer with application whitelisting for critical servers."
+confidence = 0.93
+source = "MITRE Engenuity EDR evaluations; Gartner endpoint protection analysis; EDR bypass research"
+action_trigger = "Ensure EDR deployed on 100% of endpoints including servers. Verify EDR telemetry flows to SIEM. Test EDR detection monthly with atomic red team tests. Any endpoint without EDR is a blind spot that attackers will find."
+edge_case = "Linux servers and containers often lack EDR coverage because agents are designed for Windows/macOS. Ensure Linux EDR agent or eBPF-based monitoring is deployed on all server workloads, including container hosts."
+tags = ["edr", "endpoint-protection", "behavioral-detection", "application-whitelisting"]

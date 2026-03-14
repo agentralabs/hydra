@@ -1,0 +1,21 @@
+[metadata]
+name = "satisfaction_check"
+description = "Assess customer satisfaction during and after interactions to identify at-risk accounts"
+version = "1.0.0"
+
+[trigger]
+patterns = ["check satisfaction", "how is this customer feeling", "CSAT", "customer happy"]
+intent = "satisfaction-monitoring"
+
+[steps]
+sequence = [
+    "Review the interaction history and tone of recent communications",
+    "Check for explicit satisfaction signals (ratings, feedback, tone)",
+    "Assess implicit signals (response speed, engagement, follow-up questions)",
+    "Flag accounts showing dissatisfaction patterns for proactive outreach",
+    "Recommend next actions to improve the customer's experience",
+]
+
+[sisters]
+primary = ["Cognition", "Memory"]
+optional = ["Comm", "Data"]

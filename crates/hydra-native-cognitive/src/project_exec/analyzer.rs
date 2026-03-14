@@ -83,10 +83,26 @@ pub fn analyze_project(project_dir: &Path) -> ProjectAnalysis {
     let has_tests = detect_has_tests(project_dir, &detected_lang);
     let has_build_config = docs.iter().any(|d| d.is_build_config());
 
+    // Try to extract purpose from README without LLM
+    let purpose = extract_purpose_from_readme(project_dir);
+    let knowledge = if !purpose.is_empty() {
+        Some(knowledge::ProjectKnowledge {
+            project_name: project_name.clone(),
+            purpose,
+            setup_commands: vec![],
+            test_commands: vec![],
+            api_endpoints: vec![],
+            dependencies: vec![],
+            learned_at: chrono::Utc::now(),
+        })
+    } else {
+        None
+    };
+
     ProjectAnalysis {
         project_name,
         docs_found: docs_summary,
-        knowledge: None,
+        knowledge,
         detected_language: detected_lang,
         has_tests,
         has_build_config,
@@ -155,6 +171,52 @@ fn has_test_pattern(dir: &Path, subdir: &str, _pattern: &str) -> bool {
     // Just check if the subdir exists with files — avoid scanning content
     let sub = dir.join(subdir);
     sub.exists() && sub.is_dir()
+}
+
+/// Extract a purpose description from README.md without LLM.
+///
+/// Reads the first meaningful paragraph (skips title/badges/blank lines)
+/// and uses it as the project purpose. Fast, no API calls.
+fn extract_purpose_from_readme(dir: &Path) -> String {
+    let readme_path = if dir.join("README.md").exists() {
+        dir.join("README.md")
+    } else if dir.join("readme.md").exists() {
+        dir.join("readme.md")
+    } else if dir.join("README.rst").exists() {
+        dir.join("README.rst")
+    } else {
+        return String::new();
+    };
+
+    let content = match std::fs::read_to_string(&readme_path) {
+        Ok(c) => c,
+        Err(_) => return String::new(),
+    };
+
+    // Find the first non-title, non-badge, non-blank line
+    for line in content.lines() {
+        let trimmed = line.trim();
+        // Skip empty lines, markdown headers, badges, HTML tags, horizontal rules
+        if trimmed.is_empty()
+            || trimmed.starts_with('#')
+            || trimmed.starts_with("![")
+            || trimmed.starts_with("[![")
+            || trimmed.starts_with('<')
+            || trimmed.starts_with("---")
+            || trimmed.starts_with("===")
+            || trimmed.starts_with("```")
+        {
+            continue;
+        }
+        // Found a content line — use it as purpose (truncate to reasonable length)
+        let purpose = if trimmed.len() > 120 {
+            format!("{}...", &trimmed[..117])
+        } else {
+            trimmed.to_string()
+        };
+        return purpose;
+    }
+    String::new()
 }
 
 /// Check if any file with the given extension suffix exists (shallow).

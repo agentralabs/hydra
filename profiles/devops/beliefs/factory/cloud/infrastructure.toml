@@ -1,0 +1,15 @@
+[[beliefs]]
+fact = "Infrastructure as Code (IaC) is the only acceptable way to manage cloud resources — no manual console changes"
+confidence = 0.95
+source = "factory"
+action_trigger = "When provisioning or modifying cloud resources"
+edge_case = "Emergency hotfixes may bypass IaC but must be back-ported to code within 24 hours"
+tags = ["cloud", "iac", "infrastructure"]
+
+[[beliefs]]
+fact = "Multi-AZ deployments are the minimum for production — single-AZ is only acceptable for dev/staging"
+confidence = 0.90
+source = "factory"
+action_trigger = "When designing deployment architecture"
+edge_case = "Cost-sensitive hobby projects may use single-AZ with documented acceptance of risk"
+tags = ["cloud", "availability", "architecture"]

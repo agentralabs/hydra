@@ -1,5 +1,4 @@
-//! Cognitive update handler — extracted from app.rs for file size.
-//! Processes CognitiveUpdate events from the cognitive loop channel.
+//! Cognitive update handler — processes CognitiveUpdate events from the cognitive loop.
 
 use chrono::Local;
 use tokio::sync::mpsc;
@@ -8,10 +7,8 @@ use super::app::{App, Message, MessageRole, PendingApproval};
 
 impl App {
     /// Process pending CognitiveUpdate events from the channel.
-    /// Limits StreamChunk processing to create visible streaming effect.
     pub(crate) fn process_cognitive_updates(&mut self) {
-        // Drain into a Vec — but limit StreamChunks for streaming effect.
-        // Process all non-stream events immediately, but only a few chunks per tick.
+        // Drain into a Vec — limit StreamChunks for streaming effect.
         let (updates, disconnected) = {
             match self.cognitive_rx.as_mut() {
                 Some(rx) => {
@@ -86,7 +83,10 @@ impl App {
                         "hydra" | "assistant" => MessageRole::Hydra,
                         _ => MessageRole::System,
                     };
-                    // Track conversation history for future cognitive loop calls
+                    // Estimate tokens from all hydra/system messages (~4 chars per token)
+                    if msg_role != MessageRole::User {
+                        self.tokens_received += (content.len() as u64 + 3) / 4;
+                    }
                     let api_role = if msg_role == MessageRole::User { "user" } else { "assistant" };
                     self.conversation_history.push((api_role.to_string(), content.clone()));
 
@@ -102,12 +102,14 @@ impl App {
                     }
                 }
                 CognitiveUpdate::ResetIdle => {
-                    self.current_phase = None;
-                    self.is_thinking = false;
-                    self.thinking_status.clear();
-                    self.thinking_elapsed_ms = 0;
-                    self.progress = None;
-                    self.invention_engine.reset_idle();
+                    if let Some(s) = self.task_stats.build_summary(self.tick_count, self.tokens_received) {
+                        self.messages.push(Message { role: MessageRole::System, content: s,
+                            timestamp: timestamp.clone(), phase: Some("Summary".into()) });
+                    }
+                    self.current_phase = None; self.is_thinking = false;
+                    self.thinking_status.clear(); self.thinking_elapsed_ms = 0;
+                    self.running_sub_agents.clear();
+                    self.progress = None; self.invention_engine.reset_idle();
                 }
                 CognitiveUpdate::AwaitApproval { approval_id, risk_level, action, description, .. } => {
                     if matches!(risk_level.as_str(), "critical" | "high" | "medium") {
@@ -145,15 +147,13 @@ impl App {
                     self.thinking_status = format!("Scanning: {}...", phase);
                     self.current_phase = Some(format!("Omniscience: {}", phase));
                 }
-                CognitiveUpdate::OmniscienceGapFound { .. } => {}
                 CognitiveUpdate::OmniscienceScanComplete { gaps_found, specs_generated, health_score } => {
                     self.messages.push(Message { role: MessageRole::System,
                         content: format!("● Scan complete\n  └ {} gaps, {} specs, {:.0}% health", gaps_found, specs_generated, health_score * 100.0),
                         timestamp: timestamp.clone(), phase: Some("Omniscience".into()) });
                     self.scroll_to_bottom();
                 }
-
-                // -- Phase 3, C5.3: Phase-specific loading with elapsed time --
+                CognitiveUpdate::OmniscienceGapFound { .. } => {}
                 CognitiveUpdate::PhaseLoading { phase, elapsed_ms } => {
                     self.thinking_status = phase;
                     self.thinking_elapsed_ms = elapsed_ms;
@@ -176,36 +176,24 @@ impl App {
                         self.thinking_status = format!("Planning: {} ({} steps)...", goal, steps.len());
                     }
                 }
-                // Hide internal step-complete messages from conversation
-                CognitiveUpdate::PlanStepComplete { .. } => {}
+                CognitiveUpdate::PlanStepComplete { .. }
+                | CognitiveUpdate::BeliefsLoaded { .. }
+                | CognitiveUpdate::Celebrate(_)
+                | CognitiveUpdate::SistersCalled { .. } => {}
 
-                // Beliefs loaded — internal state, don't show in chat
-                CognitiveUpdate::BeliefsLoaded { .. } => {}
-
-                CognitiveUpdate::Celebrate(msg) => {
-                    self.messages.push(Message { role: MessageRole::Hydra,
-                        content: msg, timestamp: timestamp.clone(), phase: None });
-                    self.scroll_to_bottom();
-                }
-
-                // Sisters called — already visible in sidebar, don't pollute chat
-                CognitiveUpdate::SistersCalled { .. } => {}
-
-                // -- Tool Actions: Claude Code-style display --
                 CognitiveUpdate::ToolAction { tool, args, result, success } => {
-                    let header = if args.is_empty() {
-                        format!("● {}", tool)
-                    } else {
-                        format!("● {}({})", tool, args)
-                    };
+                    // Count tool I/O as tokens (~4 chars per token)
+                    self.tokens_received += ((args.len() + result.len()) as u64 + 3) / 4;
+                    if let Some(a) = self.running_sub_agents.iter_mut().find(|a| !a.done) {
+                        a.tool_uses += 1;
+                        a.activity = format!("{}{}", tool, if args.is_empty() { String::new() } else { format!("({})", args) });
+                    }
+                    self.task_stats.record_tool(&tool, &args);
+                    let header = if args.is_empty() { format!("● {}", tool) } else { format!("● {}({})", tool, args) };
                     let marker = if success { "└" } else { "✗" };
-                    let content = format!("{}\n  {} {}", header, marker, result);
-                    self.messages.push(Message {
-                        role: MessageRole::System,
-                        content,
-                        timestamp: timestamp.clone(),
-                        phase: Some("Act".to_string()),
-                    });
+                    self.messages.push(Message { role: MessageRole::System,
+                        content: format!("{}\n  {} {}", header, marker, result),
+                        timestamp: timestamp.clone(), phase: Some("Act".to_string()) });
                     self.scroll_to_bottom();
                 }
 
@@ -242,7 +230,13 @@ impl App {
                     }
                 }
 
-                // -- Silently handled / no TUI equivalent --
+                CognitiveUpdate::TokenUsage { input_tokens, output_tokens } => {
+                    self.tokens_received += input_tokens + output_tokens;
+                }
+                CognitiveUpdate::MemoryModeChanged { mode } => { self.memory_capture = mode; }
+                CognitiveUpdate::MemoryStatsUpdate { facts, tokens_avg, receipts } => {
+                    self.memory_facts = facts; self.token_avg = tokens_avg; self.receipt_count = receipts;
+                }
                 CognitiveUpdate::IconState(_)
                 | CognitiveUpdate::PhaseStatuses(_)
                 | CognitiveUpdate::PlanClear
@@ -254,7 +248,6 @@ impl App {
                 | CognitiveUpdate::SidebarCompleteTask(_)
                 | CognitiveUpdate::SuggestMode(_)
                 | CognitiveUpdate::SettingsApplied { .. }
-                | CognitiveUpdate::TokenUsage { .. }
                 | CognitiveUpdate::StreamComplete
                 | CognitiveUpdate::UndoStatus { .. }
                 | CognitiveUpdate::SkillCrystallized { .. }
@@ -276,10 +269,12 @@ impl App {
                 | CognitiveUpdate::OmniscienceValidation { .. }
                 | CognitiveUpdate::BeliefUpdated { .. }
                 => {}
+                CognitiveUpdate::GatewayStats { display } => { self.gateway_stats = display; }
 
                 // -- Streaming: append chunks to current message --
                 CognitiveUpdate::StreamChunk { content } => {
-                    // If last message is an in-progress hydra message, append to it
+                    // Estimate tokens from stream chunks (~4 chars per token)
+                    self.tokens_received += (content.len() as u64 + 3) / 4;
                     if let Some(last) = self.messages.last_mut() {
                         if last.role == MessageRole::Hydra && self.is_thinking {
                             last.content.push_str(&content);
@@ -297,25 +292,36 @@ impl App {
                     self.scroll_to_bottom();
                 }
 
-                // -- Agent Swarm events --
-                CognitiveUpdate::SwarmSpawned { count, .. } => {
-                    self.thinking_status = format!("Spawned {} agents", count);
+                CognitiveUpdate::SwarmSpawned { count, agent_ids } => {
+                    use super::app_helpers::SubAgentState;
+                    self.running_sub_agents = agent_ids.iter().map(|id| SubAgentState {
+                        id: id.clone(), description: String::new(),
+                        tool_uses: 0, tokens: 0, activity: String::new(), done: false,
+                    }).collect();
+                    self.thinking_status = format!("Running {} agents...", count);
                 }
                 CognitiveUpdate::SwarmTaskAssigned { agent_id, task_desc } => {
-                    self.thinking_status = format!("Agent {} → {}", agent_id, task_desc);
+                    if let Some(a) = self.running_sub_agents.iter_mut().find(|a| a.id == agent_id) {
+                        a.description = task_desc.clone();
+                        a.activity = "Starting...".into();
+                    }
+                    self.thinking_status = format!("Running {} agents...", self.running_sub_agents.len());
                 }
                 CognitiveUpdate::SwarmResults { succeeded, total, failed, .. } => {
+                    self.running_sub_agents.clear();
+                    self.thinking_status.clear();
                     self.messages.push(Message { role: MessageRole::System,
-                        content: format!("● Swarm\n  └ {}/{} succeeded, {} failed", succeeded, total, failed),
+                        content: format!("● Swarm completed\n  └ {}/{} succeeded, {} failed", succeeded, total, failed),
                         timestamp: timestamp.clone(), phase: Some("Swarm".into()) });
                     self.scroll_to_bottom();
                 }
-
-                // -- Agentic Loop events --
                 CognitiveUpdate::AgenticTurn { turn, tool_count, exec_count } => {
+                    for a in &mut self.running_sub_agents { if !a.done { a.tool_uses = tool_count; } }
                     self.thinking_status = format!("Agentic turn {} ({} tools, {} cmds)", turn, tool_count, exec_count);
                 }
                 CognitiveUpdate::AgenticComplete { turns, total_tokens, stop_reason } => {
+                    self.tokens_received += total_tokens;
+                    self.running_sub_agents.clear();
                     self.messages.push(Message { role: MessageRole::System,
                         content: format!("● AgenticLoop\n  └ {} turns, {}K tokens ({})", turns, total_tokens / 1000, stop_reason),
                         timestamp: timestamp.clone(), phase: Some("Act".into()) });
@@ -376,15 +382,12 @@ impl App {
                 }
                 CognitiveUpdate::BuildComplete { report } => {
                     self.progress = None;
-                    self.messages.push(Message { role: MessageRole::Hydra, content: report,
-                        timestamp: timestamp.clone(), phase: Some("Build".into()) });
+                    self.messages.push(Message { role: MessageRole::Hydra, content: report, timestamp: timestamp.clone(), phase: Some("Build".into()) });
                     self.scroll_to_bottom();
                 }
                 CognitiveUpdate::BuildFailed { phase, error } => {
                     self.progress = None;
-                    self.messages.push(Message { role: MessageRole::System,
-                        content: format!("● BuildFailed({})\n  ✗ {}", phase, error),
-                        timestamp: timestamp.clone(), phase: Some("Build".into()) });
+                    self.messages.push(Message { role: MessageRole::System, content: format!("● BuildFailed({})\n  ✗ {}", phase, error), timestamp: timestamp.clone(), phase: Some("Build".into()) });
                     self.scroll_to_bottom();
                 }
             }

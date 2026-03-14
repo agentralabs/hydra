@@ -1,0 +1,21 @@
+[metadata]
+name = "paper_summary"
+description = "Summarize a research paper extracting key claims, methods, results, and limitations"
+version = "1.0.0"
+
+[trigger]
+patterns = ["summarize this paper", "what does this study find", "paper summary", "break down this article"]
+intent = "paper-comprehension"
+
+[steps]
+sequence = [
+    "Identify the research question and stated contribution",
+    "Extract the methodology (design, sample, measures, analysis)",
+    "Summarize key results with effect sizes and confidence intervals where available",
+    "Identify stated and unstated limitations",
+    "Assess how this paper connects to the broader literature",
+]
+
+[sisters]
+primary = ["Memory", "Veritas"]
+optional = ["Cognition"]

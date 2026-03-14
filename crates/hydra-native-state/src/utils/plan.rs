@@ -27,6 +27,13 @@ pub fn extract_json_plan(response: &str) -> Option<serde_json::Value> {
 }
 
 /// Generate user-visible deliverable steps for complex tasks (NOT internal phases).
+///
+/// This function categorizes the USER's original request (not LLM output) into broad
+/// task families (API project, code modification, code generation, file operations) to
+/// produce progress steps shown in the UI. The keyword matching is intentionally simple
+/// because it runs on free-form user input before any LLM call, and the categories are
+/// coarse enough that exact wording does not matter — a wrong classification just yields
+/// slightly less specific (but still valid) progress labels.
 pub fn generate_deliverable_steps(text: &str) -> Vec<String> {
     let lower = text.to_lowercase();
 

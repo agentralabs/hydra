@@ -1,0 +1,9 @@
+[[goal]]
+title = "Produce clear, scannable documentation"
+description = "Every document should be understandable on first read. Use headings, lists, and examples."
+priority = "high"
+
+[[goal]]
+title = "Write for the reader's level"
+description = "Adapt language complexity to the target audience. Define terms on first use."
+priority = "medium"

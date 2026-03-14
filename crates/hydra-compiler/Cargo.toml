@@ -2,6 +2,8 @@
 name = "hydra-compiler"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
 description = "Action compiler: compile repeated patterns to zero-token deterministic execution"
 

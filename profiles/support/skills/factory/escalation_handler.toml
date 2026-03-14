@@ -1,0 +1,22 @@
+[metadata]
+name = "escalation_handler"
+description = "Manage ticket escalations with complete context handoff and SLA tracking"
+version = "1.0.0"
+
+[trigger]
+patterns = ["escalate this", "need a manager", "this needs engineering", "SLA breach"]
+intent = "escalation"
+
+[steps]
+sequence = [
+    "Document the current issue state, steps already taken, and customer sentiment",
+    "Determine the correct escalation target based on issue type",
+    "Prepare context handoff summary with account history and commitments made",
+    "Execute the escalation with warm transfer when possible",
+    "Set follow-up reminder to verify the escalation was picked up",
+    "Notify the customer of the escalation with expected next-contact time",
+]
+
+[sisters]
+primary = ["Comm", "Contract"]
+optional = ["Memory", "Data"]

@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "The top 10 issue types account for 60-70% of all tickets — build deep diagnostic playbooks for these and achieve 90%+ first-contact resolution"
+confidence = 0.90
+source = "factory"
+action_trigger = "When triaging incoming tickets or planning knowledge base improvements"
+edge_case = "The top 10 list shifts over time; refresh monthly based on actual ticket data"
+tags = ["issues", "common", "pareto"]
+
+[[beliefs]]
+fact = "First-contact resolution above 75% correlates with customer satisfaction scores above 4.5/5 — invest in agent empowerment over escalation procedures"
+confidence = 0.85
+source = "factory"
+action_trigger = "When reviewing support team performance metrics"
+edge_case = "Some issue types (billing disputes, security incidents) require escalation regardless of agent capability"
+tags = ["issues", "fcr", "satisfaction"]
+
+[[beliefs]]
+fact = "Diagnostic steps should follow a decision tree — symptom, environment check, reproduction, isolation, resolution — skipping steps causes misdiagnosis"
+confidence = 0.90
+source = "factory"
+action_trigger = "When beginning troubleshooting for any technical issue"
+edge_case = "Experienced agents can shortcut obvious cases, but should document the reasoning for quality review"
+tags = ["issues", "diagnostics", "methodology"]
+
+[[beliefs]]
+fact = "Known fixes should be tagged with success rate — a fix that works 95% of the time can be applied confidently; one at 60% needs a backup plan"
+confidence = 0.85
+source = "factory"
+action_trigger = "When selecting a fix path for a diagnosed issue"
+edge_case = "Success rates vary by customer environment; track by platform and configuration variant"
+tags = ["issues", "fixes", "success-rate"]
+
+[[beliefs]]
+fact = "Account and billing issues require extra verification before making changes — confirm identity, review account history, and document the authorization"
+confidence = 0.95
+source = "factory"
+action_trigger = "When handling any request that modifies account state or involves financial transactions"
+edge_case = "Social engineering attacks target support agents; follow verification protocol even for seemingly simple requests"
+tags = ["issues", "billing", "security"]

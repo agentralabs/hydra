@@ -1,0 +1,55 @@
+[permissions]
+
+[permissions.read]
+allowed = [
+    "logs",
+    "alerts",
+    "configs",
+    "network_traffic",
+    "endpoint_telemetry",
+    "threat_intel_feeds",
+    "vulnerability_scans",
+    "audit_trails",
+    "dns_records",
+    "certificate_transparency",
+]
+
+[permissions.execute]
+allowed = [
+    "isolate_endpoint",
+    "scan_target",
+    "alert_team",
+    "rotate_credentials",
+    "query_siem",
+    "enrich_ioc",
+    "snapshot_memory",
+    "capture_pcap",
+    "hash_file",
+    "whois_lookup",
+]
+
+[permissions.requires_approval]
+actions = [
+    "quarantine_system",
+    "wipe_endpoint",
+    "block_ip",
+    "block_domain",
+    "disable_user_account",
+    "modify_firewall_rules",
+    "kill_process_remote",
+    "revoke_certificates",
+]
+approval_from = ["soc_lead", "incident_commander"]
+
+[permissions.forbidden]
+actions = [
+    "disable_logging",
+    "bypass_firewall",
+    "suppress_alerts",
+    "delete_evidence",
+    "modify_audit_logs",
+    "disable_edr",
+    "share_credentials",
+    "exfiltrate_data",
+]
+reason = "These actions destroy defensive posture or evidence integrity. No exception, no override."

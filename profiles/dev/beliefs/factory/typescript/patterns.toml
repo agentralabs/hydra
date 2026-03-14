@@ -1,0 +1,23 @@
+[[beliefs]]
+fact = "Composition over inheritance — build complex behavior by combining small, focused functions and objects rather than deep class hierarchies; TypeScript's structural typing makes this natural"
+confidence = 0.93
+source = "factory"
+action_trigger = "When designing components, services, or utility modules in TypeScript"
+edge_case = "A single level of inheritance (abstract base + concrete impl) is fine for framework patterns like base controllers — the rule targets deep hierarchies (3+ levels) where changes cascade unpredictably"
+tags = ["typescript", "patterns", "composition", "design"]
+
+[[beliefs]]
+fact = "Error boundaries in React (or try/catch at async boundaries in Node) prevent a single failure from crashing the entire application — isolate fallible subsystems behind explicit error handling"
+confidence = 0.90
+source = "factory"
+action_trigger = "When building UI components that fetch data or server handlers that call external services"
+edge_case = "Error boundaries only catch rendering errors in React — event handlers and async code need their own try/catch; in Node, unhandled promise rejections crash the process by default since Node 15"
+tags = ["typescript", "patterns", "error-handling", "react"]
+
+[[beliefs]]
+fact = "Barrel exports (index.ts re-exporting everything) create hidden coupling and slow down bundlers and type-checkers — prefer direct imports from the source module"
+confidence = 0.88
+source = "factory"
+action_trigger = "When organizing module exports in a TypeScript library or application"
+edge_case = "A single barrel file for a library's public API is acceptable and conventional (it defines the package boundary) — the anti-pattern is nested barrels inside internal directories that re-export recursively"
+tags = ["typescript", "patterns", "modules", "barrel-exports"]

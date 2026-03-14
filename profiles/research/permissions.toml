@@ -1,0 +1,11 @@
+[permissions]
+file_write = true
+shell_exec = false
+network_access = true
+risk_threshold = "low"
+
+[permissions.can_read]
+scope = ["papers", "data", "databases", "preprints", "supplementary-materials"]
+
+[permissions.can_write]
+scope = ["analysis", "drafts", "literature-reviews", "summaries", "notes"]

@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "A god class accumulates responsibilities until it becomes the center of all coupling — split it by identifying distinct responsibilities and extracting each into a focused collaborator"
+confidence = 0.93
+source = "factory"
+action_trigger = "When a class exceeds 500 lines or when most changes to the codebase touch the same file"
+edge_case = "Facade classes that delegate to focused collaborators can appear large but are not god classes — the test is whether the class contains logic or merely routes to others"
+tags = ["architecture", "anti-patterns", "god-class", "coupling"]
+
+[[beliefs]]
+fact = "Stringly-typed code uses raw strings where enums, newtypes, or typed IDs belong — it defeats the type system, enables silent misspellings, and makes refactoring impossible to verify"
+confidence = 0.92
+source = "factory"
+action_trigger = "When passing string identifiers for states, types, categories, or keys between functions"
+edge_case = "Strings are appropriate for truly dynamic, user-supplied values (search queries, display names) — the anti-pattern is using strings for a fixed, known set of values that the compiler could check"
+tags = ["architecture", "anti-patterns", "stringly-typed", "type-safety"]
+
+[[beliefs]]
+fact = "Shotgun surgery — a single logical change requiring edits across many files — signals that a concept is scattered instead of encapsulated; fix by co-locating related logic behind a single interface"
+confidence = 0.90
+source = "factory"
+action_trigger = "When a feature change requires modifying more than 3-4 unrelated files"
+edge_case = "Cross-cutting concerns (logging, auth, metrics) naturally touch many files — address these with middleware, decorators, or aspect-oriented techniques rather than trying to centralize them into one module"
+tags = ["architecture", "anti-patterns", "shotgun-surgery", "cohesion"]
+
+[[beliefs]]
+fact = "Premature abstraction creates interfaces and extension points for variation that may never materialize — it adds complexity now for speculative future benefit; prefer concrete implementations until a second use case appears"
+confidence = 0.93
+source = "factory"
+action_trigger = "When designing interfaces, factory patterns, or plugin systems before the second consumer exists"
+edge_case = "Known extension points from requirements (e.g., 'we will support Postgres and SQLite') justify upfront abstraction — the anti-pattern is abstracting because something might change someday"
+tags = ["architecture", "anti-patterns", "premature-abstraction", "yagni"]
+
+[[beliefs]]
+fact = "Inappropriate DRY coupling merges code that happens to look similar but changes for different reasons — when one caller needs a change, the shared abstraction breaks for the other callers"
+confidence = 0.90
+source = "factory"
+action_trigger = "When a shared utility function accumulates boolean flags or special-case parameters to serve diverging callers"
+edge_case = "If splitting the shared code leads to identical copies that always change together, it was genuine duplication and should stay shared — the signal is whether callers change independently or in lockstep"
+tags = ["architecture", "anti-patterns", "dry-coupling", "cohesion"]

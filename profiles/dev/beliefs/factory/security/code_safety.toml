@@ -1,0 +1,15 @@
+[[beliefs]]
+fact = "Never trust user input — validate at system boundaries, not deep in business logic"
+confidence = 0.95
+source = "factory"
+action_trigger = "When handling external input (CLI args, HTTP params, file contents)"
+edge_case = "Internal module boundaries can trust typed inputs from validated outer layers"
+tags = ["security", "validation"]
+
+[[beliefs]]
+fact = "Secrets belong in environment variables or secret managers, never in source code"
+confidence = 0.99
+source = "factory"
+action_trigger = "When code needs API keys, tokens, or credentials"
+edge_case = "Test fixtures may use fake/deterministic secrets clearly marked as non-production"
+tags = ["security", "secrets"]

@@ -1,0 +1,10 @@
+[sisters]
+emphasize = ["Connect", "Reality", "Workflow", "Data", "Aegis"]
+disable = []
+
+# Rationale: Infra profile emphasizes operations-centric sisters.
+# Connect — integrate with cloud APIs, monitoring, and orchestration tools.
+# Reality — ground truth about current system state and environment.
+# Workflow — orchestrate provisioning, scaling, and DR runbooks.
+# Data — analyze metrics, logs, cost data, and capacity trends.
+# Aegis — security posture, vulnerability scanning, compliance checks.

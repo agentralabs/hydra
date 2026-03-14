@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "At-will employment (US default) allows termination without cause but not for illegal reasons — discrimination, retaliation, and violation of public policy are exceptions that create liability"
+confidence = 0.93
+source = "factory"
+action_trigger = "When advising on employee termination in the US"
+edge_case = "Montana is the only US state that is not at-will after a probationary period — and many other countries have no at-will concept at all, requiring just cause for dismissal"
+tags = ["regulatory", "employment", "at-will"]
+
+[[beliefs]]
+fact = "Notice periods for termination vary from zero (US at-will) to months (many EU countries) — failing to provide required notice creates wrongful termination liability"
+confidence = 0.91
+source = "factory"
+action_trigger = "When planning employee terminations in jurisdictions with notice requirements"
+edge_case = "Some jurisdictions allow payment in lieu of notice (PILON) — but this must be contractually permitted or statutory, not assumed"
+tags = ["regulatory", "employment", "notice-periods"]
+
+[[beliefs]]
+fact = "Non-compete validity varies dramatically by jurisdiction — California bans them almost entirely, while other states enforce them if reasonable in scope, duration, and geography"
+confidence = 0.92
+source = "factory"
+action_trigger = "When reviewing or drafting non-compete provisions"
+edge_case = "The FTC proposed a near-total ban on non-competes in the US — the legal landscape is shifting rapidly and enforceability should be reassessed periodically"
+tags = ["regulatory", "employment", "non-compete"]
+
+[[beliefs]]
+fact = "Worker classification (employee vs independent contractor) determines tax obligations, benefits, and liability — misclassification exposes the company to back taxes, penalties, and lawsuits"
+confidence = 0.94
+source = "factory"
+action_trigger = "When engaging workers or reviewing workforce structure"
+edge_case = "Classification tests differ by jurisdiction and even by statute within the same jurisdiction (IRS vs DOL vs state law) — a worker can be a contractor under one test and an employee under another"
+tags = ["regulatory", "employment", "classification"]

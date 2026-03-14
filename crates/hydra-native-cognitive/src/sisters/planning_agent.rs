@@ -109,9 +109,11 @@ impl Sisters {
     /// Log planning context — append to the running context trail.
     pub async fn planning_context_log(&self, context: &str) {
         if let Some(planning) = &self.planning {
-            let _ = planning.call_tool("planning_context_log", serde_json::json!({
+            if let Err(e) = planning.call_tool("planning_context_log", serde_json::json!({
                 "context": safe_truncate(context, 500),
-            })).await;
+            })).await {
+                eprintln!("[hydra:planning] planning_context_log FAILED: {}", e);
+            }
         }
     }
 
@@ -158,10 +160,12 @@ impl Sisters {
     /// Record a decision with its reasoning for future reference.
     pub async fn planning_decision(&self, decision: &str, reasoning: &str) {
         if let Some(planning) = &self.planning {
-            let _ = planning.call_tool("planning_decision", serde_json::json!({
+            if let Err(e) = planning.call_tool("planning_decision", serde_json::json!({
                 "decision": safe_truncate(decision, 300),
                 "reasoning": safe_truncate(reasoning, 300),
-            })).await;
+            })).await {
+                eprintln!("[hydra:planning] planning_decision FAILED: {}", e);
+            }
         }
     }
 }

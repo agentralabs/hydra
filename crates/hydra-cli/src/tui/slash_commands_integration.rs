@@ -74,7 +74,7 @@ impl App {
     }
 
     pub(crate) fn slash_cmd_hooks(&mut self, timestamp: &str) {
-        let home = std::env::var("HOME").unwrap_or_else(|_| "~".into());
+        let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_else(|_| "~".into());
         let hooks_path = format!("{}/.hydra/settings.json", home);
         let project_hooks = ".hydra/settings.json";
 
@@ -162,7 +162,7 @@ impl App {
 
     pub(crate) fn slash_cmd_agents(&mut self, timestamp: &str) {
         let project_dir = ".hydra/agents/";
-        let home = std::env::var("HOME").unwrap_or_else(|_| "~".into());
+        let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_else(|_| "~".into());
         let personal_dir = format!("{}/.hydra/agents/", home);
 
         let project_count = std::fs::read_dir(project_dir)
@@ -196,7 +196,7 @@ impl App {
 
     pub(crate) fn slash_cmd_skills(&mut self, timestamp: &str) {
         let project_dir = ".hydra/skills/";
-        let home = std::env::var("HOME").unwrap_or_else(|_| "~".into());
+        let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_else(|_| "~".into());
         let personal_dir = format!("{}/.hydra/skills/", home);
 
         let project_count = std::fs::read_dir(project_dir)

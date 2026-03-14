@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "SQL injection manifests in three operational categories: in-band (UNION-based, error-based), blind (boolean-based, time-based), and out-of-band (DNS/HTTP exfil via xp_dirtree or UTL_HTTP). Blind SQLi is most dangerous because it produces no visible errors — detection requires monitoring for anomalous query execution time patterns (time-based) or repeated similar requests with single-character variations (boolean-based)."
+confidence = 0.96
+source = "OWASP Testing Guide v4; PortSwigger research; real-world penetration testing"
+action_trigger = "WAF logs showing UNION SELECT patterns, repeated requests with SLEEP/WAITFOR/BENCHMARK in parameters, or identical endpoints receiving >50 requests with single-character parameter variations"
+edge_case = "ORMs can generate UNION queries legitimately. Key differentiator: ORM unions have consistent structure; attack unions probe information_schema or attempt stacked queries."
+tags = ["sqli", "injection", "waf", "database-attack"]
+
+[[beliefs]]
+fact = "XSS taxonomy determines impact: Stored XSS achieves persistent account compromise at scale, Reflected XSS requires victim click but enables targeted attacks, DOM-based XSS bypasses server-side WAFs entirely because the payload never reaches the server. Modern frameworks (React, Angular) mitigate reflected/stored via auto-escaping, but DOM XSS through dangerouslySetInnerHTML, eval(), and document.write() remains prevalent."
+confidence = 0.94
+source = "OWASP XSS Prevention Cheat Sheet; Google XSS research; HackerOne disclosure data"
+action_trigger = "CSP violation reports indicating inline script execution, user-submitted content containing event handlers (onerror, onload), or JavaScript URL schemes in href attributes"
+edge_case = "Rich text editors (TinyMCE, CKEditor) legitimately produce HTML that triggers XSS scanners. Sanitization must allow safe tags while blocking event handlers — use allowlist, never denylist."
+tags = ["xss", "dom-xss", "stored-xss", "csp", "client-side"]
+
+[[beliefs]]
+fact = "SSRF targeting cloud metadata endpoints (169.254.169.254 for AWS, metadata.google.internal for GCP, 169.254.169.254 for Azure) is the single highest-impact web vulnerability in cloud-hosted applications. A successful SSRF to the metadata service yields IAM temporary credentials, enabling full cloud account takeover in seconds. IMDSv2 (AWS) mitigates but does not eliminate the risk."
+confidence = 0.97
+source = "Capital One breach post-mortem; AWS IMDSv2 documentation; OWASP SSRF guidance"
+action_trigger = "Any outbound request from application servers to 169.254.169.254, link-local addresses, or internal DNS names that were not present in the original user request"
+edge_case = "Applications that legitimately query metadata for instance identity (auto-scaling, service discovery) will trigger this. Allowlist specific metadata paths (/latest/meta-data/instance-id) and block credential paths (/latest/meta-data/iam/)."
+tags = ["ssrf", "cloud-metadata", "iam", "cloud-takeover"]
+
+[[beliefs]]
+fact = "Remote code execution chains rarely exploit a single vulnerability. Modern RCE typically chains 2-4 bugs: an SSRF or file upload for initial access, a deserialization or template injection for code execution, and a privilege escalation for persistence. Detection must monitor for the chain, not individual links — a file upload alone is low severity, but file upload + unusual process spawn from web server = critical."
+confidence = 0.93
+source = "HackerOne top 10 reports; Pwn2Own chain analysis; Spring4Shell, Log4Shell post-mortems"
+action_trigger = "Web server process spawning child processes (cmd.exe, /bin/sh, python), file writes to web-accessible directories from application context, or deserialization of untrusted data (Java ObjectInputStream, Python pickle, PHP unserialize)"
+edge_case = "CGI applications and legitimate server-side rendering (Puppeteer, wkhtmltopdf) spawn child processes normally. Baseline expected child processes per application and alert on deviations."
+tags = ["rce", "exploit-chain", "deserialization", "file-upload"]
+
+[[beliefs]]
+fact = "In terms of business impact per successful exploitation, the hierarchy is: SSRF-to-cloud-takeover > RCE > SQLi-with-DBA-privs > stored-XSS-on-auth-pages > IDOR-on-PII > reflected-XSS. Most vulnerability scoring (CVSS) underweights business context. A medium-CVSS IDOR on a healthcare API exposing PHI is higher real-world severity than a high-CVSS XSS on a marketing page."
+confidence = 0.89
+source = "Bugcrowd VRT; HackerOne triage guidelines; incident response experience"
+action_trigger = "When triaging vulnerabilities, always overlay business context onto CVSS: what data is accessible, what systems are reachable, what is the blast radius of credential/session compromise at this endpoint"
+edge_case = "Internal-only applications with no internet exposure may invert this hierarchy — an IDOR on an internal tool may be lower risk than RCE on a DMZ host. Adjust scoring by network position."
+tags = ["vulnerability-prioritization", "business-impact", "cvss", "triage"]

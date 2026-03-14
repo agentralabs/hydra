@@ -1,0 +1,14 @@
+[permissions]
+file_write = true
+shell_exec = false
+network_access = true
+risk_threshold = "low"
+
+[permissions.can_read]
+scope = ["contracts", "filings", "regulations", "case-law", "policies", "corporate-documents"]
+
+[permissions.can_write]
+scope = ["analysis", "reports", "summaries", "redlines", "checklists"]
+
+[permissions.requires_approval]
+scope = ["legal-advice", "filings", "binding-opinions", "regulatory-submissions"]

@@ -1,0 +1,6 @@
+# Legal Profile — Legal Operations
+[metadata]
+name = "legal"
+version = "1.0.0"
+description = "Legal analyst — precise, risk-aware, clause-level attention to detail"
+domain = "legal-operations"

@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Pairs trading between cointegrated stocks generates 4-8% annualized alpha with a Sharpe ratio of 0.8-1.2, but the cointegration relationship breaks permanently (not temporarily) in approximately 15-20% of historical pairs within any given year. The key risk management rule: if the spread exceeds 3 standard deviations from its mean AND the cointegration test p-value has risen above 0.10, the relationship may have broken — cut the position rather than doubling down."
+confidence = 0.87
+source = "Gatev/Goetzmann/Rouwenhorst 2006 pairs trading, Krauss 2017 statistical arbitrage review, empirical backtests 2010-2024"
+action_trigger = "Spread > 3 sigma AND cointegration p-value > 0.10 → close position immediately, reclassify pair as broken, do not re-enter for 90 days until cointegration is re-established"
+edge_case = "Pairs involving companies in the same sector undergoing M&A, spin-offs, or major strategic pivots will show spread divergence that looks like a trading opportunity but is actually a fundamental repricing. Check for corporate actions before entering any new pair trade."
+tags = ["stat_arb", "pairs_trading", "cointegration", "mean_reversion"]
+
+[[beliefs]]
+fact = "Mean reversion in equity returns is strongest at the 1-5 day horizon for liquid large-cap stocks — the autocorrelation of daily returns is -0.03 to -0.08, meaning a 2% decline today predicts a 0.06-0.16% recovery tomorrow. This is tiny per trade but compounds to significant alpha at scale (100+ positions). The signal is strongest for stocks that declined on high volume (liquidity-driven selloff) and weakest for stocks that declined on low volume (information-driven)."
+confidence = 0.85
+source = "Lo/MacKinlay 1990 stock market prices do not follow random walks, Lehmann 1990 short-horizon returns, updated analysis through 2024"
+action_trigger = "Stock declines > 2% on volume > 2x 20-day average with no material news → flag as potential short-term mean reversion opportunity, size position at 0.5-1% of portfolio, exit at +0.5% or after 3 days (whichever first)"
+edge_case = "Earnings announcements, FDA decisions, and other binary events create legitimate large moves that do NOT mean-revert. Exclude any stock within 5 trading days of a known binary event from the mean-reversion universe."
+tags = ["stat_arb", "mean_reversion", "short_horizon", "liquidity"]
+
+[[beliefs]]
+fact = "The Ornstein-Uhlenbeck (OU) process — dx = theta*(mu - x)*dt + sigma*dW — is the standard model for mean-reverting spreads in statistical arbitrage. The critical parameter is theta (speed of mean reversion): theta > 10 annualized means the half-life of deviation is less than 25 trading days, which is fast enough for profitable trading after transaction costs. Theta < 5 means the half-life exceeds 50 days, making the strategy capital-inefficient."
+confidence = 0.90
+source = "Uhlenbeck/Ornstein 1930, applied to finance by Vasicek 1977, standard in quantitative trading since 2000s"
+action_trigger = "OU parameter estimation shows theta < 5 → reject the pair/spread as too slow to trade profitably, focus on pairs with theta > 10 (half-life < 25 days)"
+edge_case = "OU parameter estimates are regime-dependent — theta estimated during a low-volatility regime will overstate mean reversion speed because the process appears more stationary. Re-estimate theta quarterly using a rolling 252-day window and require stability across windows."
+tags = ["stat_arb", "ornstein_uhlenbeck", "mean_reversion", "half_life"]
+
+[[beliefs]]
+fact = "The half-life of mean reversion — calculated as ln(2)/theta from the OU model — determines the optimal holding period and position sizing for stat arb strategies. A half-life of 15 days means half the spread deviation is expected to close in 15 trading days. The optimal entry point is 2 sigma from the mean, optimal exit is 0.5 sigma, and stop-loss at 3.5-4 sigma. Holding beyond 2x the half-life with no convergence indicates the relationship has likely broken."
+confidence = 0.88
+source = "Chan 2013 Algorithmic Trading, empirical stat arb strategy design 2015-2024"
+action_trigger = "Position held for > 2x half-life without convergence → exit at market, do not add to position, reassess pair cointegration before any re-entry"
+edge_case = "In trending markets, even cointegrated pairs can show extended divergence that exceeds 2x the estimated half-life before eventually converging. Use a regime filter (trend strength indicator on the market) to adjust the patience threshold — extend to 2.5x half-life in strong trends."
+tags = ["stat_arb", "half_life", "holding_period", "exit_rules"]

@@ -36,21 +36,25 @@ impl Sisters {
         status: &str,
     ) {
         if let Some(planning) = &self.planning {
-            let _ = planning.call_tool("planning_update_progress", serde_json::json!({
+            if let Err(e) = planning.call_tool("planning_update_progress", serde_json::json!({
                 "goal_id": goal_id,
                 "step_index": step_index,
                 "status": status,
-            })).await;
+            })).await {
+                eprintln!("[hydra:planning] planning_update_progress FAILED: {}", e);
+            }
         }
     }
 
     /// Complete a goal via Planning sister.
     pub async fn planning_complete_goal(&self, goal_id: &str, outcome: &str) {
         if let Some(planning) = &self.planning {
-            let _ = planning.call_tool("planning_complete_goal", serde_json::json!({
+            if let Err(e) = planning.call_tool("planning_complete_goal", serde_json::json!({
                 "goal_id": goal_id,
                 "outcome": safe_truncate(outcome, 200),
-            })).await;
+            })).await {
+                eprintln!("[hydra:planning] planning_complete_goal FAILED: {}", e);
+            }
         }
     }
 
@@ -112,12 +116,14 @@ impl Sisters {
         detail: &str,
     ) {
         if let Some(planning) = &self.planning {
-            let _ = planning.call_tool("planning_checkpoint", serde_json::json!({
+            if let Err(e) = planning.call_tool("planning_checkpoint", serde_json::json!({
                 "goal_id": goal_id,
                 "phase": phase,
                 "status": status,
                 "detail": safe_truncate(detail, 200),
-            })).await;
+            })).await {
+                eprintln!("[hydra:planning] planning_checkpoint FAILED: {}", e);
+            }
         }
     }
 }

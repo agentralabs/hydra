@@ -64,6 +64,7 @@ pub fn install_completions(shell: &str, install_dir: &Path) -> Result<(), Instal
 
 fn dirs_fallback_home() -> PathBuf {
     std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from("/tmp/hydra-fallback-home"))
 }

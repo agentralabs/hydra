@@ -3,6 +3,9 @@
 //! This runs BEFORE intent classification. If a capability matches,
 //! we skip the LLM classifier entirely and route directly.
 //! Heavy handlers live in dispatch_capability_exec.rs (400-line split).
+//!
+//! NOTE: Only LOCAL operations belong here (swarm, env, threat, tasks).
+//! LLM-powered operations (sister improve, self-implement) route via intent dispatch.
 
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -10,6 +13,7 @@ use parking_lot::RwLock;
 
 use crate::cognitive::capability_registry::{CapabilityHandler, CapabilityMatch, CapabilityRegistry};
 use crate::cognitive::loop_runner::CognitiveUpdate;
+use crate::sisters::SistersHandle;
 use crate::swarm::SwarmManager;
 use crate::threat::ThreatCorrelator;
 use crate::remote::RemoteExecutor;
@@ -24,6 +28,7 @@ pub(crate) async fn handle_capability_match(
     swarm_manager: &Option<Arc<SwarmManager>>,
     threat_correlator: &Option<Arc<RwLock<ThreatCorrelator>>>,
     remote_executor: &Option<Arc<RwLock<RemoteExecutor>>>,
+    sisters_handle: &Option<SistersHandle>,
     tx: &mpsc::UnboundedSender<CognitiveUpdate>,
 ) -> bool {
     let registry = CapabilityRegistry::new();
@@ -38,11 +43,10 @@ pub(crate) async fn handle_capability_match(
     );
 
     match matched.capability.handler {
-        CapabilityHandler::ProjectExec => handle_project_exec(&matched, tx).await,
-        CapabilityHandler::Swarm => handle_swarm(text, swarm_manager, tx).await,
+        CapabilityHandler::ProjectExec => handle_project_exec(&matched, sisters_handle, tx).await,
+        CapabilityHandler::Swarm => handle_swarm(text, swarm_manager, sisters_handle, tx).await,
         CapabilityHandler::ThreatCheck => handle_threat(threat_correlator, tx),
         CapabilityHandler::EnvironmentProbe => handle_env_probe(tx),
-        CapabilityHandler::SisterImprove => handle_sister_improve(text, tx).await,
         CapabilityHandler::RemoteExec => handle_remote_exec(text, remote_executor, tx).await,
         CapabilityHandler::TaskList => handle_tasks(tx),
     }
@@ -50,6 +54,7 @@ pub(crate) async fn handle_capability_match(
 
 async fn handle_project_exec(
     matched: &CapabilityMatch<'_>,
+    sisters_handle: &Option<SistersHandle>,
     tx: &mpsc::UnboundedSender<CognitiveUpdate>,
 ) -> bool {
     let url = match &matched.extracted_url {
@@ -59,8 +64,11 @@ async fn handle_project_exec(
             return true;
         }
     };
+    if let Some(ref sh) = sisters_handle {
+        sh.comm_broadcast("hydra", "project_exec", &format!("Testing repo: {}", url)).await;
+    }
     super::dispatch_actions::handle_project_exec_natural(
-        &format!("test {}", url), tx,
+        &format!("test {}", url), sisters_handle, tx,
     ).await
 }
 
@@ -99,33 +107,37 @@ fn handle_tasks(tx: &mpsc::UnboundedSender<CognitiveUpdate>) -> bool {
     true
 }
 
-async fn handle_sister_improve(
-    text: &str,
-    tx: &mpsc::UnboundedSender<CognitiveUpdate>,
-) -> bool {
-    let _ = tx.send(CognitiveUpdate::Phase("Sister Improvement".into()));
-    let path = match crate::sister_improve::extract_sister_path(text) {
-        Some(p) => p,
-        None => {
-            send_msg(tx, "I need a path to the sister project.\n\n\
-                Example: `improve sister at ../agentic-memory add retry logic`");
-            return true;
+/// Auto-resolve a project name from natural language to a sibling workspace directory.
+/// Scans the workspace parent for directories whose names match words in the text.
+/// Fully generic — works on any system, any project layout.
+pub(crate) fn resolve_project_from_text(text: &str) -> Option<std::path::PathBuf> {
+    let lower = text.to_lowercase();
+    let workspace_parent = std::env::current_dir().ok()?.parent()?.to_path_buf();
+
+    let stop = ["improve", "the", "sister", "fix", "upgrade", "patch", "make",
+                 "better", "add", "to", "for", "a", "an", "my", "at", "in", "on"];
+    let words: Vec<&str> = lower.split_whitespace()
+        .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric() && c != '-'))
+        .filter(|w| w.len() >= 2 && !stop.contains(w))
+        .collect();
+
+    let entries = std::fs::read_dir(&workspace_parent).ok()?;
+    let mut best: Option<(std::path::PathBuf, usize)> = None;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() { continue; }
+        let dir_name = path.file_name()?.to_str()?.to_lowercase();
+        let score = words.iter().filter(|w| dir_name.contains(*w)).count();
+        if score > 0 && best.as_ref().map_or(true, |b| score > b.1) {
+            best = Some((path, score));
         }
-    };
-    let goal = crate::sister_improve::extract_goal(text);
-    let tx_c = tx.clone();
-    tokio::spawn(async move {
-        let improver = crate::sister_improve::SisterImprover::new();
-        let (improve_tx, mut _rx) = mpsc::channel(100);
-        let report = improver.improve(&path, &goal, &improve_tx).await;
-        send_msg(&tx_c, &format!("**Result:** {}", report.summary()));
-    });
-    true
+    }
+    best.map(|(p, _)| p)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::super::dispatch_capability_exec::{extract_number};
+    use super::super::dispatch_capability_exec::extract_number;
 
     #[test]
     fn test_extract_number() {

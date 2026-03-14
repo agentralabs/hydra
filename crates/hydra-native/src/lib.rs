@@ -22,6 +22,7 @@ pub use hydra_native_cognitive::sister_improve;
 pub use hydra_native_cognitive::swarm;
 pub use hydra_native_cognitive::threat;
 pub use hydra_native_cognitive::task_persistence;
+pub use hydra_native_cognitive::knowledge;
 
 // Local modules (remain in this crate)
 pub mod app;
@@ -60,6 +61,7 @@ pub use hydra_native_state::design::{DesignColors, DesignTheme, Radius, Spacing,
 
 // Profile (from hydra-native-state)
 pub use hydra_native_state::profile::{load_profile, save_profile, PersistedProfile, UserAutonomyLevel};
+pub use hydra_native_state::operational_profile::{self, OperationalProfile};
 
 // Proactive (from hydra-native-state)
 pub use hydra_native_state::proactive::{ProactiveAlert, AlertPriority, ProactiveNotifier};

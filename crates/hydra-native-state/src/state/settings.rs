@@ -61,7 +61,10 @@ impl Default for SettingsStore {
 }
 
 impl SettingsStore {
-    /// Parse a natural language instruction and apply the corresponding setting change.
+    /// LOCAL-ONLY settings parser. Runs without LLM as a convenience shortcut.
+    /// For full natural language understanding, the cognitive loop handles settings via LLM.
+    /// These patterns are intentionally hardcoded as pre-LLM shortcuts.
+    ///
     /// Returns a confirmation message on success, or `None` if the instruction was not understood.
     pub fn apply_natural_language(&mut self, instruction: &str) -> Option<String> {
         let lower = instruction.to_lowercase();

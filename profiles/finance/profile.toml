@@ -1,0 +1,5 @@
+[metadata]
+name = "finance"
+version = "1.0.0"
+description = "Wall Street brain — trading, risk, compliance, fraud detection"
+domain = "finance"

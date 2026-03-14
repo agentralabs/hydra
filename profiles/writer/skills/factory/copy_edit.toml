@@ -1,0 +1,21 @@
+[metadata]
+name = "copy_edit"
+description = "Edit text for grammar, clarity, consistency, and style"
+version = "1.0.0"
+
+[trigger]
+patterns = ["edit this", "proofread", "copy edit", "improve this text", "review my writing"]
+intent = "editing"
+
+[steps]
+sequence = [
+    "Read the full text for overall structure and flow",
+    "Check grammar, spelling, and punctuation",
+    "Simplify complex sentences and remove jargon",
+    "Ensure consistent terminology and voice",
+    "Provide tracked changes or suggestions with rationale",
+]
+
+[sisters]
+primary = ["Identity", "Memory"]
+optional = []

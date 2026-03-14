@@ -1,0 +1,10 @@
+[sisters]
+emphasize = ["Data", "Memory", "Codebase", "Veritas", "Cognition"]
+disable = []
+
+# Rationale: Research profile emphasizes knowledge and verification sisters.
+# Data — structured analysis of datasets, tables, and figures.
+# Memory — recall prior findings, papers reviewed, and evolving hypotheses.
+# Codebase — search codebases for reproducibility artifacts.
+# Veritas — verify claims, cross-reference sources, detect contradictions.
+# Cognition — track reasoning chains, revise beliefs with new evidence.

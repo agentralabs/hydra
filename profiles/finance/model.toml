@@ -1,0 +1,19 @@
+[model]
+default = "claude-sonnet-4-6"
+complex_queries = "claude-opus-4-6"
+micro_classification = "claude-haiku-3"
+
+[routing]
+# Opus for: multi-leg trade analysis, stress test scenario design, regulatory interpretation
+# Sonnet for: standard analysis, report generation, alert triage
+# Haiku for: intent classification, quick lookups, confidence scoring
+
+[routing.rules]
+stress_test = "claude-opus-4-6"
+trade_execution = "claude-opus-4-6"
+fraud_investigation = "claude-opus-4-6"
+portfolio_risk = "claude-sonnet-4-6"
+earnings_analysis = "claude-sonnet-4-6"
+compliance_report = "claude-sonnet-4-6"
+alert_classification = "claude-haiku-3"
+regime_detection = "claude-sonnet-4-6"

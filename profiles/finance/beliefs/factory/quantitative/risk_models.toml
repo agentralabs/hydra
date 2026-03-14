@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "Historical VaR (Value at Risk) at the 99th percentile using a 250-day lookback window understates tail risk by 30-50% because it assumes the past year's volatility regime will persist. Realized losses exceed 99% VaR on average 4-5 times per year rather than the expected 2.5 times. Parametric VaR with GARCH-updated volatility reduces the breach rate to 3 times per year — still above expected but operationally more useful."
+confidence = 0.92
+source = "Basel Committee backtesting studies 1996-2024, Christoffersen/Pelletier 2004, Berkowitz/O'Brien 2002 VaR accuracy"
+action_trigger = "VaR breach count exceeding 4 in a 250-day window → model is miscalibrated, recalibrate with a GARCH or EWMA volatility update, extend the lookback to include the most recent stress period"
+edge_case = "During regime transitions (from low-vol to high-vol), all VaR models fail simultaneously because the lookback window is dominated by the old regime. When VIX transitions from below 15 to above 25 in less than 2 weeks, treat VaR estimates as 50% understated for the next 30 days."
+tags = ["risk", "var", "tail_risk", "model_accuracy"]
+
+[[beliefs]]
+fact = "CVaR (Conditional Value at Risk / Expected Shortfall) at the 97.5th percentile is a superior risk measure to VaR because it captures the magnitude of tail losses, not just their frequency. Under Basel III FRTB, CVaR replaced VaR as the primary market risk measure. A portfolio showing 99% VaR of $10M may have CVaR of $15M (fat tails) or $11M (thin tails) — the difference determines whether the tail risk is concentrated or distributed."
+confidence = 0.93
+source = "Basel III FRTB final rule 2019, Acerbi/Tasche 2002 CVaR coherence, Rockafellar/Uryasev 2000"
+action_trigger = "CVaR/VaR ratio > 1.8 → fat-tailed distribution detected, tail risk is concentrated in specific scenarios, identify which positions contribute most to the tail using component CVaR decomposition"
+edge_case = "For portfolios with significant options positions, CVaR calculated from historical simulation misses gamma effects — the actual tail loss can be 2-3x the CVaR estimate. Use full revaluation (not delta-normal) for options-heavy portfolios."
+tags = ["risk", "cvar", "expected_shortfall", "basel"]
+
+[[beliefs]]
+fact = "Stress test scenarios based solely on historical events (2008 GFC, 2020 COVID) are necessary but insufficient — the next crisis will not replicate a past crisis. The most valuable stress tests combine historical scenarios with hypothetical scenarios that target the portfolio's specific vulnerabilities: concentrated positions, illiquid holdings, correlation assumptions, and funding dependencies."
+confidence = 0.91
+source = "Fed CCAR/DFAST stress test framework, Basel BCBS 239, proprietary risk management practice"
+action_trigger = "Quarterly stress testing → run 3 historical scenarios (2008, 2020, 2022 rates) PLUS 3 bespoke scenarios targeting the portfolio's top 3 risk concentrations, with severity calibrated to 3-sigma events for each concentration"
+edge_case = "Reverse stress testing (what scenario would cause the fund to breach its risk limits?) is more informative than forward stress testing for identifying unknown vulnerabilities — but requires honest assessment of what would actually break the portfolio, which many risk teams avoid."
+tags = ["risk", "stress_testing", "scenarios", "risk_management"]
+
+[[beliefs]]
+fact = "Correlation breaks during stress periods — the tendency of all correlations to converge toward 1.0 during market crashes — are the single largest source of portfolio risk model failure. A portfolio 'diversified' across 8 asset classes may behave as a single-asset portfolio during a crisis. The speed of correlation convergence is proportional to the severity of the stress: a 10% equity drawdown increases cross-asset correlations by 0.2-0.3, while a 30% drawdown increases them by 0.5-0.7."
+confidence = 0.93
+source = "Longin/Solnik 2001 extreme correlation, Forbes/Rigobon 2002 contagion, empirical analysis of 2008/2020/2022"
+action_trigger = "Equity drawdown exceeds 10% → immediately recalculate portfolio risk assuming correlations increase by 0.3 across all positions. If the stressed risk exceeds limits, begin reducing gross exposure."
+edge_case = "Managed futures / trend-following strategies maintain negative equity correlation during crises because they mechanically go short when trends reverse. They are the rare genuine diversifier during stress — but only if held in sufficient size (15%+ of portfolio)."
+tags = ["risk", "correlation", "diversification", "stress"]
+
+[[beliefs]]
+fact = "Maximum drawdown is a better risk measure than volatility for investor experience because it captures the actual pain of holding through a decline. A portfolio with 12% annual volatility might have a maximum drawdown of 20% (clustered volatility) or 35% (trending decline). The Calmar ratio (annualized return / max drawdown) should exceed 0.5 for any strategy to be investor-tolerable over a full cycle, and should exceed 1.0 for institutional quality."
+confidence = 0.87
+source = "Magdon-Ismail/Atiya 2004 max drawdown analysis, institutional allocator due diligence standards, hedge fund performance data 2000-2024"
+action_trigger = "Calmar ratio drops below 0.5 over rolling 3-year window → strategy is not compensating for its drawdown risk, evaluate whether the strategy is broken or in a temporary regime mismatch"
+edge_case = "Strategies with infrequent large drawdowns (e.g., tail risk selling) can show deceptively high Calmar ratios between events. Require a minimum of 10 years of data (or 2 full stress cycles) before trusting Calmar ratio as a strategy quality measure."
+tags = ["risk", "drawdown", "calmar_ratio", "investor_experience"]

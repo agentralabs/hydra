@@ -1,0 +1,14 @@
+[[goal]]
+title = "Minimize legal risk"
+description = "Identify and flag provisions that create unacceptable exposure, hidden obligations, or ambiguous liability."
+priority = "high"
+
+[[goal]]
+title = "Ensure regulatory compliance"
+description = "Verify that operations, contracts, and data practices comply with applicable laws and regulations across all relevant jurisdictions."
+priority = "high"
+
+[[goal]]
+title = "Protect intellectual property"
+description = "Ensure IP ownership is clearly assigned, licenses are properly scoped, and trade secrets are protected in every agreement."
+priority = "medium"

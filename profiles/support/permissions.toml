@@ -1,0 +1,14 @@
+[permissions]
+file_write = true
+shell_exec = false
+network_access = true
+risk_threshold = "low"
+
+[permissions.can_read]
+resources = ["tickets", "accounts", "logs", "knowledge_base", "product_docs"]
+
+[permissions.can_execute]
+actions = ["refund", "escalate", "resolve", "tag_ticket", "send_followup"]
+
+[permissions.requires_approval]
+actions = ["account_suspension", "bulk_refund", "policy_override"]

@@ -1,0 +1,23 @@
+[[beliefs]]
+fact = "HIPAA protects Protected Health Information (PHI) — any individually identifiable health information held by a covered entity or business associate. PHI includes the obvious (diagnosis, treatment records) and the non-obvious (appointment dates, IP addresses in patient portal logs, device identifiers from medical IoT). The 18 HIPAA identifiers define PHI broadly: name, dates, phone, email, SSN, medical record numbers, and biometric identifiers. If health data can be linked to a person through ANY of these 18 identifiers, it is PHI."
+confidence = 0.96
+source = "HIPAA Privacy Rule 45 CFR 164.514; HHS guidance on de-identification"
+action_trigger = "When evaluating data handling: check for ANY of the 18 HIPAA identifiers combined with health information. If both are present in the same system, dataset, or data flow, HIPAA applies. De-identification requires removal of ALL 18 identifiers (Safe Harbor method) or expert statistical determination."
+edge_case = "Analytics systems that combine anonymized health data with behavioral data (IP addresses, device fingerprints) may re-identify individuals, making the combined dataset PHI. Re-identification risk assessment is required when merging datasets."
+tags = ["phi", "hipaa-identifiers", "de-identification", "covered-entity"]
+
+[[beliefs]]
+fact = "HIPAA breach notification has strict timelines: covered entities must notify affected individuals within 60 days of breach discovery, notify HHS within 60 days (or annually for breaches affecting <500 individuals), and notify media for breaches affecting >500 individuals in a state. Business associates must notify the covered entity within the timeframe specified in the BAA (typically 30 days). The 60-day clock starts at discovery, not at investigation completion — waiting for full forensics does not extend the deadline."
+confidence = 0.97
+source = "HIPAA Breach Notification Rule 45 CFR 164.400-414; HHS breach notification guidance"
+action_trigger = "On confirmed PHI breach: start the 60-day notification clock immediately. Parallel-track investigation and notification preparation. Do not wait for root cause analysis to begin drafting notifications."
+edge_case = "The definition of 'discovery' includes when the breach SHOULD have been discovered with reasonable diligence, not just when someone actually noticed it. If logs showed the breach 3 weeks before anyone checked, the clock started 3 weeks ago."
+tags = ["breach-notification", "60-day-rule", "hipaa", "hhs-reporting"]
+
+[[beliefs]]
+fact = "Business Associate Agreements (BAAs) are legally required before ANY sharing of PHI with third parties: cloud providers, SaaS vendors, consultants, payment processors handling patient billing, even shredding companies. Without a BAA, the covered entity is liable for the associate's data handling. Critical BAA provisions: permitted uses, breach notification timeline (shorter than 60 days), return/destruction of PHI on termination, and right to audit. AWS, Azure, and GCP all offer HIPAA BAAs, but the BAA only covers specific HIPAA-eligible services — not every cloud service."
+confidence = 0.95
+source = "HIPAA Privacy Rule 45 CFR 164.502; HHS business associate guidance; cloud provider BAA documentation"
+action_trigger = "Maintain a BAA registry of all business associates with signed agreement dates, PHI access scope, and breach notification timelines. Review annually. Any new vendor receiving PHI must have a signed BAA before data sharing begins."
+edge_case = "SaaS vendors may sub-contract to other processors, creating a chain of BAA requirements. Ensure BAAs include provisions for subcontractor oversight and breach notification cascade."
+tags = ["baa", "business-associate", "third-party-risk", "hipaa"]

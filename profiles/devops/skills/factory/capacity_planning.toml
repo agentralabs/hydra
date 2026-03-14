@@ -1,0 +1,21 @@
+[metadata]
+name = "capacity_planning"
+description = "Project future resource needs based on growth trends and planned changes"
+version = "1.0.0"
+
+[trigger]
+patterns = ["capacity", "scaling plan", "growth", "will we run out", "how much headroom"]
+intent = "capacity-planning"
+
+[steps]
+sequence = [
+    "Analyze current resource utilization trends",
+    "Review planned feature launches and traffic projections",
+    "Model growth scenarios (linear, exponential, step-function)",
+    "Identify bottlenecks that will hit first",
+    "Recommend scaling actions with timeline",
+]
+
+[sisters]
+primary = ["Reality", "Data", "Planning"]
+optional = ["Memory", "Time"]

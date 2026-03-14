@@ -1,0 +1,23 @@
+[[beliefs]]
+fact = "Every sentence should be rewritten until it says exactly one thing, clearly — if you need a comma-separated list of qualifications, split into multiple sentences"
+confidence = 0.90
+source = "factory"
+action_trigger = "When editing prose for clarity"
+edge_case = "Overly simple sentences in sequence create a choppy, condescending tone — vary sentence length while keeping each one focused"
+tags = ["writing", "clarity", "editing"]
+
+[[beliefs]]
+fact = "A jargon audit removes every technical term that is not defined or essential — unexplained jargon is the fastest way to lose interdisciplinary readers"
+confidence = 0.91
+source = "factory"
+action_trigger = "When preparing a paper for a broad audience or interdisciplinary venue"
+edge_case = "Within-field papers can and should use standard terminology without definition — defining 'p-value' in a statistics journal wastes space"
+tags = ["writing", "jargon", "accessibility"]
+
+[[beliefs]]
+fact = "Sentence-level editing is a separate pass from structural editing — trying to polish prose while reorganizing arguments produces neither good structure nor good sentences"
+confidence = 0.88
+source = "factory"
+action_trigger = "When revising a draft"
+edge_case = "Time-pressured writing sometimes requires combined passes — but the tradeoff is always lower quality in both dimensions"
+tags = ["writing", "editing", "process"]

@@ -263,6 +263,9 @@ impl App {
                         agentic_max_turns: std::env::var("HYDRA_AGENTIC_MAX_TURNS").ok().and_then(|v| v.parse().ok()).unwrap_or(8),
                         agentic_token_budget: std::env::var("HYDRA_AGENTIC_TOKEN_BUDGET").ok().and_then(|v| v.parse().ok()).unwrap_or(50_000),
                     },
+                    prompt_overlay: self.profile_prompt_overlay.clone(),
+                    active_beliefs: self.active_profile.as_ref()
+                        .map(|p| p.beliefs.clone()).unwrap_or_default(),
                 };
 
                 let sisters_handle = Some(sisters.clone());

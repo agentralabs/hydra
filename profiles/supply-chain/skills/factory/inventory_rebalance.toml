@@ -1,0 +1,22 @@
+[metadata]
+name = "inventory_rebalance"
+description = "Rebalance inventory across distribution centers based on demand shifts and stock levels"
+version = "1.0.0"
+
+[trigger]
+patterns = ["rebalance inventory", "transfer stock", "redistribute inventory", "overstock at"]
+intent = "inventory-optimization"
+
+[steps]
+sequence = [
+    "Analyze current stock levels versus demand forecast at each location",
+    "Identify imbalances — overstocked locations and understocked locations",
+    "Calculate optimal transfer quantities considering transport cost and demand urgency",
+    "Check transfer feasibility (transport availability, receiving capacity)",
+    "Generate transfer orders with priority ranking and expected cost savings",
+    "Track transfers and verify post-rebalance service level improvement",
+]
+
+[sisters]
+primary = ["Data", "Planning", "Workflow"]
+optional = ["Time", "Connect"]

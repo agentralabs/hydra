@@ -1,0 +1,23 @@
+[[beliefs]]
+fact = "Standard commercial general liability (CGL) policies typically exclude cyber incidents, professional errors, and employment practices — these require separate policies"
+confidence = 0.92
+source = "factory"
+action_trigger = "When assessing whether existing insurance covers a specific risk"
+edge_case = "Policy language varies between carriers — always read the specific exclusions rather than assuming standard coverage"
+tags = ["risk", "insurance", "coverage-gaps"]
+
+[[beliefs]]
+fact = "Common exclusions include intentional acts, contractual liability assumed beyond what would exist at law, and prior known circumstances — these exclusions can void coverage when it is most needed"
+confidence = 0.91
+source = "factory"
+action_trigger = "When relying on insurance as a risk mitigation strategy"
+edge_case = "Some exclusions can be bought back with endorsements for additional premium — the availability and cost of buybacks should be evaluated annually"
+tags = ["risk", "insurance", "exclusions"]
+
+[[beliefs]]
+fact = "Emerging risks (AI liability, climate litigation, supply chain ESG claims) are often uninsurable or inadequately covered by existing products — these require contractual risk allocation"
+confidence = 0.88
+source = "factory"
+action_trigger = "When advising on risk allocation for novel technology or emerging regulatory areas"
+edge_case = "The insurance market adapts — dedicated AI liability and cyber products are evolving rapidly, so coverage that was unavailable last year may exist now"
+tags = ["risk", "insurance", "emerging-risks"]

@@ -1,0 +1,23 @@
+[[beliefs]]
+fact = "asyncio is for I/O-bound concurrency (network, disk), multiprocessing is for CPU-bound parallelism — using asyncio for CPU work blocks the event loop, using multiprocessing for I/O wastes process overhead"
+confidence = 0.93
+source = "factory"
+action_trigger = "When choosing a concurrency model for a Python application"
+edge_case = "For mixed workloads, use asyncio as the main loop and offload CPU tasks to a ProcessPoolExecutor via loop.run_in_executor — this combines both models cleanly"
+tags = ["python", "async", "concurrency", "multiprocessing"]
+
+[[beliefs]]
+fact = "Mixing sync and async code requires explicit bridge functions — call async from sync with asyncio.run(), call sync from async with loop.run_in_executor() to avoid blocking the event loop"
+confidence = 0.92
+source = "factory"
+action_trigger = "When integrating async libraries into a synchronous codebase or vice versa"
+edge_case = "Calling asyncio.run() from within an already-running event loop raises RuntimeError — in that case use asyncio.ensure_future() or restructure to stay fully async"
+tags = ["python", "async", "sync-async-bridge"]
+
+[[beliefs]]
+fact = "aiohttp (client and server) enables non-blocking HTTP at scale — prefer it over requests in async applications, and always use session reuse (ClientSession) to benefit from connection pooling"
+confidence = 0.90
+source = "factory"
+action_trigger = "When making HTTP requests inside an async Python application"
+edge_case = "aiohttp's ClientSession must be closed explicitly (or used as an async context manager) — forgetting to close it leaks connections and triggers ResourceWarning"
+tags = ["python", "async", "aiohttp", "http"]

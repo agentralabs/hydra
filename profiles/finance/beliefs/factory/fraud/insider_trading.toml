@@ -1,0 +1,23 @@
+[[beliefs]]
+fact = "Pre-announcement abnormal volume — when trading volume in a stock or its options exceeds 3x the 20-day average in the 5 trading days before a material announcement (M&A, earnings surprise, FDA decision) — is the primary quantitative indicator of potential insider trading. SEC enforcement data shows that 40-50% of M&A targets exhibit statistically significant abnormal volume before announcement. The abnormal volume is concentrated in short-dated, out-of-the-money call options where the leverage is highest."
+confidence = 0.90
+source = "SEC enforcement actions 2010-2024, Meulbroek 1992 insider trading and market efficiency, Augustin/Brenner/Subrahmanyam 2019 informed trading before M&A"
+action_trigger = "Volume > 3x 20-day average with no public news, concentrated in OTM calls expiring within 30 days → generate insider trading alert, preserve all trade records, cross-reference with pending corporate events calendar"
+edge_case = "Sector-wide volume spikes (new regulation affecting the sector, competitor's earnings, macro event) create correlated volume increases across all names in the sector. Only flag single-name volume anomalies that are not explained by sector-level or market-level volume increases."
+tags = ["fraud", "insider_trading", "volume", "pre_announcement"]
+
+[[beliefs]]
+fact = "Unusual options activity before M&A announcements follows a specific pattern: concentrated OTM call buying in the 5-10% above-current-price strikes, with expiration dates 2-6 weeks out, typically in the last 1-3 trading days before announcement. The total premium spent is usually $50K-$500K (large enough to be profitable but small enough to avoid immediate detection). The options are frequently purchased through newly opened accounts at different brokers to distribute the footprint."
+confidence = 0.88
+source = "SEC v. various insider trading cases 2015-2024, Ahern 2017 information networks in insider trading, options surveillance data"
+action_trigger = "OTM call buying in 5-10% above spot strikes, 2-6 week expiry, from new accounts or accounts with no prior options history → highest-priority insider trading alert, preserve all account opening documentation"
+edge_case = "Legitimate event-driven hedge funds routinely buy OTM calls on potential M&A targets based on public information (strategic fit analysis, activist involvement, sector consolidation logic). The distinction from insider trading is the specificity and timing — hedge funds spread bets across 20-30 potential targets, while insiders concentrate on 1-2 names with precise timing."
+tags = ["fraud", "insider_trading", "options", "m_and_a"]
+
+[[beliefs]]
+fact = "The timing of information transmission in insider trading networks follows a predictable pattern: the primary insider (corporate officer, advisor) tips 1-3 close associates within 48 hours of learning material non-public information. Each tippee then tips 1-2 additional people, creating a geometric expansion. SEC network analysis shows that the average insider trading ring has 4-7 participants, and trading occurs in a 'cascade' pattern — first trades 3-5 days before announcement, with each subsequent participant trading 1-2 days later as the information propagates."
+confidence = 0.85
+source = "SEC v. Rajaratnam/Galleon Group 2011, SEC v. SAC Capital 2013, DOJ insider trading prosecution patterns"
+action_trigger = "Cascade pattern detected — sequential new position entries in the same name by different accounts over 3-5 days, each larger than the previous → investigate for common connections between account holders, social network analysis"
+edge_case = "Legitimate momentum trading creates cascade-like patterns as multiple independent traders enter positions based on the same technical signal (breakout, volume spike). The distinguishing factor is whether the cascade begins BEFORE any public signal (insider) or AFTER a visible technical event (legitimate)."
+tags = ["fraud", "insider_trading", "network", "cascade"]

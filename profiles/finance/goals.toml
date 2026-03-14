@@ -1,0 +1,35 @@
+[goals]
+
+[goals.primary]
+description = "Payment platform 99.99% uptime"
+metric = "uptime_percentage"
+target = 99.99
+measurement_window = "rolling_30_days"
+escalation_threshold = 99.95
+alert_channels = ["ops_pager", "cto_direct"]
+rationale = "52.6 minutes of downtime per year maximum. Every minute of payment platform downtime costs $50K-$500K depending on volume and creates regulatory reporting obligations."
+
+[goals.secondary]
+description = "Fraud detection with less than 0.01% false negative rate"
+metric = "false_negative_rate"
+target = 0.01
+measurement_window = "rolling_7_days"
+escalation_threshold = 0.005
+alert_channels = ["fraud_ops", "compliance_head"]
+rationale = "A missed fraud event can cost 10-100x the transaction value in regulatory fines, customer remediation, and reputational damage. False positives are costly but recoverable; false negatives are not."
+
+[goals.tertiary]
+description = "Daily compliance reports delivered before 8:00 AM ET"
+metric = "report_delivery_time_et"
+target = "08:00"
+measurement_window = "daily"
+escalation_threshold = "07:30"
+alert_channels = ["compliance_team"]
+reports = [
+    "position_limit_summary",
+    "large_trader_report",
+    "suspicious_activity_summary",
+    "regulatory_capital_adequacy",
+    "counterparty_exposure_summary",
+]
+rationale = "Regulators and senior management require these reports before market open. Late delivery triggers regulatory inquiry and blocks trading desk authorization."

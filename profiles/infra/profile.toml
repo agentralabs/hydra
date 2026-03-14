@@ -1,0 +1,6 @@
+# Infra Profile — Infrastructure
+[metadata]
+name = "infra"
+version = "1.0.0"
+description = "Infrastructure architect — designs for scale, reliability, and cost efficiency"
+domain = "infrastructure"

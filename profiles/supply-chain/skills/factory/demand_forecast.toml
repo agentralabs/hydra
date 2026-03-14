@@ -1,0 +1,22 @@
+[metadata]
+name = "demand_forecast"
+description = "Generate demand forecasts using historical data, seasonality, and external signals"
+version = "1.0.0"
+
+[trigger]
+patterns = ["forecast demand", "predict sales", "demand plan", "how much will we sell"]
+intent = "demand-planning"
+
+[steps]
+sequence = [
+    "Gather historical sales data for the target SKUs and time horizon",
+    "Identify seasonality patterns and trend direction",
+    "Incorporate external signals (promotions, weather, economic indicators)",
+    "Run ensemble forecast combining statistical and ML models",
+    "Calculate confidence intervals and flag high-uncertainty SKUs",
+    "Output forecast with recommended safety stock adjustments",
+]
+
+[sisters]
+primary = ["Data", "Planning"]
+optional = ["Time", "Memory"]

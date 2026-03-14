@@ -147,8 +147,12 @@ impl SelfRepairEngine {
             Ok(mut child) => {
                 if let Some(mut stdin) = child.stdin.take() {
                     use tokio::io::AsyncWriteExt;
-                    let _ = stdin.write_all(prompt.as_bytes()).await;
-                    let _ = stdin.shutdown().await;
+                    if let Err(e) = stdin.write_all(prompt.as_bytes()).await {
+                        eprintln!("[hydra:self-repair] stdin write_all FAILED: {}", e);
+                    }
+                    if let Err(e) = stdin.shutdown().await {
+                        eprintln!("[hydra:self-repair] stdin shutdown FAILED: {}", e);
+                    }
                 }
                 match child.wait_with_output().await {
                     Ok(output) => {

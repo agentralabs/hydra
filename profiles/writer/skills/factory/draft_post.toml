@@ -1,0 +1,21 @@
+[metadata]
+name = "draft_post"
+description = "Draft blog posts or articles with clear structure and engaging hooks"
+version = "1.0.0"
+
+[trigger]
+patterns = ["write a post", "draft article", "blog post", "write about"]
+intent = "content-creation"
+
+[steps]
+sequence = [
+    "Clarify topic, audience, and desired length",
+    "Research key points using Memory and Data sisters",
+    "Create outline with hook, body sections, and conclusion",
+    "Draft each section with clear transitions",
+    "Review for clarity, flow, and call-to-action",
+]
+
+[sisters]
+primary = ["Memory", "Identity"]
+optional = ["Data"]

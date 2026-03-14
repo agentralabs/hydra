@@ -146,7 +146,9 @@ impl Sisters {
     /// End the current vision session (fire-and-forget).
     pub async fn vision_session_end(&self) {
         let Some(vision) = self.vision.as_ref() else { return };
-        let _ = vision.call_tool("session_end", serde_json::json!({})).await;
+        if let Err(e) = vision.call_tool("session_end", serde_json::json!({})).await {
+            eprintln!("[hydra:vision] session_end FAILED: {}", e);
+        }
     }
 
     /// Resume a previous vision session.

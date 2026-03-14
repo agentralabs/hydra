@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "The accrual ratio — (net income minus operating cash flow) divided by average total assets — exceeding 10% is the single strongest quantitative predictor of future earnings disappointment. Companies in the top decile of accrual ratios underperform those in the bottom decile by 8-10% annualized. This signal has persisted since Sloan's 1996 discovery because it requires patience (mean reversion takes 2-4 quarters) and most investors are too short-term to exploit it."
+confidence = 0.92
+source = "Sloan 1996, Richardson/Sloan/Soliman/Tuna 2005, Hirshleifer/Hou/Teoh/Zhang 2004, empirical persistence through 2024"
+action_trigger = "Accrual ratio > 10% → reduce position confidence, set tighter stops, investigate which specific accruals are driving the divergence (receivables, inventory, or capitalized expenses)"
+edge_case = "Rapidly growing companies legitimately have high accrual ratios because revenue growth creates receivables faster than cash collection. Normalize by comparing accrual ratio to revenue growth rate — if accruals grow faster than revenue, the signal is genuine."
+tags = ["earnings_quality", "accruals", "predictive", "anomaly"]
+
+[[beliefs]]
+fact = "Non-GAAP earnings adjustments that exclude stock-based compensation, restructuring charges, and acquisition costs — when these exclusions exceed 30% of GAAP net income — create a systematically misleading picture of profitability. Companies with the widest GAAP-to-non-GAAP gaps underperform their sector by 5-7% annually because the 'non-recurring' charges actually recur in 80% of cases."
+confidence = 0.89
+source = "SEC 2016 guidance on non-GAAP measures, Doyle/Jennings/Soliman 2013, empirical analysis of S&P 500 non-GAAP reporting 2020-2024"
+action_trigger = "Non-GAAP adjustments > 30% of GAAP NI → flag as aggressive reporting, recalculate valuation on GAAP basis, check if 'non-recurring' charges have appeared in 3+ of the last 8 quarters"
+edge_case = "Genuine one-time events (natural disaster, major litigation settlement, pandemic impact) can legitimately create large GAAP/non-GAAP gaps. The test is whether the same category of adjustment appears repeatedly — a true one-time charge in a new category is legitimate."
+tags = ["earnings_quality", "non_gaap", "adjustments", "reporting"]
+
+[[beliefs]]
+fact = "Deferred revenue growth exceeding billings growth by more than 15% for two consecutive quarters — in subscription/SaaS businesses — signals either lengthening contract terms (positive: customer lock-in) or front-loaded billing with delivery risk (negative: revenue recognition may be delayed or reversed). The distinction requires reading the 10-Q footnotes on performance obligations."
+confidence = 0.85
+source = "ASC 606 performance obligation disclosures, SaaS benchmarking data 2020-2024, forensic accounting practice"
+action_trigger = "Deferred revenue growth > billings growth + 15% for 2Q → check remaining performance obligation (RPO) disclosure, contract duration trends, and customer churn rates to determine whether this is positive or negative"
+edge_case = "Companies transitioning from perpetual license to subscription models show explosive deferred revenue growth that is entirely mechanical and does not signal either positive or negative quality — the transition period (typically 2-3 years) must be modeled separately."
+tags = ["earnings_quality", "deferred_revenue", "saas", "subscription"]
+
+[[beliefs]]
+fact = "Stock-based compensation expense that exceeds 15% of revenue in a mature company (>$1B revenue, >5 years public) is a transfer of value from shareholders to employees that depresses real returns. Every 5 percentage points of SBC/revenue above 15% reduces true economic EPS by approximately 3-5% through dilution. Most screeners miss this because they use non-GAAP EPS which excludes SBC."
+confidence = 0.90
+source = "Damodaran 2005 stock options and dilution, institutional investor analysis of tech sector SBC 2020-2024"
+action_trigger = "SBC/revenue > 15% in mature company → recalculate EPS including SBC at full dilution, compare with non-GAAP consensus, flag the gap to portfolio manager"
+edge_case = "Early-stage companies (<$500M revenue, pre-profitable) use SBC as a cash conservation mechanism — high SBC/revenue ratios are expected and should be modeled as declining to 8-12% at scale, not flagged as a current problem."
+tags = ["earnings_quality", "stock_based_comp", "dilution", "economic_earnings"]

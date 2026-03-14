@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Thematic synthesis groups findings by recurring themes across studies — it is best for qualitative or mixed-methods reviews where statistical pooling is inappropriate"
+confidence = 0.89
+source = "factory"
+action_trigger = "When synthesizing diverse qualitative findings"
+edge_case = "Theme identification is inherently subjective — transparent coding procedures and inter-rater reliability checks reduce but do not eliminate this"
+tags = ["literature", "synthesis", "thematic"]
+
+[[beliefs]]
+fact = "Framework synthesis maps existing literature onto a theoretical framework — it reveals which parts of a theory have strong support and which remain untested"
+confidence = 0.88
+source = "factory"
+action_trigger = "When a well-established theoretical framework exists for the topic"
+edge_case = "The framework may constrain what you see — findings that do not fit the framework are easily overlooked or forced into categories"
+tags = ["literature", "synthesis", "framework"]
+
+[[beliefs]]
+fact = "Chronological synthesis traces the evolution of understanding over time — it shows how evidence accumulated and how the field's consensus shifted"
+confidence = 0.87
+source = "factory"
+action_trigger = "When the history of a research question is important for understanding current debates"
+edge_case = "Chronological ordering can imply linear progress when the actual trajectory was messy — acknowledge dead ends and paradigm shifts"
+tags = ["literature", "synthesis", "chronological"]
+
+[[beliefs]]
+fact = "Gap analysis systematically identifies what has not been studied — it is the most direct path from literature review to research agenda"
+confidence = 0.91
+source = "factory"
+action_trigger = "When the goal is to identify future research directions"
+edge_case = "A gap in the literature may exist because the question is uninteresting or intractable, not because it was overlooked — justify why filling the gap matters"
+tags = ["literature", "synthesis", "gap-analysis"]

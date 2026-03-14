@@ -1,0 +1,37 @@
+[skill]
+name = "alert_triage"
+description = "Classify, enrich, and prioritize security alerts for analyst review"
+trigger_phrases = ["alert", "suspicious", "anomaly detected", "SIEM alert", "EDR alert"]
+agent = "alert_triager"
+model = "claude-haiku-4-5"
+timeout_seconds = 120
+
+[[steps]]
+name = "gather_context"
+description = "Collect alert metadata, source system, affected assets, and historical alert frequency for this signature"
+action = "Query SIEM for alert details: source IP, destination, timestamp, signature ID, affected hostname, user context. Pull 30-day alert history for this signature on this host."
+sisters = ["memory", "aegis"]
+
+[[steps]]
+name = "check_iocs"
+description = "Enrich indicators of compromise against threat intelligence feeds and internal IOC databases"
+action = "Extract all IOCs from the alert (IPs, domains, hashes, URLs). Query threat intel feeds (VirusTotal, OTX, internal TI platform) for each IOC. Record hit rates and confidence scores."
+sisters = ["aegis", "memory"]
+
+[[steps]]
+name = "correlate_events"
+description = "Search for related events within a time window to identify attack chains"
+action = "Query SIEM for events on the same source/destination within +/- 30 minutes. Check for authentication events, process creation, network connections, and file modifications that correlate with the alert."
+sisters = ["memory", "codebase"]
+
+[[steps]]
+name = "classify_severity"
+description = "Assign severity based on asset criticality, IOC confidence, correlation findings, and business context"
+action = "Score the alert: IOC confidence (0-1) x asset criticality (1-5) x correlation factor (1 = isolated, 3 = part of chain). Map to severity: P1 (score > 10), P2 (score > 5), P3 (score > 2), P4 (score <= 2)."
+sisters = ["aegis", "contract"]
+
+[[steps]]
+name = "recommend_action"
+description = "Provide specific next-step recommendations based on alert classification"
+action = "For P1/P2: recommend immediate containment actions and escalate to incident_responder. For P3: recommend investigation tasks and assign to threat_hunter queue. For P4: document and close with monitoring note. Always include false-positive assessment."
+sisters = ["aegis", "connect"]

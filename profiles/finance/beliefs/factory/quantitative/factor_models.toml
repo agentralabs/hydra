@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "The Fama-French three-factor model (market, size, value) explains approximately 90% of diversified portfolio return variance, but the value factor (HML) has experienced a structural decline since 2010 — the traditional book-to-market ratio is a poor measure of 'value' for intangible-heavy companies. Replacing book value with enterprise value adjusted for capitalized R&D and SGA spending restores the value premium to 3-5% annualized."
+confidence = 0.86
+source = "Fama/French 1993 original model, Arnott/Harvey/Kalesnik/Linnainmaa 2021 intangible value, AQR factor research"
+action_trigger = "When constructing value factor exposure → use intangible-adjusted book value (capitalize R&D, SGA) rather than reported book value. Monitor HML factor returns monthly — extended underperformance beyond 3 years may indicate structural break."
+edge_case = "In hyper-inflationary periods or rapid currency devaluation (EM markets), traditional book value temporarily becomes more relevant because hard assets reprice faster than intangibles — revert to classic HML in these regimes."
+tags = ["quantitative", "factor_models", "fama_french", "value"]
+
+[[beliefs]]
+fact = "Cross-sectional momentum (buying 12-month winners, selling 12-month losers, skipping the most recent month) generates 6-10% annualized alpha before transaction costs but experiences catastrophic drawdowns of 30-50% during momentum crashes — which occur during sharp market reversals (March 2009, November 2020). These crashes happen because momentum portfolios become concentrated in the same crowded names."
+confidence = 0.91
+source = "Jegadeesh/Titman 1993, Daniel/Moskowitz 2016 momentum crashes, empirical performance through 2024"
+action_trigger = "Momentum factor experiencing >15% drawdown from peak → reduce momentum exposure by 50%, check if a market regime reversal is occurring (typically after extreme selloffs when value sharply outperforms)"
+edge_case = "Time-series momentum (trend following on the same asset) is more robust to crashes than cross-sectional momentum because it can go flat or short. If implementing momentum, prefer time-series over cross-sectional for crash protection."
+tags = ["quantitative", "factor_models", "momentum", "crash_risk"]
+
+[[beliefs]]
+fact = "The quality factor — measured by profitability (ROE), earnings stability, low leverage, and low accruals — generates 3-5% annualized alpha with significantly lower drawdowns than value or momentum. Its key advantage is defensive: quality outperforms by 8-12% during bear markets because high-quality companies have stronger balance sheets and more stable earnings. It is the only factor that has never experienced a drawdown exceeding 20%."
+confidence = 0.89
+source = "Novy-Marx 2013 gross profitability, Asness/Frazzini/Pedersen 2019 quality minus junk, MSCI quality factor index data"
+action_trigger = "Late-cycle indicators appearing (yield curve flat, credit spreads widening, PMI declining) → increase quality factor tilt, reduce value and momentum exposure, the quality premium expands in downturns"
+edge_case = "In the early recovery phase of a cycle, quality underperforms by 5-10% as the market rotates to the lowest-quality, most-beaten-down names (junk rally). This underperformance is temporary and mean-reverts within 6-12 months."
+tags = ["quantitative", "factor_models", "quality", "defensive"]
+
+[[beliefs]]
+fact = "The low-volatility anomaly — low-vol stocks outperform high-vol stocks on a risk-adjusted basis by 4-7% annualized — persists because of institutional benchmarking constraints. Fund managers benchmarked to equity indices cannot lever up low-vol stocks to match the market's expected return, so they underweight them, keeping them cheap. This anomaly is largest in small-caps where institutional constraints are most binding."
+confidence = 0.85
+source = "Baker/Bradley/Wurgler 2011 low-risk anomaly, Frazzini/Pedersen 2014 betting against beta, empirical validation through 2024"
+action_trigger = "Portfolio construction phase → include low-vol allocation of 15-25% as a structural defensive position, implement with leverage if mandate permits to capture the full anomaly"
+edge_case = "In strongly trending bull markets (2020 post-COVID, 2023 AI rally), low-vol dramatically underperforms as high-beta speculative names lead. The anomaly requires 3-5 year horizons and the discipline to hold through extended relative underperformance."
+tags = ["quantitative", "factor_models", "low_volatility", "anomaly"]
+
+[[beliefs]]
+fact = "Factor crowding — measured by the correlation of factor portfolio constituents with each other and the concentration ratio of factor ETF holdings — is the primary risk to factor investing. When the top 20 holdings of the largest value, momentum, or quality ETFs overlap by more than 40%, a single catalyst can trigger synchronized unwinding. Factor crowding preceded the quant quake of August 2007, where market-neutral quant funds lost 5-30% in a single week."
+confidence = 0.88
+source = "Khandani/Lo 2011 quant quake analysis, Lou/Polk 2022 factor crowding, AQR crowding research"
+action_trigger = "Factor ETF overlap > 40% in top 20 holdings → reduce factor concentration, diversify across alternative factor definitions, increase cash buffer for potential forced liquidation events"
+edge_case = "New factor ETF launches can temporarily appear to reduce crowding (by adding new names) while actually increasing systemic risk (more capital tracking the same signal). Monitor total AUM in factor strategies, not just individual fund overlap."
+tags = ["quantitative", "factor_models", "crowding", "systemic_risk"]

@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "FATF grey-listing (Increased Monitoring) of a country causes an average 7.6% decline in capital inflows and a 3-5% increase in the cost of cross-border transactions within 6 months. Black-listing (High-Risk Jurisdictions subject to Call for Action) causes a near-complete halt of correspondent banking relationships. Financial institutions must screen all transactions involving grey/black-listed jurisdictions with Enhanced Due Diligence — failure to do so is the fastest path to regulatory enforcement action."
+confidence = 0.92
+source = "FATF mutual evaluation reports, Masciandaro 2008 FATF blacklist effects, IMF capital flow studies 2018-2024"
+action_trigger = "Country added to FATF grey list → immediately review all customer relationships with nexus to that country, apply EDD to all transactions, assess whether correspondent banking relationships with that jurisdiction should be maintained"
+edge_case = "FATF grey-listing decisions are political as well as technical — some countries are grey-listed despite strong AML frameworks (due to geopolitical dynamics) while others avoid listing despite weak frameworks (due to economic importance). Use FATF listing as a regulatory compliance floor, not as the sole risk assessment."
+tags = ["regulatory", "cross_border", "fatf", "grey_list"]
+
+[[beliefs]]
+fact = "OFAC (Office of Foreign Assets Control) sanctions violations carry strict liability — intent is not required. A single transaction processed to a sanctioned entity or jurisdiction can result in penalties up to $20M per violation or twice the transaction value, whichever is greater. OFAC's 50% rule means that entities owned 50%+ by a sanctioned person are themselves sanctioned, even if the entity is not on the SDN list. This rule creates shadow sanctions that are not visible in basic screening."
+confidence = 0.95
+source = "OFAC enforcement guidelines 2009 (updated 2019), OFAC 50% rule guidance, enforcement actions database 2010-2024"
+action_trigger = "Transaction screening → screen against OFAC SDN, SSI, and sectoral sanctions lists. Additionally, screen against known 50%-owned subsidiaries of SDN entities. Any match → block transaction, do not process, report to OFAC within 10 business days."
+edge_case = "OFAC general licenses authorize certain categories of transactions that would otherwise be prohibited (e.g., humanitarian goods to sanctioned countries). Before blocking a transaction, check whether a general license applies — blocking a licensed transaction creates customer relationship damage without regulatory benefit."
+tags = ["regulatory", "cross_border", "ofac", "sanctions"]
+
+[[beliefs]]
+fact = "GDPR applies to financial data of EU data subjects regardless of where the financial institution is located, and financial institutions process some of the most sensitive personal data categories: income, spending patterns, debt levels, investment behavior. GDPR Article 22 restricts automated decision-making that produces legal effects — this directly impacts credit scoring, fraud detection, and algorithmic trading decisions that affect customer accounts. Fines up to 4% of global annual revenue or EUR 20M, whichever is greater."
+confidence = 0.93
+source = "GDPR Articles 6, 9, 22, European Data Protection Board guidelines on financial data, enforcement actions 2018-2024"
+action_trigger = "Any automated financial decision affecting an EU data subject → ensure human review mechanism exists (Art. 22 compliance), maintain data processing records (Art. 30), enable data portability for account information (Art. 20)"
+edge_case = "The GDPR right to erasure (Art. 17) conflicts with AML record retention requirements (5 years minimum under 4AMLD). AML record retention overrides GDPR erasure requests — but only for the specific data required for AML compliance, not for all customer data. Maintain granular data categorization to honor erasure for non-AML data."
+tags = ["regulatory", "cross_border", "gdpr", "data_protection"]
+
+[[beliefs]]
+fact = "MiFID II (Markets in Financial Instruments Directive II) best execution requirements mandate that investment firms take 'all sufficient steps' to obtain the best possible result for clients across price, costs, speed, likelihood of execution, and settlement. Firms must publish top-5 venue execution reports (RTS 28) annually and demonstrate that routing decisions prioritize client outcomes over firm revenue (addressing PFOF-like conflicts). Non-compliance results in FCA/ESMA enforcement with average fines of EUR 5-15M."
+confidence = 0.90
+source = "MiFID II Directive 2014/65/EU, RTS 27/28 best execution reports, FCA/ESMA enforcement actions 2018-2024"
+action_trigger = "Any execution routing decision in EU-regulated scope → document the rationale for venue selection, maintain order execution policy, review quarterly whether the top-5 venue mix delivers best execution, flag any material conflicts of interest"
+edge_case = "MiFID II best execution applies to professional clients as well as retail — the common misconception that professional clients are excluded from best execution obligations is incorrect. Only eligible counterparties have reduced best execution protections. Ensure the client classification is correct before applying different execution standards."
+tags = ["regulatory", "cross_border", "mifid2", "best_execution"]

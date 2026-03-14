@@ -74,6 +74,8 @@
                 }
             },
             runtime: Default::default(),
+            prompt_overlay: profile_overlay.read().clone(),
+            active_beliefs: active_op_profile.read().as_ref().map(|p| p.beliefs.clone()).unwrap_or_default(),
         };
 
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<CognitiveUpdate>();
@@ -159,6 +161,8 @@
                             }
                         }
                     }
+                    CognitiveUpdate::MemoryModeChanged { .. } => {} // handled in send_handler
+                    CognitiveUpdate::MemoryStatsUpdate { .. } => {} // handled in send_handler
                     CognitiveUpdate::SettingsApplied { .. } => {}
                     CognitiveUpdate::SistersCalled { .. } => {}
                     CognitiveUpdate::TokenUsage { .. } => {}

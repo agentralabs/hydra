@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Pre-qualified alternate suppliers should be maintained for all single-sourced components — qualification takes 3-6 months so it must be done proactively"
+confidence = 0.95
+source = "factory"
+action_trigger = "When a component has only one active supplier or when onboarding a new product"
+edge_case = "Some specialty materials have fewer than 3 global suppliers; invest in longer-term agreements instead"
+tags = ["suppliers", "disruption", "alternate-sourcing"]
+
+[[beliefs]]
+fact = "Safety stock triggers should activate at 2x normal lead time coverage when supplier risk score exceeds threshold"
+confidence = 0.85
+source = "factory"
+action_trigger = "When supplier risk monitoring detects financial distress, geopolitical exposure, or quality trend deterioration"
+edge_case = "Building safety stock ties up working capital; balance against cash flow constraints and shelf life"
+tags = ["suppliers", "disruption", "safety-stock"]
+
+[[beliefs]]
+fact = "Dual sourcing with 70/30 split maintains competitive tension while ensuring backup capacity is production-proven"
+confidence = 0.85
+source = "factory"
+action_trigger = "When a component is critical and volume justifies two suppliers"
+edge_case = "Dual sourcing doubles qualification and management overhead; not viable for low-volume specialty items"
+tags = ["suppliers", "disruption", "dual-sourcing"]
+
+[[beliefs]]
+fact = "Near-shoring reduces lead time 60-80% and disruption exposure versus trans-oceanic sourcing — evaluate when landed cost gap is under 15%"
+confidence = 0.80
+source = "factory"
+action_trigger = "When reviewing sourcing strategy for high-variability or time-sensitive products"
+edge_case = "Near-shore capacity may not exist for all categories; ramp-up takes 6-12 months"
+tags = ["suppliers", "disruption", "near-shoring"]

@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "All network communication must use HTTPS/TLS by default — plaintext HTTP should require explicit opt-in and should never be used in production, even for internal services"
+confidence = 0.95
+source = "factory"
+action_trigger = "When configuring HTTP clients, servers, or inter-service communication"
+edge_case = "Local development with self-signed certs adds friction — use mkcert to create locally-trusted certificates rather than disabling TLS verification, which risks that disable flag leaking to production"
+tags = ["security", "secure-defaults", "https", "tls"]
+
+[[beliefs]]
+fact = "Passwords must be hashed with bcrypt, argon2, or scrypt — never MD5, SHA-256, or any non-KDF hash; use the library's default work factor and increase it as hardware improves"
+confidence = 0.97
+source = "factory"
+action_trigger = "When implementing user authentication or storing any credential-like data"
+edge_case = "Argon2id is the current best choice for new systems (resistant to both GPU and side-channel attacks), but bcrypt remains acceptable for existing systems — migration can happen lazily on next login"
+tags = ["security", "secure-defaults", "passwords", "hashing"]
+
+[[beliefs]]
+fact = "Security tokens, API keys, and session IDs must be generated using a cryptographically secure random source (CSPRNG) — never use rand(), Math.random(), or time-based seeds for security-sensitive values"
+confidence = 0.97
+source = "factory"
+action_trigger = "When generating tokens, secrets, nonces, or any value where predictability is a vulnerability"
+edge_case = "In Rust, use rand::rngs::OsRng or getrandom; in Python, use secrets.token_hex(); in Node, use crypto.randomBytes() — the standard random modules in every language are explicitly NOT cryptographically secure"
+tags = ["security", "secure-defaults", "tokens", "randomness"]
+
+[[beliefs]]
+fact = "Secure-by-default means the safe option requires zero configuration and the unsafe option requires explicit action — deny by default, require allowlisting, and make dangerous operations verbose and auditable"
+confidence = 0.93
+source = "factory"
+action_trigger = "When designing APIs, configuration systems, or permission models"
+edge_case = "Overly strict defaults that force every user to immediately override them teach people to blindly disable security — calibrate defaults to be safe for the common case while making overrides straightforward and documented"
+tags = ["security", "secure-defaults", "design", "principle"]

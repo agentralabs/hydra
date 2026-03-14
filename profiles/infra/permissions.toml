@@ -1,0 +1,14 @@
+[permissions]
+file_write = true
+shell_exec = true
+network_access = true
+risk_threshold = "high"
+
+[permissions.can_read]
+resources = ["metrics", "configs", "logs", "cost_reports", "topology"]
+
+[permissions.can_execute]
+actions = ["provision", "scale", "alert", "patch", "rotate_credentials"]
+
+[permissions.requires_approval]
+actions = ["delete", "migrate", "failover", "decommission", "network_change"]

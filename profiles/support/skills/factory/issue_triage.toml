@@ -1,0 +1,22 @@
+[metadata]
+name = "issue_triage"
+description = "Classify and prioritize incoming support tickets based on severity, account tier, and issue type"
+version = "1.0.0"
+
+[trigger]
+patterns = ["triage ticket", "classify issue", "prioritize this", "what priority should this be"]
+intent = "ticket-triage"
+
+[steps]
+sequence = [
+    "Extract issue symptoms, error codes, and affected functionality from the ticket",
+    "Identify the customer's account tier and SLA requirements",
+    "Classify issue type (technical, billing, account, feature request)",
+    "Assign severity (P1-P4) based on impact scope and tier",
+    "Route to appropriate queue or specialist",
+    "Set response and resolution time targets",
+]
+
+[sisters]
+primary = ["Data", "Cognition"]
+optional = ["Memory", "Contract"]

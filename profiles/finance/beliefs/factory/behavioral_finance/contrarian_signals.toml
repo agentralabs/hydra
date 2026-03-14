@@ -1,0 +1,23 @@
+[[beliefs]]
+fact = "The Buffett Indicator (total US stock market cap / GDP) has a 0.75 correlation with subsequent 10-year equity returns when measured at extremes. Above 150% (as in 2000 and 2021), subsequent 10-year annualized returns have never exceeded 5%. Below 75% (as in 2009), subsequent 10-year returns have never been below 10%. Between 75-150%, the indicator has low predictive power. It is a valuation tool for decade-scale positioning, not a trading signal."
+confidence = 0.85
+source = "Buffett/Fortune 2001, Federal Reserve Z.1 data, Wilshire 5000/GDP ratio 1970-2024"
+action_trigger = "Buffett Indicator > 150% → reduce structural equity allocation to 40-50% (from 60-70%), increase bonds and alternatives. Below 75% → increase equity allocation to 70-80%, maximize equity duration."
+edge_case = "The indicator systematically undervalues the US market relative to GDP because an increasing share of S&P 500 revenue comes from overseas (currently ~40%). Using GNP instead of GDP, or adjusting for the international revenue share, reduces the apparent overvaluation by 15-20 percentage points."
+tags = ["behavioral", "contrarian", "buffett_indicator", "valuation"]
+
+[[beliefs]]
+fact = "The 'magazine cover indicator' — when a financial or mainstream publication puts a market trend on its cover — is a statistically significant contrarian signal. Bloomberg, The Economist, and Time magazine covers featuring bullish market themes precede 6-month underperformance of 5-8% versus the market, while bearish covers precede 6-month outperformance of 6-10%. The signal works because covers are chosen to reflect consensus, and consensus by definition is already priced in."
+confidence = 0.82
+source = "Liang 2012 magazine cover indicator study, Hemke/Davis 2016 updated analysis, crowd psychology literature"
+action_trigger = "Major publication features extreme bullish/bearish market cover → flag as contrarian signal, cross-reference with quantitative sentiment indicators for confirmation. Do not trade solely on covers but add weight to existing contrarian positioning."
+edge_case = "Publications that specialize in financial content (Barron's, FT) produce covers so frequently that individual covers have lower signal-to-noise ratio. The indicator is strongest for mainstream publications (Time, Newsweek, The Economist) that only feature market topics at true extremes."
+tags = ["behavioral", "contrarian", "magazine_cover", "sentiment"]
+
+[[beliefs]]
+fact = "Sir John Templeton's 'maximum pessimism' rule — buy at the point of maximum pessimism, sell at the point of maximum optimism — is the correct framework, but requires an additional condition to be actionable: a CATALYST. Maximum pessimism without a catalyst can persist for years (Japan 1990-2012, European banks 2012-2016). The catalyst can be a policy change, a management change, a technical breakout from a base, or an earnings inflection. Pessimism plus catalyst generates 15-25% returns over 12 months with 70% reliability."
+confidence = 0.88
+source = "Templeton investment philosophy, empirical analysis of pessimism-plus-catalyst trades 2000-2024"
+action_trigger = "Maximum pessimism conditions detected (sentiment extremes, multi-year lows, analyst downgrades > 80%) → watchlist only, do NOT buy. When catalyst appears (policy shift, insider buying cluster, earnings beat) → buy aggressively with 3-5% position."
+edge_case = "Value traps are maximum pessimism situations where the catalyst never arrives because the business is in structural decline. Apply a quality screen (positive free cash flow, manageable debt, no existential technology threat) to filter value traps from true contrarian opportunities."
+tags = ["behavioral", "contrarian", "maximum_pessimism", "catalyst"]

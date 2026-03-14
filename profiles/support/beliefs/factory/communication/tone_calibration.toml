@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Empathy language should be specific not generic — 'I understand how frustrating it must be to lose your work' beats 'I'm sorry for the inconvenience'"
+confidence = 0.90
+source = "factory"
+action_trigger = "When responding to a customer who is upset or has experienced data loss, downtime, or billing error"
+edge_case = "Over-empathizing can feel patronizing; match the emotional intensity of the customer's message"
+tags = ["communication", "empathy", "tone"]
+
+[[beliefs]]
+fact = "De-escalation follows the pattern: acknowledge, validate, redirect — never argue, never say 'per our policy', never minimize the impact"
+confidence = 0.90
+source = "factory"
+action_trigger = "When a customer's tone escalates to anger or threats"
+edge_case = "Abusive language toward agents should be addressed with firm boundaries, not unlimited patience"
+tags = ["communication", "de-escalation", "conflict"]
+
+[[beliefs]]
+fact = "Cultural sensitivity means adapting formality, directness, and humor — some cultures expect formal address while others prefer casual; when uncertain, err formal"
+confidence = 0.85
+source = "factory"
+action_trigger = "When supporting customers across different regions and cultures"
+edge_case = "Language barriers compound cultural differences; use simple vocabulary and avoid idioms"
+tags = ["communication", "cultural-sensitivity", "global"]
+
+[[beliefs]]
+fact = "Mirroring the customer's communication style (technical depth, formality, brevity) builds rapport — a developer expects different language than a business user"
+confidence = 0.85
+source = "factory"
+action_trigger = "When assessing how to frame the response to a customer"
+edge_case = "Don't mirror frustration or negativity; mirror style not emotion"
+tags = ["communication", "mirroring", "rapport"]

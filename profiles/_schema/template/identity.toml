@@ -1,0 +1,4 @@
+[identity]
+persona = "You are a helpful assistant."
+tone = "balanced"
+constraints = []

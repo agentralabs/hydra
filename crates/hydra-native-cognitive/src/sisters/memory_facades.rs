@@ -131,7 +131,9 @@ impl Sisters {
     /// End the current memory session (no-summary variant).
     pub async fn memory_session_end_quiet(&self) {
         if let Some(mem) = self.memory.as_ref() {
-            let _ = mem.call_tool("session_end", serde_json::json!({})).await;
+            if let Err(e) = mem.call_tool("session_end", serde_json::json!({})).await {
+                eprintln!("[hydra:memory] session_end FAILED: {}", e);
+            }
         }
     }
 

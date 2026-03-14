@@ -60,13 +60,15 @@ impl Sisters {
         success: bool,
     ) {
         if let Some(contract) = &self.contract {
-            let _ = contract.call_tool("contract_crystallize", serde_json::json!({
+            if let Err(e) = contract.call_tool("contract_crystallize", serde_json::json!({
                 "action": safe_truncate(action, 200),
                 "outcome": safe_truncate(outcome, 200),
                 "risk_level": risk_level,
                 "success": success,
                 "source": "cognitive_loop",
-            })).await;
+            })).await {
+                eprintln!("[hydra:contract] contract_crystallize FAILED: {}", e);
+            }
         }
     }
 
@@ -97,11 +99,13 @@ impl Sisters {
         reason: &str,
     ) {
         if let Some(contract) = &self.contract {
-            let _ = contract.call_tool("contract_approval_decide", serde_json::json!({
+            if let Err(e) = contract.call_tool("contract_approval_decide", serde_json::json!({
                 "approval_id": approval_id,
                 "approved": approved,
                 "reason": reason,
-            })).await;
+            })).await {
+                eprintln!("[hydra:contract] contract_approval_decide FAILED: {}", e);
+            }
         }
     }
 

@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "The hook tweet must work as a standalone post — most people will only see the first tweet, so it must deliver value or intrigue on its own"
+confidence = 0.91
+source = "Twitter/X engagement data, viral thread analysis"
+action_trigger = "when writing the first tweet of any thread"
+edge_case = "Reply threads in ongoing conversations do not need a standalone hook; this applies to original public threads"
+tags = ["formats", "social-thread", "hook", "twitter"]
+
+[[beliefs]]
+fact = "Each tweet in a thread should make one clear point — if a tweet contains two ideas, split it into two tweets"
+confidence = 0.87
+source = "thread readability best practices, social media copywriting"
+action_trigger = "when drafting or editing individual tweets within a thread"
+edge_case = "Very short points can be combined if they are closely related and the combined tweet stays under 200 characters"
+tags = ["formats", "social-thread", "clarity", "one-point"]
+
+[[beliefs]]
+fact = "End the thread with a clear call to action — follow, retweet, reply, or visit a link; threads without a CTA waste the attention they earned"
+confidence = 0.85
+source = "social media marketing strategy, thread conversion analysis"
+action_trigger = "when writing the final tweet of any thread"
+edge_case = "Purely educational or storytelling threads can end with a reflection or question instead of a promotional CTA"
+tags = ["formats", "social-thread", "cta", "conversion"]
+
+[[beliefs]]
+fact = "The hook tweet should not require reading the thread to be interesting — avoid 'Thread:' or 'A thread on...' openers; start with the insight itself"
+confidence = 0.89
+source = "high-engagement thread patterns, social media algorithm behavior"
+action_trigger = "when writing the opening of any social thread"
+edge_case = "Meta-threads about threading itself may use the 'Thread:' prefix ironically; in all other cases, lead with substance"
+tags = ["formats", "social-thread", "hook", "opening"]

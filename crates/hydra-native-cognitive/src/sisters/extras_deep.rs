@@ -75,19 +75,12 @@ impl Sisters {
     // ── COGNITION SISTER ──
 
     /// Update user model after a session interaction.
-    pub async fn cognition_model_update_session(
-        &self,
-        interaction_summary: &str,
-        session_length: u32,
-    ) {
+    pub async fn cognition_model_update_session(&self, interaction_summary: &str, session_length: u32) {
         if let Some(cog) = &self.cognition {
-            let _ = cog.call_tool("cognition_model_update", serde_json::json!({
+            if let Err(e) = cog.call_tool("cognition_model_heartbeat", serde_json::json!({
                 "context": "session_end",
-                "observation": {
-                    "summary": safe_truncate(interaction_summary, 300),
-                    "session_length": session_length,
-                }
-            })).await;
+                "observation": { "summary": safe_truncate(interaction_summary, 300), "session_length": session_length }
+            })).await { eprintln!("[hydra:extras] cognition_model_heartbeat FAILED: {}", e); }
         }
     }
 
@@ -104,7 +97,7 @@ impl Sisters {
     /// Detect behavioral drift in user patterns.
     pub async fn cognition_detect_drift(&self) -> Option<String> {
         let cog = self.cognition.as_ref()?;
-        let result = cog.call_tool("cognition_detect_drift", serde_json::json!({
+        let result = cog.call_tool("cognition_drift_track", serde_json::json!({
             "window": "last_10_sessions",
         })).await.ok()?;
         let text = extract_text(&result);
@@ -148,10 +141,12 @@ impl Sisters {
     /// Record a successful action pattern for skill evolution.
     pub async fn evolve_record_pattern(&self, pattern: &str, success: bool) {
         if let Some(evolve) = &self.evolve {
-            let _ = evolve.call_tool("evolve_record_pattern", serde_json::json!({
+            if let Err(e) = evolve.call_tool("evolve_record_pattern", serde_json::json!({
                 "pattern": pattern,
                 "success": success,
-            })).await;
+            })).await {
+                eprintln!("[hydra:evolve] evolve_record_pattern FAILED: {}", e);
+            }
         }
     }
 
@@ -168,10 +163,12 @@ impl Sisters {
     /// Share compiled patterns with multi-agent collective.
     pub async fn evolve_collective_share(&self, patterns: &[String]) {
         if let Some(evolve) = &self.evolve {
-            let _ = evolve.call_tool("evolve_collective_share", serde_json::json!({
+            if let Err(e) = evolve.call_tool("evolve_collective_share", serde_json::json!({
                 "patterns": patterns,
                 "source": "cognitive_loop",
-            })).await;
+            })).await {
+                eprintln!("[hydra:evolve] evolve_collective_share FAILED: {}", e);
+            }
         }
     }
 
@@ -190,9 +187,11 @@ impl Sisters {
     /// End the current time-tracked session.
     pub async fn time_session_end(&self, summary: &str) {
         if let Some(time) = &self.time {
-            let _ = time.call_tool("time_session_end", serde_json::json!({
+            if let Err(e) = time.call_tool("time_session_end", serde_json::json!({
                 "summary": safe_truncate(summary, 300),
-            })).await;
+            })).await {
+                eprintln!("[hydra:time] time_session_end FAILED: {}", e);
+            }
         }
     }
 
@@ -312,9 +311,11 @@ impl Sisters {
     /// Process memory metabolism — consolidation/decay for health.
     pub async fn memory_metabolism_process(&self) {
         if let Some(mem) = &self.memory {
-            let _ = mem.call_tool("memory_metabolism_process", serde_json::json!({
+            if let Err(e) = mem.call_tool("memory_metabolism_process", serde_json::json!({
                 "mode": "auto",
-            })).await;
+            })).await {
+                eprintln!("[hydra:memory] memory_metabolism_process FAILED: {}", e);
+            }
         }
     }
 

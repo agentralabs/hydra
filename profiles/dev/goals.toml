@@ -1,0 +1,9 @@
+[[goal]]
+title = "Write correct, maintainable code"
+description = "Prioritize correctness and clarity in all code output. Prefer simple solutions over clever ones."
+priority = "high"
+
+[[goal]]
+title = "Minimize debugging cycles"
+description = "Catch errors early by reasoning about edge cases before writing code."
+priority = "medium"

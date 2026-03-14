@@ -207,7 +207,9 @@ impl SwarmManager {
             let ids: Vec<String> = self.agents.read()
                 .keys().take(to_kill).cloned().collect();
             for id in &ids {
-                let _ = self.kill_agent(id).await;
+                if let Err(e) = self.kill_agent(id).await {
+                    eprintln!("[hydra:swarm] kill_agent({}) FAILED: {}", id, e);
+                }
             }
             format!("Scaled down: terminated {} agents ({} remaining)", ids.len(), target)
         } else {

@@ -12,7 +12,7 @@ use hydra_db::{HydraDb, FederationStateRow};
 use super::super::loop_runner::CognitiveUpdate;
 use super::memory_intent;
 
-/// Output of the PERCEIVE phase, consumed by THINK.
+/// Output of the PERCEIVE phase, consumed by THINK and ACT.
 pub(crate) struct PerceiveResult {
     pub perceived: serde_json::Value,
     pub always_on_memory: Option<String>,
@@ -23,6 +23,16 @@ pub(crate) struct PerceiveResult {
     pub perceive_ms: u64,
     /// Hash of memory response for dedup detection across queries.
     pub memory_hash: u64,
+    /// UCU: Task plan from iterative_planner (complex tasks only).
+    pub task_plan: Option<crate::cognitive::iterative_planner::TaskPlan>,
+    /// Cognitive Amplification: cross-sister synapse context.
+    pub synapse_context: Option<String>,
+    /// Cognitive Amplification: causal model context for "why"/"what if" queries.
+    pub causal_context: Option<String>,
+    /// Production orchestrator: detected deliverable plan.
+    pub production_context: Option<String>,
+    /// Cognitive Amplification: meta-reasoning strategy for this query.
+    pub meta_strategy: Option<String>,
 }
 
 /// Run the PERCEIVE phase: gather context from sisters, memory, beliefs, MCP, federation.
@@ -46,6 +56,17 @@ pub(crate) async fn run_perceive(
         PhaseStatus { phase: CognitivePhase::Perceive, state: PhaseState::Running, tokens_used: None, duration_ms: None },
     ]));
     let perceive_start = Instant::now();
+
+    // UCU input_decomposer: detect and report large inputs for context-aware processing
+    if crate::cognitive::input_decomposer::needs_decomposition(text, 8000) {
+        let content_type = crate::cognitive::input_decomposer::detect_content_type(text);
+        let chunks = crate::cognitive::input_decomposer::decompose_input(text, 4000);
+        eprintln!("[hydra:input] Large input: {} chars, {:?}, {} chunks", text.len(), content_type, chunks.len());
+        let _ = tx.send(CognitiveUpdate::EvidenceMemory {
+            title: "Input Analysis".into(),
+            content: format!("{} chars of {:?} content ({} sections detected)", text.len(), content_type, chunks.len()),
+        });
+    }
 
     // SESSION RESUME: Bootstrap from last session for continuity ("where did we stop?")
     let session_context = if config.session_count == 0 {
@@ -118,21 +139,28 @@ pub(crate) async fn run_perceive(
         }
     }
 
-    // Setup workspace panels based on complexity
-    if is_simple {
+    // Setup workspace panels — UCU iterative_planner for complex task decomposition
+    let task_plan = if is_simple {
         let _ = tx.send(CognitiveUpdate::PlanClear);
         let _ = tx.send(CognitiveUpdate::TimelineClear);
         let _ = tx.send(CognitiveUpdate::EvidenceClear);
+        None
     } else {
-        let steps = generate_deliverable_steps(text);
-        let _ = tx.send(CognitiveUpdate::PlanInit {
-            goal: text.to_string(),
-            steps: steps.clone(),
-        });
+        let complexity = if is_complex { "complex" } else { "moderate" };
+        let intent_for_plan = crate::cognitive::intent_router::ClassifiedIntent {
+            category: crate::cognitive::intent_router::IntentCategory::Unknown,
+            confidence: 0.5, target: None, payload: None,
+        };
+        let plan = crate::cognitive::iterative_planner::decompose_task(text, &intent_for_plan, complexity);
+        let steps: Vec<String> = plan.steps.iter().map(|s| s.description.clone()).collect();
+        eprintln!("[hydra:planner] Decomposed into {} steps, est {} tokens, {} parallel groups",
+            plan.steps.len(), plan.estimated_total_tokens, plan.parallelizable_groups.len());
+        let _ = tx.send(CognitiveUpdate::PlanInit { goal: text.to_string(), steps });
         let _ = tx.send(CognitiveUpdate::PlanStepStart(0));
         let _ = tx.send(CognitiveUpdate::TimelineClear);
         let _ = tx.send(CognitiveUpdate::EvidenceClear);
-    }
+        Some(plan)
+    };
 
     // Query sisters for perceived context
     let perceived = if let Some(ref sh) = sisters_handle {
@@ -321,28 +349,15 @@ pub(crate) async fn run_perceive(
         }
     }
 
-    // Add perceived context as evidence (complex tasks only)
     if !is_simple {
         if let Some(mem) = perceived["memory_context"].as_str() {
-            let _ = tx.send(CognitiveUpdate::EvidenceMemory {
-                title: "Relevant memories".into(),
-                content: mem.into(),
-            });
+            let _ = tx.send(CognitiveUpdate::EvidenceMemory { title: "Relevant memories".into(), content: mem.into() });
         }
         if let Some(code) = perceived["codebase_context"].as_str() {
-            let _ = tx.send(CognitiveUpdate::EvidenceCode {
-                title: "Codebase analysis".into(),
-                content: code.into(),
-                language: None,
-                file_path: None,
-            });
+            let _ = tx.send(CognitiveUpdate::EvidenceCode { title: "Codebase analysis".into(), content: code.into(), language: None, file_path: None });
         }
-        // Surface deadlines and commitments from perceived context
-        if let Some(d) = perceived["deadlines"].as_str() {
-            let _ = tx.send(CognitiveUpdate::EvidenceMemory { title: "Upcoming Deadlines".into(), content: d.into() });
-        }
-        if let Some(c) = perceived["commitments_due"].as_str() {
-            let _ = tx.send(CognitiveUpdate::EvidenceMemory { title: "Commitments Due".into(), content: c.into() });
+        for (key, title) in [("deadlines", "Upcoming Deadlines"), ("commitments_due", "Commitments Due")] {
+            if let Some(d) = perceived[key].as_str() { let _ = tx.send(CognitiveUpdate::EvidenceMemory { title: title.into(), content: d.into() }); }
         }
         let _ = tx.send(CognitiveUpdate::PlanStepComplete { index: 0, duration_ms: Some(perceive_ms) });
         let _ = tx.send(CognitiveUpdate::PlanStepStart(1));
@@ -352,19 +367,32 @@ pub(crate) async fn run_perceive(
         PhaseStatus { phase: CognitivePhase::Perceive, state: PhaseState::Completed, tokens_used: Some(0), duration_ms: Some(perceive_ms) },
         PhaseStatus { phase: CognitivePhase::Think, state: PhaseState::Running, tokens_used: None, duration_ms: None },
     ]));
+    let memory_hash = always_on_memory.as_deref().map(memory_intent::hash_memory_response).unwrap_or(0);
 
-    let memory_hash = always_on_memory.as_deref()
-        .map(memory_intent::hash_memory_response)
-        .unwrap_or(0);
-
-    PerceiveResult {
-        perceived,
-        always_on_memory,
-        beliefs_context,
-        federation_context,
-        skills_context,
-        code_index_context,
-        perceive_ms,
-        memory_hash,
-    }
+    // Cognitive Amplification: sister synapse for complex queries
+    let synapse_context = match (is_complex, sisters_handle.as_ref()) {
+        (true, Some(sh)) => {
+            let cfg = crate::knowledge::sister_synapse::SynapseConfig::default();
+            let r = crate::knowledge::sister_synapse::synapse_query(text, sh, &cfg).await;
+            crate::knowledge::sister_synapse::format_for_prompt(&r)
+        }
+        _ => None,
+    };
+    // Cognitive Amplification: causal model + meta-reasoning + production
+    let tl = text.to_lowercase();
+    let causal_context = if tl.contains("why") || tl.contains("what if") || tl.contains("cause") {
+        let g = crate::knowledge::causal_model::CausalGraph::new();
+        let w = tl.split_whitespace().find(|w| w.len() >= 4).unwrap_or("query");
+        let t = g.propagate(w, 4, 0.3); if t.total_nodes > 1 { Some(crate::knowledge::causal_model::format_causal_tree(&t)) } else { None }
+    } else { None };
+    let meta_strategy = if is_complex { let mr = crate::knowledge::meta_reasoning::MetaReasoner::new();
+        let d = tl.split_whitespace().find(|w| w.len() >= 4).unwrap_or("general");
+        Some(mr.format_for_prompt(mr.select_strategy(d)))
+    } else { None };
+    let production_context = crate::knowledge::production_orchestrator::detect_production_intent(text)
+        .map(|dt| crate::knowledge::production_orchestrator::format_plan(
+            &crate::knowledge::production_orchestrator::plan_production(&dt, text)));
+    PerceiveResult { perceived, always_on_memory, beliefs_context, federation_context,
+        skills_context, code_index_context, perceive_ms, memory_hash,
+        task_plan, synapse_context, causal_context, meta_strategy, production_context }
 }

@@ -1,0 +1,51 @@
+[skill]
+name = "trade_execution_plan"
+description = "Design optimal trade execution plan — algo selection, cost estimation, risk checks, compliance verification"
+version = "1.0.0"
+requires_approval = true
+
+[trigger]
+patterns = [
+    "execute trade",
+    "buy",
+    "sell",
+    "place order",
+    "trade plan",
+    "execution strategy",
+    "fill order",
+]
+
+[[steps]]
+name = "analyze_order"
+action = "compute"
+description = "Analyze the order against current market conditions: ADV participation rate, spread width, book depth, recent volatility, and time-of-day liquidity profile"
+parameters = { include_adv_analysis = true, include_book_depth = true, include_volatility = true }
+
+[[steps]]
+name = "select_algo"
+action = "llm"
+description = "Select optimal execution algorithm based on order urgency, size relative to ADV, and market conditions. VWAP for 5-15% ADV patient orders, arrival price for urgent orders, TWAP for low-information orders, block crossing for >20% ADV."
+depends_on = ["analyze_order"]
+parameters = { model = "claude-sonnet-4-6" }
+
+[[steps]]
+name = "estimate_cost"
+action = "compute"
+description = "Estimate total execution cost using Almgren-Chriss market impact model: temporary impact + permanent impact + timing risk + commission + exchange fees. Present as basis points and absolute dollars."
+depends_on = ["analyze_order", "select_algo"]
+parameters = { model = "almgren_chriss", include_commission = true, include_exchange_fees = true }
+
+[[steps]]
+name = "risk_check"
+action = "sister:contract"
+tool = "contract_check"
+description = "Verify the trade passes all pre-trade risk checks: position limits, sector concentration limits, counterparty exposure limits, restricted list, and regulatory constraints (Reg SHO, short sale rules)"
+depends_on = ["analyze_order"]
+parameters = { checks = ["position_limit", "concentration", "counterparty", "restricted_list", "regulatory"] }
+
+[[steps]]
+name = "present_plan"
+action = "llm"
+description = "Present the complete execution plan for approval: algorithm choice with rationale, estimated cost breakdown, risk check results, and recommended execution window. Include disclaimer that this is a plan requiring human approval before submission."
+depends_on = ["select_algo", "estimate_cost", "risk_check"]
+parameters = { model = "claude-sonnet-4-6", requires_approval = true }

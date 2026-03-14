@@ -1,0 +1,21 @@
+[metadata]
+name = "gap_detection"
+description = "Identify gaps, contradictions, and under-explored areas in a body of research"
+version = "1.0.0"
+
+[trigger]
+patterns = ["what's missing in the literature", "research gaps", "what hasn't been studied", "find contradictions"]
+intent = "gap-analysis"
+
+[steps]
+sequence = [
+    "Map the existing findings by theme, method, and population",
+    "Identify populations, contexts, or methods that are absent or underrepresented",
+    "Flag contradictory findings and hypothesize why they diverge",
+    "Assess whether gaps are due to difficulty, oversight, or impossibility",
+    "Prioritize gaps by potential impact and feasibility",
+]
+
+[sisters]
+primary = ["Data", "Memory", "Cognition"]
+optional = ["Veritas"]

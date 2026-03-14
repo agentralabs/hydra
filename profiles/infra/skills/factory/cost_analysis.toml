@@ -1,0 +1,22 @@
+[metadata]
+name = "cost_analysis"
+description = "Analyze cloud spend and identify optimization opportunities across services"
+version = "1.0.0"
+
+[trigger]
+patterns = ["cost analysis", "cloud spend", "reduce costs", "why is our bill so high"]
+intent = "cost-optimization"
+
+[steps]
+sequence = [
+    "Pull cost data by service, account, tag, and time period",
+    "Identify top cost drivers and month-over-month trends",
+    "Flag unused or underutilized resources (idle instances, unattached volumes, stale snapshots)",
+    "Evaluate reserved instance coverage and savings plan opportunities",
+    "Calculate potential savings for each recommendation with implementation effort",
+    "Prioritize recommendations by savings-to-effort ratio",
+]
+
+[sisters]
+primary = ["Data", "Connect"]
+optional = ["Planning", "Workflow"]

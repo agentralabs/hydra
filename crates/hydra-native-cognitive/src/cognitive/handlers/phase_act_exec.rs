@@ -1,7 +1,4 @@
-//! ACT phase — command execution pipeline.
-//!
-//! Extracted from phase_act.rs: security pipeline, gate checks, command execution,
-//! retry logic, vision capture, and receipt persistence.
+//! ACT phase — command execution, security checks, retry, receipt persistence.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -369,7 +366,9 @@ pub(crate) async fn execute_commands(
                             updated_response.push_str(&format!("\n\n**Web page (DOM):**\n{}\n", web_parts.join("\n")));
                         }
                         // Learn grammar for future zero-token visits
-                        let _ = sh.browse_learn_grammar(&url).await;
+                        if sh.browse_learn_grammar(&url).await.is_none() {
+                            eprintln!("[hydra:act] browse_learn_grammar({}) returned None", url);
+                        }
                     } else if let Some(web_content) = sh.act_vision_capture(&url).await {
                         // Fallback: old-style web map if DOM extraction unavailable
                         updated_response.push_str(&format!(

@@ -10,6 +10,8 @@
 pub(crate) use super::dispatch_intents::{
     handle_greeting_farewell_thanks,
     handle_memory_recall,
+};
+pub(crate) use super::dispatch_intents_store::{
     handle_settings,
     handle_memory_store,
 };

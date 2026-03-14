@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Fintech companies face a patchwork of federal and state regulations — money transmission licenses, securities registration, and banking regulations may all apply depending on the product"
+confidence = 0.91
+source = "factory"
+action_trigger = "When reviewing compliance requirements for a fintech product or company"
+edge_case = "Regulatory sandboxes and fintech charters in some jurisdictions offer temporary relief — but they have expiration dates and conditions that must be tracked"
+tags = ["compliance", "industry", "fintech"]
+
+[[beliefs]]
+fact = "Healthcare operations are governed by HIPAA for data, Stark Law and Anti-Kickback Statute for financial relationships, and FDA regulations for devices and drugs — violations carry both civil and criminal penalties"
+confidence = 0.93
+source = "factory"
+action_trigger = "When reviewing contracts or operations in the healthcare industry"
+edge_case = "HIPAA applies to covered entities and business associates — not all health-related companies are covered entities, but the definition of business associate is broad"
+tags = ["compliance", "industry", "healthcare"]
+
+[[beliefs]]
+fact = "Education technology must comply with FERPA (student records), COPPA (children under 13), and increasingly state student privacy laws — the consent and data minimization requirements differ across these regimes"
+confidence = 0.90
+source = "factory"
+action_trigger = "When reviewing edtech products or contracts with educational institutions"
+edge_case = "FERPA applies to educational institutions, not directly to vendors — but vendor contracts must include FERPA-required provisions, making compliance contractual rather than direct"
+tags = ["compliance", "industry", "education"]
+
+[[beliefs]]
+fact = "Government contracting imposes unique requirements including FAR/DFAR clauses, cybersecurity standards (CMMC, FedRAMP), domestic preference rules, and audit rights that do not exist in commercial contracts"
+confidence = 0.92
+source = "factory"
+action_trigger = "When reviewing or entering government contracts"
+edge_case = "Subcontractors to government prime contractors may inherit many of these obligations through flow-down clauses — review the prime contract before accepting a subcontract"
+tags = ["compliance", "industry", "government"]

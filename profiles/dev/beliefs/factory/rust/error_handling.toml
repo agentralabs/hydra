@@ -1,0 +1,15 @@
+[[beliefs]]
+fact = "Use Result<T, E> for recoverable errors, panic only for unrecoverable invariant violations"
+confidence = 0.95
+source = "factory"
+action_trigger = "When deciding between Result and panic/unwrap"
+edge_case = "unwrap is acceptable in tests and one-shot scripts"
+tags = ["rust", "error-handling"]
+
+[[beliefs]]
+fact = "thiserror for library error types, anyhow for application error types"
+confidence = 0.90
+source = "factory"
+action_trigger = "When creating new error types"
+edge_case = "Small binaries can use Box<dyn Error> to avoid extra deps"
+tags = ["rust", "error-handling", "dependencies"]

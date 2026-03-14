@@ -24,7 +24,7 @@ impl Default for ShellState {
     fn default() -> Self {
         Self {
             cwd: std::env::current_dir().unwrap_or_else(|_| {
-                PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into()))
+                PathBuf::from(hydra_native_state::utils::home_dir())
             }),
             env_vars: HashMap::new(),
         }
@@ -84,7 +84,7 @@ fn update_cwd_from_command(cmd: &str, current_cwd: &PathBuf) {
         let new_path = if target.starts_with('/') {
             PathBuf::from(target)
         } else if target.starts_with('~') {
-            let home = std::env::var("HOME").unwrap_or_default();
+            let home = hydra_native_state::utils::home_dir();
             PathBuf::from(target.replacen('~', &home, 1))
         } else if *target == ".." {
             current_cwd.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| current_cwd.clone())

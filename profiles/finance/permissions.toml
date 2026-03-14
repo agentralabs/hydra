@@ -1,0 +1,53 @@
+[read]
+allowed = [
+    "transactions",
+    "market_data",
+    "positions",
+    "order_history",
+    "account_balances",
+    "risk_reports",
+    "compliance_logs",
+    "audit_trail",
+    "regulatory_filings",
+    "counterparty_data",
+    "reference_data",
+    "pricing_feeds",
+]
+
+[execute]
+allowed = [
+    "analysis",
+    "reports",
+    "alerts",
+    "screening",
+    "backtesting",
+    "scenario_simulation",
+    "data_aggregation",
+    "notification_dispatch",
+]
+
+[requires_approval]
+actions = [
+    "trade_submission",
+    "settlement_instruction",
+    "account_freeze",
+    "sar_filing",
+    "position_liquidation",
+    "margin_call_execution",
+    "wire_transfer",
+    "counterparty_onboarding",
+]
+approver_role = "senior_trader_or_compliance_officer"
+timeout_minutes = 15
+
+[forbidden]
+actions = [
+    "delete_records",
+    "modify_audit_log",
+    "bypass_compliance",
+    "alter_transaction_history",
+    "disable_monitoring",
+    "override_risk_limits",
+    "access_personal_accounts",
+]
+reason = "Regulatory and fiduciary obligation — these actions violate SOX, Dodd-Frank, and internal control requirements"

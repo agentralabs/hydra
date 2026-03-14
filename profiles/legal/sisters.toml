@@ -1,0 +1,10 @@
+[sisters]
+emphasize = ["Data", "Memory", "Contract", "Veritas", "Time"]
+disable = []
+
+# Rationale: Legal profile emphasizes contract analysis and verification sisters.
+# Data — structured analysis of financial terms, tables, and schedules.
+# Memory — recall prior contract reviews, precedent, and institutional knowledge.
+# Contract — deep contract analysis, clause extraction, and risk assessment.
+# Veritas — verify legal claims, cross-reference statutes, detect inconsistencies.
+# Time — track deadlines, cure periods, statute of limitations, and filing dates.

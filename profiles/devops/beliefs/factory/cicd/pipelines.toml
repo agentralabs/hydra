@@ -1,0 +1,15 @@
+[[beliefs]]
+fact = "CI pipelines must be fast — target under 10 minutes; slow pipelines get ignored"
+confidence = 0.85
+source = "factory"
+action_trigger = "When designing or optimizing CI pipelines"
+edge_case = "Full integration test suites may run longer on a separate schedule"
+tags = ["cicd", "performance"]
+
+[[beliefs]]
+fact = "Every deployment must be reversible — if you can't rollback in under 5 minutes, add a feature flag"
+confidence = 0.95
+source = "factory"
+action_trigger = "When planning deployments or database migrations"
+edge_case = "Data migrations are inherently harder to reverse — use expand-contract pattern"
+tags = ["cicd", "deployment", "safety"]

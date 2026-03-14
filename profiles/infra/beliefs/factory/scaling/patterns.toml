@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "Horizontal scaling (adding instances) is preferred over vertical (bigger instances) — it provides linear capacity growth and eliminates single points of failure"
+confidence = 0.90
+source = "factory"
+action_trigger = "When a service needs more capacity and the application supports stateless operation"
+edge_case = "Databases and stateful services often require vertical scaling first; horizontal scaling needs sharding strategy"
+tags = ["scaling", "horizontal", "architecture"]
+
+[[beliefs]]
+fact = "Auto-scaling triggers should use composite metrics — CPU alone misses memory pressure and queue depth; combine CPU, request latency, and queue length"
+confidence = 0.85
+source = "factory"
+action_trigger = "When configuring auto-scaling policies for a service"
+edge_case = "Custom metrics take 1-2 minutes to propagate to scaling decisions; add cooldown periods to prevent oscillation"
+tags = ["scaling", "auto-scaling", "triggers"]
+
+[[beliefs]]
+fact = "Pre-warming means launching capacity before known traffic spikes — scheduled scaling for predictable events beats reactive auto-scaling by 5-10 minutes"
+confidence = 0.85
+source = "factory"
+action_trigger = "When a known traffic event (marketing campaign, product launch, scheduled batch) is approaching"
+edge_case = "Pre-warmed capacity incurs cost; balance against the business impact of slow scale-up"
+tags = ["scaling", "pre-warming", "scheduled"]
+
+[[beliefs]]
+fact = "Queue-based scaling decouples producers from consumers — scale workers based on queue depth and message age rather than CPU; provides natural backpressure"
+confidence = 0.85
+source = "factory"
+action_trigger = "When workload involves asynchronous processing and variable throughput"
+edge_case = "Queue-based systems add latency; not suitable for synchronous request-response patterns"
+tags = ["scaling", "queue-based", "async"]
+
+[[beliefs]]
+fact = "Burst capacity planning should handle 3-5x normal traffic for 15-30 minutes — beyond that, the scaling system should catch up; under that, pre-provisioned headroom absorbs it"
+confidence = 0.80
+source = "factory"
+action_trigger = "When designing capacity for services exposed to unpredictable traffic spikes"
+edge_case = "Viral events can exceed 10x normal; have a degradation strategy (feature flags, rate limiting) for extreme bursts"
+tags = ["scaling", "burst", "capacity"]

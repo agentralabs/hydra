@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "Delta hedging with discrete rebalancing intervals creates P&L variance proportional to gamma * (realized move)^2 minus gamma * (implied vol)^2 * dt. When realized volatility exceeds implied, delta hedging is profitable (long gamma). The optimal rehedge interval balances gamma P&L capture against transaction costs — for liquid options (SPX, AAPL), this is 15-60 minutes; for illiquid options, 1-4 hours."
+confidence = 0.91
+source = "Black-Scholes hedging theory, Taleb 1997 dynamic hedging, Carr/Madan 1998 optimal hedging intervals"
+action_trigger = "Long gamma position → rehedge at intervals that maximize gamma P&L minus transaction costs, increase rehedge frequency when realized vol is spiking (capturing the gamma), decrease when realized is below implied (paying away the theta)"
+edge_case = "Around major events (FOMC, earnings), implied vol collapses post-event (vol crush) regardless of the realized move direction. A long gamma position that is profitable intraday can lose money on the vol crush if not closed before the event resolution."
+tags = ["options", "delta_hedging", "gamma", "rebalancing"]
+
+[[beliefs]]
+fact = "Gamma risk is concentrated near the strike price and near expiration — a portfolio with $1M of notional in 0-DTE options can have more gamma risk than $10M of 30-day options. The gamma of an at-the-money option increases proportionally to 1/sqrt(T) as expiration approaches, making the last 1-3 days before expiration the highest-risk period. 0-DTE SPX options now account for 40-50% of total SPX options volume, creating systemic gamma risk."
+confidence = 0.93
+source = "CBOE 0-DTE volume data 2022-2024, Barbon/Buraschi 2021 option volume and market dynamics, options pricing theory"
+action_trigger = "Portfolio gamma exposure from 0-3 DTE options exceeds 50% of total gamma → flag as concentrated short-term risk, ensure intraday monitoring is active, set hard stop-loss on positions"
+edge_case = "Market makers who are short gamma near expiration must delta-hedge more aggressively, which amplifies intraday market moves (the 'gamma squeeze' effect). When net dealer gamma positioning is significantly negative, expect amplified intraday volatility regardless of news flow."
+tags = ["options", "gamma", "0dte", "expiration_risk"]
+
+[[beliefs]]
+fact = "Theta decay is non-linear and accelerates dramatically in the last 30 days — an ATM option loses approximately 1/3 of its remaining time value in the last week before expiration. For option sellers, the highest theta/gamma ratio (collecting time decay relative to directional risk) occurs at 30-45 DTE. Selling options at >60 DTE collects theta too slowly; selling at <14 DTE has the best daily theta but unacceptable gamma risk."
+confidence = 0.92
+source = "Theta decay mathematics (Black-Scholes), empirical options selling strategy analysis, tastytrade research 2018-2024"
+action_trigger = "Systematic option selling strategy → target 30-45 DTE entry, close at 21 DTE or 50% of max profit (whichever comes first), do not hold into the last 2 weeks unless part of a defined-risk structure"
+edge_case = "For deep out-of-the-money options (delta < 0.10), theta decay is nearly linear rather than accelerating — the non-linear acceleration applies primarily to ATM and near-the-money options. Deep OTM options can be held closer to expiration without the same gamma risk."
+tags = ["options", "theta", "time_decay", "selling"]
+
+[[beliefs]]
+fact = "Vega (sensitivity to implied volatility) is highest for ATM options and for longer-dated options. A portfolio's vega exposure should be decomposed by term structure bucket: front-month vega behaves differently from back-month vega because the VIX term structure can steepen or flatten independently. A position that is vega-neutral in aggregate can have massive vega risk if it is long front-month vol and short back-month vol (or vice versa) — the term structure can move 5-10 vol points in a day."
+confidence = 0.89
+source = "Gatheral 2006 volatility surface, Carr/Wu 2009 variance risk premia, VIX term structure data 2010-2024"
+action_trigger = "Decompose vega by expiration bucket (0-30 DTE, 30-90 DTE, 90+ DTE) and ensure each bucket is within limits independently, not just in aggregate. Monitor VIX term structure slope daily."
+edge_case = "During VIX backwardation (front > back, typical in crises), all vega exposures are correlated — the bucket decomposition matters less because the entire term structure moves together. Switch from bucket-level to aggregate vega monitoring during backwardation."
+tags = ["options", "vega", "term_structure", "volatility"]
+
+[[beliefs]]
+fact = "Pin risk — the tendency of heavily traded options to cause the underlying stock to gravitate toward the strike price at expiration due to delta-hedging flows — is strongest when open interest at a single strike exceeds 3% of the stock's float. On max-pain expiration Fridays, stocks with high single-strike open interest converge to the strike with 60-65% frequency within the last 2 hours of trading. This effect has intensified with the growth of weekly options."
+confidence = 0.84
+source = "Ni/Pearson/Poteshman 2005 stock price clustering on option expiration, Avellaneda/Lipkin 2003 pinning model, updated analysis through 2024"
+action_trigger = "Single-strike open interest > 3% of float on expiration day → expect price to gravitate toward that strike, adjust intraday execution plans accordingly, do not fight the pin in the last 2 hours"
+edge_case = "When a material news event occurs on expiration day (earnings, M&A announcement), the informational impact overwhelms the pinning effect. Pin risk is a fair-weather phenomenon that only operates in the absence of new information."
+tags = ["options", "pin_risk", "expiration", "open_interest"]

@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "RPO (recovery point objective) defines maximum acceptable data loss; RTO (recovery time objective) defines maximum acceptable downtime — both must be set per workload, not globally"
+confidence = 0.95
+source = "factory"
+action_trigger = "When designing DR strategy for any workload"
+edge_case = "Business stakeholders often request RPO=0, RTO=0 without understanding the cost; quantify the price of each tier"
+tags = ["dr", "rpo-rto", "strategy"]
+
+[[beliefs]]
+fact = "Pilot light keeps core infrastructure (database replicas, AMIs) in the DR region with minimal compute — scale up when activated; RTO 1-4 hours, cost ~10% of production"
+confidence = 0.85
+source = "factory"
+action_trigger = "When workload needs DR but budget doesn't support warm standby"
+edge_case = "Pilot light assumes you can provision compute quickly; verify DR region capacity and consider reserved instances"
+tags = ["dr", "pilot-light", "cost-effective"]
+
+[[beliefs]]
+fact = "Warm standby runs a scaled-down but functional copy of production — RTO 15-30 minutes with traffic routing switch; cost ~30-50% of production"
+confidence = 0.85
+source = "factory"
+action_trigger = "When workload requires sub-hour RTO with moderate budget"
+edge_case = "Warm standby must be kept in sync with production changes (schema migrations, config updates, deployments)"
+tags = ["dr", "warm-standby", "moderate-rto"]
+
+[[beliefs]]
+fact = "Multi-region active-active provides near-zero RTO and RPO but at 2x+ cost — justified only for revenue-critical services where minutes of downtime cost millions"
+confidence = 0.85
+source = "factory"
+action_trigger = "When evaluating DR for the most critical production services"
+edge_case = "Active-active introduces conflict resolution complexity for writes; requires careful data partitioning strategy"
+tags = ["dr", "active-active", "high-availability"]
+
+[[beliefs]]
+fact = "Backup verification must be automated and tested monthly — 30% of organizations discover their backups are unusable only during an actual recovery event"
+confidence = 0.90
+source = "factory"
+action_trigger = "When setting up backup procedures or during DR readiness reviews"
+edge_case = "Backup verification should restore to an isolated environment to avoid contaminating production data"
+tags = ["dr", "backup", "verification"]

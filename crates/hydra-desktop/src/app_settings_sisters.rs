@@ -2,7 +2,7 @@
                                         h2 { class: "settings-title", "Sisters & MCP" }
                                         div { class: "settings-section",
                                             p { class: "settings-info", style: "margin-bottom: 16px;",
-                                                "Hydra connects to 14 sister agents via MCP (Model Context Protocol). Each sister is a specialized AI tool server."
+                                                "Hydra connects to 17 sister agents via MCP (Model Context Protocol). Each sister is a specialized AI tool server."
                                             }
                                             {
                                                 let sh = sisters.read();
@@ -43,7 +43,7 @@
                                                 let total: usize = sister_list.iter().map(|(_, _, _, t)| *t).sum();
                                                 let connected_count = sister_list.iter().filter(|(_, _, c, _)| *c).count();
                                                 rsx! {
-                                                    div { class: "sisters-total", "{connected_count}/14 sisters connected \u{00B7} {total} total tools" }
+                                                    div { class: "sisters-total", "{connected_count}/17 sisters connected \u{00B7} {total} total tools" }
                                                     // Foundation
                                                     h3 { class: "settings-section-title", style: "margin-top: 16px;", "Foundation Sisters" }
                                                     div { class: "sisters-grid",

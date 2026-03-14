@@ -86,5 +86,46 @@ pub mod vision_grammar_ext;
 // Tool dispatch — <hydra-tool> tag parsing and MCP routing
 pub mod tool_dispatch;
 
+// SisterGateway — enforces sister-first pattern for all operations
+pub mod gateway;
+pub mod gateway_helpers;
+mod gateway_tests;
+
 pub use cognitive::{init_sisters, Sisters, SistersHandle};
 pub use connection::extract_text;
+pub use gateway::SisterGateway;
+
+/// LLM micro-call for cheap classification/generation tasks.
+/// Uses Haiku by default, Sonnet for judges, Opus for principles.
+pub async fn llm_micro_call(
+    config: &hydra_model::llm_config::LlmConfig,
+    prompt: &str,
+    tier: &str,
+) -> Option<String> {
+    let model = match tier {
+        "haiku" => "claude-haiku-4-5-20251001",
+        "opus" => "claude-opus-4-6",
+        _ => "claude-sonnet-4-6",
+    };
+
+    let client = hydra_model::providers::anthropic::AnthropicClient::new(config).ok()?;
+
+    let request = hydra_model::providers::CompletionRequest {
+        model: model.to_string(),
+        messages: vec![hydra_model::providers::Message {
+            role: "user".into(),
+            content: prompt.to_string(),
+        }],
+        max_tokens: 500,
+        temperature: Some(0.3),
+        system: None,
+    };
+
+    match client.complete(request).await {
+        Ok(resp) => Some(resp.content),
+        Err(e) => {
+            eprintln!("[hydra:llm_micro] {} call failed: {:?}", tier, e);
+            None
+        }
+    }
+}

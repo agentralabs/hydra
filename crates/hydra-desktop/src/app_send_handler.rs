@@ -20,6 +20,17 @@
         input_error.set(None);
         let text = validation.trimmed;
 
+        // Slash command intercept — /profile, /roi, /knowledge handled locally
+        if text.starts_with('/') { let snap = active_op_profile.read().clone();
+            if let Some(resp) = app_profile::handle_slash_command(&text, &snap) {
+                messages.write().push(("user".into(), text.clone(), "message".into()));
+                messages.write().push(("hydra".into(), resp, "message hydra".into()));
+                input.set(String::new());
+                if text.starts_with("/profile load ") { if let Ok((p, ov)) = app_profile::load_profile_by_name(text.trim_start_matches("/profile load ").trim()) { profile_overlay.set(ov); active_op_profile.set(Some(p)); }
+                } else if text.starts_with("/profile unload") { profile_overlay.set(None); active_op_profile.set(None); }
+                return;
+        } }
+
         // Cancel any in-flight TTS — new message takes priority
         let pulse_ref = pulse.read().clone();
         pulse_ref.cancel_tts(); pulse_ref.reset_tts_cancel();
@@ -110,7 +121,8 @@
                 log_level: settings_log_level.read().clone(), federation_enabled: *settings_federation.read(),
                 memory_capture: settings_memory_capture.read().clone(),
                 agentic_loop: true, agentic_max_turns: 8, agentic_token_budget: 50_000,
-            },
+            }, prompt_overlay: profile_overlay.read().clone(),
+            active_beliefs: active_op_profile.read().as_ref().map(|p| p.beliefs.clone()).unwrap_or_default(),
         };
 
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<CognitiveUpdate>();
@@ -271,6 +283,8 @@
                             }
                         }
                     }
+                    CognitiveUpdate::MemoryModeChanged { mode } => { settings_memory_capture.set(mode); }
+                    CognitiveUpdate::MemoryStatsUpdate { .. } => {} // stats tracked on server side
                     CognitiveUpdate::SettingsApplied { confirmation } => { let now = chrono::Local::now().format("%H:%M:%S").to_string(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, "Settings applied", Some(&confirmation), Some("Settings")); }
                     CognitiveUpdate::SistersCalled { sisters } => { if !sisters.is_empty() { let now = chrono::Local::now().format("%H:%M:%S").to_string(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Sisters: {}", sisters.join(", ")), None, Some("Act")); } }
                     CognitiveUpdate::TokenUsage { input_tokens, output_tokens } => {
@@ -331,13 +345,7 @@
                     }
                     CognitiveUpdate::TemporalStored { category, content } => { let now = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("Memory [{}]", category), Some(&content), Some("Learn")); }
                     CognitiveUpdate::CursorMove { x, y, label } => { ghost_cursor.write().move_to(x, y, label); }
-                    CognitiveUpdate::CursorClick => {
-                        let (cx, cy) = { let gc = ghost_cursor.read(); (gc.x, gc.y) };
-                        ghost_cursor.write().click();
-                        ghost_click_rings.write().push((cx, cy, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64));
-                        let mut gc_sig = ghost_cursor.clone();
-                        spawn(async move { tokio::time::sleep(std::time::Duration::from_millis(200)).await; gc_sig.write().idle(); });
-                    }
+                    CognitiveUpdate::CursorClick => { let (cx, cy) = { let gc = ghost_cursor.read(); (gc.x, gc.y) }; ghost_cursor.write().click(); ghost_click_rings.write().push((cx, cy, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64)); let mut gc_sig = ghost_cursor.clone(); spawn(async move { tokio::time::sleep(std::time::Duration::from_millis(200)).await; gc_sig.write().idle(); }); }
                     CognitiveUpdate::CursorTyping { active } => { if active { ghost_cursor.write().start_typing(); } else { ghost_cursor.write().idle(); } }
                     CognitiveUpdate::CursorVisibility { visible } => { if visible { ghost_cursor.write().show(); } else { ghost_cursor.write().hide(); } }
                     CognitiveUpdate::CursorModeChange { mode } => { ghost_cursor.write().set_mode(match mode.as_str() { "fast" => CursorMode::Fast, "invisible" => CursorMode::Invisible, "replay" => CursorMode::Replay, _ => CursorMode::Visible }); }
@@ -367,7 +375,7 @@
                     CognitiveUpdate::AgenticTurn { turn, tool_count, exec_count } => { let n = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&n, TimelineEventKind::Info, &format!("Agentic turn {}: {} tools, {} execs", turn, tool_count, exec_count), None, Some("Act")); }
                     CognitiveUpdate::AgenticComplete { turns, total_tokens, stop_reason } => { let n = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&n, TimelineEventKind::Info, &format!("Agentic done: {} turns, {}tok — {}", turns, total_tokens, stop_reason), None, Some("Act")); }
                     CognitiveUpdate::ProactiveFileSuggestion { ref title, ref message, ref priority, ref action } => { let now = chrono::Local::now().format("%H:%M:%S").to_string(); let kind = if priority == "Urgent" { TimelineEventKind::Error } else { TimelineEventKind::Info }; let detail = action.as_ref().map(|a| format!("{} ({})", message, a)).unwrap_or_else(|| message.clone()); timeline_panel.write().push_event(&now, kind, title, Some(&detail), Some("Watcher")); }
-                    CognitiveUpdate::VerificationApplied { .. } | CognitiveUpdate::ModelEscalated { .. } | CognitiveUpdate::BackgroundTaskComplete { .. } | CognitiveUpdate::MetacognitiveInsight { .. } | CognitiveUpdate::ToolAction { .. } => {}
+                    CognitiveUpdate::VerificationApplied { .. } | CognitiveUpdate::ModelEscalated { .. } | CognitiveUpdate::BackgroundTaskComplete { .. } | CognitiveUpdate::MetacognitiveInsight { .. } | CognitiveUpdate::ToolAction { .. } | CognitiveUpdate::GatewayStats { .. } => {}
                     CognitiveUpdate::BuildPhaseStarted { phase, detail } => { let n = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&n, TimelineEventKind::Info, &format!("Build: {}", phase), Some(&detail), Some("Build")); }
                     CognitiveUpdate::BuildProgress { .. } => {}
                     CognitiveUpdate::BuildPhaseComplete { phase, duration_ms, summary } => { let n = chrono::Utc::now().to_rfc3339(); timeline_panel.write().push_event(&n, TimelineEventKind::Info, &format!("{} ({:.1}s)", phase, duration_ms as f64 / 1000.0), Some(&summary), Some("Build")); }
@@ -391,9 +399,8 @@
             working_directory: std::env::current_dir().ok().map(|p| p.display().to_string()), autonomy_level: Default::default(),
             memory_capture: Some(settings_memory_capture.read().clone()),
             smtp_host: ne(&settings_smtp_host), smtp_user: ne(&settings_smtp_user),
-            smtp_password: ne(&settings_smtp_password), smtp_to: ne(&settings_smtp_to),
+            smtp_password: ne(&settings_smtp_password), smtp_to: ne(&settings_smtp_to), active_operational_profile: None,
         });
     };
-
     (send_message, save_current_profile)
 }

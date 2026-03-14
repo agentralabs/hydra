@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Load testing should simulate realistic traffic patterns including peak, sustained, and spike scenarios — synthetic uniform load misses concurrency and hotspot issues"
+confidence = 0.90
+source = "factory"
+action_trigger = "When planning load tests before a launch or major traffic event"
+edge_case = "Load testing production requires safeguards (feature flags, traffic shadowing); never load test shared staging without coordination"
+tags = ["scaling", "load-testing", "methodology"]
+
+[[beliefs]]
+fact = "Traffic modeling should account for growth trajectory, seasonal patterns, and one-time events — extrapolate 6-12 months ahead for procurement and reservation decisions"
+confidence = 0.85
+source = "factory"
+action_trigger = "When planning infrastructure budget or reserved capacity purchases"
+edge_case = "Exponential growth phases make linear extrapolation dangerous; use conservative and aggressive scenarios"
+tags = ["scaling", "traffic-modeling", "forecasting"]
+
+[[beliefs]]
+fact = "Headroom target should be 30-40% above current peak — less than 20% headroom means any unexpected spike causes degradation"
+confidence = 0.85
+source = "factory"
+action_trigger = "When reviewing current capacity utilization against traffic trends"
+edge_case = "Cost pressure pushes for lower headroom; tie headroom to business SLA — higher uptime requirements need more headroom"
+tags = ["scaling", "headroom", "capacity"]
+
+[[beliefs]]
+fact = "Growth projection should combine organic growth rate with planned business events (new markets, features, partnerships) — infra planning lags business decisions by 1-3 months"
+confidence = 0.80
+source = "factory"
+action_trigger = "When participating in quarterly planning or when business announces expansion plans"
+edge_case = "Canceled launches still consume planning effort; use reversible capacity (cloud) over committed capacity (hardware) when uncertainty is high"
+tags = ["scaling", "growth", "planning"]

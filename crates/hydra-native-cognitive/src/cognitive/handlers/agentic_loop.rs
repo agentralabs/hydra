@@ -130,8 +130,30 @@ pub(crate) async fn run_agentic_loop(
             };
         }
 
-        // Format results as a follow-up message for the LLM
-        let results_msg = format_tool_results_message(&tool_results, &exec_results);
+        // UCU backtrack + dependency_resolver: analyze failures, inject fixes into next prompt
+        let mut fix_hints: Vec<String> = Vec::new();
+        for (cmd, output, success) in &exec_results {
+            if !*success {
+                if let Some(fix) = crate::cognitive::backtrack::suggest_fix(output) {
+                    fix_hints.push(format!("Fix for `{}`: {}", safe_truncate(cmd, 40), fix));
+                }
+                if let Some(dep) = crate::cognitive::dependency_resolver::detect_missing_dependency(output) {
+                    let res = crate::cognitive::dependency_resolver::suggest_resolution(&dep);
+                    if let crate::cognitive::dependency_resolver::ResolutionAction::SuggestInstall(ref install) = res.action_taken {
+                        fix_hints.push(format!("Missing {}: install with `{}`", dep.name, install));
+                    }
+                }
+            }
+        }
+
+        // Format results as a follow-up message for the LLM, including UCU fix hints
+        let mut results_msg = format_tool_results_message(&tool_results, &exec_results);
+        if !fix_hints.is_empty() {
+            results_msg.push_str("\n\n[Hydra analysis of failures:]\n");
+            for hint in &fix_hints {
+                results_msg.push_str(&format!("- {}\n", hint));
+            }
+        }
         messages.push(hydra_model::providers::Message {
             role: "user".into(),
             content: results_msg,
@@ -146,9 +168,10 @@ pub(crate) async fn run_agentic_loop(
             };
         }
 
-        // Call LLM with accumulated context
-        let remaining = loop_config.total_budget_tokens.saturating_sub(total_tokens);
-        let max_tokens = (remaining as u32).min(4096).max(512);
+        // UCU token_budget: dynamic per-iteration budget instead of fixed remaining/4096
+        let max_tokens = crate::cognitive::token_budget::agentic_iteration_budget(
+            turn, loop_config.max_turns, loop_config.total_budget_tokens, total_tokens,
+        );
 
         match call_llm_turn(
             system_prompt, &messages, active_model, provider, llm_config,
@@ -221,7 +244,8 @@ async fn call_llm_turn(
         "ollama" => {
             let mut cfg = llm_config.clone();
             cfg.openai_api_key = Some("ollama".into());
-            cfg.openai_base_url = "http://localhost:11434".into();
+            cfg.openai_base_url = std::env::var("OLLAMA_HOST")
+                .unwrap_or_else(|_| "http://localhost:11434".to_string());
             let client = hydra_model::providers::openai::OpenAiClient::new(&cfg)
                 .map_err(|e| format!("Ollama client: {}", e))?;
             tokio::time::timeout(timeout, client.complete_streaming(request, chunk_cb)).await
@@ -238,7 +262,43 @@ async fn call_llm_turn(
             });
             Ok((response.content, tokens))
         }
-        Ok(Err(e)) => Err(format!("LLM error: {}", e)),
+        Ok(Err(e)) => {
+            let err_str = format!("{}", e);
+            let lower = err_str.to_lowercase();
+            let is_rate = lower.contains("429") || lower.contains("rate limit")
+                || lower.contains("too many requests") || lower.contains("overloaded");
+            if is_rate {
+                eprintln!("[hydra:agentic] Rate limited, retrying in 30s...");
+                let _ = tx.send(CognitiveUpdate::StreamChunk {
+                    content: "\n[Rate limited -- retrying in 30s...]".into(),
+                });
+                tokio::time::sleep(Duration::from_secs(30)).await;
+                let req2 = hydra_model::CompletionRequest {
+                    model: model.to_string(), messages: messages.to_vec(),
+                    max_tokens, temperature: Some(0.3),
+                    system: Some(system_prompt.to_string()),
+                };
+                let tx2 = tx.clone();
+                let cb2 = move |chunk: &str| { let _ = tx2.send(CognitiveUpdate::StreamChunk { content: chunk.to_string() }); };
+                let retry = match provider {
+                    "anthropic" => {
+                        let c = hydra_model::providers::anthropic::AnthropicClient::new(llm_config).map_err(|e| format!("{}", e))?;
+                        tokio::time::timeout(Duration::from_secs(timeout_secs), c.complete_streaming(req2, cb2)).await
+                    }
+                    _ => {
+                        let c = hydra_model::providers::openai::OpenAiClient::new(llm_config).map_err(|e| format!("{}", e))?;
+                        tokio::time::timeout(Duration::from_secs(timeout_secs), c.complete_streaming(req2, cb2)).await
+                    }
+                };
+                match retry {
+                    Ok(Ok(r)) => { let t = r.input_tokens + r.output_tokens; Ok((r.content, t)) }
+                    Ok(Err(e2)) => Err(format!("LLM retry failed: {}", e2)),
+                    Err(_) => Err(format!("Retry timeout after {}s", timeout_secs)),
+                }
+            } else {
+                Err(format!("LLM error: {}", e))
+            }
+        }
         Err(_) => Err(format!("Timeout after {}s", timeout_secs)),
     }
 }

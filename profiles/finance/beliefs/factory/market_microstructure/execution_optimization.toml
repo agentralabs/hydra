@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "VWAP algorithms outperform TWAP by 2-5 basis points on average for orders sized 5-15% of ADV, but underperform by 3-8 bps when intraday volume distribution deviates more than 2 standard deviations from its 20-day historical pattern — typically on earnings days, index events, or macro announcements."
+confidence = 0.89
+source = "Transaction cost analysis across 50K+ institutional orders 2020-2024, ITG/Virtu TCA benchmarks"
+action_trigger = "If expected volume deviation > 2 sigma from historical → switch from VWAP to arrival price or implementation shortfall algo"
+edge_case = "On triple-witching expiration days, volume distribution is predictably non-standard but in a known pattern — a VWAP algo with expiration-adjusted volume curve still outperforms TWAP."
+tags = ["execution", "vwap", "twap", "algo_selection"]
+
+[[beliefs]]
+fact = "Arrival price slippage increases non-linearly with order size relative to ADV: orders at 1% ADV experience 3-5 bps slippage, 5% ADV experiences 12-20 bps, and 20% ADV experiences 40-80 bps. The relationship follows a square-root model: slippage is proportional to sigma * sqrt(Q/V) where Q is order size and V is daily volume."
+confidence = 0.93
+source = "Almgren/Chriss 2000 optimal execution model, validated by Kissell/Glantz 2003, empirical confirmation across US equities 2018-2024"
+action_trigger = "Order size > 10% ADV → mandatory multi-day execution plan, consider block crossing networks first, estimate impact cost before proceeding"
+edge_case = "In momentum regimes, the square-root model underestimates slippage by 30-50% because adverse selection increases — the market is moving against you not just from your impact but from the same signal driving your trade."
+tags = ["execution", "slippage", "market_impact", "cost_model"]
+
+[[beliefs]]
+fact = "Optimal order sizing for a single venue should not exceed 5-8% of the visible book depth at the relevant price levels. Exceeding this consumes the resting liquidity and causes price impact that takes 2-15 minutes to mean-revert in liquid names, and 30-90 minutes in mid-caps."
+confidence = 0.86
+source = "Bouchaud/Farmer/Lillo 2009 price impact studies, internal execution analysis 2021-2024"
+action_trigger = "Single-venue child order > 8% of visible depth → split across venues or reduce child order size, increase participation rate gradually"
+edge_case = "During the opening and closing auctions, liquidity is concentrated in a single venue (primary exchange) and the depth/impact relationship differs — the auction mechanism aggregates hidden liquidity, so larger sizes relative to visible depth are acceptable."
+tags = ["execution", "order_sizing", "price_impact", "venue_selection"]
+
+[[beliefs]]
+fact = "Smart order routers that prioritize fill rate over price improvement leave 1-3 bps on the table per order versus routers optimized for price improvement. However, price-improvement-optimized routers experience 15-25% more partial fills, increasing message traffic costs and operational complexity."
+confidence = 0.84
+source = "SEC Rule 606 report analysis 2022-2024, Reg NMS routing studies, broker-dealer TCA comparisons"
+action_trigger = "For time-sensitive orders (hedges, risk reduction) → prioritize fill rate. For opportunistic/patient orders → prioritize price improvement. Never use a single routing strategy for all order types."
+edge_case = "When PFOF (payment for order flow) arrangements exist, fill-rate-optimized routers may be routing to venues that internalize at NBBO rather than providing true price improvement — check effective-over-quoted spread ratio."
+tags = ["execution", "routing", "smart_order_router", "price_improvement"]
+
+[[beliefs]]
+fact = "The optimal execution horizon for minimizing total cost (market impact + timing risk) follows Almgren-Chriss: for a risk-averse trader with urgency parameter lambda, the optimal duration is T* = sqrt(sigma^2 / (2 * lambda * eta)) where sigma is volatility and eta is the temporary impact coefficient. In practice, this means most institutional orders should execute over 20-60% of the trading day."
+confidence = 0.91
+source = "Almgren/Chriss 2000, Gatheral/Schied 2011 optimal execution review, standard institutional practice"
+action_trigger = "Calculate optimal execution horizon before commencing any order > 2% ADV — if urgency requires faster execution, document the expected additional cost from deviating from optimal"
+edge_case = "In a falling volatility regime (VIX declining steadily), the optimal horizon extends — but if the volatility decline is because of a pending event (pre-FOMC calm), the true timing risk is understated and the optimal horizon should be shortened."
+tags = ["execution", "optimal_execution", "almgren_chriss", "timing_risk"]

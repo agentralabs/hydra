@@ -1,0 +1,15 @@
+[[beliefs]]
+fact = "Separate data from behavior — structs hold state, impl blocks define operations, traits define contracts"
+confidence = 0.90
+source = "factory"
+action_trigger = "When designing new modules or types"
+edge_case = "Builder pattern may mix data + behavior for ergonomic construction"
+tags = ["architecture", "design"]
+
+[[beliefs]]
+fact = "Prefer composition over inheritance — embed types rather than deep trait hierarchies"
+confidence = 0.95
+source = "factory"
+action_trigger = "When modeling relationships between types"
+edge_case = "Trait objects are fine for dynamic dispatch when the set of implementors is open"
+tags = ["architecture", "composition"]

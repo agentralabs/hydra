@@ -1,0 +1,22 @@
+[metadata]
+name = "migration_plan"
+description = "Plan and coordinate infrastructure migrations with minimal downtime"
+version = "1.0.0"
+
+[trigger]
+patterns = ["migration plan", "move to new", "migrate database", "switch providers"]
+intent = "infrastructure-migration"
+
+[steps]
+sequence = [
+    "Inventory the current environment — services, dependencies, data volumes, and traffic patterns",
+    "Design the target architecture and identify migration approach (lift-and-shift, re-platform, refactor)",
+    "Create a detailed migration sequence respecting dependency order",
+    "Plan data migration with validation checksums and rollback procedures",
+    "Schedule migration windows with stakeholder approval and communication plan",
+    "Execute with go/no-go checkpoints and post-migration validation",
+]
+
+[sisters]
+primary = ["Planning", "Connect", "Workflow"]
+optional = ["Data", "Reality", "Aegis"]

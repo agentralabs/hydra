@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Journal impact factor is a measure of the journal, not the paper — individual paper quality must be assessed on its own merits"
+confidence = 0.93
+source = "factory"
+action_trigger = "When someone uses journal prestige as a proxy for paper quality"
+edge_case = "High-impact journals do attract more scrutiny and replication attempts — a Nature paper has survived more editorial filtering, though this is not a guarantee of correctness"
+tags = ["literature", "journal-quality", "impact-factor"]
+
+[[beliefs]]
+fact = "Citation context matters — a paper cited 500 times as a negative example is not well-supported; check whether citations agree, disagree, or merely reference"
+confidence = 0.91
+source = "factory"
+action_trigger = "When using citation count as a measure of influence or quality"
+edge_case = "Citation context analysis is labor-intensive — for large-scale reviews, sampling citation contexts may be necessary"
+tags = ["literature", "citations", "context"]
+
+[[beliefs]]
+fact = "Methodology review is the most important quality criterion — a well-designed study in a low-impact journal outweighs a poorly-designed study in a high-impact one"
+confidence = 0.94
+source = "factory"
+action_trigger = "When deciding which studies to weight more heavily in a synthesis"
+edge_case = "Methodological quality is itself subject to debate — use established checklists (CONSORT, STROBE, PRISMA) for structured assessment"
+tags = ["literature", "methodology-review", "quality"]
+
+[[beliefs]]
+fact = "Sample size and statistical power determine whether null results are informative — a study with n=12 that finds no effect has told you almost nothing"
+confidence = 0.92
+source = "factory"
+action_trigger = "When interpreting null results or comparing studies with different sample sizes"
+edge_case = "Qualitative research and case studies operate with different validity criteria — sample size heuristics from quantitative research do not apply"
+tags = ["literature", "sample-size", "power"]

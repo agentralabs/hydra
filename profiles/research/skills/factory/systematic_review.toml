@@ -1,0 +1,23 @@
+[metadata]
+name = "systematic_review"
+description = "Conduct a systematic review following PRISMA guidelines"
+version = "1.0.0"
+
+[trigger]
+patterns = ["systematic review", "PRISMA review", "synthesize all evidence", "comprehensive review"]
+intent = "systematic-synthesis"
+
+[steps]
+sequence = [
+    "Define inclusion and exclusion criteria (PICO framework)",
+    "Search multiple databases with documented search strings",
+    "Screen and select studies using the PRISMA flow diagram",
+    "Extract data into a structured template (study, design, sample, effect, quality)",
+    "Assess quality using appropriate checklists (CONSORT, STROBE, CASP)",
+    "Synthesize findings (narrative, meta-analytic, or both) with heterogeneity assessment",
+    "Report following PRISMA checklist",
+]
+
+[sisters]
+primary = ["Data", "Memory", "Veritas"]
+optional = ["Cognition"]

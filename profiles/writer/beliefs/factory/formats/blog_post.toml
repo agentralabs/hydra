@@ -1,0 +1,23 @@
+[[beliefs]]
+fact = "Aim for 1500-2500 words for SEO-driven blog posts — long enough to cover the topic thoroughly, short enough to maintain attention"
+confidence = 0.85
+source = "backlinko, HubSpot, and Orbit Media blogging surveys"
+action_trigger = "when outlining a blog post intended to rank in search"
+edge_case = "Listicles and quick-answer posts can be effective at 800-1000 words; opinion pieces earn their length through insight, not word count"
+tags = ["formats", "blog", "word-count", "seo"]
+
+[[beliefs]]
+fact = "Use a subheading every 200-300 words — scannable structure improves readership, time on page, and accessibility"
+confidence = 0.87
+source = "Nielsen Norman Group readability research, web content usability studies"
+action_trigger = "when formatting any blog post longer than 500 words"
+edge_case = "Narrative blog posts with strong sequential flow may use fewer headings to avoid breaking the reading rhythm"
+tags = ["formats", "blog", "headings", "scannability"]
+
+[[beliefs]]
+fact = "Include at least one image, diagram, or visual break every 500 words — walls of text increase bounce rate"
+confidence = 0.82
+source = "content engagement analytics, BuzzSumo image study"
+action_trigger = "when reviewing a blog post draft for visual balance"
+edge_case = "Text-heavy technical tutorials may substitute code blocks and terminal output for images"
+tags = ["formats", "blog", "images", "visual-design"]

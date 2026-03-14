@@ -1,0 +1,23 @@
+[[beliefs]]
+fact = "pytest's auto-discovery, assert rewriting, and plugin ecosystem make it the standard Python test runner — use it over unittest for cleaner test code with less boilerplate"
+confidence = 0.93
+source = "factory"
+action_trigger = "When setting up testing for a Python project or writing new test files"
+edge_case = "Some legacy projects are deeply coupled to unittest.TestCase for setUp/tearDown — migrate incrementally by running unittest-style classes under pytest, which supports them natively"
+tags = ["python", "testing", "pytest"]
+
+[[beliefs]]
+fact = "Fixtures in pytest replace setup/teardown with composable, dependency-injected functions — use scope parameters (function, module, session) to control lifecycle and avoid expensive re-initialization"
+confidence = 0.90
+source = "factory"
+action_trigger = "When tests need shared setup like database connections, temporary directories, or test data"
+edge_case = "Session-scoped fixtures persist across all tests and can cause subtle cross-test contamination if they hold mutable state — use function scope by default and only widen when the performance cost is measured"
+tags = ["python", "testing", "pytest", "fixtures"]
+
+[[beliefs]]
+fact = "unittest.mock.patch should mock at the point of use (where the name is looked up), not where it is defined — mock 'mymodule.requests.get', not 'requests.get', when mymodule imports requests"
+confidence = 0.92
+source = "factory"
+action_trigger = "When mocking external dependencies in Python tests"
+edge_case = "Over-mocking hides integration bugs — prefer dependency injection or lightweight fakes for core interfaces, and reserve mock.patch for true external services (APIs, filesystems, clocks)"
+tags = ["python", "testing", "mocking", "unittest"]

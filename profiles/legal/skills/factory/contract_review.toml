@@ -1,0 +1,24 @@
+[metadata]
+name = "contract_review"
+description = "Review a contract identifying risks, non-standard clauses, and missing protections"
+version = "1.0.0"
+
+[trigger]
+patterns = ["review this contract", "contract review", "check this agreement", "what are the risks in this contract"]
+intent = "contract-analysis"
+
+[steps]
+sequence = [
+    "Identify the contract type, parties, and governing law",
+    "Review defined terms for overbroad or unusual definitions",
+    "Assess key commercial terms (scope, fees, payment, term)",
+    "Analyze risk allocation clauses (indemnification, liability caps, insurance)",
+    "Check IP ownership and license provisions",
+    "Review termination rights, cure periods, and wind-down obligations",
+    "Flag non-standard clauses and missing market-standard protections",
+    "Produce a risk-ranked summary with recommended negotiation positions",
+]
+
+[sisters]
+primary = ["Contract", "Memory", "Veritas"]
+optional = ["Data"]

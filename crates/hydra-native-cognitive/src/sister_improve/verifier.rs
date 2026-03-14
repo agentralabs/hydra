@@ -152,14 +152,35 @@ pub fn verify(baseline: &TestResults, after: &TestResults) -> VerificationResult
     VerificationResult::Neutral
 }
 
-/// Run tests for a sister project.
+/// Run tests for a sister project with configurable timeout.
 pub async fn run_tests(sister_path: &Path, analysis: &SisterAnalysis) -> TestResults {
-    let output = tokio::process::Command::new("sh")
+    run_tests_with_timeout(sister_path, analysis, 30).await
+}
+
+/// Run tests with a specific timeout in seconds.
+pub async fn run_tests_with_timeout(
+    sister_path: &Path, analysis: &SisterAnalysis, timeout_secs: u64,
+) -> TestResults {
+    let fut = tokio::process::Command::new("sh")
         .arg("-c")
         .arg(&analysis.test_command)
         .current_dir(sister_path)
-        .output()
-        .await;
+        .output();
+    let output = match tokio::time::timeout(
+        std::time::Duration::from_secs(timeout_secs), fut,
+    ).await {
+        Ok(result) => result,
+        Err(_) => {
+            return TestResults {
+                pass_count: 0,
+                fail_count: 0,
+                skip_count: 0,
+                total: 0,
+                raw_output: format!("Test run timed out after {}s (project may need compilation)", timeout_secs),
+                duration_secs: timeout_secs as f64,
+            };
+        }
+    };
 
     match output {
         Ok(o) => {

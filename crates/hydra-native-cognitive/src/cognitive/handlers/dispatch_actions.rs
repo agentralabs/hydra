@@ -171,7 +171,21 @@ pub(crate) async fn handle_slash_command(
     if slash_result.starts_with("__TEXT__:__PROJECT_EXEC__:") {
         let marker = &slash_result["__TEXT__:__PROJECT_EXEC__:".len()..];
         let (mode, url) = marker.split_once(':').unwrap_or(("EXECUTE", marker));
-        run_project_executor(url, mode == "DRY RUN", tx).await;
+        run_project_executor(url, mode == "DRY RUN", None, tx).await;
+        return true;
+    }
+
+    // Memory mode change — emits MemoryModeChanged for UI to handle
+    if slash_result.starts_with("__TEXT__:__MEMORY_MODE__:") {
+        let rest = &slash_result["__TEXT__:__MEMORY_MODE__:".len()..];
+        let (mode, msg) = rest.split_once(':').unwrap_or(("all", "Memory mode changed"));
+        let _ = tx.send(CognitiveUpdate::MemoryModeChanged { mode: mode.into() });
+        let _ = tx.send(CognitiveUpdate::Message {
+            role: "hydra".into(),
+            content: msg.to_string(),
+            css_class: "message hydra settings-applied".into(),
+        });
+        let _ = tx.send(CognitiveUpdate::ResetIdle);
         return true;
     }
 
@@ -261,6 +275,7 @@ pub(crate) async fn handle_direct_action(
 /// Handle natural language project execution requests (e.g., "test https://github.com/user/repo").
 pub(crate) async fn handle_project_exec_natural(
     text: &str,
+    sisters_handle: &Option<crate::sisters::SistersHandle>,
     tx: &mpsc::UnboundedSender<CognitiveUpdate>,
 ) -> bool {
     if !crate::project_exec::is_project_exec_request(text) {
@@ -274,7 +289,7 @@ pub(crate) async fn handle_project_exec_natural(
         let lower = text.to_lowercase();
         lower.contains("dry") && lower.contains("run")
     };
-    run_project_executor(&url, dry_run, tx).await;
+    run_project_executor(&url, dry_run, sisters_handle.as_ref(), tx).await;
     true
 }
 
@@ -282,6 +297,7 @@ pub(crate) async fn handle_project_exec_natural(
 async fn run_project_executor(
     url: &str,
     dry_run: bool,
+    sisters_handle: Option<&crate::sisters::SistersHandle>,
     tx: &mpsc::UnboundedSender<CognitiveUpdate>,
 ) {
     let request = if dry_run {
@@ -313,11 +329,21 @@ async fn run_project_executor(
 
     match report {
         Ok(r) => {
+            let table = r.detailed_table();
             let _ = tx.send(CognitiveUpdate::Message {
                 role: "hydra".into(),
-                content: r.detailed_table(),
+                content: table.clone(),
                 css_class: "message hydra".into(),
             });
+            // Store test result as episode in Memory for later recall
+            if let Some(sh) = sisters_handle {
+                let summary = r.one_line_summary();
+                sh.memory_store_episode(&summary, "project_test").await;
+                sh.memory_capture_exchange(
+                    &format!("test {}", url),
+                    &summary,
+                ).await;
+            }
         }
         Err(e) => {
             let _ = tx.send(CognitiveUpdate::Message {

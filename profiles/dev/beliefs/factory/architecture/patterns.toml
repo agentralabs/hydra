@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "The repository pattern abstracts data access behind a collection-like interface — it enables swapping storage backends and simplifies testing by allowing in-memory implementations"
+confidence = 0.90
+source = "factory"
+action_trigger = "When designing data access layers for applications with complex domain logic"
+edge_case = "For simple CRUD apps, a repository layer adds indirection without benefit — use the ORM directly; repositories earn their keep when you have complex queries, caching, or multiple storage backends"
+tags = ["architecture", "patterns", "repository", "data-access"]
+
+[[beliefs]]
+fact = "CQRS (Command Query Responsibility Segregation) uses separate models for reads and writes — it optimizes each path independently and is essential when read and write patterns diverge significantly"
+confidence = 0.88
+source = "factory"
+action_trigger = "When a system has vastly different read vs write loads or when the read model needs denormalized views"
+edge_case = "CQRS introduces eventual consistency between command and query sides — if your UI must show writes immediately, you need optimistic updates or synchronous projections, which negate some benefits"
+tags = ["architecture", "patterns", "cqrs"]
+
+[[beliefs]]
+fact = "Event sourcing stores every state change as an immutable event — it provides a complete audit trail, enables temporal queries, and supports rebuilding state by replaying the event log"
+confidence = 0.85
+source = "factory"
+action_trigger = "When the domain requires full auditability, undo capability, or the ability to reconstruct historical state"
+edge_case = "Event sourcing makes simple queries hard (you must project events into read models) and schema evolution is painful — never adopt it just for audit logging when an append-only audit table would suffice"
+tags = ["architecture", "patterns", "event-sourcing"]
+
+[[beliefs]]
+fact = "Hexagonal architecture (ports and adapters) places business logic at the center with interfaces (ports) that external systems (adapters) implement — this makes the core testable without infrastructure"
+confidence = 0.90
+source = "factory"
+action_trigger = "When building applications where the domain logic should survive changes to frameworks, databases, or external APIs"
+edge_case = "The port/adapter boundary adds boilerplate — for small services or scripts with minimal domain logic, the indirection is overhead; apply it where the domain is complex enough to justify isolation"
+tags = ["architecture", "patterns", "hexagonal", "ports-and-adapters"]
+
+[[beliefs]]
+fact = "DRY (Don't Repeat Yourself) applied carelessly couples unrelated modules through shared abstractions — duplication is far cheaper than the wrong abstraction; wait for three instances before extracting"
+confidence = 0.92
+source = "factory"
+action_trigger = "When tempted to extract a shared function or module because two pieces of code look similar"
+edge_case = "True knowledge duplication (same business rule defined in two places that must change together) should always be deduplicated — the rule of three applies to incidental similarity, not to authoritative definitions"
+tags = ["architecture", "patterns", "dry", "abstraction"]

@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Dependency confusion attacks exploit package manager resolution order: if an internal package name exists on a public registry with a higher version number, the package manager installs the public (malicious) version. Affects npm, pip, and NuGet by default. Mitigation: scoped registries (@company/ prefix for npm), pinned versions with hash verification, and private registry priority configuration."
+confidence = 0.95
+source = "Alex Birsan dependency confusion research (2021); npm, PyPI, NuGet advisories; real-world incidents"
+action_trigger = "CI/CD pipeline installing packages from public registry that match internal package naming patterns, or version jumps in dependencies that bypass the private registry"
+edge_case = "Organizations using common short names for internal packages (e.g., 'utils', 'core') are at highest risk. Audit internal package names against public registries proactively."
+tags = ["dependency-confusion", "supply-chain", "package-manager", "ci-cd"]
+
+[[beliefs]]
+fact = "Typosquatting in package registries is industrialized: attackers register packages with names 1-2 characters different from popular libraries (e.g., 'requets' for 'requests', 'lod-ash' for 'lodash'). Malicious packages typically execute in install hooks (postinstall for npm, setup.py for pip) to harvest credentials, inject backdoors, or establish persistence before the developer notices the typo."
+confidence = 0.93
+source = "npm typosquat takedowns; PyPI malware reports; Phylum, Snyk, Socket research"
+action_trigger = "New dependency additions in pull requests that are not in the project's approved dependency list, packages with install scripts that make network calls, or packages with <100 weekly downloads and <6 months age"
+edge_case = "New legitimate packages also have low download counts. Key differentiators: does the package have a GitHub repo? Does the maintainer have other packages? Does the install script do anything beyond compilation?"
+tags = ["typosquatting", "malicious-packages", "npm", "pypi", "supply-chain"]
+
+[[beliefs]]
+fact = "Build pipeline compromise (CI/CD poisoning) is the highest-leverage supply chain attack: a single compromised build server can inject malicious code into every artifact the organization produces. Attack vectors: stolen CI/CD credentials, malicious pull requests that modify build scripts, compromised build dependencies, and direct build server exploitation. The build environment must be treated as a Tier 0 asset."
+confidence = 0.94
+source = "SolarWinds Orion investigation; Codecov bash uploader incident; SLSA framework"
+action_trigger = "Changes to CI/CD configuration files (.github/workflows, Jenkinsfile, .gitlab-ci.yml), new build dependencies, build scripts making outbound network calls, or build artifacts with unexpected file hashes"
+edge_case = "DevOps teams modify CI/CD configs frequently. Require PR review from security for any CI/CD config change, and maintain a hash-verified golden image for build environments."
+tags = ["ci-cd-poisoning", "build-pipeline", "slsa", "supply-chain"]
+
+[[beliefs]]
+fact = "The SolarWinds pattern — compromising a widely-trusted software vendor to distribute backdoored updates — represents the worst-case supply chain scenario because it weaponizes trust. Detection requires verifying that signed updates match reproducible builds, monitoring for anomalous behavior in trusted software (DGA-like DNS queries from Orion, for example), and assuming that trusted software can become a threat vector."
+confidence = 0.96
+source = "SolarWinds/SUNBURST FireEye analysis; Kaseya VSA incident; 3CX compromise"
+action_trigger = "Trusted management software initiating unexpected outbound connections, performing DNS lookups to new domains, or spawning processes outside its normal behavioral baseline"
+edge_case = "Vendor software updates legitimately add new features that contact new domains. Maintain a behavioral baseline per managed software and require vendor notification of infrastructure changes."
+tags = ["vendor-compromise", "sunburst", "trusted-software", "behavioral-baseline"]

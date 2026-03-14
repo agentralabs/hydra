@@ -92,10 +92,12 @@ impl Sisters {
     /// Log context for a contract action (fire-and-forget).
     pub async fn contract_context_log(&self, context: &str, action: &str) {
         if let Some(contract) = &self.contract {
-            let _ = contract.call_tool("contract_context_log", serde_json::json!({
+            if let Err(e) = contract.call_tool("contract_context_log", serde_json::json!({
                 "context": safe_truncate(context, 500),
                 "action": safe_truncate(action, 500),
-            })).await;
+            })).await {
+                eprintln!("[hydra:contract] contract_context_log FAILED: {}", e);
+            }
         }
     }
 

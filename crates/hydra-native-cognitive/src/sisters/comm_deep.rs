@@ -92,9 +92,11 @@ impl Sisters {
     /// Deregister an agent when it's terminated.
     pub async fn comm_deregister_agent(&self, agent_id: &str) {
         if let Some(comm) = &self.comm {
-            let _ = comm.call_tool("comm_deregister_agent", serde_json::json!({
+            if let Err(e) = comm.call_tool("comm_deregister_agent", serde_json::json!({
                 "agent_id": agent_id,
-            })).await;
+            })).await {
+                eprintln!("[hydra:comm] comm_deregister_agent FAILED: {}", e);
+            }
         }
     }
 
@@ -130,13 +132,15 @@ impl Sisters {
         response: &str,
     ) {
         if let Some(comm) = &self.comm {
-            let _ = comm.call_tool("comm_session", serde_json::json!({
+            if let Err(e) = comm.call_tool("comm_session", serde_json::json!({
                 "operation": "log",
                 "params": {
                     "user_message": safe_truncate(user_msg, 300),
                     "assistant_response": safe_truncate(response, 300),
                 }
-            })).await;
+            })).await {
+                eprintln!("[hydra:comm] comm_session FAILED: {}", e);
+            }
         }
     }
 
@@ -154,12 +158,14 @@ impl Sisters {
     /// SESSION: End the communication session with a summary.
     pub async fn comm_session_end(&self, summary: &str) {
         if let Some(comm) = &self.comm {
-            let _ = comm.call_tool("comm_session", serde_json::json!({
+            if let Err(e) = comm.call_tool("comm_session", serde_json::json!({
                 "operation": "end",
                 "params": {
                     "summary": safe_truncate(summary, 300),
                 }
-            })).await;
+            })).await {
+                eprintln!("[hydra:comm] comm_session FAILED: {}", e);
+            }
         }
     }
 }

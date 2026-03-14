@@ -1,0 +1,6 @@
+[permissions]
+file_write = true
+shell_exec = true
+network_access = true
+risk_threshold = "high"
+require_approval_critical = true

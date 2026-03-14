@@ -70,7 +70,12 @@ impl ProactiveNotifier {
         }
     }
 
-    /// Generate alert for predicted needs based on context
+    /// Generate proactive alerts by scanning conversation context for universal
+    /// developer-workflow keywords (errors, deployments, test failures).
+    ///
+    /// These triggers run locally without an LLM call. The keywords are intentionally
+    /// broad and language-agnostic — they match universal software engineering terms
+    /// so the system can surface helpful suggestions before the user explicitly asks.
     pub fn anticipate(&mut self, context: &str) {
         let lower = context.to_lowercase();
 

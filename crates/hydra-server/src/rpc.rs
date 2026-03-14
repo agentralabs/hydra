@@ -40,10 +40,14 @@ pub async fn handle_rpc(state: &AppState, body: &str) -> JsonRpcResponse {
         "hydra.status" => handle_status(state, &req).await,
         "hydra.health" => handle_health(state, &req).await,
         "hydra.kill" => handle_kill(state, &req).await,
+        "hydra.profile.list" => handle_profile_list(state, &req),
+        "hydra.profile.load" => handle_profile_load(state, &req),
+        "hydra.profile.unload" => handle_profile_unload(state, &req),
+        "hydra.roi" => handle_roi(state, &req),
         _ => JsonRpcResponse::error(
             req.id,
             RpcErrorCodes::METHOD_NOT_FOUND,
-            format!("Method '{}' not found. Available: hydra.run, hydra.cancel, hydra.approve, hydra.status, hydra.health, hydra.kill.", req.method),
+            format!("Method '{}' not found.", req.method),
         ),
     }
 }
@@ -281,18 +285,51 @@ async fn handle_kill(state: &AppState, req: &JsonRpcRequest) -> JsonRpcResponse 
 
 async fn handle_health(state: &AppState, req: &JsonRpcRequest) -> JsonRpcResponse {
     let uptime = state.uptime().as_secs();
-    JsonRpcResponse::success(
-        req.id.clone(),
-        serde_json::json!({
-            "status": "ok",
-            "uptime_seconds": uptime,
-            "sisters": {
-                "memory": "not_connected",
-                "identity": "not_connected",
-                "codebase": "not_connected",
-                "vision": "not_connected",
-                "time": "not_connected",
-            }
-        }),
-    )
+    let sisters_status = if let Some(ref sh) = state.sisters {
+        sh.status_summary()
+    } else { "not initialized".into() };
+    let profile_name = state.active_profile.lock().as_ref().map(|p| p.name.clone());
+    let beliefs_count = state.active_profile.lock().as_ref().map(|p| p.beliefs.len()).unwrap_or(0);
+    JsonRpcResponse::success(req.id.clone(), serde_json::json!({
+        "status": "ok", "uptime_seconds": uptime, "engine": "full",
+        "sisters": sisters_status, "sisters_count": 17,
+        "profile": profile_name, "beliefs_loaded": beliefs_count,
+    }))
+}
+
+fn handle_profile_list(_state: &AppState, req: &JsonRpcRequest) -> JsonRpcResponse {
+    let profiles = hydra_native::operational_profile::list_profiles();
+    let active = _state.active_profile.lock().as_ref().map(|p| p.name.clone());
+    let list: Vec<serde_json::Value> = profiles.iter().map(|name| {
+        let counts = hydra_native::cognitive::profile_loader::load_profile(name)
+            .map(|p| (p.beliefs.len(), p.skills.len())).unwrap_or((0, 0));
+        serde_json::json!({"name": name, "active": active.as_deref() == Some(name.as_str()),
+            "beliefs": counts.0, "skills": counts.1})
+    }).collect();
+    JsonRpcResponse::success(req.id.clone(), serde_json::json!({"profiles": list}))
+}
+
+fn handle_profile_load(state: &AppState, req: &JsonRpcRequest) -> JsonRpcResponse {
+    let name = match req.params.get("name").and_then(|v| v.as_str()) {
+        Some(n) => n,
+        None => return JsonRpcResponse::error(req.id.clone(), RpcErrorCodes::INVALID_PARAMS, "Missing 'name'"),
+    };
+    match state.load_profile(name) {
+        Ok(()) => {
+            let beliefs = state.active_profile.lock().as_ref().map(|p| p.beliefs.len()).unwrap_or(0);
+            JsonRpcResponse::success(req.id.clone(), serde_json::json!({"loaded": name, "beliefs": beliefs}))
+        }
+        Err(e) => JsonRpcResponse::error(req.id.clone(), RpcErrorCodes::INTERNAL_ERROR, e),
+    }
+}
+
+fn handle_profile_unload(state: &AppState, req: &JsonRpcRequest) -> JsonRpcResponse {
+    *state.active_profile.lock() = None;
+    *state.prompt_overlay.lock() = None;
+    JsonRpcResponse::success(req.id.clone(), serde_json::json!({"unloaded": true}))
+}
+
+fn handle_roi(_state: &AppState, req: &JsonRpcRequest) -> JsonRpcResponse {
+    let summary = hydra_native::knowledge::economics_tracker::roi_summary();
+    JsonRpcResponse::success(req.id.clone(), serde_json::json!({"roi": summary}))
 }

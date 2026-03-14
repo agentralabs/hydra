@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Every environment (prod, staging, dev) must run in its own VPC with no peering unless explicitly justified"
+confidence = 0.95
+source = "AWS Well-Architected Framework — Security Pillar"
+action_trigger = "New environment provisioned or VPC peering request submitted"
+edge_case = "Shared-services VPC (logging, CI runners) may peer to all envs with strict NACLs and flow logs enabled"
+tags = ["networking", "vpc", "isolation", "cloud"]
+
+[[beliefs]]
+fact = "Security groups must follow least-privilege: allow only required ports, from specific CIDR or SG sources, never 0.0.0.0/0 on non-public listeners"
+confidence = 0.97
+source = "CIS AWS Foundations Benchmark v2.0"
+action_trigger = "Security group rule created or modified"
+edge_case = "Public ALB listeners on 443 require 0.0.0.0/0 ingress by design; pair with WAF and rate limiting"
+tags = ["networking", "security-groups", "firewall", "cloud"]
+
+[[beliefs]]
+fact = "Internet-facing load balancers must terminate TLS, enforce HTTP-to-HTTPS redirect, and attach a WAF policy before receiving production traffic"
+confidence = 0.94
+source = "OWASP Transport Layer Protection Cheat Sheet"
+action_trigger = "Load balancer created or listener configuration changed"
+edge_case = "Internal gRPC services may use plaintext behind a service mesh with mTLS; document the trust boundary explicitly"
+tags = ["networking", "load-balancer", "tls", "cloud"]
+
+[[beliefs]]
+fact = "DNS TTL for production records should be 60 seconds or less to enable rapid failover; raise TTL only for stable, rarely-changed records"
+confidence = 0.90
+source = "Operational incident reviews — high-TTL records delayed failover by up to 48 hours"
+action_trigger = "DNS record created or TTL value set above 60 seconds for a production hostname"
+edge_case = "Apex domain records using alias/ANAME have provider-managed TTL; verify provider honors low TTL before relying on it"
+tags = ["networking", "dns", "failover", "cloud"]

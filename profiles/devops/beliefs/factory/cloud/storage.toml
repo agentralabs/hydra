@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "EBS gp3 should be the default volume type — it delivers 3000 IOPS and 125 MiB/s baseline at lower cost than gp2, with independent IOPS/throughput scaling"
+confidence = 0.95
+source = "AWS EBS pricing and performance documentation"
+action_trigger = "New EBS volume provisioned or existing gp2 volume identified during review"
+edge_case = "Workloads needing sustained >16,000 IOPS should evaluate io2 Block Express; latency-sensitive databases may need provisioned IOPS"
+tags = ["storage", "ebs", "cost-optimization", "cloud"]
+
+[[beliefs]]
+fact = "S3 buckets must have lifecycle policies that transition infrequently-accessed objects to IA/Glacier tiers and expire incomplete multipart uploads after 7 days"
+confidence = 0.93
+source = "AWS Cost Optimization Pillar — storage tiering best practices"
+action_trigger = "New S3 bucket created or monthly storage cost review"
+edge_case = "Buckets serving low-latency reads (CDN origins, ML feature stores) should stay in Standard; measure retrieval patterns before tiering"
+tags = ["storage", "s3", "lifecycle", "cost-optimization", "cloud"]
+
+[[beliefs]]
+fact = "Production RDS instances must use Multi-AZ deployment with automated failover enabled — single-AZ is acceptable only for dev and throwaway environments"
+confidence = 0.96
+source = "AWS RDS High Availability documentation and production incident history"
+action_trigger = "RDS instance created or promoted to production workload"
+edge_case = "Read-heavy workloads may benefit from Multi-AZ with readable standby (Aurora) rather than classic Multi-AZ; evaluate query routing complexity"
+tags = ["storage", "rds", "high-availability", "database", "cloud"]
+
+[[beliefs]]
+fact = "Automated backups must be enabled for every stateful service with a retention period of at least 14 days, and restore procedures must be tested quarterly"
+confidence = 0.95
+source = "NIST SP 800-34 — Contingency Planning Guide for Federal Information Systems"
+action_trigger = "Stateful service deployed or quarterly backup drill scheduled"
+edge_case = "Large databases (>10 TB) may need incremental/snapshot-based restore strategies; full restore time must be measured and documented in the runbook"
+tags = ["storage", "backups", "disaster-recovery", "cloud"]

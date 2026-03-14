@@ -28,6 +28,13 @@ impl App {
 
         self.connected_count = connected;
         self.tool_count = total_tools;
+
+        // Verify critical tools per sister — warn loudly if missing
+        let missing = handle.verify_critical_tools();
+        // Must clone all for offline check since handle moves into self
+        let all_for_check: Vec<(String, bool)> = all.iter()
+            .map(|(n, opt)| (n.to_string(), opt.is_some())).collect();
+
         self.sisters_handle = Some(handle);
         self.boot_state = BootState::Ready;
 
@@ -38,6 +45,51 @@ impl App {
         };
 
         self.server_online = self.client.health_check();
+
+        // Warn user if no sisters connected — they need to install them
+        if connected == 0 {
+            let offline: Vec<String> = all_for_check.iter()
+                .filter(|(_, conn)| !conn)
+                .map(|(name, _)| name.clone())
+                .collect();
+            self.messages.push(Message {
+                role: MessageRole::System,
+                content: format!(
+                    "No sisters connected ({} offline: {})\n\n\
+                     Sisters are required for Hydra to work. Install them:\n\
+                     \x20 1. Clone each sister repo (agentic-memory, agentic-identity, etc.)\n\
+                     \x20 2. Build: cargo build --release\n\
+                     \x20 3. Copy binary to ~/.local/bin/\n\
+                     \x20 Or set HYDRA_SISTER_BIN_DIR to your binary location.\n\n\
+                     Check ~/.hydra/hydra-tui.log for detailed spawn errors.",
+                    offline.len(), offline.join(", ")),
+                timestamp: chrono::Local::now().format("%H:%M").to_string(),
+                phase: None,
+            });
+        } else if connected < self.total_sisters {
+            let offline: Vec<String> = all_for_check.iter()
+                .filter(|(_, conn)| !conn)
+                .map(|(name, _)| name.clone())
+                .collect();
+            if !offline.is_empty() {
+                self.messages.push(Message {
+                    role: MessageRole::System,
+                    content: format!("{}/{} sisters offline: {}. Some features may be limited.",
+                        offline.len(), self.total_sisters, offline.join(", ")),
+                    timestamp: chrono::Local::now().format("%H:%M").to_string(),
+                    phase: None,
+                });
+            }
+        }
+
+        for (sister, tools) in &missing {
+            self.messages.push(Message {
+                role: MessageRole::System,
+                content: format!("[CRITICAL] {} sister missing tools: {}\nRebuild with required features.", sister, tools.join(", ")),
+                timestamp: chrono::Local::now().format("%H:%M").to_string(),
+                phase: None,
+            });
+        }
 
         // P7: Detect interrupted tasks from previous sessions
         let persister = hydra_native::task_persistence::TaskPersister::new();
@@ -62,11 +114,22 @@ impl App {
     /// Periodic tick — refresh animations, drain cognitive updates, advance idle timer.
     pub fn tick(&mut self) {
         self.tick_count = self.tick_count.wrapping_add(1);
-        // Auto-scroll: if pinned to bottom before updates, stay pinned after
+        // Dual scroll model:
+        // - is_at_bottom (scroll_pinned_top = None) → auto-scroll, let scroll_to_bottom run
+        // - pinned (scroll_pinned_top = Some) → viewport is top-anchored, immune to new content
         let was_at_bottom = self.is_at_bottom();
+        let saved_pinned = self.scroll_pinned_top;
+        let saved_offset = self.scroll_offset;
         self.process_cognitive_updates();
         self.process_running_command();
-        if was_at_bottom { self.scroll_offset = 0; }
+        if was_at_bottom {
+            self.scroll_offset = 0;
+            self.scroll_pinned_top = None;
+        } else {
+            // Restore pinned position — new content at bottom doesn't move viewport
+            self.scroll_pinned_top = saved_pinned;
+            self.scroll_offset = saved_offset;
+        }
 
         // Idle timer — tick_idle every ~1 second (20 ticks × 50ms).
         if self.tick_count % 20 == 0 {
@@ -97,9 +160,13 @@ impl App {
                 }
             }
         }
-        // PR status check — every ~60 seconds (1200 ticks × 50ms) (spec §11)
+        // PR status check — every ~60 seconds (1200 ticks × 50ms)
         if self.tick_count % 1200 == 0 && self.tick_count > 0 {
             self.check_pr_status();
+        }
+        // Refresh recent activity from git log every ~30s (600 ticks)
+        if self.tick_count % 600 == 300 {
+            self.recent_tasks = super::app_helpers::load_recent_activity();
         }
     }
 
@@ -273,6 +340,7 @@ impl App {
         // Track in conversation history
         self.conversation_history.push(("user".to_string(), intent_text.clone()));
 
+        self.task_stats.reset(self.tick_count, self.tokens_received, &intent_text);
         self.execute_intent(&intent_text, &timestamp);
         self.scroll_to_bottom();
     }

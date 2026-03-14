@@ -392,4 +392,6 @@
                     CognitiveUpdate::BuildPhaseComplete { ref phase, duration_ms, ref summary } => { let now = chrono::Local::now().format("%H:%M:%S").to_string(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, &format!("{} ({:.1}s)", phase, duration_ms as f64 / 1000.0), Some(summary), Some("Build")); }
                     CognitiveUpdate::BuildComplete { ref report } => { let now = chrono::Local::now().format("%H:%M:%S").to_string(); timeline_panel.write().push_event(&now, TimelineEventKind::Info, "Build complete", Some(report), Some("Build")); }
                     CognitiveUpdate::BuildFailed { ref phase, ref error } => { let now = chrono::Local::now().format("%H:%M:%S").to_string(); timeline_panel.write().push_event(&now, TimelineEventKind::Error, &format!("Build failed: {}", phase), Some(error), Some("Build")); }
+                    CognitiveUpdate::MemoryStatsUpdate { .. } => {} // stats handled in send_handler
                     CognitiveUpdate::ToolAction { .. } => {}
+                    CognitiveUpdate::GatewayStats { .. } => {}

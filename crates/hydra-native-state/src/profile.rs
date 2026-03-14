@@ -108,6 +108,9 @@ pub struct PersistedProfile {
     /// Default recipient email address.
     #[serde(default)]
     pub smtp_to: Option<String>,
+    /// Active operational profile name (Phase 6).
+    #[serde(default)]
+    pub active_operational_profile: Option<String>,
 }
 
 impl Default for PersistedProfile {
@@ -133,13 +136,14 @@ impl Default for PersistedProfile {
             smtp_user: None,
             smtp_password: None,
             smtp_to: None,
+            active_operational_profile: None,
         }
     }
 }
 
-/// Base directory for all Hydra data: `~/.hydra/`
+/// Base directory for all Hydra data: `~/.hydra/` (cross-platform).
 pub fn hydra_base_dir() -> Option<PathBuf> {
-    std::env::var("HOME").ok().map(|h| PathBuf::from(h).join(".hydra"))
+    Some(crate::utils::hydra_data_dir())
 }
 
 /// Read the currently active user name from `~/.hydra/active`.
@@ -279,6 +283,7 @@ mod tests {
             smtp_user: Some("test@gmail.com".into()),
             smtp_password: None,
             smtp_to: Some("dest@example.com".into()),
+            active_operational_profile: Some("dev".into()),
         };
         let json = serde_json::to_string(&p).unwrap();
         let back: PersistedProfile = serde_json::from_str(&json).unwrap();

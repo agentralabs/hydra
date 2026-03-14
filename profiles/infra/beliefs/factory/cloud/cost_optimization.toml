@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Reserved instances (1-3 year) save 30-60% over on-demand for stable workloads — commit only for baseline capacity and use on-demand for burst"
+confidence = 0.90
+source = "factory"
+action_trigger = "When workload has been running on-demand for 3+ months with stable baseline utilization"
+edge_case = "Business pivots can strand reserved capacity; use convertible RIs or savings plans for flexibility"
+tags = ["cloud", "cost", "reserved-instances"]
+
+[[beliefs]]
+fact = "Spot/preemptible instances save 60-90% for fault-tolerant, stateless workloads — batch processing, CI/CD, and rendering are ideal candidates"
+confidence = 0.85
+source = "factory"
+action_trigger = "When running workloads that can tolerate interruption and have checkpointing"
+edge_case = "Spot capacity varies by instance type and AZ; diversify instance types and use mixed instance groups"
+tags = ["cloud", "cost", "spot-instances"]
+
+[[beliefs]]
+fact = "Right-sizing reviews should happen monthly — 40% of cloud instances are over-provisioned by at least one size; downsizing saves 20-30% with no performance impact"
+confidence = 0.85
+source = "factory"
+action_trigger = "When CPU and memory utilization averages below 40% over a 2-week period"
+edge_case = "Bursty workloads may show low average but need peak capacity; check P95 utilization not just mean"
+tags = ["cloud", "cost", "right-sizing"]
+
+[[beliefs]]
+fact = "FinOps practice requires tagging discipline, showback reports, and team-level budgets — without accountability, cloud spend grows 30-40% annually from waste alone"
+confidence = 0.85
+source = "factory"
+action_trigger = "When cloud spend exceeds budget or when no cost allocation tags are in place"
+edge_case = "Enforcing tags retroactively is painful; start with new resources and backfill top spenders"
+tags = ["cloud", "cost", "finops"]

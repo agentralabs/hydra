@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Exclusion of consequential damages is the most important liability protection — without it, a small contract can generate catastrophic exposure from lost profits, lost data, or business interruption"
+confidence = 0.95
+source = "factory"
+action_trigger = "When reviewing or drafting limitation of liability provisions"
+edge_case = "Some jurisdictions limit or prohibit consequential damages exclusions in certain contexts (consumer contracts, personal injury) — always check local law"
+tags = ["contracts", "liability", "consequential-damages"]
+
+[[beliefs]]
+fact = "Common exclusions from liability caps include indemnification obligations, IP infringement, confidentiality breach, and willful misconduct — each exclusion is a potential unlimited exposure"
+confidence = 0.93
+source = "factory"
+action_trigger = "When evaluating what falls outside a liability cap"
+edge_case = "Excluding too many categories from the cap effectively eliminates the cap — push for super caps on excluded categories rather than unlimited exposure"
+tags = ["contracts", "liability", "exclusions"]
+
+[[beliefs]]
+fact = "Cap formulas based on fees paid (trailing 12 months, total contract value, per-incident) determine actual exposure — the formula matters as much as the multiple"
+confidence = 0.91
+source = "factory"
+action_trigger = "When calculating actual financial exposure under a contract"
+edge_case = "Per-incident caps with no aggregate can exceed total contract value if multiple incidents occur — consider whether an aggregate cap is needed"
+tags = ["contracts", "liability", "cap-formulas"]
+
+[[beliefs]]
+fact = "Certain liabilities cannot legally be capped in many jurisdictions — death, personal injury, fraud, and gross negligence are commonly uncappable by statute"
+confidence = 0.94
+source = "factory"
+action_trigger = "When drafting or reviewing liability caps for enforceability"
+edge_case = "The specific uncappable categories vary by jurisdiction — what is uncappable in the EU may be cappable in Delaware and vice versa"
+tags = ["contracts", "liability", "uncappable"]

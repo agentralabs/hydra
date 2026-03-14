@@ -29,6 +29,30 @@ pub mod outcome_tracker;
 pub mod background_tasks;
 pub mod metacognition;
 pub mod user_model;
+pub mod profile_loader;
+pub mod profile_applier;
+pub mod belief_loader;
+pub mod skill_loader;
+pub mod profile_updater;
+// Living Knowledge Engine (Phase 2)
+pub mod epistemic_mapper;
+pub mod knowledge_metabolism;
+pub mod adversarial_tester;
+pub mod temporal_fabric;
+pub mod inference_engine;
+pub mod knowledge_fusion;
+pub mod ecosystem_monitor;
+// UCU — Universal Cognitive Upgrade modules (Waves 1-4)
+pub mod context_manager;
+pub mod token_budget;
+pub mod escalation_protocol;
+pub mod iterative_planner;
+pub mod coherence_checker;
+pub mod parallel_dispatch;
+pub mod backtrack;
+pub mod outcome_validator;
+pub mod input_decomposer;
+pub mod dependency_resolver;
 
 pub use decide::{ChallengePhraseGate, DecideEngine, DecideResult, generate_challenge_phrase};
 pub use learn::{apply_belief_decay, gc_expired_beliefs, reconfirm_belief};
@@ -45,3 +69,7 @@ pub use outcome_tracker::OutcomeTracker;
 pub use background_tasks::BackgroundScheduler;
 pub use metacognition::{CalibrationTracker, MetacognitiveAssessment};
 pub use user_model::UserModel;
+pub use context_manager::ModelTier;
+pub use token_budget::TokenBudget;
+pub use iterative_planner::{TaskPlan, TaskStep};
+pub use outcome_validator::ValidationResult;

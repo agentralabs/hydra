@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Mutual indemnification is the market standard — one-sided indemnification should be resisted unless the risk profile is genuinely asymmetric"
+confidence = 0.92
+source = "factory"
+action_trigger = "When reviewing indemnification provisions"
+edge_case = "In vendor-customer relationships, some asymmetry is expected — the vendor typically indemnifies for IP infringement and the customer indemnifies for misuse"
+tags = ["contracts", "indemnification", "mutual"]
+
+[[beliefs]]
+fact = "Carve-outs from indemnification caps (IP infringement, confidentiality breach, willful misconduct) are the real exposure — the cap is only as protective as its exceptions"
+confidence = 0.93
+source = "factory"
+action_trigger = "When evaluating whether an indemnification cap provides meaningful protection"
+edge_case = "Some carve-outs are reasonable and market-standard — the key is ensuring the carved-out categories are narrowly defined and within your control"
+tags = ["contracts", "indemnification", "carve-outs"]
+
+[[beliefs]]
+fact = "Indemnification caps are typically expressed as a multiple of fees paid — 1x to 2x annual contract value is market for commercial SaaS, higher for enterprise deals"
+confidence = 0.90
+source = "factory"
+action_trigger = "When negotiating or evaluating the reasonableness of an indemnification cap"
+edge_case = "Cap adequacy depends on the risk — a data breach affecting millions of users may far exceed any contractual cap, making insurance and security controls more important"
+tags = ["contracts", "indemnification", "caps"]
+
+[[beliefs]]
+fact = "Super caps (higher caps for specific categories like data breach or IP infringement) create a tiered liability structure — they should be explicitly enumerated, not left ambiguous"
+confidence = 0.89
+source = "factory"
+action_trigger = "When a contract has multiple liability tiers or carve-outs"
+edge_case = "Too many tiers create complexity that makes the contract harder to administer — keep the structure simple enough that both parties understand their exposure"
+tags = ["contracts", "indemnification", "super-caps"]

@@ -1,0 +1,21 @@
+[metadata]
+name = "refactor_plan"
+description = "Plan safe refactoring with impact analysis and migration steps"
+version = "1.0.0"
+
+[trigger]
+patterns = ["refactor", "restructure", "clean up", "split this"]
+intent = "refactoring"
+
+[steps]
+sequence = [
+    "Analyze current structure using Codebase sister",
+    "Identify all callers and dependents",
+    "Propose target structure with rationale",
+    "List migration steps in safe order (tests pass at each step)",
+    "Identify risk areas and rollback points",
+]
+
+[sisters]
+primary = ["Codebase", "Planning"]
+optional = ["Aegis"]

@@ -1,0 +1,10 @@
+[sisters]
+emphasize = ["Memory", "Cognition", "Comm", "Data", "Contract"]
+disable = []
+
+# Rationale: Support profile emphasizes customer-centric sisters.
+# Memory — recall past interactions, known issues, and resolutions.
+# Cognition — understand nuanced customer intent and emotional state.
+# Comm — manage multi-channel communication and escalation flows.
+# Data — query ticket history, account data, usage patterns.
+# Contract — enforce SLA terms, refund policies, tier entitlements.

@@ -1,0 +1,14 @@
+[permissions]
+file_write = true
+shell_exec = false
+network_access = true
+risk_threshold = "medium"
+
+[permissions.can_read]
+resources = ["shipments", "inventory", "suppliers", "purchase_orders", "carrier_rates"]
+
+[permissions.can_execute]
+actions = ["route", "reorder", "alert", "consolidate", "reroute"]
+
+[permissions.requires_approval]
+actions = ["cancel_order", "change_supplier", "emergency_procurement"]

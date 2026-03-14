@@ -11,7 +11,7 @@ use super::connection::SisterConnection;
 #[path = "cognitive_dispatch.rs"]
 mod dispatch;
 
-/// Holds all 14 connected sister processes — the full constellation
+/// Holds all 17 connected sister processes — the full constellation
 pub struct Sisters {
     // Foundation Sisters (7)
     pub memory: Option<SisterConnection>,
@@ -30,39 +30,52 @@ pub struct Sisters {
     pub aegis: Option<SisterConnection>,
     pub veritas: Option<SisterConnection>,
     pub evolve: Option<SisterConnection>,
+    // Utility Sisters (3)
+    pub data: Option<SisterConnection>,
+    pub connect: Option<SisterConnection>,
+    pub workflow: Option<SisterConnection>,
 }
 
 impl Sisters {
     /// Spawn ALL 14 sisters in PARALLEL. Non-blocking: sisters that fail are None.
     pub async fn spawn_all() -> Self {
-        let home = std::env::var("HOME").unwrap_or_default();
+        let home = hydra_native_state::utils::home_dir();
         // Configurable via HYDRA_SISTER_BIN_DIR env var (default: ~/.local/bin)
         let bin_dir = std::env::var("HYDRA_SISTER_BIN_DIR")
             .unwrap_or_else(|_| format!("{}/.local/bin", home));
+        // Binary suffix: .exe on Windows, empty on Unix
+        let ext = if cfg!(windows) { ".exe" } else { "" };
 
-        // Pre-compute all paths
-        let memory_bin = format!("{}/agentic-memory-mcp", bin_dir);
-        let identity_bin = format!("{}/agentic-identity-mcp", bin_dir);
-        let codebase_bin = format!("{}/agentic-codebase-mcp", bin_dir);
-        let vision_bin = format!("{}/agentic-vision-mcp", bin_dir);
-        let comm_bin = format!("{}/agentic-comm-mcp", bin_dir);
-        let contract_bin = format!("{}/agentic-contract-mcp", bin_dir);
-        let time_bin = format!("{}/agentic-time-mcp", bin_dir);
-        let planning_bin = format!("{}/agentic-planning-mcp", bin_dir);
-        let cognition_bin = format!("{}/agentic-cognition-mcp", bin_dir);
-        let reality_bin = format!("{}/agentic-reality-mcp", bin_dir);
-        let forge_bin = format!("{}/agentic-forge-mcp", bin_dir);
-        let aegis_bin = format!("{}/agentic-aegis-mcp", bin_dir);
-        let veritas_bin = format!("{}/agentic-veritas-mcp", bin_dir);
-        let evolve_bin = format!("{}/agentic-evolve-mcp", bin_dir);
+        // Pre-compute all paths (cross-platform binary names)
+        let bin = |name: &str| format!("{}/{}{}", bin_dir, name, ext);
+        let memory_bin = bin("agentic-memory-mcp");
+        let identity_bin = bin("agentic-identity-mcp");
+        let codebase_bin = bin("agentic-codebase-mcp");
+        let vision_bin = bin("agentic-vision-mcp");
+        let comm_bin = bin("agentic-comm-mcp");
+        let contract_bin = bin("agentic-contract-mcp");
+        let time_bin = bin("agentic-time-mcp");
+        let planning_bin = bin("agentic-planning-mcp");
+        let cognition_bin = bin("agentic-cognition-mcp");
+        let reality_bin = bin("agentic-reality-mcp");
+        let forge_bin = bin("agentic-forge-mcp");
+        let aegis_bin = bin("agentic-aegis-mcp");
+        let veritas_bin = bin("agentic-veritas-mcp");
+        let evolve_bin = bin("agentic-evolve-mcp");
+        let data_bin = bin("agentic-data-mcp");
+        let connect_bin = bin("agentic-connect-mcp");
+        let workflow_bin = bin("agentic-workflow-mcp");
 
-        // Hydra uses its own memory file — separate from Claude Code's ~/.brain.amem
-        let hydra_memory = format!("{}/.hydra/memory/hydra.amem", home);
+        // Auto-create memory directory if missing
+        let memory_dir = format!("{}/.hydra/memory", home);
+        let _ = std::fs::create_dir_all(&memory_dir);
+        let hydra_memory = format!("{}/hydra.amem", memory_dir);
         let memory_args: Vec<&str> = vec!["serve", "--memory", &hydra_memory];
 
         // Spawn ALL 14 sisters in parallel for fastest startup
         let (memory, identity, codebase, vision, comm, contract, time,
-             planning, cognition, reality, forge, aegis, veritas, evolve) = tokio::join!(
+             planning, cognition, reality, forge, aegis, veritas, evolve,
+             data, connect, workflow) = tokio::join!(
             // Foundation (use "serve")
             Self::try_spawn("memory", &memory_bin, &memory_args),
             Self::try_spawn("identity", &identity_bin, &["serve"]),
@@ -80,28 +93,38 @@ impl Sisters {
             Self::try_spawn("aegis", &aegis_bin, &[]),
             Self::try_spawn("veritas", &veritas_bin, &[]),
             Self::try_spawn("evolve", &evolve_bin, &[]),
+            // Utility
+            Self::try_spawn("data", &data_bin, &[]),
+            Self::try_spawn("connect", &connect_bin, &[]),
+            Self::try_spawn("workflow", &workflow_bin, &[]),
         );
 
         let s = Self {
             memory, identity, codebase, vision, comm, contract, time,
             planning, cognition, reality,
             forge, aegis, veritas, evolve,
+            data, connect, workflow,
         };
         let all = s.all_sisters();
         let total = all.len();
         let connected = all.iter().filter(|(_, opt)| opt.is_some()).count();
         eprintln!("[hydra] ═══ {}/{} sisters connected ═══", connected, total);
+        // Verify critical tools are present — scream if missing
+        let missing = s.verify_critical_tools();
+        for (sister, tools) in &missing {
+            eprintln!("[hydra] ⚠ {} sister MISSING critical tools: {}", sister, tools.join(", "));
+        }
         s
     }
 
     async fn try_spawn(name: &str, cmd: &str, args: &[&str]) -> Option<SisterConnection> {
         match SisterConnection::spawn(name, cmd, args).await {
             Ok(conn) => {
-                eprintln!(
-                    "[hydra] {} sister connected ({} tools)",
-                    conn.name,
-                    conn.tools.len()
-                );
+                // Log first 5 tool names for debugging capability mismatches
+                let sample: Vec<&str> = conn.tools.iter().take(5).map(|s| s.as_str()).collect();
+                eprintln!("[hydra] {} sister connected ({} tools): {}{}",
+                    conn.name, conn.tools.len(), sample.join(", "),
+                    if conn.tools.len() > 5 { ", ..." } else { "" });
                 Some(conn)
             }
             Err(e) => {
@@ -129,6 +152,9 @@ impl Sisters {
             "aegis" => self.aegis.as_ref(),
             "veritas" => self.veritas.as_ref(),
             "evolve" => self.evolve.as_ref(),
+            "data" => self.data.as_ref(),
+            "connect" => self.connect.as_ref(),
+            "workflow" => self.workflow.as_ref(),
             _ => None,
         };
         match conn {
@@ -178,6 +204,7 @@ impl Sisters {
             comm: None, contract: None, time: None,
             planning: None, cognition: None, reality: None,
             forge: None, aegis: None, veritas: None, evolve: None,
+            data: None, connect: None, workflow: None,
         }
     }
 
@@ -186,7 +213,7 @@ impl Sisters {
         self.all_sisters().iter().filter(|(_, s)| s.is_some()).count()
     }
 
-    /// All 14 sisters as name/option pairs
+    /// All 17 sisters as name/option pairs
     pub fn all_sisters(&self) -> Vec<(&str, &Option<SisterConnection>)> {
         vec![
             ("Memory", &self.memory), ("Identity", &self.identity),
@@ -197,10 +224,39 @@ impl Sisters {
             ("Reality", &self.reality),
             ("Forge", &self.forge), ("Aegis", &self.aegis),
             ("Veritas", &self.veritas), ("Evolve", &self.evolve),
+            ("Data", &self.data), ("Connect", &self.connect),
+            ("Workflow", &self.workflow),
         ]
     }
 
     // capabilities_prompt — extracted to cognitive_dispatch.rs
+
+    /// Verify each connected sister has a minimum tool count.
+    /// Uses the REAL tool list from MCP handshake — never guesses tool names.
+    /// Returns (sister_name, issue_description) for failures.
+    pub fn verify_critical_tools(&self) -> Vec<(String, Vec<String>)> {
+        // Minimum expected tool counts per sister (from real MCP handshakes)
+        let minimums: &[(&str, usize)] = &[
+            ("Memory", 5), ("Identity", 3), ("Codebase", 3), ("Comm", 3),
+            ("Contract", 2), ("Planning", 3), ("Cognition", 2), ("Forge", 2),
+            ("Aegis", 2), ("Veritas", 2), ("Evolve", 2), ("Vision", 1),
+            ("Reality", 1), ("Time", 2),
+            ("Data", 3), ("Connect", 3), ("Workflow", 3),
+        ];
+        let mut warnings = Vec::new();
+        for (name, min) in minimums {
+            if let Some(conn) = self.all_sisters().iter()
+                .find(|(n, opt)| *n == *name && opt.is_some())
+                .and_then(|(_, opt)| opt.as_ref())
+            {
+                if conn.tools.len() < *min {
+                    warnings.push((name.to_string(),
+                        vec![format!("expected {}+ tools, got {}", min, conn.tools.len())]));
+                }
+            }
+        }
+        warnings
+    }
 
     /// Graceful session shutdown — called on app close.
     /// Runs Ghost Writer summary, session end for Memory/Comm/Time, and agent deregistration.

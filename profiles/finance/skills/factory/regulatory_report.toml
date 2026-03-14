@@ -1,0 +1,43 @@
+[skill]
+name = "regulatory_report"
+description = "Generate regulatory compliance reports — data gathering, requirement mapping, formatting, completeness verification, and anomaly flagging"
+version = "1.0.0"
+
+[trigger]
+patterns = [
+    "compliance report",
+    "regulatory filing",
+    "audit report",
+    "regulatory requirement",
+    "filing deadline",
+    "compliance check",
+]
+
+[[steps]]
+name = "gather_data"
+action = "sister:data"
+tool = "data_query"
+description = "Gather all data points required for the specific regulatory report: positions, transactions, counterparty information, risk metrics, capital adequacy ratios, and any event-driven data (large trades, limit breaches, suspicious activity)"
+parameters = { query_type = "regulatory_data", include_all_required_fields = true }
+
+[[steps]]
+name = "check_requirements"
+action = "sister:contract"
+tool = "contract_check"
+description = "Map the report against its regulatory requirements: which fields are mandatory, what validation rules apply, what format specifications exist (XBRL, XML, CSV), and what the filing deadline is"
+depends_on = ["gather_data"]
+parameters = { check_type = "regulatory_requirements", include_deadlines = true, include_format_specs = true }
+
+[[steps]]
+name = "format_report"
+action = "compute"
+description = "Format the gathered data into the required regulatory template, applying all validation rules, cross-checking totals, and ensuring all mandatory fields are populated"
+depends_on = ["gather_data", "check_requirements"]
+parameters = { apply_validation = true, cross_check_totals = true }
+
+[[steps]]
+name = "verify_completeness"
+action = "llm"
+description = "Verify completeness and accuracy: check for missing fields, data anomalies (values outside expected ranges), internal consistency (totals match line items), and compare with prior period reports for unusual changes. Flag any item requiring human review."
+depends_on = ["format_report"]
+parameters = { model = "claude-sonnet-4-6", checks = ["completeness", "range_validation", "consistency", "period_comparison"], flag_anomalies = true }

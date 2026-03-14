@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Insider buying — specifically, cluster buys where 3+ C-suite executives purchase shares with personal funds within a 30-day window, each buying more than $100K — precedes positive stock returns of 5-12% over the next 6 months with 72% accuracy. Single insider buys have negligible predictive power; it is the clustering that signals genuine conviction."
+confidence = 0.87
+source = "Lakonishok/Lee 2001 insider trading studies, Jeng/Metrick/Zeckhauser 2003, SEC Form 4 analysis 2018-2024"
+action_trigger = "Cluster insider buy detected (3+ C-suite, 30-day window, >$100K each) → flag as strong bullish signal, investigate whether the buying coincides with a price decline (value conviction) or price strength (knowledge of upcoming catalyst)"
+edge_case = "Insiders in financial distress sometimes buy to signal confidence and prevent a death spiral — check the company's credit metrics and short interest. If CDS spreads are widening simultaneously, the insider buying may be a desperation signal rather than conviction."
+tags = ["management", "insider_buying", "form_4", "bullish_signal"]
+
+[[beliefs]]
+fact = "Insider selling alone is a weak signal — executives sell for many reasons (diversification, liquidity, tax planning, planned 10b5-1 programs). However, insider selling that breaks a pre-announced 10b5-1 plan pattern (selling outside the plan, modifying the plan to accelerate sales, or adopting a new plan during a lockup period) is a strong negative signal associated with 8-15% underperformance over 6 months."
+confidence = 0.84
+source = "SEC 2022 amendments to Rule 10b5-1, Jagolinzer 2009 10b5-1 plan manipulation study, empirical analysis 2023-2024"
+action_trigger = "10b5-1 plan modification or off-plan insider sale detected → flag as potential negative signal, check if this coincides with any quiet period or pending material announcement, compare with peer insider activity"
+edge_case = "Post-IPO lockup expiration selling is mechanical and expected — do not flag insiders selling at lockup expiry as negative unless the volume significantly exceeds typical lockup release patterns (>50% of locked shares sold in first week)."
+tags = ["management", "insider_selling", "10b5_1", "bearish_signal"]
+
+[[beliefs]]
+fact = "CEO compensation structures where more than 50% of total pay is in stock options (vs restricted stock or performance shares) incentivize excessive risk-taking and earnings manipulation to inflate short-term stock price. Companies with option-heavy CEO compensation have 2.5x the rate of financial restatements compared to those with restricted-stock-heavy compensation."
+confidence = 0.86
+source = "Bergstresser/Philippon 2006 CEO incentives and earnings management, Burns/Kedia 2006 options and restatements, updated analysis through 2024"
+action_trigger = "CEO options > 50% of total compensation → increase scrutiny on earnings quality, monitor for aggressive accounting practices, check if options are near their vesting dates (highest manipulation incentive)"
+edge_case = "In turnaround situations, option-heavy compensation may be appropriate because it aligns CEO incentives with shareholder recovery — distinguish between ongoing option grants (red flag) and one-time turnaround packages (potentially aligned)."
+tags = ["management", "compensation", "incentives", "governance"]
+
+[[beliefs]]
+fact = "CEO tenure beyond 10 years shows a U-shaped relationship with company performance: years 1-5 are positive (implementing vision), years 5-10 are neutral (maintaining), and years 10+ are increasingly negative (entrenchment, resistance to change, board capture). Companies with CEOs tenured 15+ years underperform their sectors by 3-5% annually, controlling for survivorship bias."
+confidence = 0.80
+source = "Hambrick/Fukutomi 1991 seasons of CEO tenure, updated by Henderson/Miller/Hambrick 2006, empirical validation through 2024"
+action_trigger = "CEO tenure > 10 years → evaluate board independence, check for rubber-stamp compensation committee, assess whether strategic pivots have occurred or the company is running the same playbook from a decade ago"
+edge_case = "Founder-CEOs in technology companies (Bezos, Zuckerberg era) can maintain performance beyond 10 years because their ownership stake aligns incentives and their technical vision remains relevant. Separate founder-CEOs from professional-manager-CEOs in this analysis."
+tags = ["management", "ceo_tenure", "entrenchment", "governance"]

@@ -1,0 +1,37 @@
+[skill]
+name = "forensic_timeline"
+description = "Construct a forensic timeline from multiple evidence sources for incident analysis"
+trigger_phrases = ["forensic", "what happened", "timeline", "reconstruct", "root cause"]
+agent = "forensic_analyst"
+model = "claude-sonnet-4-6"
+timeout_seconds = 600
+
+[[steps]]
+name = "collect_volatile"
+description = "Acquire volatile evidence from affected systems before any state changes"
+action = "For each system in scope: capture full memory dump (winpmem/LiME), running process list with command lines and parent PIDs, network connections with process ownership, DNS cache, logged-in sessions, open file handles. Hash each artifact at collection. Record collection order and timestamps."
+sisters = ["memory", "aegis"]
+
+[[steps]]
+name = "image_disk"
+description = "Create forensic disk images with integrity verification"
+action = "For each system requiring disk analysis: create bit-for-bit disk image using dd or forensic imager. Compute SHA-256 hash of source and image, verify match. Store image on write-blocked evidence storage. For cloud systems: create EBS/disk snapshots and export. Document imaging tool, version, and parameters."
+sisters = ["memory", "contract"]
+
+[[steps]]
+name = "parse_logs"
+description = "Extract and normalize relevant log data from all available sources"
+action = "Collect logs from: Windows Event Logs (Security 4624/4625/4688/4672, PowerShell 4104, Sysmon), Linux auth.log and syslog, SIEM stored events, EDR telemetry, network flow data, DNS query logs, proxy logs, firewall logs, cloud audit trails (CloudTrail, Azure Activity Log). Normalize timestamps to UTC. Parse into structured format."
+sisters = ["memory", "codebase"]
+
+[[steps]]
+name = "reconstruct_timeline"
+description = "Build unified chronological timeline correlating all evidence sources"
+action = "Merge all evidence into a single timeline using log2timeline/Plaso or equivalent. Key correlation points: authentication events to lateral movement, process creation to network connections, file modifications to persistence establishment. Identify the initial access vector, each lateral movement hop, privilege escalation events, data access events, and exfiltration indicators. Flag timeline gaps for further investigation."
+sisters = ["memory", "aegis"]
+
+[[steps]]
+name = "document_findings"
+description = "Produce forensic report with timeline, findings, and recommendations"
+action = "Write forensic report containing: executive summary, scope of investigation, evidence collected (with chain of custody), detailed timeline with annotations, root cause analysis, indicators of compromise discovered, attacker TTPs mapped to MITRE ATT&CK, impact assessment, and remediation recommendations. All findings supported by cited evidence."
+sisters = ["memory", "contract", "connect"]

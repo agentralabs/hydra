@@ -44,10 +44,31 @@ async fn main() {
     db.migrate().expect("Failed to run migrations");
     progress(60, "Database ready");
 
-    progress(70, "Creating server state...");
+    progress(65, "Seeding profiles...");
+    // Seed factory profiles (same as TUI/Desktop)
+    if let Some(factory) = hydra_native::cognitive::profile_updater::factory_profiles_dir() {
+        let _ = hydra_native::operational_profile::seed_profiles(&factory);
+    }
+
+    progress(70, "Initializing 17 sisters...");
+    let sisters = hydra_native::sisters::init_sisters().await;
+    let sister_status = sisters.status_summary();
+    eprintln!("  Sisters: {}", sister_status);
+
+    progress(80, "Creating server state...");
     let has_auth = auth_token.is_some();
-    let state = AppState::new(db, server_mode, auth_token);
-    progress(85, "Server state initialized");
+    let mut state = AppState::new(db, server_mode, auth_token);
+    state.set_sisters(sisters);
+
+    // Auto-load default profile (dev) if available
+    if let Some(active_name) = hydra_native::operational_profile::active_profile_name() {
+        if state.load_profile(&active_name).is_ok() {
+            eprintln!("  Profile: {} loaded", active_name);
+        }
+    } else if state.load_profile("dev").is_ok() {
+        eprintln!("  Profile: dev loaded (default)");
+    }
+    progress(90, "Server state initialized");
 
     progress(95, &format!("Binding to port {}...", port));
     // Clear the progress line for final message
@@ -111,6 +132,7 @@ fn init_filesystem(data_dir: &PathBuf) {
 
 fn dirs_home() -> PathBuf {
     std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from("/tmp"))
 }

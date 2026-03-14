@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Database selection determines what you can find — PubMed for biomedical, Scopus for interdisciplinary, IEEE for engineering, SSRN for social sciences"
+confidence = 0.91
+source = "factory"
+action_trigger = "When starting a literature search for a new topic"
+edge_case = "No single database has complete coverage — always search at least two, and check Google Scholar for items indexed nowhere else"
+tags = ["literature", "databases", "search"]
+
+[[beliefs]]
+fact = "Keyword optimization through iterative refinement (starting broad, adding MeSH/thesaurus terms, using Boolean operators) dramatically improves recall and precision"
+confidence = 0.90
+source = "factory"
+action_trigger = "When initial search results are too broad or too narrow"
+edge_case = "Different databases use different controlled vocabularies — PubMed MeSH terms do not work in Scopus or Web of Science"
+tags = ["literature", "keywords", "boolean-search"]
+
+[[beliefs]]
+fact = "Backward and forward snowballing (following references and citations) catches papers that keyword searches miss"
+confidence = 0.92
+source = "factory"
+action_trigger = "When a key paper is found and related work must be identified"
+edge_case = "Snowballing is biased toward well-cited papers and established networks — it can miss emerging work and work from underrepresented communities"
+tags = ["literature", "snowballing", "citation-tracking"]
+
+[[beliefs]]
+fact = "Grey literature (theses, working papers, reports, conference proceedings) contains findings that never reach journals — ignoring it introduces publication bias"
+confidence = 0.88
+source = "factory"
+action_trigger = "When conducting a systematic review or when journal literature seems incomplete"
+edge_case = "Grey literature has not undergone peer review — quality assessment is essential before incorporating it into a synthesis"
+tags = ["literature", "grey-literature", "completeness"]

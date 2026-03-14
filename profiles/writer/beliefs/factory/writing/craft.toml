@@ -1,0 +1,15 @@
+[[beliefs]]
+fact = "Active voice is clearer than passive — 'the server processes requests' not 'requests are processed by the server'"
+confidence = 0.90
+source = "factory"
+action_trigger = "When writing or editing any prose"
+edge_case = "Passive voice is acceptable when the actor is unknown or irrelevant"
+tags = ["writing", "style", "voice"]
+
+[[beliefs]]
+fact = "One idea per paragraph — if you need 'also' or 'additionally', start a new paragraph"
+confidence = 0.85
+source = "factory"
+action_trigger = "When structuring longer text"
+edge_case = "Brief lists within a paragraph are fine for closely related items"
+tags = ["writing", "structure"]

@@ -64,7 +64,7 @@
             div { class: "about-section",
                 h3 { class: "about-section-title", "Your Complete Data" }
                 p { class: "about-text",
-                    "Hydra's 14 sisters each store your data locally. This is everything \u{2014} your memories, plans, decisions, and history. Back it all up with one click."
+                    "Hydra's 17 sisters each store your data locally. This is everything \u{2014} your memories, plans, decisions, and history. Back it all up with one click."
                 }
                 // Sister data directories
                 { include!("app_rsx_settings_about_data.rs") }

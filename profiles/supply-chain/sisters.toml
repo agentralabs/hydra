@@ -1,0 +1,10 @@
+[sisters]
+emphasize = ["Data", "Connect", "Workflow", "Time", "Planning"]
+disable = []
+
+# Rationale: Supply chain profile emphasizes logistics-centric sisters.
+# Data — analyze shipment volumes, carrier metrics, demand signals.
+# Connect — integrate with ERP, WMS, TMS, carrier APIs.
+# Workflow — orchestrate multi-step procurement and routing flows.
+# Time — track lead times, delivery windows, SLA deadlines.
+# Planning — demand forecasting, capacity planning, route optimization.

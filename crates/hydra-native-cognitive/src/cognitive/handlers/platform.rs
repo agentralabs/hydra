@@ -104,7 +104,7 @@ pub(crate) fn platform_type_text(content: &str) -> String {
 }
 
 pub(crate) fn platform_screenshot() -> String {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let home = hydra_native_state::utils::home_dir();
     let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
     let path = format!("{}/Desktop/screenshot_{}.png", home, timestamp);
     if cfg!(target_os = "macos") {

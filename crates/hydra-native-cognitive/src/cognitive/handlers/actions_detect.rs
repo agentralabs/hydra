@@ -7,6 +7,11 @@ use super::actions::{
     extract_path_from_text, shell_escape, extract_app_name_from_intent,
 };
 
+/// PRE-LLM OPTIMIZATION: Detects simple direct actions before spending tokens on LLM.
+/// Catches: "create file X", "run tests", "open X", "delete X" etc.
+/// Falls through to LLM for anything not matched. Saves ~150 tokens per simple action.
+/// Known limitation: English-only patterns.
+///
 /// Universal action executor — detects user intent and returns the appropriate shell command.
 /// Works across macOS, Linux, and Windows. No hardcoded app list — resolves ANY app by name.
 pub(crate) fn detect_direct_action_command(text: &str) -> Option<String> {

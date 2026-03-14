@@ -1,0 +1,22 @@
+[metadata]
+name = "risk_report"
+description = "Produce a legal risk assessment report for a transaction, product, or operation"
+version = "1.0.0"
+
+[trigger]
+patterns = ["risk assessment", "legal risk report", "what's our exposure", "risk analysis"]
+intent = "risk-assessment"
+
+[steps]
+sequence = [
+    "Define the scope of the assessment (transaction, product, operation)",
+    "Identify all material legal risks by category (contractual, regulatory, litigation, IP)",
+    "Classify each risk by likelihood and potential impact",
+    "Map existing mitigations (insurance, contractual protections, compliance programs)",
+    "Identify unmitigated residual risks",
+    "Recommend risk mitigation actions with cost-benefit analysis",
+]
+
+[sisters]
+primary = ["Contract", "Data", "Memory"]
+optional = ["Veritas", "Time"]

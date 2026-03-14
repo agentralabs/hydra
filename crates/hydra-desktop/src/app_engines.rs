@@ -27,6 +27,7 @@
     // ── Initialize security database ──
     let hydra_db: Option<Arc<HydraDb>> = use_hook(|| {
         let db_path = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
             .map(std::path::PathBuf::from)
             .unwrap_or_else(|_| std::path::PathBuf::from("."))
             .join(".hydra")

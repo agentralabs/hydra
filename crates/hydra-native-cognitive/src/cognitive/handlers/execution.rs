@@ -16,10 +16,12 @@ pub(crate) async fn execute_json_plan(
     tx: &mpsc::UnboundedSender<CognitiveUpdate>,
     undo_stack: &Option<Arc<parking_lot::Mutex<UndoStack>>>,
 ) -> String {
-    let home = std::env::var("HOME").unwrap_or_default();
+    let home = hydra_native_state::utils::home_dir();
     let project_dir_name = plan["project_dir"].as_str().unwrap_or("hydra-project");
     let base_dir = format!("{}/projects/{}", home, project_dir_name);
-    let _ = tokio::fs::create_dir_all(&base_dir).await;
+    if let Err(e) = tokio::fs::create_dir_all(&base_dir).await {
+        eprintln!("[hydra:execution] create_dir_all({}) FAILED: {}", base_dir, e);
+    }
 
     let steps = plan["steps"].as_array();
     let total_steps = steps.map(|s| s.len()).unwrap_or(0);
@@ -39,7 +41,9 @@ pub(crate) async fn execute_json_plan(
                 "create_dir" => {
                     let path = step["path"].as_str().unwrap_or("");
                     let full_path = format!("{}/{}", base_dir, path);
-                    let _ = tokio::fs::create_dir_all(&full_path).await;
+                    if let Err(e) = tokio::fs::create_dir_all(&full_path).await {
+                        eprintln!("[hydra:execution] create_dir_all({}) FAILED: {}", full_path, e);
+                    }
                     dirs_created += 1;
                 }
                 "create_file" | "modify_file" => {
@@ -47,9 +51,13 @@ pub(crate) async fn execute_json_plan(
                     let content = step["content"].as_str().unwrap_or("");
                     let full_path = format!("{}/{}", base_dir, path);
                     if let Some(parent) = std::path::Path::new(&full_path).parent() {
-                        let _ = tokio::fs::create_dir_all(parent).await;
+                        if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                            eprintln!("[hydra:execution] create_dir_all({}) FAILED: {}", parent.display(), e);
+                        }
                     }
-                    let _ = tokio::fs::write(&full_path, content).await;
+                    if let Err(e) = tokio::fs::write(&full_path, content).await {
+                        eprintln!("[hydra:execution] fs::write({}) FAILED: {}", full_path, e);
+                    }
 
                     // Track file creation in undo stack
                     if let Some(undo) = undo_stack {

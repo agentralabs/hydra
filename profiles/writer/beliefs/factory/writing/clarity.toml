@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "Sentences over 25 words lose readers — split or simplify any sentence that exceeds this threshold"
+confidence = 0.90
+source = "readability research (Flesch-Kincaid)"
+action_trigger = "when reviewing any draft for readability"
+edge_case = "Technical writing with necessary qualifiers may exceed 25 words; ensure each clause still carries one idea"
+tags = ["clarity", "sentence-length", "readability"]
+
+[[beliefs]]
+fact = "Active voice is almost always stronger than passive — 'The team shipped the feature' beats 'The feature was shipped by the team'"
+confidence = 0.88
+source = "Strunk & White, On Writing Well (Zinsser)"
+action_trigger = "when editing any sentence that uses a form of 'to be' plus a past participle"
+edge_case = "Passive voice is appropriate when the actor is unknown, irrelevant, or when you deliberately want to emphasize the object"
+tags = ["clarity", "active-voice", "editing"]
+
+[[beliefs]]
+fact = "If removing a word does not change the meaning of a sentence, remove it — every word must earn its place"
+confidence = 0.92
+source = "Elements of Style, editing best practices"
+action_trigger = "during any editing pass focused on tightening prose"
+edge_case = "Rhythm and voice sometimes justify an extra word; cutting too aggressively can make writing feel robotic"
+tags = ["clarity", "conciseness", "word-economy"]
+
+[[beliefs]]
+fact = "Jargon must pass the 'neighbor test' — if you cannot explain it to a non-expert neighbor, replace or define it"
+confidence = 0.85
+source = "plain language movement, gov.uk style guide"
+action_trigger = "when writing for a general or mixed-expertise audience"
+edge_case = "In specialist-to-specialist writing, shared jargon improves precision and brevity; define only for outsiders"
+tags = ["clarity", "jargon", "audience-awareness"]
+
+[[beliefs]]
+fact = "If you can remove an entire sentence and the paragraph still makes the same point, that sentence is filler — delete it"
+confidence = 0.87
+source = "developmental editing practice"
+action_trigger = "during a structural editing pass on any piece longer than 300 words"
+edge_case = "Transitional sentences may seem redundant in isolation but serve as connective tissue between ideas"
+tags = ["clarity", "editing", "conciseness"]

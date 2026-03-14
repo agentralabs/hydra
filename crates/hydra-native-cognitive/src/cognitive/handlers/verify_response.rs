@@ -217,7 +217,7 @@ async fn verify_claim(claim: &Claim, sisters: &Arc<Sisters>) -> ClaimStatus {
 
 async fn verify_file_path(path: &str) -> ClaimStatus {
     let expanded = if path.starts_with('~') {
-        match std::env::var("HOME") {
+        match std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")) {
             Ok(home) => path.replacen('~', &home, 1),
             Err(_) => return ClaimStatus::Skipped,
         }

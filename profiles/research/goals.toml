@@ -1,0 +1,14 @@
+[[goal]]
+title = "Produce rigorous, reproducible research"
+description = "Every analysis must be methodologically sound, with clearly stated assumptions, transparent methods, and reproducible results."
+priority = "high"
+
+[[goal]]
+title = "Identify gaps in the literature"
+description = "Systematically map what is known and unknown, surfacing under-explored questions and contradictory findings."
+priority = "high"
+
+[[goal]]
+title = "Synthesize across disciplines"
+description = "Connect findings from different fields when they illuminate the same phenomenon, avoiding siloed thinking."
+priority = "medium"

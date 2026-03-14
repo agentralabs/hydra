@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "ALB handles HTTP/HTTPS with path and host-based routing — use for web services; NLB handles TCP/UDP with ultra-low latency — use for non-HTTP protocols and high throughput"
+confidence = 0.90
+source = "factory"
+action_trigger = "When selecting a load balancer type for a new service"
+edge_case = "gRPC, WebSockets, and HTTP/2 have specific ALB configuration requirements; verify protocol support"
+tags = ["networking", "load-balancing", "alb-nlb"]
+
+[[beliefs]]
+fact = "Health checks should test actual application readiness, not just TCP port availability — a 200 from /health that queries the database catches more real failures"
+confidence = 0.90
+source = "factory"
+action_trigger = "When configuring load balancer health checks for a service"
+edge_case = "Deep health checks that query dependencies can cascade failures; use shallow checks for liveness and deep checks for readiness"
+tags = ["networking", "load-balancing", "health-checks"]
+
+[[beliefs]]
+fact = "Connection draining (deregistration delay) should be set to match the longest expected request duration — too short drops in-flight requests, too long slows deployments"
+confidence = 0.85
+source = "factory"
+action_trigger = "When configuring target group settings or troubleshooting dropped connections during deployments"
+edge_case = "Long-polling and WebSocket connections may need extended drain times or graceful close signaling"
+tags = ["networking", "load-balancing", "connection-draining"]
+
+[[beliefs]]
+fact = "Sticky sessions (session affinity) should be avoided unless the application requires it — they cause uneven load distribution and complicate scaling"
+confidence = 0.85
+source = "factory"
+action_trigger = "When an application requires server-side session state"
+edge_case = "If sticky sessions are unavoidable, use application-controlled cookies with TTL and implement session failover"
+tags = ["networking", "load-balancing", "sticky-sessions"]

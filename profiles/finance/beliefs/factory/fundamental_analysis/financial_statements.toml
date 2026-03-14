@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "When a company's revenue recognition policy changes — particularly shifts from point-in-time to over-time recognition under ASC 606, or acceleration of multi-year contract revenue into the current period — and this change accounts for more than 15% of reported revenue growth, the organic growth rate is materially overstated. Restatements follow within 2-4 quarters in 35% of such cases."
+confidence = 0.87
+source = "SEC enforcement actions 2018-2024, Dechow/Ge/Schrand 2010 earnings quality study, Big Four audit findings database"
+action_trigger = "Revenue recognition policy change detected in 10-K footnotes → recalculate organic growth excluding the policy impact, flag for deeper forensic analysis, compare with peer accounting policies"
+edge_case = "Legitimate ASC 606 adoption transitions (2018-2019) required policy changes that looked aggressive but were actually compliance-driven. Post-adoption, any further voluntary changes in the same direction warrant higher scrutiny."
+tags = ["fundamental", "revenue_recognition", "accounting_quality", "red_flag"]
+
+[[beliefs]]
+fact = "When operating cash flow diverges from net income by more than 30% for two consecutive quarters — specifically when net income grows but OCF declines or stagnates — the earnings quality is deteriorating. This divergence precedes negative earnings surprises within 3 quarters with 60% probability, and precedes SEC investigation with 8% probability."
+confidence = 0.91
+source = "Sloan 1996 accruals anomaly, updated by Richardson/Sloan/Soliman/Tuna 2005, empirical validation through 2024"
+action_trigger = "NI-OCF divergence > 30% for 2+ quarters → downgrade earnings quality assessment, increase position monitoring frequency, set stop-loss tighter"
+edge_case = "High-growth SaaS companies legitimately show NI-OCF divergence due to stock-based compensation (non-cash) and capitalized software development costs. Filter by adding back SBC and checking if adjusted OCF tracks adjusted NI."
+tags = ["fundamental", "cash_flow", "earnings_quality", "accruals"]
+
+[[beliefs]]
+fact = "Goodwill-to-total-assets ratios exceeding 40% create balance sheet fragility — a 10% decline in the acquired business's projected cash flows triggers impairment testing that, under ASC 350, frequently results in write-downs of 20-50% of the goodwill balance. Serial acquirers in this zone (Valeant 2015, GE 2018, Kraft Heinz 2019) have a 45% probability of material impairment within 3 years."
+confidence = 0.88
+source = "FASB ASC 350 impairment testing framework, empirical study of goodwill impairments 2008-2024, Hayn/Hughes 2006"
+action_trigger = "Goodwill/total assets > 40% → stress test the balance sheet assuming 30% goodwill impairment, assess impact on debt covenants and credit ratings, monitor acquired entity performance quarterly"
+edge_case = "Technology and pharma companies that acquire primarily for IP/talent may carry high goodwill ratios where the underlying asset retains value even if cash flow projections decline — evaluate whether the goodwill is backed by identifiable intangibles with independent value."
+tags = ["fundamental", "goodwill", "impairment", "balance_sheet_risk"]
+
+[[beliefs]]
+fact = "Deteriorating working capital efficiency — specifically, days sales outstanding (DSO) increasing by more than 10 days year-over-year while revenue growth is decelerating — indicates either aggressive channel stuffing (shipping product to distributors who cannot sell it) or weakening customer creditworthiness. This pattern preceded 40% of large-cap earnings misses in the 2022-2024 period."
+confidence = 0.86
+source = "Beneish M-Score model (DSO component), empirical analysis of S&P 500 earnings misses 2022-2024"
+action_trigger = "DSO increase > 10 days YoY with decelerating revenue → investigate customer concentration, check 10-Q accounts receivable aging footnote, compare DSO trend with closest peers"
+edge_case = "Companies expanding into new geographies (especially emerging markets) legitimately experience DSO increases due to longer payment terms being standard in those markets. Check if geographic revenue mix shift explains the DSO change before flagging."
+tags = ["fundamental", "working_capital", "dso", "channel_stuffing"]

@@ -1,0 +1,23 @@
+[[beliefs]]
+fact = "Atlantic hurricane season (June-November) disrupts Gulf Coast ports and petrochemical supply — pre-build inventory of affected materials by May"
+confidence = 0.85
+source = "factory"
+action_trigger = "When planning Q2-Q3 procurement for goods routed through Gulf Coast or Caribbean"
+edge_case = "Hurricane track uncertainty means preparations must cover multiple ports; not every season produces major impacts"
+tags = ["disruption", "weather", "hurricane"]
+
+[[beliefs]]
+fact = "Asian monsoon season (June-September) causes factory flooding, road closures, and port congestion in South and Southeast Asia — add 5-10 days to ETAs"
+confidence = 0.80
+source = "factory"
+action_trigger = "When sourcing from India, Bangladesh, Vietnam, or Thailand during monsoon months"
+edge_case = "Inland factories are more affected than coastal; specific provinces have different peak flooding periods"
+tags = ["disruption", "weather", "monsoon"]
+
+[[beliefs]]
+fact = "Winter storms in North America and Europe close highways and rail lines for 1-3 days per event — maintain regional buffer stock at forward DCs from November through March"
+confidence = 0.85
+source = "factory"
+action_trigger = "When planning last-mile delivery capacity and DC inventory levels for winter months"
+edge_case = "Climate change is shifting storm patterns; historical averages may underestimate frequency"
+tags = ["disruption", "weather", "winter-storm"]

@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Exponential smoothing (Holt-Winters) handles seasonal demand well with minimal data — 2-3 years of weekly history is sufficient for stable categories"
+confidence = 0.85
+source = "factory"
+action_trigger = "When generating baseline forecasts for products with clear seasonal patterns"
+edge_case = "Breaks down for new products with no history or categories disrupted by step-change events like pandemics"
+tags = ["demand", "forecasting", "exponential-smoothing"]
+
+[[beliefs]]
+fact = "ARIMA models capture complex autocorrelation patterns but require stationary data — difference the series and test with ADF before fitting"
+confidence = 0.85
+source = "factory"
+action_trigger = "When demand patterns show non-obvious cyclical behavior beyond simple seasonality"
+edge_case = "ARIMA is computationally expensive for large SKU counts; ensemble with simpler models for robustness"
+tags = ["demand", "forecasting", "arima"]
+
+[[beliefs]]
+fact = "ML ensemble methods (gradient boosting + neural nets) outperform statistical models by 10-20% when external features like pricing, promotions, and weather are available"
+confidence = 0.80
+source = "factory"
+action_trigger = "When rich feature data exists and forecast accuracy on high-volume SKUs justifies model complexity"
+edge_case = "Requires continuous retraining; cold-start problem for new SKUs without feature history"
+tags = ["demand", "forecasting", "ml-ensemble"]
+
+[[beliefs]]
+fact = "Demand sensing uses real-time POS data and short-horizon signals to adjust forecasts weekly — reduces near-term forecast error 20-30%"
+confidence = 0.80
+source = "factory"
+action_trigger = "When POS or sell-through data is available with less than 7-day latency"
+edge_case = "Amplifies noise if signal quality is poor; not useful for long lead-time procurement decisions"
+tags = ["demand", "demand-sensing", "real-time"]

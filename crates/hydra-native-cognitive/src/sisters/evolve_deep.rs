@@ -13,11 +13,13 @@ impl Sisters {
     /// Store a new pattern for skill evolution.
     pub async fn evolve_pattern_store(&self, name: &str, pattern: &str, context: &str) {
         if let Some(evolve) = &self.evolve {
-            let _ = evolve.call_tool("evolve_pattern_store", serde_json::json!({
+            if let Err(e) = evolve.call_tool("evolve_pattern_store", serde_json::json!({
                 "name": name,
                 "pattern": safe_truncate(pattern, 500),
                 "context": safe_truncate(context, 200),
-            })).await;
+            })).await {
+                eprintln!("[hydra:evolve] evolve_pattern_store FAILED: {}", e);
+            }
         }
     }
 
@@ -62,18 +64,22 @@ impl Sisters {
     /// Update pattern usage statistics.
     pub async fn evolve_update_usage(&self, pattern_id: &str, success: bool) {
         if let Some(evolve) = &self.evolve {
-            let _ = evolve.call_tool("evolve_update_usage", serde_json::json!({
+            if let Err(e) = evolve.call_tool("evolve_update_usage", serde_json::json!({
                 "id": pattern_id, "success": success,
-            })).await;
+            })).await {
+                eprintln!("[hydra:evolve] evolve_update_usage FAILED: {}", e);
+            }
         }
     }
 
     /// Delete an obsolete pattern.
     pub async fn evolve_pattern_delete(&self, pattern_id: &str) {
         if let Some(evolve) = &self.evolve {
-            let _ = evolve.call_tool("evolve_pattern_delete", serde_json::json!({
+            if let Err(e) = evolve.call_tool("evolve_pattern_delete", serde_json::json!({
                 "id": pattern_id,
-            })).await;
+            })).await {
+                eprintln!("[hydra:evolve] evolve_pattern_delete FAILED: {}", e);
+            }
         }
     }
 

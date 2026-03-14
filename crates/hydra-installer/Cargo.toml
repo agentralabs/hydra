@@ -1,7 +1,10 @@
 [package]
+description = "Hydra installation and setup utilities"
 name = "hydra-installer"
 version = "0.1.0"
 edition = "2021"
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

@@ -1,7 +1,10 @@
 [package]
+description = "Hydra Desktop app — Dioxus native interface"
 name = "hydra-desktop"
 version = "0.1.0"
 edition = "2021"
+license.workspace = true
+repository.workspace = true
 
 [[bin]]
 name = "hydra-desktop"

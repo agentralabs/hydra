@@ -1,0 +1,15 @@
+[[beliefs]]
+fact = "Ownership and borrowing eliminate data races at compile time — prefer &T over cloning"
+confidence = 0.95
+source = "factory"
+action_trigger = "When writing Rust code that shares data between scopes"
+edge_case = "Clone is acceptable for small, Copy types or when borrow checker fights outweigh the cost"
+tags = ["rust", "ownership", "memory-safety"]
+
+[[beliefs]]
+fact = "Lifetimes are the compiler's proof that references outlive their referents — explicit lifetimes clarify intent"
+confidence = 0.90
+source = "factory"
+action_trigger = "When structs hold references or functions return borrowed data"
+edge_case = "Lifetime elision covers most cases — only annotate when the compiler asks or when it aids readability"
+tags = ["rust", "lifetimes"]

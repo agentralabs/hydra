@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Escalate when: issue exceeds agent's technical depth, customer requests manager, SLA breach is imminent, or security/legal implications exist"
+confidence = 0.95
+source = "factory"
+action_trigger = "When deciding whether to continue handling or escalate a ticket"
+edge_case = "Some customers use manager requests as a negotiation tactic; attempt resolution first but don't refuse if they insist"
+tags = ["communication", "escalation", "criteria"]
+
+[[beliefs]]
+fact = "Escalation target should be specific — route billing to finance, security to SecOps, technical to engineering — generic escalation queues create delays"
+confidence = 0.85
+source = "factory"
+action_trigger = "When escalating a ticket that needs specialist attention"
+edge_case = "After hours, specialist queues may be unstaffed; have a fallback on-call rotation"
+tags = ["communication", "escalation", "routing"]
+
+[[beliefs]]
+fact = "Context handoff must include: original issue, steps already tried, customer sentiment, account tier, and any commitments made — incomplete handoffs restart the customer's frustration"
+confidence = 0.90
+source = "factory"
+action_trigger = "When preparing an escalation handoff or warm transfer"
+edge_case = "Sensitive information (credentials shared by customer) should be flagged but handled per data policy"
+tags = ["communication", "escalation", "handoff"]
+
+[[beliefs]]
+fact = "SLA tracking should trigger proactive alerts at 50%, 75%, and 90% of response/resolution time — breaches damage customer trust disproportionately to the delay"
+confidence = 0.90
+source = "factory"
+action_trigger = "When monitoring open ticket age against SLA commitments"
+edge_case = "SLA clock pauses during customer-pending status; ensure status transitions are accurate"
+tags = ["communication", "sla", "tracking"]

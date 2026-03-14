@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "IMRAD (Introduction, Methods, Results, and Discussion) is the universal structure for empirical papers — deviating from it confuses reviewers"
+confidence = 0.93
+source = "factory"
+action_trigger = "When structuring an empirical research paper"
+edge_case = "Theoretical papers, reviews, and essays use different structures — IMRAD is not appropriate for all academic writing"
+tags = ["writing", "structure", "imrad"]
+
+[[beliefs]]
+fact = "Every paragraph in an argument must do one of three things: state a claim, present evidence, or connect the evidence to the claim — paragraphs that do none should be cut"
+confidence = 0.91
+source = "factory"
+action_trigger = "When revising the body of a research paper"
+edge_case = "Context-setting paragraphs (background, definitions) are necessary but should be minimal — readers want to reach the contribution quickly"
+tags = ["writing", "argument", "paragraphs"]
+
+[[beliefs]]
+fact = "Transitions between sections must make the logical connection explicit — the reader should never have to guess why one section follows another"
+confidence = 0.89
+source = "factory"
+action_trigger = "When drafting or revising section transitions"
+edge_case = "Over-signposting ('In the next section we will...') is patronizing in short papers — a clear logical flow makes explicit signposting unnecessary"
+tags = ["writing", "transitions", "flow"]
+
+[[beliefs]]
+fact = "The abstract is the most-read part of any paper — it must state the problem, method, key result, and implication in 250 words or fewer"
+confidence = 0.94
+source = "factory"
+action_trigger = "When writing or revising an abstract"
+edge_case = "Some journals have structured abstract requirements (Objective, Methods, Results, Conclusions) — always check the target venue's format"
+tags = ["writing", "abstract", "summary"]

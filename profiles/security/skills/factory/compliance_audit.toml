@@ -1,0 +1,37 @@
+[skill]
+name = "compliance_audit"
+description = "Execute compliance control assessments against regulatory frameworks"
+trigger_phrases = ["audit", "compliance check", "compliance audit", "regulatory assessment", "control review"]
+agent = "incident_responder"
+model = "claude-sonnet-4-6"
+timeout_seconds = 360
+
+[[steps]]
+name = "select_framework"
+description = "Identify applicable compliance framework and scope of assessment"
+action = "Determine which framework(s) apply based on context: SOC 2 (SaaS/cloud services), PCI DSS (payment processing), HIPAA (healthcare/PHI), GDPR (EU personal data), NIST CSF (general cybersecurity), ISO 27001 (information security management). Define assessment scope: which systems, processes, and data flows are in-scope. Pull the current control matrix for the selected framework."
+sisters = ["contract", "memory"]
+
+[[steps]]
+name = "gather_evidence"
+description = "Collect evidence for each control point in the selected framework"
+action = "For each control: identify the evidence type required (configuration screenshot, access review log, policy document, scan result, training record). Pull automated evidence from compliance platform. For manual controls: request evidence from control owners with 5-business-day deadline. Track evidence collection status per control."
+sisters = ["contract", "memory", "reality"]
+
+[[steps]]
+name = "check_controls"
+description = "Evaluate each control for design effectiveness and operational effectiveness"
+action = "For each control with evidence: assess design (does the control address the requirement?) and operational effectiveness (is the control operating as designed over the assessment period?). Test a sample of control executions. Rate each control: effective, partially effective, or ineffective. Document testing methodology and sample size."
+sisters = ["contract", "aegis"]
+
+[[steps]]
+name = "identify_gaps"
+description = "Document control gaps, deficiencies, and areas requiring remediation"
+action = "For each ineffective or partially effective control: document the gap, root cause (missing process, missing technology, misconfiguration, training gap), risk implication, and recommended remediation with estimated effort. Prioritize gaps by risk: controls protecting sensitive data or critical systems get highest priority. Cross-reference gaps with known vulnerabilities for compounding risk."
+sisters = ["aegis", "contract"]
+
+[[steps]]
+name = "report"
+description = "Produce compliance assessment report with findings and remediation roadmap"
+action = "Generate report containing: executive summary (overall compliance posture, critical gaps, timeline to remediation), detailed findings per control domain, evidence inventory, gap analysis with risk ratings, remediation roadmap with milestones and owners, and appendix with raw evidence references. Format appropriate to audience: board-level summary + technical detail appendix."
+sisters = ["connect", "contract", "memory"]

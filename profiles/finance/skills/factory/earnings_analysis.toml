@@ -1,0 +1,49 @@
+[skill]
+name = "earnings_analysis"
+description = "Deep earnings analysis — filing parsing, quality assessment, estimate comparison, management signal extraction, and forward implications"
+version = "1.0.0"
+
+[trigger]
+patterns = [
+    "earnings",
+    "financial results",
+    "quarterly report",
+    "10-Q analysis",
+    "earnings surprise",
+    "earnings quality",
+]
+
+[[steps]]
+name = "parse_filing"
+action = "sister:data"
+tool = "data_query"
+description = "Parse the earnings filing for: reported revenue vs consensus, EPS (GAAP and non-GAAP), operating margins, free cash flow, forward guidance range, and any restatements or accounting policy changes"
+parameters = { parse_sections = ["income_statement", "cash_flow", "guidance", "accounting_policies", "segment_data"] }
+
+[[steps]]
+name = "check_quality"
+action = "compute"
+description = "Calculate earnings quality indicators: accrual ratio, NI-to-OCF divergence, DSO change, GAAP-to-non-GAAP gap, SBC as % of revenue, deferred revenue growth vs billings, and Beneish M-Score components"
+depends_on = ["parse_filing"]
+parameters = { indicators = ["accrual_ratio", "cash_conversion", "dso_change", "nongaap_gap", "sbc_ratio", "deferred_revenue", "m_score"] }
+
+[[steps]]
+name = "compare_estimates"
+action = "compute"
+description = "Compare reported figures to consensus estimates across all key metrics. Flag beat/miss magnitude in standard deviations. Check if the beat was 'quality' (revenue-driven) or 'low-quality' (cost-cutting, tax rate, one-time items)."
+depends_on = ["parse_filing"]
+parameters = { metrics = ["revenue", "eps_gaap", "eps_nongaap", "operating_margin", "fcf", "guidance_midpoint"] }
+
+[[steps]]
+name = "assess_management"
+action = "llm"
+description = "Analyze management commentary from the earnings call transcript for sentiment shifts, language changes from prior quarter, hedging language on guidance, and any references to macro headwinds or tailwinds"
+depends_on = ["parse_filing"]
+parameters = { model = "claude-sonnet-4-6", analyze = ["sentiment_shift", "language_changes", "guidance_tone", "risk_factors"] }
+
+[[steps]]
+name = "assess_implications"
+action = "llm"
+description = "Synthesize all analysis into an earnings assessment: overall quality grade (A-F), key surprises, forward implications for the stock and sector peers, and recommended position action with confidence level"
+depends_on = ["check_quality", "compare_estimates", "assess_management"]
+parameters = { model = "claude-sonnet-4-6", output_format = "earnings_assessment" }

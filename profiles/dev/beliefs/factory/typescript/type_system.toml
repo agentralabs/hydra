@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Enable strict mode in tsconfig.json from day one — strictNullChecks, noImplicitAny, and strictFunctionTypes catch entire categories of runtime errors at compile time"
+confidence = 0.95
+source = "factory"
+action_trigger = "When creating a new TypeScript project or tightening an existing one"
+edge_case = "Enabling strict mode on a large legacy JS-to-TS migration can produce thousands of errors — use the incremental flags (strictNullChecks first, then noImplicitAny) and fix file-by-file"
+tags = ["typescript", "type-system", "strict-mode", "tsconfig"]
+
+[[beliefs]]
+fact = "Discriminated unions (tagged unions) with a literal type field let TypeScript narrow types exhaustively — prefer them over type assertions or instanceof chains for variant data"
+confidence = 0.93
+source = "factory"
+action_trigger = "When modeling data that comes in multiple shapes, such as API responses, state machines, or AST nodes"
+edge_case = "Add a never check in the default/else branch to ensure exhaustiveness — if a new variant is added, the compiler will flag the unhandled case"
+tags = ["typescript", "type-system", "discriminated-unions", "pattern-matching"]
+
+[[beliefs]]
+fact = "Zod provides runtime validation that generates TypeScript types — use z.infer<typeof schema> to keep runtime checks and static types in sync without duplication"
+confidence = 0.90
+source = "factory"
+action_trigger = "When validating external data (API inputs, form submissions, config files) at application boundaries"
+edge_case = "Zod schemas add bundle size and runtime cost — use them at trust boundaries (API handlers, user input) but not for internal function calls where static types suffice"
+tags = ["typescript", "type-system", "zod", "validation"]
+
+[[beliefs]]
+fact = "Generic type parameters should be constrained with extends to communicate intent — <T extends Record<string, unknown>> is safer and more readable than bare <T>"
+confidence = 0.88
+source = "factory"
+action_trigger = "When writing reusable functions, hooks, or classes that operate on parameterized types"
+edge_case = "Over-constraining generics reduces reusability — only constrain to the minimum interface the function actually needs; use conditional types for complex transformations instead of deep constraints"
+tags = ["typescript", "type-system", "generics"]

@@ -12,11 +12,10 @@ impl Sisters {
     /// Queries decisions and their reasoning context for causal understanding.
     pub async fn memory_causal_query(&self, text: &str) -> Option<String> {
         let mem = self.memory.as_ref()?;
-        // Query decisions specifically — they have reasoning metadata
+        // No event_type filter — let Memory sister rank by relevance
         let result = mem.call_tool("memory_query", serde_json::json!({
             "query": text,
-            "event_types": ["decision"],
-            "max_results": 3,
+            "max_results": 20,
             "sort_by": "highest_confidence",
             "include_edges": true,
         })).await.ok()?;
@@ -42,95 +41,63 @@ impl Sisters {
 
     /// LEARN: Store a decision with proper edge types.
     /// Connects decisions to their reasoning context via caused_by edges.
-    pub async fn memory_store_decision(
-        &self,
-        decision: &str,
-        reasoning: &str,
-        context: &str,
-    ) {
+    pub async fn memory_store_decision(&self, decision: &str, reasoning: &str, context: &str) {
         if let Some(mem) = &self.memory {
-            let _ = mem.call_tool("memory_add", serde_json::json!({
-                "event_type": "decision",
-                "content": decision,
-                "confidence": 0.9,
-                "metadata": {
-                    "reasoning": safe_truncate(reasoning, 300),
-                    "context": safe_truncate(context, 200),
-                    "edge_type": "caused_by",
-                }
-            })).await;
+            match mem.call_tool("memory_add", serde_json::json!({
+                "event_type": "decision", "content": decision, "confidence": 0.9,
+                "metadata": { "reasoning": safe_truncate(reasoning, 300),
+                    "context": safe_truncate(context, 200), "edge_type": "caused_by" }
+            })).await {
+                Ok(_) => eprintln!("[hydra:memory] store_decision OK"),
+                Err(e) => eprintln!("[hydra:memory] store_decision FAILED: {}", e),
+            }
         }
     }
 
     /// LEARN: Store tool output as evidence linked to the action.
     /// Creates an evidence node with edges to the command that produced it.
-    pub async fn memory_store_evidence(
-        &self,
-        action: &str,
-        output: &str,
-        success: bool,
-    ) {
+    pub async fn memory_store_evidence(&self, action: &str, output: &str, success: bool) {
         if let Some(mem) = &self.memory {
-            let _ = mem.call_tool("memory_add", serde_json::json!({
+            match mem.call_tool("memory_add", serde_json::json!({
                 "event_type": "evidence",
-                "content": format!("Action: {}\nResult: {}\nSuccess: {}",
-                    safe_truncate(action, 100),
-                    safe_truncate(output, 300),
-                    success),
+                "content": format!("Action: {}\nResult: {}\nSuccess: {}", safe_truncate(action, 100), safe_truncate(output, 300), success),
                 "confidence": if success { 0.85 } else { 0.7 },
-                "metadata": {
-                    "edge_type": "produced_by",
-                    "action": safe_truncate(action, 100),
-                }
-            })).await;
+                "metadata": { "edge_type": "produced_by", "action": safe_truncate(action, 100) }
+            })).await {
+                Ok(_) => eprintln!("[hydra:memory] store_evidence OK"),
+                Err(e) => eprintln!("[hydra:memory] store_evidence FAILED: {}", e),
+            }
         }
     }
 
     /// LEARN: Store an obstacle resolution with caused_by edge to the error.
-    pub async fn memory_store_resolution(
-        &self,
-        error: &str,
-        solution: &str,
-    ) {
+    pub async fn memory_store_resolution(&self, error: &str, solution: &str) {
         if let Some(mem) = &self.memory {
-            let _ = mem.call_tool("memory_add", serde_json::json!({
+            match mem.call_tool("memory_add", serde_json::json!({
                 "event_type": "resolution",
-                "content": format!("Error: {}\nSolution: {}",
-                    safe_truncate(error, 200),
-                    safe_truncate(solution, 200)),
+                "content": format!("Error: {}\nSolution: {}", safe_truncate(error, 200), safe_truncate(solution, 200)),
                 "confidence": 0.9,
-                "metadata": {
-                    "edge_type": "caused_by",
-                    "error_context": safe_truncate(error, 100),
-                }
-            })).await;
+                "metadata": { "edge_type": "caused_by", "error_context": safe_truncate(error, 100) }
+            })).await {
+                Ok(_) => eprintln!("[hydra:memory] store_resolution OK"),
+                Err(e) => eprintln!("[hydra:memory] store_resolution FAILED: {}", e),
+            }
         }
     }
 
     /// LEARN: Store test results as structured episode with project edges.
-    pub async fn memory_store_test_results(
-        &self,
-        project: &str,
-        language: &str,
-        passed: u32,
-        failed: u32,
-        total: u32,
-    ) {
+    pub async fn memory_store_test_results(&self, project: &str, language: &str, passed: u32, failed: u32, total: u32) {
         if let Some(mem) = &self.memory {
-            let _ = mem.call_tool("memory_add", serde_json::json!({
+            match mem.call_tool("memory_add", serde_json::json!({
                 "event_type": "episode",
-                "content": format!("Test results for {}: {}/{} passed ({} failed)",
-                    project, passed, total, failed),
+                "content": format!("Test results for {}: {}/{} passed ({} failed)", project, passed, total, failed),
                 "confidence": 0.95,
-                "metadata": {
-                    "edge_type": "related_to",
-                    "project": project,
-                    "language": language,
-                    "test_passed": passed,
-                    "test_failed": failed,
-                    "test_total": total,
-                }
-            })).await;
+                "metadata": { "edge_type": "related_to", "project": project, "language": language,
+                    "test_passed": passed, "test_failed": failed, "test_total": total }
+            })).await {
+                Ok(_) => eprintln!("[hydra:memory] store_test_results OK"),
+                Err(e) => eprintln!("[hydra:memory] store_test_results FAILED: {}", e),
+            }
         }
     }
 
@@ -187,10 +154,12 @@ impl Sisters {
     /// SESSION: End current session — persists state for future resume.
     pub async fn memory_session_end(&self, summary: &str) {
         if let Some(mem) = &self.memory {
-            let _ = mem.call_tool("session_end", serde_json::json!({
-                "summary": safe_truncate(summary, 500),
-                "persist": true,
-            })).await;
+            match mem.call_tool("session_end", serde_json::json!({
+                "summary": safe_truncate(summary, 500), "persist": true,
+            })).await {
+                Ok(_) => eprintln!("[hydra:memory] session_end OK"),
+                Err(e) => eprintln!("[hydra:memory] session_end FAILED: {}", e),
+            }
         }
     }
 
@@ -198,18 +167,39 @@ impl Sisters {
     /// This is what enables "where did we stop?" — every exchange is captured.
     pub async fn memory_capture_exchange(&self, user_msg: &str, hydra_response: &str) {
         if let Some(mem) = &self.memory {
-            // Capture user message
-            let _ = mem.call_tool("memory_capture_message", serde_json::json!({
+            match mem.call_tool("memory_capture_message", serde_json::json!({
                 "role": "user",
                 "content": safe_truncate(user_msg, 500),
                 "importance": "normal",
-            })).await;
-            // Capture hydra response
-            let _ = mem.call_tool("memory_capture_message", serde_json::json!({
+            })).await {
+                Ok(_) => eprintln!("[hydra:memory] capture user msg OK"),
+                Err(e) => eprintln!("[hydra:memory] capture user msg FAILED: {}", e),
+            }
+            match mem.call_tool("memory_capture_message", serde_json::json!({
                 "role": "assistant",
                 "content": safe_truncate(hydra_response, 500),
                 "importance": "normal",
-            })).await;
+            })).await {
+                Ok(_) => eprintln!("[hydra:memory] capture hydra response OK"),
+                Err(e) => eprintln!("[hydra:memory] capture hydra response FAILED: {}", e),
+            }
+        } else {
+            eprintln!("[hydra:memory] capture skipped — memory sister not connected");
+        }
+    }
+
+    /// Store an episode in memory — used by capability handlers that bypass LEARN phase.
+    pub async fn memory_store_episode(&self, content: &str, metadata: &str) {
+        if let Some(mem) = &self.memory {
+            match mem.call_tool("memory_add", serde_json::json!({
+                "event_type": "episode",
+                "content": safe_truncate(content, 500),
+                "confidence": 0.9,
+                "metadata": metadata,
+            })).await {
+                Ok(_) => eprintln!("[hydra:memory] episode stored OK"),
+                Err(e) => eprintln!("[hydra:memory] episode store FAILED: {}", e),
+            }
         }
     }
 
@@ -219,7 +209,7 @@ impl Sisters {
         let mem = self.memory.as_ref()?;
         let result = mem.call_tool("memory_predict", serde_json::json!({
             "context": text,
-            "max_results": 5,
+            "max_results": 20,
             "include_confidence": true,
         })).await.ok()?;
         let extracted = extract_text(&result);

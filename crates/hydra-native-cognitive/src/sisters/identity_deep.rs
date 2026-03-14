@@ -32,21 +32,25 @@ impl Sisters {
     /// Record a trust damage event (failed action, broken promise).
     pub async fn identity_trust_damage(&self, domain: &str, reason: &str, severity: f64) {
         if let Some(id) = &self.identity {
-            let _ = id.call_tool("identity_trust_damage", serde_json::json!({
+            if let Err(e) = id.call_tool("identity_trust_damage", serde_json::json!({
                 "domain": domain,
                 "reason": safe_truncate(reason, 200),
                 "severity": severity,
-            })).await;
+            })).await {
+                eprintln!("[hydra:identity] identity_trust_damage FAILED: {}", e);
+            }
         }
     }
 
     /// Reinforce trust after successful action.
     pub async fn identity_trust_reinforce(&self, domain: &str, action: &str) {
         if let Some(id) = &self.identity {
-            let _ = id.call_tool("identity_trust_reinforce", serde_json::json!({
+            if let Err(e) = id.call_tool("identity_trust_reinforce", serde_json::json!({
                 "domain": domain,
                 "action": safe_truncate(action, 200),
-            })).await;
+            })).await {
+                eprintln!("[hydra:identity] identity_trust_reinforce FAILED: {}", e);
+            }
         }
     }
 
@@ -134,10 +138,12 @@ impl Sisters {
     /// Record a competence observation (skill demonstrated or lacking).
     pub async fn identity_competence_record(&self, skill: &str, level: f64) {
         if let Some(id) = &self.identity {
-            let _ = id.call_tool("identity_competence_record", serde_json::json!({
+            if let Err(e) = id.call_tool("identity_competence_record", serde_json::json!({
                 "skill": skill,
                 "level": level,
-            })).await;
+            })).await {
+                eprintln!("[hydra:identity] identity_competence_record FAILED: {}", e);
+            }
         }
     }
 
@@ -168,10 +174,12 @@ impl Sisters {
     /// Log identity actions for audit trail.
     pub async fn identity_actions_log(&self, action: &str, outcome: &str) {
         if let Some(id) = &self.identity {
-            let _ = id.call_tool("identity_actions", serde_json::json!({
+            if let Err(e) = id.call_tool("identity_actions", serde_json::json!({
                 "action": safe_truncate(action, 200),
                 "outcome": safe_truncate(outcome, 200),
-            })).await;
+            })).await {
+                eprintln!("[hydra:identity] identity_actions FAILED: {}", e);
+            }
         }
     }
 }

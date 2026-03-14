@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "Blog posts under 1000 words rarely rank — aim for 1500-2500 words for SEO-driven posts, with every section earning its length"
+confidence = 0.85
+source = "backlinko content length studies, HubSpot blog research"
+action_trigger = "when planning blog post length and outline depth"
+edge_case = "News posts, announcements, and update logs can be effective under 500 words; length advice applies to educational or evergreen content"
+tags = ["platforms", "blog", "word-count", "seo"]
+
+[[beliefs]]
+fact = "Twitter/X rewards the first line — front-load the insight, make it standalone, and never start with 'So' or throat-clearing"
+confidence = 0.88
+source = "platform engagement data, social media copywriting practice"
+action_trigger = "when composing tweets or thread hooks"
+edge_case = "Conversational threads between known followers can be more casual; the rule applies strongest to public-facing content"
+tags = ["platforms", "twitter", "hooks", "social-media"]
+
+[[beliefs]]
+fact = "LinkedIn favors short paragraphs (1-2 sentences), line breaks for scannability, and a hook in the first two lines before the 'see more' fold"
+confidence = 0.86
+source = "LinkedIn algorithm observations, B2B content marketing"
+action_trigger = "when formatting any LinkedIn post"
+edge_case = "Long-form LinkedIn articles (not posts) follow blog formatting rules more than feed-post rules"
+tags = ["platforms", "linkedin", "formatting", "social-media"]
+
+[[beliefs]]
+fact = "Newsletters succeed on consistency and personality — readers subscribe for the voice, not the information they can find elsewhere"
+confidence = 0.90
+source = "Substack growth data, newsletter industry analysis"
+action_trigger = "when writing or planning a recurring newsletter"
+edge_case = "Curated link newsletters succeed on selection quality rather than personal voice"
+tags = ["platforms", "newsletter", "voice", "consistency"]
+
+[[beliefs]]
+fact = "Repurpose one long-form piece into multiple platform-native formats — a blog post can yield a thread, a newsletter section, a LinkedIn post, and multiple short-form clips"
+confidence = 0.89
+source = "content repurposing strategy, Gary Vee content model"
+action_trigger = "after publishing any substantial piece of content"
+edge_case = "Repurposed content must be adapted to each platform's norms, not just copy-pasted with different formatting"
+tags = ["platforms", "repurposing", "content-strategy", "efficiency"]

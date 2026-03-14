@@ -1,0 +1,5 @@
+[permissions]
+file_write = true
+shell_exec = false
+network_access = true
+risk_threshold = "low"

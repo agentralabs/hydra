@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Consumer electronics peak in Q4 (holiday), fashion follows spring/fall buying cycles, and food/beverage has summer and holiday spikes"
+confidence = 0.90
+source = "factory"
+action_trigger = "When planning procurement timelines or inventory builds by product category"
+edge_case = "Back-to-school creates a secondary electronics peak in August; regional holidays shift timing significantly"
+tags = ["demand", "seasonality", "category"]
+
+[[beliefs]]
+fact = "Regional demand variation can be 40-60% — tropical markets have no winter apparel demand, monsoon regions shift construction material timing"
+confidence = 0.85
+source = "factory"
+action_trigger = "When allocating inventory across distribution centers in different regions"
+edge_case = "E-commerce blurs regional patterns; global events like World Cup create synchronized demand spikes"
+tags = ["demand", "seasonality", "regional"]
+
+[[beliefs]]
+fact = "Promotional lifts average 2-5x baseline for discounts over 20% — but cannibalize 30-50% from adjacent periods"
+confidence = 0.85
+source = "factory"
+action_trigger = "When factoring planned promotions into demand forecasts and inventory positioning"
+edge_case = "Deep discounts on staples cause pantry loading with months-long demand depression afterward"
+tags = ["demand", "promotions", "cannibalization"]
+
+[[beliefs]]
+fact = "Extreme weather events shift demand 24-72 hours before impact — generators, water, and plywood spike 500-1000% in hurricane warning zones"
+confidence = 0.80
+source = "factory"
+action_trigger = "When weather forecasts indicate severe events in served markets"
+edge_case = "Price gouging laws constrain pricing response; logistics capacity disappears simultaneously"
+tags = ["demand", "weather", "emergency"]

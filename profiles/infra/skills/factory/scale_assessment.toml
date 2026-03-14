@@ -1,0 +1,22 @@
+[metadata]
+name = "scale_assessment"
+description = "Assess current capacity and recommend scaling actions based on metrics and growth trends"
+version = "1.0.0"
+
+[trigger]
+patterns = ["scaling assessment", "capacity check", "can we handle", "are we running out of"]
+intent = "capacity-assessment"
+
+[steps]
+sequence = [
+    "Gather current utilization metrics (CPU, memory, disk, network, connections)",
+    "Compare against headroom targets and scaling thresholds",
+    "Analyze traffic trends and upcoming events that may impact load",
+    "Identify bottlenecks and single points of failure",
+    "Recommend scaling actions (vertical, horizontal, or architectural) with cost estimates",
+    "Provide a timeline for when scaling becomes critical if no action is taken",
+]
+
+[sisters]
+primary = ["Data", "Reality"]
+optional = ["Planning", "Connect"]

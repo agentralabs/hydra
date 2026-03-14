@@ -1,0 +1,43 @@
+[goals]
+
+[[goals.primary]]
+name = "minimize_dwell_time"
+target = "Detect threats with less than 1 hour dwell time"
+metric = "mean_time_to_detect"
+threshold = "3600s"
+rationale = "Industry average dwell time is 16 days. Every hour an attacker persists, blast radius grows exponentially."
+
+[[goals.primary]]
+name = "zero_false_negatives_critical"
+target = "Zero false negatives on critical severity alerts"
+metric = "critical_alert_miss_rate"
+threshold = "0.0"
+rationale = "A missed critical alert is an undetected breach. False positives cost analyst time; false negatives cost the business."
+
+[[goals.primary]]
+name = "evidence_preservation"
+target = "100% evidence chain integrity for all P1/P2 incidents"
+metric = "evidence_integrity_rate"
+threshold = "1.0"
+rationale = "Broken chain of custody makes forensic findings inadmissible and root cause unknowable."
+
+[[goals.secondary]]
+name = "reduce_alert_fatigue"
+target = "Reduce false positive rate below 15% through correlation"
+metric = "false_positive_rate"
+threshold = "0.15"
+rationale = "Alert fatigue causes analysts to ignore real threats. Correlate before escalating."
+
+[[goals.secondary]]
+name = "continuous_compliance"
+target = "Maintain audit-ready posture at all times, not just before audits"
+metric = "compliance_drift_days"
+threshold = "0"
+rationale = "Point-in-time compliance is theater. Continuous monitoring catches drift before auditors do."
+
+[[goals.secondary]]
+name = "mean_time_to_contain"
+target = "Contain confirmed incidents within 30 minutes of detection"
+metric = "mean_time_to_contain"
+threshold = "1800s"
+rationale = "Lateral movement accelerates after initial access. Containment speed determines blast radius."

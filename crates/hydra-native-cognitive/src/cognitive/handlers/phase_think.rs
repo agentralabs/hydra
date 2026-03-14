@@ -8,7 +8,7 @@ use tokio::sync::mpsc;
 use crate::cognitive::decide::DecideEngine;
 use crate::cognitive::inventions::InventionEngine;
 use crate::cognitive::spawner::AgentSpawner;
-use crate::sisters::SistersHandle;
+use crate::sisters::{SistersHandle, SisterGateway};
 use hydra_native_state::utils::safe_truncate;
 
 use super::super::loop_runner::{CognitiveLoopConfig, CognitiveUpdate};
@@ -43,6 +43,7 @@ pub(crate) async fn run_think(
     decide_engine: &Arc<DecideEngine>,
     inventions: &Option<Arc<InventionEngine>>,
     spawner: &Option<Arc<AgentSpawner>>,
+    gateway: &Option<Arc<SisterGateway>>,
     tx: &mpsc::UnboundedSender<CognitiveUpdate>,
 ) -> ThinkResult {
     use std::time::Instant;
@@ -267,20 +268,28 @@ pub(crate) async fn run_think(
         system_prompt
     };
 
-    // Build messages with conversation history
-    let history_limit = if is_simple { 6 } else { 20 };
-    let history_start = config.history.len().saturating_sub(history_limit);
-    let max_msg_chars = if is_simple { 500 } else { 2000 };
+    // UCU input_decomposer: enrich system prompt for large inputs
+    let system_prompt = if crate::cognitive::input_decomposer::needs_decomposition(text, 6000) {
+        let ctype = crate::cognitive::input_decomposer::detect_content_type(text);
+        let chunks = crate::cognitive::input_decomposer::decompose_input(text, 3000);
+        format!("{}\n\n# Input Context\nThe user's input is large ({} chars, {} sections of {:?} content). \
+            Process it systematically — address each section rather than summarizing.\n",
+            system_prompt, text.len(), chunks.len(), ctype)
+    } else { system_prompt };
+
+    // Build messages with conversation history — UCU context_manager for tier-aware trimming
+    let model_tier = crate::cognitive::context_manager::tier_from_model(&active_model);
+    let ctx_budget = crate::cognitive::context_manager::budget_for_tier(model_tier, intent, complexity);
+    let assembled = crate::cognitive::context_manager::assemble_context(
+        model_tier, &ctx_budget, &config.history, system_prompt.len(),
+    );
+    eprintln!("[hydra:context] tier={:?} history={}/{} est_tokens={}",
+        model_tier, assembled.history.len(), config.history.len(), assembled.estimated_tokens);
     let mut api_messages: Vec<hydra_model::providers::Message> = Vec::new();
-    for (role, content) in &config.history[history_start..] {
-        let trimmed = if content.len() > max_msg_chars {
-            format!("{}...", safe_truncate(content, max_msg_chars))
-        } else {
-            content.clone()
-        };
+    for (role, content) in &assembled.history {
         api_messages.push(hydra_model::providers::Message {
             role: role.clone(),
-            content: trimmed,
+            content: content.clone(),
         });
     }
 
@@ -300,6 +309,7 @@ pub(crate) async fn run_think(
         &llm_config,
         &config.model,
         sisters_handle,
+        gateway,
         perceive.perceive_ms,
         think_start,
         tx,

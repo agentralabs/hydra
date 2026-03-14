@@ -1,0 +1,21 @@
+[metadata]
+name = "test_strategy"
+description = "Design test plans covering unit, integration, and edge cases"
+version = "1.0.0"
+
+[trigger]
+patterns = ["write tests", "test plan", "how to test", "test coverage"]
+intent = "testing"
+
+[steps]
+sequence = [
+    "Identify the component or function under test",
+    "List happy-path scenarios",
+    "List edge cases and error conditions",
+    "Determine test level (unit vs integration)",
+    "Generate test skeletons with descriptive names",
+]
+
+[sisters]
+primary = ["Codebase", "Forge"]
+optional = ["Planning"]

@@ -1,0 +1,22 @@
+[metadata]
+name = "route_optimization"
+description = "Optimize shipment routing for cost, speed, and reliability across multi-modal networks"
+version = "1.0.0"
+
+[trigger]
+patterns = ["optimize route", "best shipping route", "reroute shipment", "cheapest way to ship"]
+intent = "logistics-optimization"
+
+[steps]
+sequence = [
+    "Identify origin, destination, weight, volume, and delivery deadline",
+    "Query available carriers and rates for each transport mode",
+    "Evaluate multi-modal combinations against time and cost constraints",
+    "Check for disruptions or congestion on candidate routes",
+    "Rank options by total cost, transit time, and reliability score",
+    "Recommend top route with alternatives and risk assessment",
+]
+
+[sisters]
+primary = ["Data", "Connect", "Planning"]
+optional = ["Time", "Workflow"]

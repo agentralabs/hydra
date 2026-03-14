@@ -294,7 +294,7 @@ impl App {
     // ── Debug ──
 
     pub(crate) fn slash_cmd_log(&mut self, timestamp: &str) {
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+        let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_else(|_| "/tmp".into());
         let log_path = format!("{}/.hydra/hydra-tui.log", home);
         match std::fs::read_to_string(&log_path) {
             Ok(content) => {

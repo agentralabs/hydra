@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Velocity-based slotting places top 20% SKUs within 50 feet of packing stations — reduces pick time 25-40% versus random placement"
+confidence = 0.90
+source = "factory"
+action_trigger = "When setting up a new warehouse or during quarterly slotting reviews"
+edge_case = "Seasonal SKU velocity shifts require re-slotting; heavy items need floor-level slots regardless of velocity"
+tags = ["warehouse", "slotting", "pick-efficiency"]
+
+[[beliefs]]
+fact = "Batch picking with zone routing increases throughput 2-3x over discrete order picking for warehouses processing 500+ orders per day"
+confidence = 0.85
+source = "factory"
+action_trigger = "When order volume exceeds single-picker capacity or pick density is low"
+edge_case = "High-value or fragile items may still need discrete picking for quality control; returns processing needs separate zones"
+tags = ["warehouse", "pick-pack", "throughput"]
+
+[[beliefs]]
+fact = "Cross-docking eliminates storage for predictable, pre-sorted inbound shipments — reduces handling cost 30% and cycle time from days to hours"
+confidence = 0.85
+source = "factory"
+action_trigger = "When inbound shipments can be pre-sorted by destination and outbound trucks are scheduled within 24 hours"
+edge_case = "Requires tight inbound scheduling; any inbound delay cascades to all outbound shipments"
+tags = ["warehouse", "cross-docking", "cycle-time"]
+
+[[beliefs]]
+fact = "WMS-directed putaway and picking with barcode verification reduces mispick rates from 1-3% to under 0.1%"
+confidence = 0.90
+source = "factory"
+action_trigger = "When error rates exceed 0.5% or when handling high-value or regulated inventory"
+edge_case = "WMS implementation takes 3-6 months; RF scanner batteries and WiFi dead zones cause floor interruptions"
+tags = ["warehouse", "wms", "accuracy"]

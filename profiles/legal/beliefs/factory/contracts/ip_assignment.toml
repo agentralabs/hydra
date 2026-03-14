@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Work-for-hire doctrine varies dramatically by jurisdiction — in the US, it requires either an employment relationship or a written agreement for specific categories of works"
+confidence = 0.93
+source = "factory"
+action_trigger = "When reviewing IP ownership provisions in contractor or employment agreements"
+edge_case = "Many countries do not recognize work-for-hire at all — a separate assignment clause is always safer than relying on work-for-hire doctrine"
+tags = ["contracts", "ip", "work-for-hire"]
+
+[[beliefs]]
+fact = "Joint ownership of IP is almost always a bad idea — each co-owner may have different exploitation rights depending on jurisdiction, creating unpredictable outcomes"
+confidence = 0.91
+source = "factory"
+action_trigger = "When a contract proposes joint IP ownership"
+edge_case = "Joint ownership with a clear co-ownership agreement specifying rights, revenue sharing, and decision-making can work — the problem is joint ownership without such an agreement"
+tags = ["contracts", "ip", "joint-ownership"]
+
+[[beliefs]]
+fact = "License grants must specify scope (exclusive vs non-exclusive), field of use, territory, duration, sublicensing rights, and what happens on termination"
+confidence = 0.94
+source = "factory"
+action_trigger = "When reviewing or drafting IP license provisions"
+edge_case = "Overly narrow licenses can prevent legitimate use; overly broad licenses can give away more than intended — match the scope to the actual business need"
+tags = ["contracts", "ip", "license-grants"]
+
+[[beliefs]]
+fact = "Moral rights (attribution, integrity) exist in many jurisdictions and cannot be assigned — they can only be waived, and waiver enforceability varies"
+confidence = 0.88
+source = "factory"
+action_trigger = "When dealing with creative works or international IP assignments"
+edge_case = "The US has minimal moral rights protection (VARA for visual art only) — but if the work will be used internationally, moral rights in other jurisdictions must be considered"
+tags = ["contracts", "ip", "moral-rights"]

@@ -76,19 +76,23 @@ impl Sisters {
     /// SESSION: Create a security session with Aegis — initializes threat tracking.
     pub async fn aegis_session_create(&self, user_name: &str) {
         if let Some(aegis) = &self.aegis {
-            let _ = aegis.call_tool("aegis_session_create", serde_json::json!({
+            if let Err(e) = aegis.call_tool("aegis_session_create", serde_json::json!({
                 "agent_id": user_name,
                 "session_type": "conversation",
-            })).await;
+            })).await {
+                eprintln!("[hydra:aegis] aegis_session_create FAILED: {}", e);
+            }
         }
     }
 
     /// SESSION: End Aegis security session — flushes threat log and audit trail.
     pub async fn aegis_session_end(&self, summary: &str) {
         if let Some(aegis) = &self.aegis {
-            let _ = aegis.call_tool("aegis_session_end", serde_json::json!({
+            if let Err(e) = aegis.call_tool("aegis_session_end", serde_json::json!({
                 "summary": safe_truncate(summary, 500),
-            })).await;
+            })).await {
+                eprintln!("[hydra:aegis] aegis_session_end FAILED: {}", e);
+            }
         }
     }
 

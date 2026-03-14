@@ -1,0 +1,15 @@
+[[beliefs]]
+fact = "The four golden signals (latency, traffic, errors, saturation) cover most monitoring needs"
+confidence = 0.90
+source = "factory"
+action_trigger = "When setting up monitoring for a new service"
+edge_case = "Domain-specific metrics (queue depth, cache hit rate) supplement but don't replace golden signals"
+tags = ["monitoring", "observability", "sre"]
+
+[[beliefs]]
+fact = "Alerts should be actionable — if the responder can't do anything, it's a notification, not an alert"
+confidence = 0.95
+source = "factory"
+action_trigger = "When creating alerting rules"
+edge_case = "Informational dashboards are fine; just don't page on them"
+tags = ["monitoring", "alerting", "oncall"]

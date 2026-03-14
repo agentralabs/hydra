@@ -7,12 +7,13 @@
 use tokio::sync::mpsc;
 
 use hydra_native_state::state::hydra::{CognitivePhase, PhaseState, PhaseStatus};
-use hydra_native_state::utils::safe_truncate;
+use hydra_native_state::utils::{safe_truncate, strip_emojis};
 
 use super::super::loop_runner::CognitiveUpdate;
 use super::super::intent_router::ClassifiedIntent;
 use super::llm_helpers::adaptive_max_tokens;
 use super::phase_think::ThinkResult;
+use crate::sisters::SisterGateway;
 
 /// Execute the LLM call and assemble the ThinkResult.
 ///
@@ -33,6 +34,7 @@ pub(crate) async fn execute_llm_call(
     llm_config: &hydra_model::LlmConfig,
     config_model: &str,
     sisters_handle: &Option<crate::sisters::SistersHandle>,
+    gateway: &Option<std::sync::Arc<SisterGateway>>,
     perceive_ms: u64,
     think_start: std::time::Instant,
     tx: &mpsc::UnboundedSender<CognitiveUpdate>,
@@ -72,26 +74,27 @@ pub(crate) async fn execute_llm_call(
     };
 
     let llm_result = if has_key {
+        // UCU token_budget — dynamic budget based on task context
+        let model_tier = crate::cognitive::context_manager::tier_from_model(active_model);
+        let token_ctx = crate::cognitive::token_budget::TaskContext {
+            intent: intent.category,
+            complexity: complexity.to_string(),
+            is_action: is_action_request,
+            history_length: api_messages.len(),
+            model_tier,
+            has_memory_context: true,
+            iteration: 0,
+            runtime_budget: 50_000,
+        };
+        let budget = crate::cognitive::token_budget::estimate_budget(&token_ctx);
+        eprintln!("[hydra:budget] max_output={} temp={:.1} reason={}",
+            budget.max_output_tokens, budget.temperature, budget.reasoning);
+
         let request = hydra_model::CompletionRequest {
             model: active_model.to_string(),
             messages: api_messages,
-            max_tokens: {
-                let model_max = match active_model {
-                    m if m.contains("opus") => 32_768,
-                    m if m.contains("sonnet") => 16_384,
-                    m if m.contains("haiku") => 8_192,
-                    m if m.contains("gpt-4o") => 16_384,
-                    m if m.contains("gpt-4") => 8_192,
-                    m if m.contains("gemini") => 8_192,
-                    m if m.contains("deepseek") => 8_000,
-                    m if m.contains("ollama") | m.contains("llama") | m.contains("phi") | m.contains("mistral") => 4_096,
-                    _ => 16_384,
-                };
-                let adaptive_max = adaptive_max_tokens(intent, complexity, is_action_request);
-                let task_max = std::cmp::min(adaptive_max, model_max);
-                if is_complex { task_max } else { std::cmp::min(task_max, model_max) }
-            },
-            temperature: Some(if is_complex { 0.3 } else { 0.7 }),
+            max_tokens: budget.max_output_tokens,
+            temperature: Some(budget.temperature as f64),
             system: Some(system_prompt),
         };
 
@@ -99,45 +102,51 @@ pub(crate) async fn execute_llm_call(
         let active_model_owned = active_model.to_string();
         let provider_owned = provider.to_string();
         let tx_stream = tx.clone();
-        // Signal TUI that streaming is about to begin — MUST happen before first StreamChunk
-        // so the TUI's is_thinking flag is true and chunks append to one message bubble.
+        let gateway_clone = gateway.clone();
         let _ = tx.send(CognitiveUpdate::Typing(true));
+
+        // Retry wrapper: on rate limit, wait 30s + retry (same or fallback provider)
         let llm_future = async {
-            let chunk_cb = |chunk: &str| {
-                let _ = tx_stream.send(CognitiveUpdate::StreamChunk { content: chunk.to_string() });
-            };
-            let result = match provider_owned.as_str() {
-                "anthropic" => {
-                    match hydra_model::providers::anthropic::AnthropicClient::new(&llm_config) {
-                        Ok(client) => client.complete_streaming(request, chunk_cb).await
-                            .map(|r| (r.content, r.model, r.input_tokens, r.output_tokens))
-                            .map_err(|e| format!("{}", e)),
-                        Err(e) => Err(format!("{}", e)),
+            let mut last_err = String::new();
+            for attempt in 0..3u8 {
+                let req = request.clone();
+                let prov = if attempt < 2 { provider_owned.as_str() } else {
+                    // 3rd attempt: try fallback provider
+                    match provider_owned.as_str() {
+                        "anthropic" if llm_config.openai_api_key.is_some() => "openai",
+                        "openai" if llm_config.anthropic_api_key.is_some() => "anthropic",
+                        _ => provider_owned.as_str(),
+                    }
+                };
+                let tx_s = tx_stream.clone();
+                let chunk_cb = move |chunk: &str| {
+                    let _ = tx_s.send(CognitiveUpdate::StreamChunk { content: strip_emojis(chunk) });
+                };
+                let result = call_streaming_provider(prov, req, &llm_config, chunk_cb).await;
+                let _ = tx_stream.send(CognitiveUpdate::StreamComplete);
+                match result {
+                    Ok(r) => return Ok(r),
+                    Err(e) => {
+                        let is_rate = is_rate_limit_err(&e);
+                        eprintln!("[hydra:llm] Attempt {} failed (rate_limit={}): {}", attempt+1, is_rate, safe_truncate(&e, 100));
+                        last_err = e.clone();
+                        if !is_rate || attempt == 2 { break; }
+                        // Sister-first: learn rate limit via gateway (Cognition + Memory)
+                        if let Some(ref gw) = gateway_clone {
+                            gw.learn_from_error(
+                                &format!("{} rate limited", prov),
+                                &format!("Wait and retry after backoff. Error: {}", safe_truncate(&e, 100)),
+                            ).await;
+                        }
+                        let wait = if attempt == 0 { 30 } else { 60 };
+                        let _ = tx_stream.send(CognitiveUpdate::StreamChunk {
+                            content: format!("\n\n[Rate limited -- retrying in {}s...]", wait),
+                        });
+                        tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
                     }
                 }
-                "openai" | "google" => {
-                    match hydra_model::providers::openai::OpenAiClient::new(&llm_config) {
-                        Ok(client) => client.complete_streaming(request, chunk_cb).await
-                            .map(|r| (r.content, r.model, r.input_tokens, r.output_tokens))
-                            .map_err(|e| format!("{}", e)),
-                        Err(e) => Err(format!("{}", e)),
-                    }
-                }
-                "ollama" => {
-                    let mut ollama_config = llm_config.clone();
-                    ollama_config.openai_api_key = Some("ollama".into());
-                    ollama_config.openai_base_url = "http://localhost:11434".into();
-                    match hydra_model::providers::openai::OpenAiClient::new(&ollama_config) {
-                        Ok(client) => client.complete_streaming(request, chunk_cb).await
-                            .map(|r| (r.content, r.model, r.input_tokens, r.output_tokens))
-                            .map_err(|e| format!("{}", e)),
-                        Err(e) => Err(format!("{}", e)),
-                    }
-                }
-                _ => Err("Unsupported provider".into()),
-            };
-            let _ = tx_stream.send(CognitiveUpdate::StreamComplete);
-            result
+            }
+            Err(last_err)
         };
 
         match tokio::time::timeout(llm_timeout, llm_future).await {
@@ -163,23 +172,49 @@ pub(crate) async fn execute_llm_call(
         Err(err) => (format!("Error: {}", err), config_model.to_string(), 0u64, 0u64),
     };
 
-    // ── Phase 4: MODEL ESCALATION — detect low-quality responses ──
+    // ── UCU COHERENCE CHECK — quality signal that affects response ──
+    let mut response_text = response_text;
     if llm_result.is_ok() {
-        if let Some(decision) = super::model_escalation::check_escalation(
-            &response_text, intent, complexity, active_model,
-        ) {
-            eprintln!(
-                "[hydra:escalation] DETECTED: {} → {} (reason: {})",
-                active_model, decision.target_model, decision.reason,
-            );
-            let _ = tx.send(CognitiveUpdate::ModelEscalated {
-                from: active_model.to_string(),
-                to: decision.target_model.clone(),
-                reason: decision.reason.to_string(),
-            });
-            // Escalation is recorded — future interactions will use
-            // select_initial_model() with category_success_rate to
-            // proactively pick stronger models for this category.
+        let score = crate::cognitive::coherence_checker::quick_coherence(&response_text, text);
+        if score < 0.3 {
+            eprintln!("[hydra:coherence] VERY LOW score={:.2}", score);
+            response_text.push_str("\n\n*Note: This response may not fully address your question. Please clarify if needed.*");
+        } else if score < 0.5 {
+            eprintln!("[hydra:coherence] LOW score={:.2}", score);
+        }
+    }
+
+    // ── Phase 4: ESCALATION PROTOCOL (UCU) — structured multi-level recovery ──
+    if llm_result.is_ok() {
+        let coherence = crate::cognitive::coherence_checker::quick_coherence(&response_text, text);
+        let attempt = if coherence < 0.3 { 1 } else { 0 };
+        let protocol = crate::cognitive::escalation_protocol::escalate(
+            &response_text, intent, complexity, active_model, attempt,
+        );
+        use crate::cognitive::escalation_protocol::EscalationLevel;
+        match protocol.level {
+            EscalationLevel::None => {}
+            EscalationLevel::RetryPrompt => {
+                if let Some(ref hint) = protocol.retry_prompt_hint {
+                    response_text.push_str(&format!("\n\n*[Hydra self-check: {}]*", hint));
+                }
+            }
+            EscalationLevel::DecomposeTask if !protocol.subtasks.is_empty() => {
+                response_text.push_str("\n\n**This task may need to be broken down:**\n");
+                for st in &protocol.subtasks { response_text.push_str(&format!("- {}\n", st)); }
+            }
+            EscalationLevel::UpgradeModel => {
+                if let Some(ref target) = protocol.target_model {
+                    let _ = tx.send(CognitiveUpdate::ModelEscalated {
+                        from: active_model.to_string(), to: target.clone(),
+                        reason: protocol.reason.clone(),
+                    });
+                }
+            }
+            EscalationLevel::HumanReview => {
+                response_text.push_str("\n\n*I'm having difficulty with this. Could you provide more context or break it into smaller parts?*");
+            }
+            _ => {}
         }
     }
 
@@ -227,4 +262,48 @@ pub(crate) async fn execute_llm_call(
         llm_config: llm_config.clone(),
         llm_ok,
     }
+}
+
+/// Dispatch a streaming LLM call to the right provider.
+async fn call_streaming_provider(
+    provider: &str,
+    request: hydra_model::CompletionRequest,
+    llm_config: &hydra_model::LlmConfig,
+    chunk_cb: impl Fn(&str),
+) -> Result<(String, String, u64, u64), String> {
+    match provider {
+        "anthropic" => {
+            let client = hydra_model::providers::anthropic::AnthropicClient::new(llm_config)
+                .map_err(|e| format!("{}", e))?;
+            client.complete_streaming(request, chunk_cb).await
+                .map(|r| (r.content, r.model, r.input_tokens, r.output_tokens))
+                .map_err(|e| format!("{}", e))
+        }
+        "openai" | "google" => {
+            let client = hydra_model::providers::openai::OpenAiClient::new(llm_config)
+                .map_err(|e| format!("{}", e))?;
+            client.complete_streaming(request, chunk_cb).await
+                .map(|r| (r.content, r.model, r.input_tokens, r.output_tokens))
+                .map_err(|e| format!("{}", e))
+        }
+        "ollama" => {
+            let mut cfg = llm_config.clone();
+            cfg.openai_api_key = Some("ollama".into());
+            cfg.openai_base_url = std::env::var("OLLAMA_HOST")
+                .unwrap_or_else(|_| "http://localhost:11434".to_string());
+            let client = hydra_model::providers::openai::OpenAiClient::new(&cfg)
+                .map_err(|e| format!("{}", e))?;
+            client.complete_streaming(request, chunk_cb).await
+                .map(|r| (r.content, r.model, r.input_tokens, r.output_tokens))
+                .map_err(|e| format!("{}", e))
+        }
+        _ => Err("Unsupported provider".into()),
+    }
+}
+
+/// Detect rate-limit errors from provider error strings.
+fn is_rate_limit_err(err: &str) -> bool {
+    let lower = err.to_lowercase();
+    lower.contains("429") || lower.contains("rate limit") || lower.contains("too many requests")
+        || lower.contains("overloaded") || lower.contains("capacity")
 }

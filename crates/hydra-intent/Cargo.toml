@@ -2,6 +2,8 @@
 name = "hydra-intent"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
 description = "Intent compiler for agentic-hydra: 4-layer token-conservative escalation"
 

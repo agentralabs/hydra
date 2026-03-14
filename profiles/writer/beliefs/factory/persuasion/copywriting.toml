@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "Sell benefits, not features — 'Save 2 hours every morning' beats '10x faster processing engine'"
+confidence = 0.93
+source = "direct response copywriting (Ogilvy, Halbert), conversion optimization research"
+action_trigger = "when writing any product description, landing page, or sales-adjacent content"
+edge_case = "Developer and technical audiences often want features and specs alongside benefits; provide both"
+tags = ["copywriting", "benefits", "features", "persuasion"]
+
+[[beliefs]]
+fact = "AIDA (Attention, Interest, Desire, Action) remains the most reliable structure for persuasive copy — grab attention, build interest, create desire, then ask for action"
+confidence = 0.87
+source = "advertising frameworks (E. St. Elmo Lewis), modern conversion copywriting"
+action_trigger = "when structuring any piece of copy intended to drive a specific action"
+edge_case = "Audiences already familiar with the product may not need the full Interest/Desire build-up; shorten to hook + CTA"
+tags = ["copywriting", "aida", "structure", "persuasion"]
+
+[[beliefs]]
+fact = "Social proof reduces friction — testimonials, numbers, and named examples are more persuasive than claims about quality"
+confidence = 0.91
+source = "Cialdini (Influence), conversion rate optimization studies"
+action_trigger = "when making any claim about quality, popularity, or effectiveness"
+edge_case = "New products without users need alternative proof: founder credentials, beta results, or logical demonstrations"
+tags = ["copywriting", "social-proof", "credibility", "persuasion"]
+
+[[beliefs]]
+fact = "Genuine urgency and scarcity drive action — but manufactured urgency ('Only 3 left!' when there are thousands) destroys trust permanently"
+confidence = 0.88
+source = "behavioral economics, Cialdini (scarcity principle), brand trust research"
+action_trigger = "when considering urgency or scarcity elements in copy"
+edge_case = "Some audiences (especially B2B) are resistant to urgency tactics; use deadline-based urgency tied to real business cycles instead"
+tags = ["copywriting", "urgency", "scarcity", "trust"]
+
+[[beliefs]]
+fact = "Every sentence in copy has one job: to make the reader want to read the next sentence"
+confidence = 0.90
+source = "Joseph Sugarman (The Adweek Copywriting Handbook)"
+action_trigger = "when reviewing copy for engagement and flow"
+edge_case = "Reference material and documentation prioritize findability over sequential reading; this rule applies to persuasive copy"
+tags = ["copywriting", "flow", "engagement", "readability"]

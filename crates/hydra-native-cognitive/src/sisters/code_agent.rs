@@ -195,11 +195,13 @@ impl Sisters {
     /// success=true means the pattern worked well; false means it failed.
     pub async fn code_learn_pattern(&self, code: &str, success: bool) {
         let Some(evolve) = self.evolve.as_ref() else { return };
-        let _ = evolve.call_tool("evolve_pattern_store", serde_json::json!({
+        if let Err(e) = evolve.call_tool("evolve_pattern_store", serde_json::json!({
             "pattern": safe_truncate(code, 1000),
             "success": success,
             "domain": "code_generation",
-        })).await;
+        })).await {
+            eprintln!("[hydra:evolve] evolve_pattern_store FAILED: {}", e);
+        }
     }
 
     /// Match existing patterns against a description.

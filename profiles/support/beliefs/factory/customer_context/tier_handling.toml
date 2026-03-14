@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Enterprise customers expect named account contacts, faster SLAs, and proactive issue notification — treat their tickets as P2 minimum unless clearly cosmetic"
+confidence = 0.90
+source = "factory"
+action_trigger = "When handling a ticket from an enterprise-tier account"
+edge_case = "Enterprise contacts sometimes route personal or non-contract issues through their business account"
+tags = ["customer", "tier", "enterprise"]
+
+[[beliefs]]
+fact = "SMB customers value efficiency and self-service resources — provide direct answers with links to documentation rather than lengthy explanations"
+confidence = 0.85
+source = "factory"
+action_trigger = "When handling a ticket from an SMB-tier account"
+edge_case = "SMB customers with high growth potential may warrant enterprise-level attention per account team guidance"
+tags = ["customer", "tier", "smb"]
+
+[[beliefs]]
+fact = "Individual/free-tier users get community resources and standard SLAs — but viral complaints from individual users can cause outsized reputation damage"
+confidence = 0.85
+source = "factory"
+action_trigger = "When handling a ticket from a free or individual-tier account"
+edge_case = "Influencers and developers with large followings may be on individual plans; check social presence if complaint is public"
+tags = ["customer", "tier", "individual"]
+
+[[beliefs]]
+fact = "Priority mapping should combine account tier with issue severity — enterprise P1 gets war-room treatment, individual P4 gets async queue"
+confidence = 0.90
+source = "factory"
+action_trigger = "When setting ticket priority and response expectations"
+edge_case = "Widespread outages affecting all tiers should be treated uniformly with public status page updates"
+tags = ["customer", "tier", "priority-mapping"]

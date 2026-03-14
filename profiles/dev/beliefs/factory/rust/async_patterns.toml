@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "tokio::spawn creates a new independent task — the spawned future must be 'static and Send, meaning it cannot borrow from the caller's stack"
+confidence = 0.95
+source = "factory"
+action_trigger = "When spawning async work that needs to outlive the current scope"
+edge_case = "If the spawned task only needs short-lived data, clone it into the closure rather than fighting lifetime constraints — Arc is the idiomatic escape hatch"
+tags = ["rust", "async", "tokio", "spawn"]
+
+[[beliefs]]
+fact = "tokio::join! runs multiple futures concurrently on the SAME task — it is not parallelism but cooperative interleaving, and all branches share the same cancel scope"
+confidence = 0.95
+source = "factory"
+action_trigger = "When multiple independent async operations should complete before continuing"
+edge_case = "If one branch panics, the entire join! panics — use tokio::try_join! when any branch can fail, so the others are cancelled promptly instead of hanging"
+tags = ["rust", "async", "tokio", "concurrency"]
+
+[[beliefs]]
+fact = "tokio::select! races multiple futures and cancels the losers — the cancelled branches are DROPPED mid-execution, which can leave shared state partially modified"
+confidence = 0.93
+source = "factory"
+action_trigger = "When implementing timeouts, cancellation, or first-response-wins patterns"
+edge_case = "Futures inside select! must be cancel-safe; holding a MutexGuard across an .await inside select! can cause deadlocks or lost updates when the branch is dropped"
+tags = ["rust", "async", "tokio", "select", "cancellation"]
+
+[[beliefs]]
+fact = "Structured concurrency — grouping related tasks so they share a lifetime and cancellation scope — prevents fire-and-forget leaks; prefer JoinSet or TaskTracker over bare tokio::spawn"
+confidence = 0.90
+source = "factory"
+action_trigger = "When spawning multiple tasks that logically belong to one operation or request"
+edge_case = "JoinSet only became stable in tokio 1.20+; for older versions, collect JoinHandles in a Vec and join them manually in a cleanup path"
+tags = ["rust", "async", "structured-concurrency", "tokio"]
+
+[[beliefs]]
+fact = "spawn_blocking moves synchronous CPU-bound or blocking-IO work to a dedicated thread pool, preventing it from starving the async runtime's cooperative scheduler"
+confidence = 0.95
+source = "factory"
+action_trigger = "When calling synchronous libraries, performing heavy computation, or doing file I/O inside an async context"
+edge_case = "The blocking thread pool has a default limit of 512 threads — if all are saturated, new spawn_blocking calls will queue and effectively deadlock the system; set TOKIO_BLOCKING_THREADS or restructure to bound concurrency"
+tags = ["rust", "async", "tokio", "blocking", "performance"]

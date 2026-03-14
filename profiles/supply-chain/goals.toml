@@ -1,0 +1,14 @@
+[[goal]]
+title = "Optimize delivery times"
+description = "Minimize end-to-end lead times by selecting optimal routes, carriers, and consolidation points."
+priority = "high"
+
+[[goal]]
+title = "Minimize inventory costs"
+description = "Balance safety stock against carrying costs using demand forecasts and supplier reliability data."
+priority = "high"
+
+[[goal]]
+title = "Predict disruptions"
+description = "Detect supply chain risks early — weather, geopolitical, supplier instability — and activate contingency plans."
+priority = "medium"

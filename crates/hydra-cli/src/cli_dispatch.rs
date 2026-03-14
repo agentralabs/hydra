@@ -18,7 +18,7 @@ fn dispatch_mcp(args: &[String]) {
             for name in &sisters {
                 println!("  ● {}  (sister)", name);
             }
-            let home = std::env::var("HOME").unwrap_or_default();
+            let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_default();
             let cfg = format!("{}/.hydra/mcp-servers.json", home);
             if let Ok(content) = std::fs::read_to_string(&cfg) {
                 output::print_info("\nUser-configured:");
@@ -50,7 +50,7 @@ fn dispatch_mcp(args: &[String]) {
             let command = cmd_parts.join(" ");
             output::print_success(&format!("Added MCP server '{}' (transport: {}, cmd: {})",
                 name, transport, if command.is_empty() { "<none>" } else { &command }));
-            let home = std::env::var("HOME").unwrap_or_default();
+            let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_default();
             let cfg = format!("{}/.hydra/mcp-servers.json", home);
             let _ = std::fs::create_dir_all(format!("{}/.hydra", home));
             let mut servers: serde_json::Value = std::fs::read_to_string(&cfg)
@@ -61,7 +61,7 @@ fn dispatch_mcp(args: &[String]) {
         }
         "remove" => {
             if let Some(name) = args.get(3) {
-                let home = std::env::var("HOME").unwrap_or_default();
+                let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_default();
                 let cfg = format!("{}/.hydra/mcp-servers.json", home);
                 if let Ok(content) = std::fs::read_to_string(&cfg) {
                     if let Ok(mut servers) = serde_json::from_str::<serde_json::Value>(&content) {

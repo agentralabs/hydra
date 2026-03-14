@@ -2,6 +2,8 @@
 name = "hydra-ux"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
 description = "UX engine for agentic-hydra: proactive updates, icon state, decisions, onboarding"
 

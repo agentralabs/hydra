@@ -10,6 +10,21 @@
 pub mod api_learner;
 pub mod doc_reader;
 pub mod skill_extractor;
+// Cognitive Amplification modules
+pub mod causal_model;
+pub mod meta_reasoning;
+pub mod compiled_reasoning;
+pub mod sister_synapse;
+pub mod reasoning_verifier;
+pub mod awareness_mesh;
+pub mod morning_briefing;
+pub mod production_orchestrator;
+pub mod remotion_bridge;
+pub mod social_reasoning;
+pub mod mentor_system;
+pub mod creative_engine;
+pub mod knowledge_hunter;
+pub mod economics_tracker;
 
 pub use api_learner::{ApiEndpoint, ApiKnowledge, FixKnowledge};
 pub use doc_reader::{DocFile, DocKind};

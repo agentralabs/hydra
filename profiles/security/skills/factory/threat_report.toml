@@ -1,0 +1,31 @@
+[skill]
+name = "threat_report"
+description = "Generate threat intelligence briefings from current intel sources"
+trigger_phrases = ["threat report", "briefing", "threat landscape", "intel summary", "threat assessment"]
+agent = "threat_hunter"
+model = "claude-sonnet-4-6"
+timeout_seconds = 300
+
+[[steps]]
+name = "gather_intel"
+description = "Collect current threat intelligence from all available sources"
+action = "Aggregate intelligence from: ISAC feeds relevant to organization's sector, CISA advisories and KEV catalog updates, vendor threat reports (CrowdStrike, Mandiant, Unit 42), dark web monitoring alerts, vulnerability disclosure feeds (NVD, vendor advisories), and internal threat hunting findings from the past reporting period."
+sisters = ["memory", "aegis"]
+
+[[steps]]
+name = "assess_relevance"
+description = "Filter intelligence for relevance to the organization's technology stack, industry, and threat profile"
+action = "For each intel item: does it target our industry? Does it exploit technology in our stack? Does the threat actor's geographic focus include our operations? Is the vulnerability present in our asset inventory? Score relevance 1-5. Discard items scoring below 2. Flag items scoring 4-5 for immediate action."
+sisters = ["aegis", "reality"]
+
+[[steps]]
+name = "prioritize_risks"
+description = "Rank threats by likelihood and potential impact to the organization"
+action = "For relevant threats: assess likelihood (threat actor capability x intent x opportunity) and impact (data sensitivity x system criticality x recovery difficulty). Produce a ranked risk list. Top 3 threats get detailed analysis including attack scenarios specific to our environment."
+sisters = ["aegis", "contract"]
+
+[[steps]]
+name = "write_executive_summary"
+description = "Produce a concise threat briefing suitable for technical and executive audiences"
+action = "Write two-section report: Executive Summary (1 page: top 3 threats, business risk in plain language, recommended actions with resource estimates) and Technical Appendix (detailed IOCs, TTPs mapped to ATT&CK, detection rule recommendations, affected systems, and remediation guidance). Include confidence levels for all assessments."
+sisters = ["connect", "memory"]

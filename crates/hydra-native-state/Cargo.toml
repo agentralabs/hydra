@@ -2,6 +2,8 @@
 name = "hydra-native-state"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
 description = "Shared types, state, and utilities for Hydra native"
 autobins = false

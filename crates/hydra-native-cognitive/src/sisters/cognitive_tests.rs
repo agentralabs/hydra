@@ -7,6 +7,7 @@ fn offline_sisters() -> Sisters {
         comm: None, contract: None, time: None,
         planning: None, cognition: None, reality: None,
         forge: None, aegis: None, veritas: None, evolve: None,
+        data: None, connect: None, workflow: None,
     }
 }
 

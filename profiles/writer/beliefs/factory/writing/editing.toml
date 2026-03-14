@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "The first draft is for getting ideas out — write without self-editing, accept imperfection, and prioritize completeness over polish"
+confidence = 0.92
+source = "Anne Lamott (Bird by Bird), writing process research"
+action_trigger = "when starting any new piece of writing"
+edge_case = "Experienced writers may effectively edit-as-they-go for short pieces; the rule matters most for longer or complex work"
+tags = ["editing", "first-draft", "process"]
+
+[[beliefs]]
+fact = "The second pass is for structure — reorder sections, cut tangents, ensure each paragraph earns its position in the argument"
+confidence = 0.88
+source = "developmental editing methodology"
+action_trigger = "after completing a first draft, before line-editing"
+edge_case = "Very short pieces (tweets, captions) may not need a dedicated structural pass"
+tags = ["editing", "structure", "second-pass"]
+
+[[beliefs]]
+fact = "The third pass is for clarity — simplify sentences, replace jargon, ensure every paragraph has one clear point"
+confidence = 0.89
+source = "line-editing best practices, Zinsser (On Writing Well)"
+action_trigger = "after structural editing is complete"
+edge_case = "Lyrical or literary writing may intentionally use complex sentence structures for effect"
+tags = ["editing", "clarity", "third-pass"]
+
+[[beliefs]]
+fact = "The fourth pass is for trimming — cut 10-20% of the word count by removing redundancies, filler, and weak qualifiers"
+confidence = 0.86
+source = "Stephen King ('kill your darlings'), professional copyediting"
+action_trigger = "as a final editing pass before publication"
+edge_case = "Some pieces are already lean; forcing a percentage cut on tight writing can remove necessary nuance"
+tags = ["editing", "trimming", "fourth-pass", "conciseness"]
+
+[[beliefs]]
+fact = "Rewriting is not failure — most published writing has been rewritten three to ten times; the willingness to rewrite separates professionals from amateurs"
+confidence = 0.93
+source = "interviews with professional authors, editing craft literature"
+action_trigger = "when a draft is not working and incremental edits are not fixing the core problem"
+edge_case = "Diminishing returns apply; know when a piece is good enough rather than pursuing infinite revision"
+tags = ["editing", "rewriting", "process", "mindset"]

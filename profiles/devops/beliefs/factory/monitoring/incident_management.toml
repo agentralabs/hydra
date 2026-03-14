@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Incidents must be classified by severity (SEV1-SEV4) with clear criteria — SEV1 is customer-facing outage, SEV2 is degraded service, SEV3 is internal tooling down, SEV4 is cosmetic or minor"
+confidence = 0.95
+source = "PagerDuty Incident Response framework and industry-standard severity matrices"
+action_trigger = "Incident declared or severity classification disputed during response"
+edge_case = "A SEV3 incident affecting an internal CI/CD pipeline before a critical release may warrant escalation to SEV2; context determines true impact"
+tags = ["monitoring", "incident-management", "severity", "classification"]
+
+[[beliefs]]
+fact = "Every SEV1 and SEV2 incident must have a designated incident commander who owns communication, coordination, and decision-making — responders must not self-organize without one"
+confidence = 0.96
+source = "Incident Command System (ICS) adapted for software operations"
+action_trigger = "SEV1 or SEV2 incident declared"
+edge_case = "Off-hours incidents may start with a single responder acting as both IC and resolver; escalate to a dedicated IC as soon as a second responder joins"
+tags = ["monitoring", "incident-management", "incident-commander", "coordination"]
+
+[[beliefs]]
+fact = "Every incident must produce a blameless postmortem within 5 business days — the document must include timeline, root cause, contributing factors, and concrete action items with owners and due dates"
+confidence = 0.97
+source = "Etsy/Google blameless postmortem culture and SRE best practices"
+action_trigger = "Incident resolved and status changed to post-incident review"
+edge_case = "Minor SEV4 incidents may use a lightweight template (timeline + one action item); full postmortems are required for SEV1-SEV3"
+tags = ["monitoring", "incident-management", "postmortem", "blameless"]
+
+[[beliefs]]
+fact = "Recurring incidents with the same root cause indicate an automation gap — after the second occurrence, a permanent fix or automated remediation must be prioritized over manual runbook updates"
+confidence = 0.93
+source = "Google SRE Book — Eliminating Toil chapter"
+action_trigger = "Postmortem reveals a root cause matching a previous incident"
+edge_case = "Some recurring issues depend on upstream vendor fixes; track them as known risks with compensating automation (auto-restart, circuit breaker) until the vendor resolves"
+tags = ["monitoring", "incident-management", "automation", "toil"]

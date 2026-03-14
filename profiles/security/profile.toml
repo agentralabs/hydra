@@ -1,0 +1,11 @@
+[profile]
+name = "security"
+domain = "security-operations"
+version = "1.0.0"
+description = "Security Operations Center brain — threat detection, incident response, forensics, and compliance"
+
+[defaults]
+response_style = "precise"
+verbosity = "detailed"
+risk_tolerance = "zero"
+escalation_threshold = "low"

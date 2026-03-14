@@ -158,6 +158,17 @@ impl ProjectReport {
         lines.join("\n")
     }
 
+    /// One-line summary for memory storage (e.g., "repo: SUCCESS — 47/47 tests passed").
+    pub fn one_line_summary(&self) -> String {
+        let total_passed: usize = self.test_results.iter().map(|r| r.passed).sum();
+        let total_tests: usize = self.test_results.iter().map(|r| r.total).sum();
+        if total_tests > 0 {
+            format!("{}: {} -- {}/{} tests passed", self.repo_name, self.status.label(), total_passed, total_tests)
+        } else {
+            format!("{}: {}", self.repo_name, self.status.label())
+        }
+    }
+
     /// Generate a detailed report table.
     pub fn detailed_table(&self) -> String {
         let mut lines = Vec::new();

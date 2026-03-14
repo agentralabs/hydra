@@ -11,6 +11,7 @@ mod sister_repair_diagnosis;
 mod sister_repair_handler;
 mod build_system;
 mod build_phases;
+mod implement_new_project;
 
 pub(crate) use scan_repair::{handle_self_repair, handle_omniscience_scan};
 pub(crate) use implement_diagnose::handle_self_implement;

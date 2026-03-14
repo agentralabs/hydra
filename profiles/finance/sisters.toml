@@ -1,0 +1,41 @@
+[sisters]
+
+[sisters.data]
+priority = "critical"
+rationale = "Every financial decision requires real-time and historical data — prices, volumes, positions, transactions. Data sister provides the unified query layer across all market and internal data sources."
+
+[sisters.connect]
+priority = "critical"
+rationale = "Financial operations span exchanges, clearinghouses, custodians, prime brokers, and regulators. Connect sister manages all external API integrations, FIX protocol sessions, and SWIFT messaging."
+
+[sisters.memory]
+priority = "critical"
+rationale = "Pattern recognition requires institutional memory — past fraud cases, historical regime transitions, prior compliance findings, and learned market behaviors. Memory sister stores and retrieves these patterns for real-time comparison."
+
+[sisters.time]
+priority = "critical"
+rationale = "Finance is time-critical at every scale — microsecond execution latency, T+1 settlement deadlines, quarterly reporting windows, options expiration calendars. Time sister tracks all temporal constraints and triggers."
+
+[sisters.contract]
+priority = "critical"
+rationale = "Every trade is a contract. ISDA masters, CSAs, prime brokerage agreements, and regulatory requirements all impose constraints on what can be traded, with whom, and under what terms. Contract sister enforces these."
+
+[sisters.aegis]
+priority = "high"
+rationale = "Risk management and security — position limits, exposure monitoring, access control, and threat detection for the financial infrastructure itself."
+
+[sisters.codebase]
+priority = "high"
+rationale = "Quantitative models, trading algorithms, and risk calculations live in code. Codebase sister enables rapid inspection and modification of these systems."
+
+[sisters.forge]
+priority = "medium"
+rationale = "Generating new analysis scripts, report templates, and monitoring rules on demand when existing tools are insufficient."
+
+[sisters.veritas]
+priority = "high"
+rationale = "Claim verification is essential — checking analyst assertions against data, validating compliance statements, cross-referencing fraud indicators."
+
+[sisters.cognition]
+priority = "medium"
+rationale = "Meta-reasoning about market analysis quality — detecting when models are overfit, when assumptions have drifted, when a regime change invalidates prior beliefs."

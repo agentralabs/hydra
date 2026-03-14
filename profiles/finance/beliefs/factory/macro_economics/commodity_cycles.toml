@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Commodity supercycles last 15-25 years (peak to peak) and are driven by structural supply-demand imbalances that take a decade to resolve through capex investment. The four identified supercycles peaked in 1917 (WWI industrialization), 1951 (post-WWII reconstruction), 1980 (oil shock/inflation), and 2008 (China urbanization). Whether a new supercycle began in 2020 (energy transition metals) is the critical macro question — if yes, copper, lithium, and nickel will see sustained price increases of 3-5x over 15 years."
+confidence = 0.78
+source = "Bilge/Erten 2012 supercycle identification, Jacks 2013 commodity terms of trade, Goldman Sachs supercycle research 2021"
+action_trigger = "If supercycle thesis is active → maintain a structural 5-10% portfolio allocation to energy transition metals (copper, lithium, nickel, cobalt), rebalance annually, do not trade cyclically within the structural position"
+edge_case = "Technology substitution can break supercycles — aluminum replaced copper in many applications in the 1970s, reducing the copper supercycle amplitude. If solid-state batteries reduce lithium demand, or iron-air batteries substitute for nickel, the current supercycle thesis fails."
+tags = ["macro", "commodities", "supercycle", "energy_transition"]
+
+[[beliefs]]
+fact = "Oil prices are 60% driven by OPEC+ production decisions and 40% by demand at the margin. OPEC+ compliance rates above 90% are required to maintain price floors — when compliance drops below 80% (members cheating on quotas), prices fall 15-25% within 3 months regardless of demand. Saudi Arabia's breakeven budget price ($80-85/bbl in 2024) sets the effective floor because the Kingdom will cut production unilaterally to defend this price."
+confidence = 0.87
+source = "OPEC+ production data 2016-2024, Saudi fiscal breakeven analysis, IEA oil market reports"
+action_trigger = "OPEC+ compliance drops below 85% in monthly data → short energy equities on 3-month view. Saudi announces voluntary cuts → prices will be defended, go long."
+edge_case = "US shale production responds to prices with a 4-6 month lag (DUC inventory → new completions). When WTI exceeds $85, shale producers increase activity, capping the upside. This creates a $65-95 price range under current technology — moves outside this range require either a demand shock or a supply shock."
+tags = ["macro", "commodities", "oil", "opec"]
+
+[[beliefs]]
+fact = "Gold has a -0.85 correlation with US real interest rates (10-year TIPS yield) over rolling 5-year periods — this is the strongest single predictor of gold prices. When real rates are below -1%, gold appreciates 15-25% annualized. When real rates are above +1%, gold depreciates 5-10% annualized. Gold's role as an 'inflation hedge' is misleading — it hedges negative REAL rates, not nominal inflation. In a high-inflation-plus-high-real-rates environment (1980-1981), gold crashed 45%."
+confidence = 0.91
+source = "Erb/Harvey 2013 golden dilemma, real rate / gold regression analysis 1970-2024, World Gold Council research"
+action_trigger = "Real rates crossing below 0% → accumulate gold to 5-10% of portfolio. Real rates crossing above +1.5% → reduce gold to 0-2%. Track TIPS yield as the primary gold allocation driver."
+edge_case = "Central bank gold buying (China, India, Russia since 2022 — 1,000+ tonnes/year) has created a structural demand floor that partially decouples gold from real rates. If central bank buying exceeds 800 tonnes/year, gold may hold value even with modestly positive real rates."
+tags = ["macro", "commodities", "gold", "real_rates"]
+
+[[beliefs]]
+fact = "Copper prices lead global GDP growth by 2-3 months because copper is consumed in construction, manufacturing, and electronics — the three most cyclically sensitive sectors. When copper falls more than 20% from its 52-week high while the ISM manufacturing PMI is still above 50, this divergence resolves in copper's favor (recovery) 65% of the time and in the PMI's favor (PMI declines to below 50) 35% of the time. 'Dr. Copper' is right more often than sentiment surveys."
+confidence = 0.86
+source = "Hamilton 2015 commodity-macro nexus, copper/GDP growth correlation analysis, LME data 2000-2024"
+action_trigger = "Copper declines > 20% from high while PMI > 50 → flag macro divergence, investigate whether copper is leading (growth slowing) or lagging (supply-specific issue), check Chinese copper imports for demand confirmation"
+edge_case = "China accounts for 55% of global copper consumption — a China-specific slowdown (property crisis, COVID lockdowns) can crash copper prices without signaling global recession. Always decompose the copper signal into China vs rest-of-world demand."
+tags = ["macro", "commodities", "copper", "gdp_leading"]

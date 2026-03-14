@@ -26,9 +26,81 @@ const PHASE_NAMES: &[(&str, &str)] = &[
     ("learn", "Recording outcomes"),
 ];
 
-/// Execute a cognitive loop for a run, emitting SSE events and updating DB.
-/// This is spawned as an async task from handle_run.
+/// Execute using the FULL cognitive engine (21 modules, 17 sisters) when available.
+/// Falls back to lightweight kernel if sisters aren't initialized.
 pub async fn execute_run(state: Arc<AppState>, run_id: String, intent: String) {
+    // If sisters are available, use the full cognitive loop (same as TUI/Desktop)
+    if state.sisters.is_some() {
+        execute_run_full(state, run_id, intent).await;
+        return;
+    }
+    // Fallback: lightweight kernel (no sisters)
+    execute_run_kernel(state, run_id, intent).await;
+}
+
+/// Full cognitive engine execution — all 21 modules, 17 sisters, profiles, beliefs.
+async fn execute_run_full(state: Arc<AppState>, run_id: String, intent: String) {
+    use hydra_native::cognitive::{CognitiveLoopConfig, CognitiveUpdate, run_cognitive_loop};
+    let overlay = state.prompt_overlay.lock().clone();
+    let beliefs = state.active_profile.lock().as_ref()
+        .map(|p| p.beliefs.clone()).unwrap_or_default();
+
+    let config = CognitiveLoopConfig {
+        text: intent.clone(),
+        anthropic_key: std::env::var("ANTHROPIC_API_KEY").unwrap_or_default(),
+        openai_key: std::env::var("OPENAI_API_KEY").unwrap_or_default(),
+        google_key: String::new(),
+        model: std::env::var("HYDRA_MODEL").unwrap_or_else(|_| "claude-sonnet-4-6".into()),
+        user_name: String::new(),
+        task_id: run_id.clone(),
+        history: Vec::new(),
+        session_count: 0,
+        anthropic_oauth_token: None,
+        runtime: Default::default(),
+        prompt_overlay: overlay,
+        active_beliefs: beliefs,
+    };
+
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<CognitiveUpdate>();
+    let sisters = state.sisters.clone();
+    let decide = state.decide_engine.clone();
+    let inv = Some(state.invention_engine.clone());
+    let notifier = Some(state.proactive_notifier.clone());
+    let spawner = Some(state.agent_spawner.clone());
+    let swarm = Some(state.swarm.clone());
+    let fed = Some(state.federation.clone());
+
+    // Update DB: running
+    let _ = state.db.update_run_status(&run_id, RunStatus::Running, None);
+    state.event_bus.publish(SseEvent::new(SseEventType::RunStarted,
+        serde_json::json!({"run_id": run_id, "intent": intent, "engine": "full"})));
+
+    // Spawn the full cognitive loop
+    let rid = run_id.clone();
+    tokio::spawn(async move {
+        run_cognitive_loop(config, sisters, tx, decide, None, inv, notifier, spawner,
+            None, None, fed, swarm).await;
+    });
+
+    // Collect response from updates
+    let mut final_response = String::new();
+    while let Some(update) = rx.recv().await {
+        match update {
+            CognitiveUpdate::StreamChunk { content } => final_response.push_str(&content),
+            CognitiveUpdate::Message { content, .. } => { if final_response.is_empty() { final_response = content; } }
+            CognitiveUpdate::ResetIdle => break,
+            _ => {}
+        }
+    }
+
+    let now = Utc::now().to_rfc3339();
+    let _ = state.db.update_run_status(&run_id, RunStatus::Completed, Some(&now));
+    state.event_bus.publish(SseEvent::new(SseEventType::RunCompleted,
+        serde_json::json!({"run_id": run_id, "status": "success", "response": final_response, "engine": "full"})));
+}
+
+/// Lightweight kernel execution (fallback when sisters aren't available).
+async fn execute_run_kernel(state: Arc<AppState>, run_id: String, intent: String) {
     let config = KernelConfig::default();
     let kernel = CognitiveLoop::new(config);
 

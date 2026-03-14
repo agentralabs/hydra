@@ -1,0 +1,22 @@
+[metadata]
+name = "disruption_response"
+description = "Detect supply chain disruptions and activate contingency plans"
+version = "1.0.0"
+
+[trigger]
+patterns = ["disruption alert", "supply risk", "port closed", "supplier down", "shipment delayed"]
+intent = "risk-mitigation"
+
+[steps]
+sequence = [
+    "Assess disruption scope — which suppliers, routes, and SKUs are affected",
+    "Estimate impact duration and inventory coverage remaining",
+    "Identify available alternatives (backup suppliers, alternate routes, substitute products)",
+    "Calculate cost and time impact of each contingency option",
+    "Execute the optimal response plan and notify stakeholders",
+    "Monitor recovery and adjust plans as situation evolves",
+]
+
+[sisters]
+primary = ["Data", "Workflow", "Connect"]
+optional = ["Time", "Planning", "Comm"]

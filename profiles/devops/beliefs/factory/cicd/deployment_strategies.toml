@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "Rolling deployments should be the default strategy — they replace instances incrementally with health checks gating each batch, balancing speed and safety"
+confidence = 0.92
+source = "Kubernetes default deployment strategy and production operational experience"
+action_trigger = "New service deployment pipeline created"
+edge_case = "Database schema changes that are not backward-compatible break rolling deploys; use expand-and-contract migration pattern or switch to blue-green"
+tags = ["cicd", "deployment", "rolling", "strategy"]
+
+[[beliefs]]
+fact = "Blue-green deployments must be used when the release requires an atomic cutover — both environments run simultaneously and traffic switches at the load balancer"
+confidence = 0.93
+source = "Martin Fowler — BlueGreenDeployment pattern"
+action_trigger = "Release involves breaking API changes, major version bump, or infrastructure migration"
+edge_case = "Long-running WebSocket or gRPC streams may drop on cutover; implement connection draining with a grace period matching the longest expected session"
+tags = ["cicd", "deployment", "blue-green", "strategy"]
+
+[[beliefs]]
+fact = "Canary deployments should gate every high-risk release — route a small percentage of traffic to the new version and promote only after metrics confirm no regression"
+confidence = 0.94
+source = "Google SRE Book — Release Engineering chapter"
+action_trigger = "Release flagged as high-risk, or service handles >1000 RPS"
+edge_case = "Canary effectiveness drops when traffic volume is too low to detect regressions statistically; set a minimum observation window and sample size threshold"
+tags = ["cicd", "deployment", "canary", "strategy"]
+
+[[beliefs]]
+fact = "Feature flags must decouple deployment from release — code ships dark and is activated independently, enabling instant rollback without redeployment"
+confidence = 0.95
+source = "Accelerate (Forsgren, Humble, Kim) — Continuous Delivery capabilities"
+action_trigger = "New user-facing feature development begins"
+edge_case = "Stale feature flags become tech debt; enforce a TTL and cleanup process — every flag must have an owner and a removal date in the tracking system"
+tags = ["cicd", "feature-flags", "release", "strategy"]
+
+[[beliefs]]
+fact = "Every deployment must have a tested rollback procedure that can execute in under 5 minutes — if you cannot roll back, you are not ready to deploy"
+confidence = 0.96
+source = "Production incident postmortems — slow rollbacks doubled mean-time-to-recovery"
+action_trigger = "Deployment pipeline created or pre-release checklist reviewed"
+edge_case = "Data migrations and schema changes may not be reversible; plan a forward-fix strategy and test it in staging before applying to production"
+tags = ["cicd", "rollback", "deployment", "reliability"]

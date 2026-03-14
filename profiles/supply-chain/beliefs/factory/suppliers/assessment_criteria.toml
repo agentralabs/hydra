@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Quality score should weight defect rate (PPM), incoming inspection pass rate, and customer return rate — target under 500 PPM for critical components"
+confidence = 0.90
+source = "factory"
+action_trigger = "When evaluating new suppliers or conducting quarterly supplier reviews"
+edge_case = "PPM alone misses systemic quality issues; audit the supplier's quality management system for root cause capability"
+tags = ["suppliers", "quality", "assessment"]
+
+[[beliefs]]
+fact = "Delivery performance measured as on-time-in-full (OTIF) — top suppliers achieve 95%+, below 85% triggers corrective action"
+confidence = 0.90
+source = "factory"
+action_trigger = "When ranking suppliers for allocation decisions or renewal negotiations"
+edge_case = "OTIF can be gamed by partial shipments marked complete; measure by line item not by order"
+tags = ["suppliers", "delivery", "otif"]
+
+[[beliefs]]
+fact = "Total cost of ownership includes unit price, freight, duties, quality costs, inventory carrying, and administration — unit price is typically only 60-70% of TCO"
+confidence = 0.85
+source = "factory"
+action_trigger = "When comparing supplier bids or evaluating near-shoring vs offshoring"
+edge_case = "Hidden costs like minimum order quantities, tooling amortization, and payment terms affect TCO significantly"
+tags = ["suppliers", "cost", "tco"]
+
+[[beliefs]]
+fact = "Supplier flexibility score measures lead time reduction capability, MOQ negotiability, and rush order acceptance rate"
+confidence = 0.80
+source = "factory"
+action_trigger = "When demand volatility is high or product lifecycle is short"
+edge_case = "Flexibility often comes at a premium; balance against cost targets and contractual minimums"
+tags = ["suppliers", "flexibility", "agility"]

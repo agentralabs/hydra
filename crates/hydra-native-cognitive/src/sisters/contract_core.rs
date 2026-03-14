@@ -88,10 +88,12 @@ impl Sisters {
     /// Set a risk limit for a category (fire-and-forget).
     pub async fn contract_risk_limit_set(&self, category: &str, limit: &str) {
         if let Some(contract) = &self.contract {
-            let _ = contract.call_tool("risk_limit_set", serde_json::json!({
+            if let Err(e) = contract.call_tool("risk_limit_set", serde_json::json!({
                 "category": safe_truncate(category, 500),
                 "limit": safe_truncate(limit, 500),
-            })).await;
+            })).await {
+                eprintln!("[hydra:contract] risk_limit_set FAILED: {}", e);
+            }
         }
     }
 

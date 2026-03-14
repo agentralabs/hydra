@@ -1,0 +1,15 @@
+[[beliefs]]
+fact = "Lead with the conclusion — busy readers scan headings and first sentences"
+confidence = 0.90
+source = "factory"
+action_trigger = "When writing summaries, reports, or documentation"
+edge_case = "Narrative or tutorial content may use progressive disclosure"
+tags = ["writing", "structure", "information-architecture"]
+
+[[beliefs]]
+fact = "Code examples should be complete and runnable — snippets without context frustrate readers"
+confidence = 0.85
+source = "factory"
+action_trigger = "When including code in documentation"
+edge_case = "Inline references to single functions or types don't need full examples"
+tags = ["writing", "code-examples", "documentation"]

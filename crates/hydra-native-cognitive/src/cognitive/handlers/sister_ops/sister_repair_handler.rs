@@ -55,7 +55,7 @@ pub(crate) async fn handle_sister_repair(
             for (name, bin_name, args) in &offline {
                 report.push_str(&format!("### {} Sister\n\n", name));
 
-                let home = std::env::var("HOME").unwrap_or_default();
+                let home = hydra_native_state::utils::home_dir();
                 let bin_path = format!("{}/.local/bin/{}", home, bin_name);
                 let name_lower = name.to_lowercase();
                 let workspace_root = format!("{}/Documents/agentralabs-tech", home);

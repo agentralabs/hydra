@@ -1,253 +1,93 @@
-//! Smart memory intent classification and intent-aware recall.
+//! Generic memory recall — no intent classification, no event_type filtering.
 //!
-//! Instead of always calling memory_query with raw user text,
-//! classify what the user is asking for and pick the right memory tool.
+//! RULE: Query broadly (semantic + recent), return plenty (max_results=20),
+//! let the LLM decide what's relevant. No hardcoded classifiers.
 
 use crate::sisters::SistersHandle;
 use crate::sisters::connection::extract_text;
 use super::memory::extract_memory_facts;
 
-/// What kind of memory query the user is making.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum MemoryIntent {
-    /// "what do you know about me" / "remember anything about me"
-    AboutMe,
-    /// "what did we talk about" / "last time" / "yesterday"
-    RecentConversation,
-    /// "what did I say about databases" / "remember the auth bug"
-    SpecificTopic(String),
-    /// Default: top relevant memories for context
-    General,
-}
-
-/// Classify user input into a memory intent — simple pattern matching, no LLM.
-pub(crate) fn classify_memory_intent(input: &str) -> MemoryIntent {
-    let lower = input.to_lowercase();
-
-    // AboutMe patterns
-    if lower.contains("about me")
-        || lower.contains("know about me")
-        || lower.contains("remember about me")
-        || lower.contains("what do you know")
-        || lower.contains("tell me about myself")
-        || lower.contains("what have you learned")
-    {
-        return MemoryIntent::AboutMe;
-    }
-
-    // RecentConversation patterns
-    if lower.contains("last time")
-        || lower.contains("we talked")
-        || lower.contains("we chatted")
-        || lower.contains("we discussed")
-        || lower.contains("yesterday")
-        || lower.contains("earlier today")
-        || lower.contains("last session")
-        || lower.contains("previous conversation")
-        || lower.contains("we were talking about")
-        || lower.contains("last week")
-        || lower.contains("recently")
-    {
-        return MemoryIntent::RecentConversation;
-    }
-
-    // SpecificTopic patterns — "about X", "regarding X", "the X bug"
-    let topic_prefixes = [
-        "what did i say about ",
-        "what did i tell you about ",
-        "do you remember ",
-        "remind me about ",
-        "what about ",
-        "regarding ",
-        "what do you know about ",
-        "tell me about ",
-    ];
-    for prefix in &topic_prefixes {
-        if let Some(rest) = lower.strip_prefix(prefix) {
-            let topic = rest.trim_end_matches('?').trim().to_string();
-            if !topic.is_empty() && topic != "me" {
-                return MemoryIntent::SpecificTopic(topic);
-            }
-        }
-    }
-
-    // Also catch mid-sentence "about X" patterns
-    if let Some(pos) = lower.find(" about ") {
-        let after = &lower[pos + 7..];
-        let topic = after.trim_end_matches('?').trim();
-        if !topic.is_empty()
-            && topic != "me"
-            && topic != "myself"
-            && topic.len() > 2
-        {
-            return MemoryIntent::SpecificTopic(topic.to_string());
-        }
-    }
-
-    MemoryIntent::General
-}
-
-/// Smart memory recall — picks the right memory tool based on intent.
+/// Generic memory recall — two queries, merged, no classification.
 ///
-/// Returns (facts_string, tool_used) for logging.
+/// Query 1: Semantic search for what the user is asking about (max 20)
+/// Query 2: Recent episodes for session context (max 10)
+/// Merge, dedup, return all. Let the LLM pick relevance.
 pub(crate) async fn smart_memory_recall(
     text: &str,
     sisters_handle: &SistersHandle,
-    is_simple: bool,
+    _is_simple: bool,
 ) -> Option<String> {
     let mem = sisters_handle.memory.as_ref()?;
-    let intent = classify_memory_intent(text);
-    let mem_limit = if is_simple { 5 } else { 10 };
+    eprintln!("[hydra:memory] Generic recall for '{}'", &text[..text.len().min(80)]);
 
-    eprintln!("[hydra:memory] Intent: {:?} for '{}'",
-        intent, &text[..text.len().min(80)]);
-
-    match intent {
-        MemoryIntent::AboutMe => {
-            let result = mem.call_tool("memory_query", serde_json::json!({
-                "query": "user preferences facts decisions identity",
-                "event_types": ["fact", "correction", "decision"],
-                "max_results": mem_limit, "sort_by": "highest_confidence"
-            })).await.ok()?;
-            let raw = extract_text(&result);
-            let facts = if raw.is_empty() || raw.contains("No memories found") {
-                vec![]
-            } else { extract_memory_facts(&raw) };
-            if !facts.is_empty() {
-                eprintln!("[hydra:memory] AboutMe: {} facts", facts.len());
-                return Some(facts.join("\n"));
+    // Query 1: Semantic search — no event_type filter, max 20
+    let semantic_fut = async {
+        match mem.call_tool("memory_query", serde_json::json!({
+            "query": text, "max_results": 20
+        })).await {
+            Ok(v) => {
+                let raw = extract_text(&v);
+                eprintln!("[hydra:memory] semantic query OK: {} chars", raw.len());
+                if raw.is_empty() || raw.contains("No memories found") { vec![] }
+                else { extract_memory_facts(&raw) }
             }
-            // Fallback cascade: longevity search → cognition model
-            eprintln!("[hydra:memory] AboutMe: primary empty, trying fallback cascade");
-            let longevity = mem.call_tool("memory_longevity_search", serde_json::json!({
-                "query": "user identity preferences", "limit": 3,
-                "include_layers": ["summary", "pattern"]
-            })).await.ok();
-            let lt = longevity.as_ref().map(|v| extract_text(v))
-                .filter(|t| !t.is_empty() && !t.contains("No memories"));
-            if let Some(t) = lt {
-                let f = extract_memory_facts(&t);
-                if !f.is_empty() { return Some(f.join("\n")); }
-            }
-            None
+            Err(e) => { eprintln!("[hydra:memory] semantic query FAILED: {}", e); vec![] }
         }
+    };
 
-        MemoryIntent::RecentConversation => {
-            // Try temporal recall first, then fall back to recent episodes
-            let temporal = mem.call_tool("memory_temporal_recall", serde_json::json!({
-                "query": text,
-                "limit": mem_limit
-            })).await.ok();
-            let temporal_text = temporal.as_ref()
-                .map(|v| extract_text(v))
-                .filter(|t| !t.is_empty() && !t.contains("No memories found"));
-
-            if let Some(t) = temporal_text {
-                let facts = extract_memory_facts(&t);
-                if !facts.is_empty() {
-                    eprintln!("[hydra:memory] RecentConversation (temporal): {} facts", facts.len());
-                    return Some(facts.join("\n"));
-                }
+    // Query 2: Recent episodes (temporal, last entries)
+    let recent_fut = async {
+        match mem.call_tool("memory_query", serde_json::json!({
+            "query": text, "max_results": 10, "sort_by": "most_recent"
+        })).await {
+            Ok(v) => {
+                let raw = extract_text(&v);
+                eprintln!("[hydra:memory] recent query OK: {} chars", raw.len());
+                if raw.is_empty() || raw.contains("No memories found") { vec![] }
+                else { extract_memory_facts(&raw) }
             }
-
-            // Fallback: query episodes
-            let result = mem.call_tool("memory_query", serde_json::json!({
-                "query": text,
-                "event_types": ["episode"],
-                "max_results": mem_limit,
-                "sort_by": "most_recent"
-            })).await.ok()?;
-            let raw = extract_text(&result);
-            if raw.is_empty() || raw.contains("No memories found") {
-                return None;
-            }
-            let facts = extract_memory_facts(&raw);
-            if facts.is_empty() { return None; }
-            eprintln!("[hydra:memory] RecentConversation (episodes): {} facts", facts.len());
-            Some(facts.join("\n"))
+            Err(e) => { eprintln!("[hydra:memory] recent query FAILED: {}", e); vec![] }
         }
+    };
 
-        MemoryIntent::SpecificTopic(ref topic) => {
-            // Use similarity search for the specific topic
-            let similar = mem.call_tool("memory_similar", serde_json::json!({
-                "content": topic,
-                "limit": mem_limit
-            })).await.ok();
-            let similar_text = similar.as_ref()
-                .map(|v| extract_text(v))
-                .filter(|t| !t.is_empty() && !t.contains("No memories found"));
+    let (semantic, recent) = tokio::join!(semantic_fut, recent_fut);
 
-            if let Some(s) = similar_text {
-                let facts = extract_memory_facts(&s);
-                if !facts.is_empty() {
-                    eprintln!("[hydra:memory] SpecificTopic '{}' (similar): {} facts", topic, facts.len());
-                    return Some(facts.join("\n"));
-                }
-            }
-
-            // Fallback: regular query with the topic
-            let result = mem.call_tool("memory_query", serde_json::json!({
-                "query": topic,
-                "max_results": mem_limit,
-                "sort_by": "highest_confidence"
-            })).await.ok()?;
-            let raw = extract_text(&result);
-            if raw.is_empty() || raw.contains("No memories found") {
-                return None;
-            }
-            let facts = extract_memory_facts(&raw);
-            if facts.is_empty() { return None; }
-            eprintln!("[hydra:memory] SpecificTopic '{}' (query): {} facts", topic, facts.len());
-            Some(facts.join("\n"))
-        }
-
-        MemoryIntent::General => {
-            let result = mem.call_tool("memory_query", serde_json::json!({
-                "query": text,
-                "max_results": if is_simple { 3 } else { 8 },
-                "sort_by": "highest_confidence"
-            })).await.ok()?;
-            let raw = extract_text(&result);
-            let facts = if raw.is_empty() || raw.contains("No memories found") {
-                vec![]
-            } else { extract_memory_facts(&raw) };
-            if facts.is_empty() {
-                // Fallback cascade: similar → longevity → predict
-                eprintln!("[hydra:memory] General: primary empty, trying fallback");
-                let similar = mem.call_tool("memory_similar", serde_json::json!({
-                    "content": text, "limit": 3
-                })).await.ok();
-                let st = similar.as_ref().map(|v| extract_text(v))
-                    .filter(|t| !t.is_empty() && !t.contains("No memories"));
-                if let Some(t) = st {
-                    let f = extract_memory_facts(&t);
-                    if !f.is_empty() { return Some(f.join("\n")); }
-                }
-                return None;
-            }
-            // Sort by relevance to input
-            let input_lower = text.to_lowercase();
-            let input_words: Vec<&str> = input_lower.split_whitespace()
-                .filter(|w| w.len() >= 3).collect();
-            let mut scored: Vec<(usize, &String)> = facts.iter()
-                .map(|f| {
-                    let fl = f.to_lowercase();
-                    let score = input_words.iter().filter(|w| fl.contains(*w)).count();
-                    (score, f)
-                }).collect();
-            scored.sort_by(|a, b| b.0.cmp(&a.0));
-            let sorted: Vec<String> = scored.iter().map(|(_, f)| (*f).clone()).collect();
-            eprintln!("[hydra:memory] General: {} facts (sorted)", sorted.len());
-            Some(sorted.join("\n"))
+    // Merge and dedup
+    let mut merged = semantic;
+    for fact in recent {
+        if !merged.iter().any(|existing| existing == &fact) {
+            merged.push(fact);
         }
     }
+
+    if merged.is_empty() {
+        eprintln!("[hydra:memory] No memories found from either query");
+        // Last resort: try memory_similar
+        if let Ok(v) = mem.call_tool("memory_similar", serde_json::json!({
+            "content": text, "limit": 10
+        })).await {
+            let raw = extract_text(&v);
+            if !raw.is_empty() && !raw.contains("No memories") {
+                let facts = extract_memory_facts(&raw);
+                if !facts.is_empty() {
+                    eprintln!("[hydra:memory] similarity fallback: {} facts", facts.len());
+                    return Some(facts.join("\n"));
+                }
+            }
+        }
+        return None;
+    }
+
+    eprintln!("[hydra:memory] Returning {} merged facts", merged.len());
+    Some(merged.join("\n"))
 }
 
-/// Check if a user message is a question (should NOT be stored as a memory).
+/// PRE-LLM OPTIMIZATION: Classifies whether input is a question before LLM.
+/// Known violation of "No Hardcoded Intelligence" rule — documented as tech debt.
+/// When modifying: prefer removing patterns and letting LLM handle classification.
 pub(crate) fn is_question(text: &str) -> bool {
     let trimmed = text.trim();
     let lower = trimmed.to_lowercase();
-
     trimmed.ends_with('?')
         || lower.starts_with("do you")
         || lower.starts_with("can you")
@@ -269,7 +109,9 @@ pub(crate) fn is_question(text: &str) -> bool {
         || lower.starts_with("have you")
 }
 
-/// Check if a user message is a greeting (should NOT be stored as a memory).
+/// PRE-LLM OPTIMIZATION: Classifies whether input is a greeting before LLM.
+/// Known violation of "No Hardcoded Intelligence" rule — documented as tech debt.
+/// When modifying: prefer removing patterns and letting LLM handle classification.
 pub(crate) fn is_greeting(text: &str) -> bool {
     let lower = text.trim().to_lowercase();
     let greetings = [
@@ -284,27 +126,6 @@ pub(crate) fn is_greeting(text: &str) -> bool {
     greetings.iter().any(|g| lower == *g || lower.starts_with(&format!("{} ", g)))
 }
 
-/// Classify the event type for memory storage based on content.
-pub(crate) fn classify_event_type(text: &str) -> &'static str {
-    let lower = text.to_lowercase();
-    if lower.contains("i prefer") || lower.contains("i like")
-        || lower.contains("my favorite") || lower.contains("i always use")
-        || lower.contains("i never use")
-    {
-        "fact"
-    } else if lower.starts_with("no,") || lower.starts_with("actually,")
-        || lower.contains("that's wrong") || lower.contains("i meant")
-    {
-        "correction"
-    } else if lower.contains("let's ") || lower.contains("i decided")
-        || lower.contains("we should") || lower.contains("i want to")
-    {
-        "decision"
-    } else {
-        "episode"
-    }
-}
-
 /// Compute a simple hash of memory recall results for dedup detection.
 pub(crate) fn hash_memory_response(facts: &str) -> u64 {
     use std::hash::{Hash, Hasher};
@@ -316,32 +137,6 @@ pub(crate) fn hash_memory_response(facts: &str) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_classify_about_me() {
-        assert_eq!(classify_memory_intent("what do you know about me?"), MemoryIntent::AboutMe);
-        assert_eq!(classify_memory_intent("tell me about myself"), MemoryIntent::AboutMe);
-    }
-
-    #[test]
-    fn test_classify_recent() {
-        assert_eq!(classify_memory_intent("what did we talk about last time?"), MemoryIntent::RecentConversation);
-        assert_eq!(classify_memory_intent("what were we discussing yesterday"), MemoryIntent::RecentConversation);
-    }
-
-    #[test]
-    fn test_classify_specific_topic() {
-        assert_eq!(classify_memory_intent("do you remember the auth bug?"),
-            MemoryIntent::SpecificTopic("the auth bug".to_string()));
-        assert_eq!(classify_memory_intent("what did I say about databases?"),
-            MemoryIntent::SpecificTopic("databases".to_string()));
-    }
-
-    #[test]
-    fn test_classify_general() {
-        assert_eq!(classify_memory_intent("help me with this code"), MemoryIntent::General);
-        assert_eq!(classify_memory_intent("write a function"), MemoryIntent::General);
-    }
 
     #[test]
     fn test_is_question() {
@@ -365,27 +160,11 @@ mod tests {
     }
 
     #[test]
-    fn test_classify_event_type() {
-        assert_eq!(classify_event_type("I prefer PostgreSQL"), "fact");
-        assert_eq!(classify_event_type("no, that's wrong"), "correction");
-        assert_eq!(classify_event_type("let's use Rust for this"), "decision");
-        assert_eq!(classify_event_type("run the tests"), "episode");
-    }
-
-    #[test]
     fn test_hash_dedup() {
         let h1 = hash_memory_response("fact1\nfact2");
         let h2 = hash_memory_response("fact1\nfact2");
         let h3 = hash_memory_response("different facts");
         assert_eq!(h1, h2);
         assert_ne!(h1, h3);
-    }
-
-    #[test]
-    fn test_about_me_not_specific_topic() {
-        // "about me" should be AboutMe, not SpecificTopic
-        assert_eq!(classify_memory_intent("what do you know about me"), MemoryIntent::AboutMe);
-        assert_ne!(classify_memory_intent("what do you know about me"),
-            MemoryIntent::SpecificTopic("me".to_string()));
     }
 }

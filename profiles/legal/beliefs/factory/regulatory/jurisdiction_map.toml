@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Which laws apply depends on where the parties are, where the work is performed, where the data resides, and where the end users are — not just the governing law clause"
+confidence = 0.93
+source = "factory"
+action_trigger = "When analyzing a cross-border transaction or multi-jurisdictional operation"
+edge_case = "Governing law clauses are generally respected for contractual disputes, but mandatory local laws (employment, consumer protection, data privacy) override contractual choice"
+tags = ["regulatory", "jurisdiction", "applicable-law"]
+
+[[beliefs]]
+fact = "Conflict of laws rules determine which jurisdiction's law applies when multiple jurisdictions have a claim — these rules are themselves jurisdiction-specific"
+confidence = 0.90
+source = "factory"
+action_trigger = "When two or more sets of laws could plausibly govern a situation"
+edge_case = "Conflict of laws analysis is one of the most complex areas of law — it often requires specialist counsel rather than general analysis"
+tags = ["regulatory", "jurisdiction", "conflict-of-laws"]
+
+[[beliefs]]
+fact = "Choice of law clauses select the substantive law that governs the contract — they should be paired with a forum selection or arbitration clause to avoid litigating the choice of law question"
+confidence = 0.92
+source = "factory"
+action_trigger = "When drafting or reviewing governing law provisions"
+edge_case = "Courts do not always honor choice of law clauses — particularly when the chosen law has no reasonable connection to the parties or transaction"
+tags = ["regulatory", "jurisdiction", "choice-of-law"]
+
+[[beliefs]]
+fact = "Forum selection clauses determine where disputes are litigated — exclusive forum selection provides certainty but may disadvantage the party farther from the chosen forum"
+confidence = 0.91
+source = "factory"
+action_trigger = "When reviewing or negotiating dispute resolution provisions"
+edge_case = "Mandatory arbitration may be preferable to forum selection for international contracts — enforceability of arbitral awards under the New York Convention is broader than enforcement of foreign court judgments"
+tags = ["regulatory", "jurisdiction", "forum-selection"]

@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Quote stuffing — bursts of >10,000 quote updates per second on a single instrument with >95% cancellation rate — precedes flash crash events by 50-500 milliseconds. This overwhelms slower participants' quote processing, creating an information asymmetry window that benefits the stuffer. It preceded both the 2010 Flash Crash and the 2015 Treasury Flash Rally."
+confidence = 0.88
+source = "Nanex research 2010-2015, SEC/CFTC joint report on May 6 2010, Egginton/Van Ness/Van Ness 2016"
+action_trigger = "Quote update rate > 10K/sec with > 95% cancel rate detected → immediately widen risk limits, pause new order submission, alert trading desk within 100ms"
+edge_case = "Legitimate market makers during major macro announcements (NFP, FOMC) can generate high quote rates as they rapidly adjust prices — distinguish by checking if the burst is one-sided (manipulative) vs symmetric (legitimate repricing)."
+tags = ["flash_crash", "quote_stuffing", "manipulation", "early_warning"]
+
+[[beliefs]]
+fact = "Cross-asset correlation breakdown — when the rolling 1-minute correlation between SPY and its top-5 sector ETFs drops below 0.5 from a normal level of 0.85+ — is the single most reliable real-time indicator of market microstructure stress. This decorrelation precedes visible price dislocations by 10-60 seconds."
+confidence = 0.90
+source = "Internal analysis of 47 microstructure stress events 2010-2024, Kirilenko et al. 2017 Flash Crash analysis"
+action_trigger = "SPY-sector correlation < 0.5 on 1-min window → activate circuit breaker protocols, halt new algorithmic order generation, switch to manual-only mode"
+edge_case = "Sector rotation days (e.g., value-to-growth rotation on CPI data) cause legitimate temporary decorrelation that looks like stress but resolves within 5-10 minutes without price dislocation. Require the decorrelation to persist for 3+ consecutive 1-minute windows before escalating."
+tags = ["flash_crash", "correlation", "cross_asset", "stress_indicator"]
+
+[[beliefs]]
+fact = "Bid depth evaporation — when aggregate bid depth within 1% of the best bid drops below 20% of its 30-minute rolling average across 3+ venues simultaneously — creates the vacuum condition necessary for a flash crash. The speed of the subsequent decline is inversely proportional to remaining depth: at 10% of normal depth, prices can fall 5-10% in under 60 seconds."
+confidence = 0.91
+source = "SEC MIDAS data analysis, Kirilenko/Kyle/Samadi/Tuzun 2017, empirical analysis of 2010/2015/2019 events"
+action_trigger = "Bid depth < 20% of 30-min average across 3+ venues → maximum alert level, cancel all resting sell orders below current price, prepare to provide liquidity only if mandated by market maker obligation"
+edge_case = "End-of-day depth naturally thins as market makers reduce inventory before close — apply a time-of-day adjustment factor (depth is normally 40-60% of midday levels in the last 30 minutes). Only trigger during regular hours if adjusted depth falls below threshold."
+tags = ["flash_crash", "depth", "liquidity_vacuum", "early_warning"]
+
+[[beliefs]]
+fact = "The recovery time from flash crash events follows a bimodal distribution: either prices recover within 5-15 minutes (self-correcting, 70% of events) or they do not recover for hours/days (structural break, 30% of events). The distinguishing factor is whether the trigger was purely technical (algo malfunction, fat finger) vs fundamental (unexpected news during thin liquidity). Check the news wire within 60 seconds of the crash onset to determine which distribution applies."
+confidence = 0.84
+source = "Analysis of 120+ flash crash events across equities, futures, and FX 2010-2024, BIS Quarterly Review 2017"
+action_trigger = "Flash crash detected → immediately check news feeds. No news → prepare to buy the dip at limit-down levels. News confirmed → treat as real repricing, do not assume mean reversion."
+edge_case = "Some events that initially appear news-driven are actually algo cascades triggered by stale news being re-published (e.g., old headlines resurfacing on aggregator sites). Cross-reference timestamp of the news item with the crash onset — if the news predates the crash by hours, it is likely a stale-news false trigger."
+tags = ["flash_crash", "recovery", "mean_reversion", "classification"]

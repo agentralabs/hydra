@@ -1,0 +1,9 @@
+[sisters]
+emphasize = ["Memory", "Identity", "Data", "Connect"]
+disable = []
+
+# Rationale: Writer profile emphasizes content-focused sisters.
+# Memory — recall prior drafts, style decisions, terminology.
+# Identity — maintain consistent voice and persona.
+# Data — research and structured content analysis.
+# Connect — publish and share content.

@@ -1,0 +1,48 @@
+[skill]
+name = "stress_test"
+description = "Run comprehensive portfolio stress tests — historical scenarios, hypothetical shocks, reverse stress testing, and threshold comparison"
+version = "1.0.0"
+
+[trigger]
+patterns = [
+    "stress test",
+    "scenario analysis",
+    "what if rates",
+    "worst case",
+    "tail risk",
+    "how bad could it get",
+]
+
+[[steps]]
+name = "define_scenarios"
+action = "llm"
+description = "Define stress scenarios: 3 historical (calibrated to actual market moves during GFC 2008, COVID 2020, rate shock 2022) and 3 hypothetical (tailored to the portfolio's specific risk concentrations — e.g., if long tech, test a tech-specific -30% scenario; if long credit, test a spread blowout). Include severity levels (1-sigma, 2-sigma, 3-sigma)."
+parameters = { model = "claude-opus-4-6", num_historical = 3, num_hypothetical = 3, severity_levels = [1, 2, 3] }
+
+[[steps]]
+name = "run_calculations"
+action = "compute"
+description = "Propagate each scenario's shocks through the portfolio using full revaluation (not delta-normal for options), incorporating cross-asset correlation assumptions under stress (correlations converge toward 1.0), and second-order effects (margin calls, forced liquidation, funding cost increases)"
+depends_on = ["define_scenarios"]
+parameters = { method = "full_revaluation", stress_correlations = true, include_second_order = true }
+
+[[steps]]
+name = "compare_thresholds"
+action = "compute"
+description = "Compare scenario results against: internal risk limits, regulatory capital requirements (Basel III/FRTB), prime broker margin requirements, and fund mandate constraints. Flag any scenario where losses would breach any limit."
+depends_on = ["run_calculations"]
+parameters = { thresholds = ["internal_limits", "regulatory_capital", "margin_requirements", "mandate_constraints"] }
+
+[[steps]]
+name = "reverse_stress_test"
+action = "llm"
+description = "Perform reverse stress testing: identify the minimum market move that would cause the portfolio to breach its primary risk limit. Express as specific asset price changes and probability estimates. This reveals unknown vulnerabilities."
+depends_on = ["run_calculations"]
+parameters = { model = "claude-opus-4-6", target = "primary_risk_limit_breach" }
+
+[[steps]]
+name = "present_results"
+action = "llm"
+description = "Present stress test results ranked by severity: worst-case P&L, probability-weighted expected loss, limit breaches, and specific recommended actions to reduce vulnerability. Include a clear executive summary suitable for risk committee presentation."
+depends_on = ["compare_thresholds", "reverse_stress_test"]
+parameters = { model = "claude-sonnet-4-6", output_format = "stress_test_report", include_executive_summary = true }

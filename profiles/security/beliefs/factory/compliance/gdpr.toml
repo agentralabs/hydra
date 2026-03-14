@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "GDPR grants data subjects eight fundamental rights: access (Art. 15), rectification (Art. 16), erasure/right to be forgotten (Art. 17), restriction of processing (Art. 18), data portability (Art. 20), objection (Art. 21), non-automated decision-making (Art. 22), and the right to be informed (Art. 13-14). Organizations must respond to subject access requests (SARs) within 30 days. The operational challenge: locating ALL personal data across ALL systems for a single individual within that window requires a pre-built data inventory."
+confidence = 0.96
+source = "GDPR Articles 13-22; ICO guidance on individual rights; EDPB guidelines"
+action_trigger = "Maintain a personal data inventory mapping every system that stores personal data, what categories of data, and what individuals. When a SAR arrives, the inventory enables complete data location within hours, not weeks."
+edge_case = "Unstructured data (email, Slack, documents, logs) containing personal data is the hardest to locate for SARs. Implement data discovery tools that can scan unstructured repositories, and minimize personal data in logs and communications."
+tags = ["data-subject-rights", "sar", "data-inventory", "gdpr"]
+
+[[beliefs]]
+fact = "Data Protection Impact Assessments (DPIAs) are mandatory under GDPR Article 35 for processing that is likely to result in high risk to individuals: systematic profiling, large-scale processing of special category data, or systematic monitoring of public areas. A DPIA must describe the processing, assess necessity and proportionality, evaluate risks to data subjects, and identify mitigating measures. DPIAs must be completed BEFORE processing begins — retroactive DPIAs are a compliance violation."
+confidence = 0.95
+source = "GDPR Article 35; EDPB DPIA guidelines; ICO DPIA guidance"
+action_trigger = "New projects involving personal data processing must undergo a DPIA screening. If any of the Article 35 criteria are met, a full DPIA is required before the project launches. Maintain a DPIA register with review dates."
+edge_case = "AI/ML systems processing personal data almost always require DPIAs due to systematic profiling criteria. The DPIA must address algorithmic fairness, automated decision transparency, and the right to human review of automated decisions."
+tags = ["dpia", "impact-assessment", "high-risk-processing", "gdpr"]
+
+[[beliefs]]
+fact = "GDPR Article 33 requires notification to the supervisory authority within 72 hours of becoming aware of a personal data breach, unless the breach is unlikely to result in a risk to individuals. Article 34 requires notification to affected individuals 'without undue delay' when the breach is likely to result in high risk. The 72-hour clock is unforgiving: initial notification can be partial, with supplementary information provided later, but missing the window entirely triggers enforcement action regardless of breach severity."
+confidence = 0.97
+source = "GDPR Articles 33-34; EDPB breach notification guidelines; DPA enforcement actions"
+action_trigger = "On suspected personal data breach: start the 72-hour clock at the moment the breach is confirmed. Submit initial notification to the supervisory authority within 72 hours even if the investigation is incomplete. Update with supplementary details as they become available."
+edge_case = "Multi-country breaches affecting individuals in multiple EU member states require notification to the lead supervisory authority (where the main establishment is). Determining the lead authority when operations span multiple countries requires legal analysis that should be done BEFORE a breach occurs."
+tags = ["72-hour-notification", "breach-reporting", "supervisory-authority", "gdpr"]
+
+[[beliefs]]
+fact = "Cross-border data transfers outside the EEA require a legal mechanism: adequacy decisions (limited countries: UK, Japan, South Korea, etc.), Standard Contractual Clauses (SCCs) with Transfer Impact Assessments (TIAs), Binding Corporate Rules (BCRs) for intra-group transfers, or derogations for occasional transfers with explicit consent. Post-Schrems II, SCCs require supplementary measures (encryption, pseudonymization) when transferring to countries without adequate data protection (notably the US, absent the EU-US Data Privacy Framework certification)."
+confidence = 0.94
+source = "GDPR Chapter V; Schrems II ruling (C-311/18); EDPB supplementary measures guidance; EU-US DPF"
+action_trigger = "Map all data flows that cross EEA borders. For each flow, identify the legal transfer mechanism. For SCC-based transfers, complete a TIA assessing destination country surveillance laws. For US transfers, verify the recipient is EU-US DPF certified."
+edge_case = "Cloud providers with global infrastructure may route data through non-EEA regions for processing or backup. Verify data residency settings in cloud provider contracts and enforce EEA region restrictions where required."
+tags = ["cross-border-transfers", "sccs", "adequacy", "schrems-ii", "gdpr"]

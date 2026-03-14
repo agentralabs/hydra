@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Incident response follows a strict phase order: Containment -> Eradication -> Recovery. Skipping containment to jump to eradication (e.g., reimaging a compromised host before isolating it) allows lateral movement to continue during remediation. Skipping eradication to jump to recovery (e.g., restoring from backup without removing persistence) guarantees re-compromise."
+confidence = 0.97
+source = "NIST SP 800-61r2; SANS Incident Handler's Handbook; IR engagement failures"
+action_trigger = "At incident declaration: first action is ALWAYS network isolation of confirmed-compromised systems. No cleanup, no reimaging, no credential resets until the blast radius is contained."
+edge_case = "Business-critical systems that cannot be isolated (e.g., payment processing, life safety) require compensating controls: enhanced monitoring, network microsegmentation, and application-layer restrictions rather than full isolation."
+tags = ["incident-response", "containment", "eradication", "recovery", "phase-order"]
+
+[[beliefs]]
+fact = "Evidence preservation must happen BEFORE containment actions alter system state. Volatile evidence (memory, network connections, running processes, logged-in users) is destroyed by reboots, isolation, or reimaging. Collection order: memory dump -> network connections -> process listing -> open files -> registry hives -> disk image. A 10-minute evidence collection delay before containment is almost always worth it."
+confidence = 0.95
+source = "RFC 3227 (Evidence Collection Order); SANS FOR500; digital forensics best practices"
+action_trigger = "Before isolating any system: capture memory dump (using winpmem/LiME), running process list with full command lines, network connections (netstat -anob), and logged-in sessions. Then isolate."
+edge_case = "Active ransomware encryption in progress may require immediate isolation before evidence collection to prevent further damage. This is the ONE exception — and even then, if possible, capture memory while isolating at the network level rather than powering off."
+tags = ["evidence-preservation", "volatile-data", "memory-forensics", "collection-order"]
+
+[[beliefs]]
+fact = "Every incident requires a communication plan activated within the first 30 minutes: who is notified internally (SOC lead, CISO, legal, PR), what external parties need notification (law enforcement, regulators, customers, cyber insurance), and what information can be shared at each stage. Communication failures during incidents cause more lasting damage than the technical breach itself."
+confidence = 0.93
+source = "Post-incident reviews; Equifax/Target breach communication failures; GDPR/SEC notification requirements"
+action_trigger = "At P1 incident declaration: activate communication tree. Internal stakeholders notified within 30 minutes. Legal consulted within 1 hour for regulatory notification obligations. External communications drafted but NOT sent without legal approval."
+edge_case = "Over-communication during active investigation can tip off the attacker (if they have email access) or create legal liability. Use out-of-band communication channels (Signal, phone) during incidents involving potential email compromise."
+tags = ["communication-plan", "notification", "stakeholder-management", "legal"]
+
+[[beliefs]]
+fact = "The first 15 minutes of incident response determine the outcome. Actions taken in this window: (1) confirm the alert is a true positive with at least two corroborating data points, (2) assess initial blast radius by checking lateral movement indicators, (3) activate the incident response team with a severity classification, (4) begin evidence preservation on the initially-compromised system. Delays in this window compound — every minute of inaction during active compromise is a minute of attacker progress."
+confidence = 0.96
+source = "SOC operational metrics; SANS IR playbooks; post-incident timeline analysis"
+action_trigger = "On any P1/P2 alert: start a 15-minute timer. By minute 5: true positive confirmed or escalated. By minute 10: blast radius assessment complete. By minute 15: IR team activated and evidence collection initiated."
+edge_case = "Overnight and weekend alerts may not have senior analysts available. Automated containment playbooks for confirmed-IOC scenarios (known-malicious hash, confirmed C2 domain) should execute without human approval to cover the gap."
+tags = ["golden-hour", "first-response", "triage-speed", "automated-containment"]

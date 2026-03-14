@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Most users only discover 30-40% of product features organically — proactive feature education during support interactions increases adoption and reduces future tickets"
+confidence = 0.85
+source = "factory"
+action_trigger = "When a customer's issue could be solved by a feature they don't know about"
+edge_case = "Avoid overwhelming frustrated customers with feature tours — solve their immediate problem first"
+tags = ["product", "features", "adoption"]
+
+[[beliefs]]
+fact = "Feature limitations should be communicated as scope boundaries, not defects — frame as design decisions with workarounds when possible"
+confidence = 0.85
+source = "factory"
+action_trigger = "When a customer requests functionality that doesn't exist"
+edge_case = "If the limitation is causing significant pain, escalate as a feature request with business impact data"
+tags = ["product", "limitations", "communication"]
+
+[[beliefs]]
+fact = "Version differences cause 25% of support tickets — always confirm the customer's exact version before troubleshooting"
+confidence = 0.90
+source = "factory"
+action_trigger = "When starting any troubleshooting session"
+edge_case = "Customers on legacy versions may not be able to upgrade; provide version-appropriate guidance"
+tags = ["product", "versioning", "troubleshooting"]
+
+[[beliefs]]
+fact = "Integration points (APIs, webhooks, SSO) generate disproportionate support volume — maintain a living compatibility matrix with known partner issues"
+confidence = 0.85
+source = "factory"
+action_trigger = "When a ticket involves third-party integration failures"
+edge_case = "Partner API changes can break integrations without notice; check partner status pages and changelogs"
+tags = ["product", "integrations", "compatibility"]

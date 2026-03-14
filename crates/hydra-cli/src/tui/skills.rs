@@ -34,7 +34,7 @@ pub struct AgentDef {
 
 /// Load all skills from project and personal directories.
 pub fn load_skills() -> Vec<SkillDef> {
-    let home = std::env::var("HOME").unwrap_or_default();
+    let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_default();
     let mut skills = Vec::new();
 
     // Project skills
@@ -96,7 +96,7 @@ fn parse_skill_file(path: &Path, source: SkillSource) -> Option<SkillDef> {
 
 /// Load all agent definitions.
 pub fn load_agents() -> Vec<AgentDef> {
-    let home = std::env::var("HOME").unwrap_or_default();
+    let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_default();
     let mut agents = Vec::new();
 
     load_agents_from_dir(Path::new(".hydra/agents"), SkillSource::Project, &mut agents);

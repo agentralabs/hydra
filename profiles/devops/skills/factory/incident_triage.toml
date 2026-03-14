@@ -1,0 +1,21 @@
+[metadata]
+name = "incident_triage"
+description = "Triage production incidents by gathering context and suggesting mitigations"
+version = "1.0.0"
+
+[trigger]
+patterns = ["incident", "outage", "service down", "high error rate", "pages"]
+intent = "incident-response"
+
+[steps]
+sequence = [
+    "Gather current state — which services affected, error rates, user impact",
+    "Check recent deployments and config changes",
+    "Identify likely root cause from symptoms",
+    "Suggest immediate mitigation (rollback, feature flag, traffic shift)",
+    "Document timeline for post-incident review",
+]
+
+[sisters]
+primary = ["Reality", "Memory", "Connect"]
+optional = ["Comm"]

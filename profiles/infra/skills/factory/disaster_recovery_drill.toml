@@ -1,0 +1,22 @@
+[metadata]
+name = "disaster_recovery_drill"
+description = "Plan and execute DR drills to validate recovery procedures and measure RTO/RPO"
+version = "1.0.0"
+
+[trigger]
+patterns = ["DR drill", "disaster recovery test", "failover test", "recovery drill"]
+intent = "dr-validation"
+
+[steps]
+sequence = [
+    "Select the workload and DR scenario to test (region failure, database corruption, etc.)",
+    "Brief the team on roles, communication channels, and success criteria",
+    "Execute the failover procedure following the documented runbook",
+    "Measure actual RTO and RPO against targets",
+    "Validate data integrity and application functionality in DR environment",
+    "Document findings, gaps, and runbook improvements needed",
+]
+
+[sisters]
+primary = ["Workflow", "Reality"]
+optional = ["Connect", "Comm", "Data"]

@@ -2,6 +2,8 @@
 name = "hydra-observability"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
 description = "Structured logging, metrics, and distributed tracing for Hydra"
 

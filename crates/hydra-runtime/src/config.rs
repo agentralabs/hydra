@@ -190,6 +190,7 @@ impl HydraRuntimeConfig {
 
 fn default_data_dir() -> PathBuf {
     std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
         .map(|h| PathBuf::from(h).join(".hydra"))
         .unwrap_or_else(|_| PathBuf::from("/tmp/.hydra"))
 }

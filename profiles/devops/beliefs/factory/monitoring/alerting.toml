@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Every alert must be classified into exactly one tier: page (wake someone up), ticket (fix next business day), or log (informational, no action) — unclassified alerts default to log"
+confidence = 0.95
+source = "Google SRE Book — Monitoring Distributed Systems chapter"
+action_trigger = "New alert rule created or existing alert reviewed"
+edge_case = "During incident escalation, a ticket-tier alert may temporarily be promoted to page-tier; ensure auto-demotion after the incident window closes"
+tags = ["monitoring", "alerting", "severity", "classification"]
+
+[[beliefs]]
+fact = "Alert fatigue is a system reliability risk — if on-call engineers receive more than 2 pages per shift on average, the alerting configuration must be tuned before adding new alerts"
+confidence = 0.94
+source = "PagerDuty Incident Response Operations Guide"
+action_trigger = "Monthly on-call review or alert volume exceeds threshold"
+edge_case = "Seasonal traffic spikes (Black Friday, launches) may temporarily increase alerts; pre-adjust thresholds and suppress known-noisy alerts during planned events"
+tags = ["monitoring", "alerting", "fatigue", "on-call"]
+
+[[beliefs]]
+fact = "Every page-tier alert must include a runbook link, affected service name, and a clear description of what is broken and what the responder should do first"
+confidence = 0.96
+source = "Incident response postmortems — alerts without context increased MTTR by 40%"
+action_trigger = "Page-tier alert created or modified"
+edge_case = "Novel failure modes may not have runbooks yet; the alert should link to a generic triage template and flag the gap for post-incident documentation"
+tags = ["monitoring", "alerting", "runbooks", "actionable"]
+
+[[beliefs]]
+fact = "Alerts that have not fired in 6 months must be reviewed — either the threshold is wrong, the failure mode no longer applies, or the alert should be removed to reduce configuration debt"
+confidence = 0.90
+source = "Operational hygiene practices — unused alerts mask real signal and slow config reviews"
+action_trigger = "Quarterly alert audit or monitoring configuration cleanup sprint"
+edge_case = "Alerts for rare but catastrophic events (data corruption, AZ loss) should be retained even if unfired; tag them as disaster-class and exempt from the 6-month review"
+tags = ["monitoring", "alerting", "hygiene", "review"]

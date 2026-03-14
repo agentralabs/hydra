@@ -22,12 +22,12 @@ pub mod slash_commands_model;
 pub mod slash_commands_ssh;
 pub mod slash_commands_sister_improve;
 pub mod slash_commands_swarm;
+pub mod slash_commands_profile;
 pub mod settings;
 pub mod skills;
 pub mod theme;
 pub mod ui;
 pub mod widgets;
-
 use std::io;
 #[cfg(unix)]
 use std::os::unix::io::AsRawFd;
@@ -50,7 +50,7 @@ use hydra_native::sisters::SistersHandle;
 /// Redirect ALL stderr to a log file. Returns original fd for restore.
 #[cfg(unix)]
 fn redirect_stderr_to_log() -> Option<i32> {
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+    let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_else(|_| ".".into());
     let log_dir = format!("{}/.hydra", home);
     let _ = std::fs::create_dir_all(&log_dir);
     let log_path = format!("{}/hydra-tui.log", log_dir);
@@ -163,6 +163,28 @@ fn draw_splash(
     });
 }
 
+/// Seed factory profiles from source profiles/ dir if any are missing.
+/// Runs early in boot — before terminal takeover — so profiles are ready for TUI.
+fn seed_factory_profiles() {
+    if let Some(profiles_dir) = hydra_native::operational_profile::profiles_dir() {
+        let existing = hydra_native::operational_profile::list_profiles();
+        let needs_seed = !profiles_dir.exists() || existing.len() < 10;
+        if needs_seed {
+            if let Some(factory) = hydra_native::cognitive::profile_updater::factory_profiles_dir() {
+                let _ = hydra_native::operational_profile::seed_profiles(&factory);
+            } else {
+                // Fallback: scaffold all known profiles
+                for name in &["dev", "devops", "writer", "finance", "infra",
+                              "legal", "research", "security", "supply-chain", "support"] {
+                    if !existing.iter().any(|e| e == name) {
+                        let _ = hydra_native::operational_profile::scaffold_profile(name);
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn cleanup_terminal() {
     let _ = disable_raw_mode();
     let _ = execute!(io::stdout(), PopKeyboardEnhancementFlags);
@@ -171,6 +193,9 @@ fn cleanup_terminal() {
 }
 
 pub async fn run() -> io::Result<()> {
+    // STEP 0: Seed factory profiles before anything else
+    seed_factory_profiles();
+
     // STEP 1: Redirect ALL stderr BEFORE any child process exists
     let saved_stderr = redirect_stderr_to_log();
 
@@ -304,7 +329,7 @@ pub async fn run() -> io::Result<()> {
             tick = tick.saturating_add(1);
             let pct = std::cmp::min(90, (tick * 3 / 2) as u16);
 
-            let label = match (tick / 8) % 14 {
+            let label = match (tick / 8) % 17 {
                 0  => "Connecting Memory...",
                 1  => "Connecting Identity...",
                 2  => "Connecting Codebase...",
@@ -319,7 +344,8 @@ pub async fn run() -> io::Result<()> {
                 11 => "Connecting Aegis...",
                 12 => "Connecting Veritas...",
                 13 => "Connecting Evolve...",
-                _  => "Connecting...",
+                14 => "Connecting Data...", 15 => "Connecting Connect...",
+                16 => "Connecting Workflow...", _ => "Connecting...",
             };
 
             draw_splash(&mut terminal, label, pct);
@@ -370,7 +396,6 @@ fn print_conversation(app: &App) {
     println!("└{}┘\n", "─".repeat(w.saturating_sub(2)));
     for m in &app.messages { if m.role == app::MessageRole::User { println!("> {}\n", m.content) } else { println!("  {}\n", m.content) } }
 }
-
 async fn run_loop(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     app: &mut App,

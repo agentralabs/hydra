@@ -42,8 +42,7 @@ impl ChatPersistence {
     }
 
     fn db_path() -> PathBuf {
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-        PathBuf::from(home).join(".hydra").join("hydra.db")
+        crate::utils::hydra_data_dir().join("hydra.db")
     }
 
     /// Start a new conversation or resume the most recent one

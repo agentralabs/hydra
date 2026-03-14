@@ -1,0 +1,21 @@
+[metadata]
+name = "audience_analysis"
+description = "Analyze target audience demographics, preferences, and behavior patterns"
+version = "1.0.0"
+
+[trigger]
+patterns = ["who is my audience", "audience analysis", "reader profile", "target audience", "who reads"]
+intent = "audience-research"
+
+[steps]
+sequence = [
+    "Gather available audience data (analytics, comments, engagement)",
+    "Define primary reader persona with specific characteristics",
+    "Identify pain points and motivations",
+    "Map content preferences (format, length, tone, topics)",
+    "Recommend content adjustments to better serve this audience",
+]
+
+[sisters]
+primary = ["Data", "Memory"]
+optional = ["Cognition"]

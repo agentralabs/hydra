@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Randomly killing pods in production during business hours validates that services handle instance failure gracefully — run pod-kill experiments weekly in production after validating in staging"
+confidence = 0.92
+source = "Netflix Chaos Monkey methodology and Principles of Chaos Engineering"
+action_trigger = "Service declares production readiness or resilience review scheduled"
+edge_case = "Stateful services (databases, message brokers) require careful pod-kill sequencing to avoid quorum loss; test with one replica at a time and verify leader election works"
+tags = ["reliability", "chaos-engineering", "pod-kill", "resilience"]
+
+[[beliefs]]
+fact = "Latency injection experiments must verify that upstream callers implement proper timeouts and circuit breakers — inject 2-5x normal latency on a dependency and confirm graceful degradation"
+confidence = 0.93
+source = "Gremlin chaos engineering best practices"
+action_trigger = "New service dependency added or timeout configuration reviewed"
+edge_case = "Synchronous call chains amplify injected latency; test the full chain, not just direct callers, to catch cascading timeout exhaustion"
+tags = ["reliability", "chaos-engineering", "latency-injection", "timeouts"]
+
+[[beliefs]]
+fact = "Availability zone failure simulation must be run quarterly — disable an entire AZ in staging and verify that services rebalance traffic, data replication catches up, and no single-AZ dependencies exist"
+confidence = 0.91
+source = "AWS resilience testing guidance and multi-AZ architecture validation"
+action_trigger = "Quarterly resilience drill scheduled or new multi-AZ service deployed"
+edge_case = "Services using AZ-pinned resources (EBS volumes, ElastiCache single-node) will fail this test by design; document accepted single-AZ risks and mitigation timelines"
+tags = ["reliability", "chaos-engineering", "az-failure", "disaster-recovery"]
+
+[[beliefs]]
+fact = "A failure mode that has never been tested in a controlled experiment will eventually happen in production at the worst possible time — prioritize chaos experiments for the failures you fear most"
+confidence = 0.95
+source = "Principles of Chaos Engineering — explore unknowns proactively"
+action_trigger = "Risk review identifies untested failure scenarios"
+edge_case = "Some failure modes (full region outage, cloud provider API failure) cannot be safely simulated; use tabletop exercises and game days with injected decision points instead"
+tags = ["reliability", "chaos-engineering", "risk", "proactive"]

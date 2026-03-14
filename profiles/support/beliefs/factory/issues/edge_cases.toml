@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Rare but known issues should be documented even if they affect less than 1% of users — when they occur, resolution time drops from hours to minutes"
+confidence = 0.85
+source = "factory"
+action_trigger = "When encountering an unusual issue that was eventually resolved"
+edge_case = "Documentation effort must be proportional; a brief note with steps is better than no documentation"
+tags = ["issues", "edge-cases", "documentation"]
+
+[[beliefs]]
+fact = "Platform-specific bugs (Windows vs Mac vs Linux, Chrome vs Safari) require environment-specific test cases and often different fix paths"
+confidence = 0.90
+source = "factory"
+action_trigger = "When a reported issue only reproduces on specific platforms"
+edge_case = "Mobile browser vs desktop browser adds another dimension; always capture full environment details"
+tags = ["issues", "edge-cases", "platform-specific"]
+
+[[beliefs]]
+fact = "Configuration gotchas — certain setting combinations create unexpected behavior that appears like a bug but is technically correct operation"
+confidence = 0.85
+source = "factory"
+action_trigger = "When a customer reports behavior that doesn't match documented behavior but works as coded"
+edge_case = "If a configuration combination causes widespread confusion, it should be treated as a UX bug, not a user error"
+tags = ["issues", "edge-cases", "configuration"]
+
+[[beliefs]]
+fact = "Intermittent issues that can't be reproduced on demand often relate to timing, concurrency, or resource exhaustion — collect logs, metrics, and timestamps to correlate"
+confidence = 0.80
+source = "factory"
+action_trigger = "When a customer reports an issue that support cannot reproduce"
+edge_case = "Asking customers to enable debug logging requires clear instructions and a way to send back the logs"
+tags = ["issues", "edge-cases", "intermittent"]

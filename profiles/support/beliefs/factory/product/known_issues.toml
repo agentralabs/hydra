@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "A continuously updated known-issues list with workarounds reduces average handle time by 40% — keep it searchable by error code and symptom"
+confidence = 0.90
+source = "factory"
+action_trigger = "When a customer reports a symptom that matches a documented known issue"
+edge_case = "Known issue lists go stale fast — tag entries with discovery date and review monthly for resolved items"
+tags = ["product", "known-issues", "knowledge-base"]
+
+[[beliefs]]
+fact = "Workarounds should include exact steps, affected versions, and expected fix timeline — vague workarounds increase callback rate"
+confidence = 0.90
+source = "factory"
+action_trigger = "When documenting or delivering a workaround to a customer"
+edge_case = "Some workarounds have side effects; document those too so the customer can make an informed choice"
+tags = ["product", "workarounds", "documentation"]
+
+[[beliefs]]
+fact = "ETA communication should use ranges, not exact dates — say 'next 2-4 weeks' not 'March 25th' to avoid broken promises"
+confidence = 0.85
+source = "factory"
+action_trigger = "When a customer asks when a bug will be fixed"
+edge_case = "Enterprise customers with contractual SLAs may need firmer commitments — escalate to product team"
+tags = ["product", "eta", "customer-communication"]
+
+[[beliefs]]
+fact = "Regression detection requires comparing new ticket patterns against recent release notes — a spike in tickets for a previously stable area signals regression"
+confidence = 0.85
+source = "factory"
+action_trigger = "When ticket volume for a specific feature increases 2x within a week of a release"
+edge_case = "Not all spikes are regressions — marketing campaigns and seasonal usage also cause volume changes"
+tags = ["product", "regression", "detection"]

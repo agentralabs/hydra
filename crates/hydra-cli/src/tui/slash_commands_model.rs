@@ -167,7 +167,7 @@ impl App {
     }
 
     pub(crate) fn slash_cmd_keybindings(&mut self, timestamp: &str) {
-        let home = std::env::var("HOME").unwrap_or_else(|_| "~".into());
+        let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_else(|_| "~".into());
         let kb_path = format!("{}/.hydra/keybindings.json", home);
         let exists = std::path::Path::new(&kb_path).exists();
 

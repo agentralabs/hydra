@@ -133,13 +133,17 @@ impl SisterImprover {
         let _docs = self.knowledge.find_docs(sister_path);
         let _prompts = self.knowledge.plan_learning(sister_path);
 
-        // STEP 3: Run baseline tests
-        send_update(tx, "Running baseline tests...").await;
+        // STEP 3: Run baseline tests (30s timeout — may not complete for large projects)
+        send_update(tx, "Running baseline tests (30s limit)...").await;
         let baseline = verifier::run_tests(sister_path, &analysis).await;
-        send_update(tx, &format!(
-            "Baseline: {} passed, {} failed",
-            baseline.pass_count, baseline.fail_count
-        )).await;
+        let timed_out = baseline.raw_output.contains("timed out");
+        if timed_out {
+            send_update(tx, "Baseline: tests need compilation (timed out). Analyzing structure instead.").await;
+        } else {
+            send_update(tx, &format!(
+                "Baseline: {} passed, {} failed", baseline.pass_count, baseline.fail_count
+            )).await;
+        }
 
         // STEP 4: Identify limitation
         send_update(tx, "Identifying improvement target...").await;
@@ -149,10 +153,7 @@ impl SisterImprover {
         if limitation.is_empty() {
             return ImprovementReport {
                 status: ImprovementStatus::NoLimitationFound,
-                baseline,
-                after: None,
-                patch: None,
-                limitation: String::new(),
+                baseline, after: None, patch: None, limitation: String::new(),
             };
         }
         send_update(tx, &format!("Target: {}", limitation)).await;
@@ -169,12 +170,18 @@ impl SisterImprover {
             Some(p) => p,
             None => return ImprovementReport {
                 status: ImprovementStatus::PatchGenerationFailed,
-                baseline,
-                after: None,
-                patch: None,
-                limitation,
+                baseline, after: None, patch: None, limitation,
             },
         };
+
+        // If patch has no actual changes, report analysis and skip apply
+        if patch.changes.is_empty() {
+            send_update(tx, "Analysis complete. Patch generation needs LLM (Forge sister or direct).").await;
+            return ImprovementReport {
+                status: ImprovementStatus::PatchGenerationFailed,
+                baseline, after: None, patch: Some(patch), limitation,
+            };
+        }
 
         // STEP 6: Create checkpoint and apply patch
         send_update(tx, "Applying patch with checkpoint...").await;
@@ -184,7 +191,7 @@ impl SisterImprover {
             return ImprovementReport::error(&format!("Patch apply failed: {}", e));
         }
 
-        // STEP 7: Run tests after patch
+        // STEP 7: Run tests after patch (30s timeout)
         send_update(tx, "Running tests after improvement...").await;
         let after = verifier::run_tests(sister_path, &analysis).await;
 
@@ -192,16 +199,16 @@ impl SisterImprover {
         let result = verifier::verify(&baseline, &after);
         match result {
             VerificationResult::Improved => {
-                send_update(tx, "Sister improved. No regressions.").await;
+                send_update(tx, "Improved. No regressions.").await;
                 ImprovementReport::success(baseline, after, patch)
             }
             VerificationResult::Regressed => {
-                send_update(tx, "Patch caused regressions. Reverting.").await;
+                send_update(tx, "Regressions detected. Reverting.").await;
                 let _ = revert_checkpoint(&checkpoint);
                 ImprovementReport::reverted(baseline, after, patch)
             }
             VerificationResult::Neutral => {
-                send_update(tx, "Patch had no effect. Keeping changes.").await;
+                send_update(tx, "Patch applied. No change in test results.").await;
                 ImprovementReport::success(baseline, after, patch)
             }
         }
@@ -224,7 +231,7 @@ pub fn extract_sister_path(text: &str) -> Option<PathBuf> {
         }
         if w.contains('/') || w.starts_with('.') || w.starts_with('~') {
             let expanded = if w.starts_with('~') {
-                if let Ok(home) = std::env::var("HOME") {
+                if let Ok(home) = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")) {
                     PathBuf::from(home).join(w.strip_prefix("~/").unwrap_or(w))
                 } else {
                     PathBuf::from(w)

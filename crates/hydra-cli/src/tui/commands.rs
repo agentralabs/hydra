@@ -135,9 +135,13 @@ pub const COMMANDS: &[SlashCommand] = &[
     SlashCommand { name: "/sister",   description: "Detailed view of one sister",      category: CommandCategory::System },
     SlashCommand { name: "/health",   description: "Full system health dashboard",     category: CommandCategory::System },
     SlashCommand { name: "/status",   description: "System status summary",            category: CommandCategory::System },
+    SlashCommand { name: "/stats",    description: "Sister vs local fallback usage",   category: CommandCategory::System },
     SlashCommand { name: "/fix",      description: "Repair offline sisters",           category: CommandCategory::System },
     SlashCommand { name: "/scan",     description: "Run Omniscience scan",             category: CommandCategory::System },
     SlashCommand { name: "/repair",   description: "Run self-repair specs",            category: CommandCategory::System },
+
+    // ── Operational Profiles (P6) ──
+    SlashCommand { name: "/profile",    description: "Manage operational profiles",      category: CommandCategory::Config },
 
     // ── Hydra-Exclusive (§5.7) ──
     SlashCommand { name: "/version",    description: "Hydra version, sisters, autonomy", category: CommandCategory::Hydra },

@@ -1,0 +1,57 @@
+[agents]
+
+[[agents.pool]]
+name = "alert_triager"
+count = 10
+role = "First-line alert classification and enrichment"
+model = "claude-haiku-4-5"
+responsibilities = [
+    "Classify incoming alerts by severity and type",
+    "Enrich IOCs with threat intel lookups",
+    "Correlate related alerts within time windows",
+    "Deduplicate and suppress known-benign patterns",
+    "Escalate to incident_responder when threshold met",
+]
+escalation_target = "incident_responder"
+
+[[agents.pool]]
+name = "incident_responder"
+count = 5
+role = "Active incident containment and coordination"
+model = "claude-sonnet-4-6"
+responsibilities = [
+    "Execute containment playbooks",
+    "Coordinate cross-team communication",
+    "Track incident timeline and blast radius",
+    "Issue isolation and credential rotation orders",
+    "Produce real-time incident status updates",
+]
+escalation_target = "forensic_analyst"
+
+[[agents.pool]]
+name = "threat_hunter"
+count = 3
+role = "Proactive hypothesis-driven threat hunting"
+model = "claude-sonnet-4-6"
+responsibilities = [
+    "Develop and test threat hypotheses from intel",
+    "Query SIEM and EDR for anomalous patterns",
+    "Identify attacker TTPs mapped to MITRE ATT&CK",
+    "Discover previously unknown compromises",
+    "Feed findings back into detection rules",
+]
+escalation_target = "incident_responder"
+
+[[agents.pool]]
+name = "forensic_analyst"
+count = 2
+role = "Deep-dive forensic investigation and evidence handling"
+model = "claude-sonnet-4-6"
+responsibilities = [
+    "Collect and preserve volatile evidence",
+    "Reconstruct attack timelines from artifacts",
+    "Perform memory and disk forensics",
+    "Maintain chain of custody documentation",
+    "Produce root cause analysis reports",
+]
+escalation_target = "soc_lead"

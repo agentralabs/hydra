@@ -1,6 +1,6 @@
 //! LLM tool routing — maps intent categories to the top MCP tools the LLM should know about.
 //!
-//! Extracted from llm_helpers_commands.rs to allow expanded routing across all 14 sisters.
+//! Extracted from llm_helpers_commands.rs to allow expanded routing across all 17 sisters.
 //! Each intent gets 10-25 of the most relevant tools from the ~735 available.
 
 use crate::cognitive::intent_router::{IntentCategory, ClassifiedIntent};
@@ -145,6 +145,36 @@ fn route_unknown_intent(
     let needs_cognition = lower.contains("belief") || lower.contains("model")
         || lower.contains("personality") || lower.contains("predict")
         || lower.contains("simulate") || lower.contains("soul");
+    let needs_data = lower.contains("parse") || lower.contains("csv")
+        || lower.contains("json") || lower.contains("schema") || lower.contains("quality")
+        || lower.contains("lineage") || lower.contains("format") || lower.contains("pii")
+        || lower.contains("redact") || lower.contains("data") || lower.contains("ingest");
+    let needs_connect = lower.contains("api") || lower.contains("http")
+        || lower.contains("url") || lower.contains("health check") || lower.contains("endpoint")
+        || lower.contains("fetch") || lower.contains("request") || lower.contains("browse");
+    let needs_workflow = lower.contains("workflow") || lower.contains("pipeline")
+        || lower.contains("schedule") || lower.contains("cron") || lower.contains("orchestrate")
+        || lower.contains("deploy") || lower.contains("rollback") || lower.contains("approval");
+
+    if needs_data {
+        tools.extend(sisters.tools_for_sister("data", &[
+            "data_schema_infer", "data_format_detect", "data_quality_score",
+            "data_quality_anomaly", "data_dna_trace", "data_redact_detect",
+            "data_query_natural", "data_format_convert",
+        ]));
+    }
+    if needs_connect {
+        tools.extend(sisters.tools_for_sister("connect", &[
+            "connect_api_call", "connect_browse", "connect_health",
+            "connect_webhook", "connect_auth",
+        ]));
+    }
+    if needs_workflow {
+        tools.extend(sisters.tools_for_sister("workflow", &[
+            "workflow_create", "workflow_run", "workflow_status",
+            "workflow_schedule", "workflow_rollback",
+        ]));
+    }
 
     if needs_identity {
         tools.extend(sisters.tools_for_sister("identity", &[
@@ -246,6 +276,22 @@ fn route_unknown_intent(
                 "policy_check", "contract_stats",
             ]));
         }
-        tools.truncate(30);
+        // Utility sisters: always available for complex/action tasks
+        if !needs_data {
+            tools.extend(sisters.tools_for_sister("data", &[
+                "data_format_detect", "data_quality_score",
+            ]));
+        }
+        if !needs_connect {
+            tools.extend(sisters.tools_for_sister("connect", &[
+                "connect_api_call", "connect_health",
+            ]));
+        }
+        if !needs_workflow {
+            tools.extend(sisters.tools_for_sister("workflow", &[
+                "workflow_status", "workflow_run",
+            ]));
+        }
+        tools.truncate(35);
     }
 }

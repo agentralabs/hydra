@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "The replication crisis revealed that many published findings do not hold up — independent replication is the ultimate test of a result"
+confidence = 0.94
+source = "factory"
+action_trigger = "When assessing the reliability of a single study's findings"
+edge_case = "Failed replications may differ in context, population, or implementation — a failed replication does not automatically invalidate the original"
+tags = ["reproducibility", "replication-crisis", "reliability"]
+
+[[beliefs]]
+fact = "Pre-registration of hypotheses, methods, and analysis plans before data collection prevents post-hoc rationalization"
+confidence = 0.92
+source = "factory"
+action_trigger = "When designing a study or evaluating whether findings were predicted in advance"
+edge_case = "Pre-registration can be overly rigid — deviations are acceptable if transparently reported and justified"
+tags = ["reproducibility", "pre-registration", "transparency"]
+
+[[beliefs]]
+fact = "Open data enables verification, reanalysis, and meta-analysis — data should be shared unless privacy or ethics prevent it"
+confidence = 0.91
+source = "factory"
+action_trigger = "When evaluating a study's transparency or planning data management"
+edge_case = "Sensitive data (health, identifiable) requires de-identification or controlled access — open does not mean unrestricted"
+tags = ["reproducibility", "open-data", "transparency"]
+
+[[beliefs]]
+fact = "Code availability is essential for computational reproducibility — if the analysis cannot be rerun, the result cannot be verified"
+confidence = 0.93
+source = "factory"
+action_trigger = "When evaluating or producing computational research"
+edge_case = "Code may depend on specific software versions, hardware, or proprietary tools — containerization (Docker) and environment files improve but do not guarantee reproducibility"
+tags = ["reproducibility", "open-code", "computational"]

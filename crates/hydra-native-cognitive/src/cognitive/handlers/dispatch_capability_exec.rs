@@ -6,6 +6,7 @@ use tokio::sync::mpsc;
 use parking_lot::RwLock;
 
 use crate::cognitive::loop_runner::CognitiveUpdate;
+use crate::sisters::SistersHandle;
 use crate::swarm::SwarmManager;
 use crate::threat::ThreatCorrelator;
 use crate::remote::RemoteExecutor;
@@ -14,6 +15,7 @@ use crate::remote::RemoteExecutor;
 pub(crate) async fn handle_swarm(
     text: &str,
     swarm_manager: &Option<Arc<SwarmManager>>,
+    sisters_handle: &Option<SistersHandle>,
     tx: &mpsc::UnboundedSender<CognitiveUpdate>,
 ) -> bool {
     let mgr = match swarm_manager {
@@ -43,7 +45,12 @@ pub(crate) async fn handle_swarm(
         }
         "kill-all" => {
             let tx_c = tx.clone();
-            tokio::spawn(async move { mgr.kill_all().await; send_msg(&tx_c, "All agents terminated."); });
+            let sh = sisters_handle.clone();
+            tokio::spawn(async move {
+                mgr.kill_all().await;
+                if let Some(ref s) = sh { s.comm_broadcast("hydra", "swarm_event", "All agents terminated").await; }
+                send_msg(&tx_c, "All agents terminated.");
+            });
             true
         }
         "kill" => {
@@ -96,18 +103,31 @@ pub(crate) async fn handle_swarm(
         "help" | "" if lower.starts_with("/swarm") && !lower.contains("spawn") => {
             send_msg(tx, SWARM_HELP); true
         }
-        _ => handle_swarm_spawn(text, &mgr, tx).await,
+        _ if is_stop_request(&lower) => {
+            let tx_c = tx.clone();
+            let sh = sisters_handle.clone();
+            tokio::spawn(async move {
+                mgr.kill_all().await;
+                if let Some(ref s) = sh { s.comm_broadcast("hydra", "swarm_event", "All agents terminated").await; }
+                send_msg(&tx_c, "All agents terminated.");
+                let _ = tx_c.send(CognitiveUpdate::ResetIdle);
+            });
+            true
+        }
+        _ => handle_swarm_spawn(text, &mgr, sisters_handle, tx).await,
     }
 }
 
 async fn handle_swarm_spawn(
-    text: &str, mgr: &SwarmManager, tx: &mpsc::UnboundedSender<CognitiveUpdate>,
+    text: &str, mgr: &SwarmManager, sisters_handle: &Option<SistersHandle>,
+    tx: &mpsc::UnboundedSender<CognitiveUpdate>,
 ) -> bool {
     let lower = text.to_lowercase();
     let count = extract_number(&lower).unwrap_or(3);
     let mgr = mgr.clone_handle();
     let tx_c = tx.clone();
     let text_owned = text.to_string();
+    let sh = sisters_handle.clone();
     tokio::spawn(async move {
         let results = mgr.spawn_local(count, crate::swarm::AgentRole::Worker, vec![]).await;
         let ok = results.iter().filter(|r| r.is_ok()).count();
@@ -132,6 +152,10 @@ async fn handle_swarm_spawn(
             }
         }
         msg.push_str(&format!("\n{}", mgr.status_summary()));
+        // Broadcast swarm event via Comm for cross-session awareness
+        if let Some(ref s) = sh {
+            s.comm_broadcast("hydra", "swarm_event", &format!("Spawned {} agents", ok)).await;
+        }
         send_msg(&tx_c, &msg);
         let _ = tx_c.send(CognitiveUpdate::Phase("Done".into()));
         let _ = tx_c.send(CognitiveUpdate::IconState("success".into()));
@@ -219,6 +243,13 @@ fn extract_ssh_target<'a>(parts: &[&'a str]) -> Option<(&'a str, usize)> {
         if part.contains('@') { return Some((part, i + 1)); }
     }
     None
+}
+
+/// Detect if natural language is asking to stop/kill/terminate agents.
+fn is_stop_request(lower: &str) -> bool {
+    (lower.contains("stop") || lower.contains("kill") || lower.contains("terminate")
+        || lower.contains("shut down") || lower.contains("shutdown"))
+        && (lower.contains("agent") || lower.contains("swarm") || lower.contains("worker"))
 }
 
 pub(super) fn send_msg(tx: &mpsc::UnboundedSender<CognitiveUpdate>, content: &str) {

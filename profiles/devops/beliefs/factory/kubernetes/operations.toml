@@ -1,0 +1,15 @@
+[[beliefs]]
+fact = "Always set resource requests AND limits — unbounded pods cause noisy-neighbor issues"
+confidence = 0.95
+source = "factory"
+action_trigger = "When writing or reviewing Kubernetes manifests"
+edge_case = "Batch jobs with known, short lifetimes may omit limits if monitored"
+tags = ["kubernetes", "resources", "reliability"]
+
+[[beliefs]]
+fact = "Rolling deployments with readiness probes prevent serving traffic from unhealthy pods"
+confidence = 0.90
+source = "factory"
+action_trigger = "When configuring deployment strategies"
+edge_case = "Database migrations may require blue-green instead of rolling"
+tags = ["kubernetes", "deployment", "health-checks"]

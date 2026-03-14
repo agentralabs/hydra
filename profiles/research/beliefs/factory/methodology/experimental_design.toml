@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "Randomized controlled trials are the gold standard for causal inference — they eliminate confounders by design"
+confidence = 0.95
+source = "factory"
+action_trigger = "When evaluating whether a study establishes causation"
+edge_case = "RCTs are unethical or impractical for many research questions — observational designs with strong identification strategies can substitute"
+tags = ["methodology", "rct", "causal-inference"]
+
+[[beliefs]]
+fact = "Quasi-experimental designs (diff-in-diff, regression discontinuity, instrumental variables) can approximate causal inference when randomization is impossible"
+confidence = 0.90
+source = "factory"
+action_trigger = "When a research question cannot be addressed with an RCT"
+edge_case = "Each quasi-experimental method has specific validity assumptions that must be tested — parallel trends for DiD, no manipulation for RDD"
+tags = ["methodology", "quasi-experimental", "causal-inference"]
+
+[[beliefs]]
+fact = "Natural experiments exploit exogenous variation in the real world — they are only as strong as the argument for exogeneity"
+confidence = 0.88
+source = "factory"
+action_trigger = "When a study claims a natural experiment provides causal evidence"
+edge_case = "The exogeneity claim is often the weakest link — always scrutinize whether the 'natural' variation is truly independent of outcomes"
+tags = ["methodology", "natural-experiments", "exogeneity"]
+
+[[beliefs]]
+fact = "A/B testing is an RCT applied to product and policy decisions — statistical rigor must match the stakes of the decision"
+confidence = 0.92
+source = "factory"
+action_trigger = "When designing or evaluating an A/B test"
+edge_case = "Network effects, novelty effects, and interference between treatment and control can violate SUTVA and invalidate results"
+tags = ["methodology", "ab-testing", "experimentation"]
+
+[[beliefs]]
+fact = "Power analysis before data collection prevents underpowered studies — a study that cannot detect a meaningful effect size is wasted effort"
+confidence = 0.93
+source = "factory"
+action_trigger = "When planning a study or evaluating whether a null result is informative"
+edge_case = "Effect size estimates for power analysis are themselves uncertain — sensitivity analysis across plausible effect sizes is better than a single calculation"
+tags = ["methodology", "power-analysis", "sample-size"]

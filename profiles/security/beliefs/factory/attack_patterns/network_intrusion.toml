@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "Lateral movement typically follows a pattern: initial compromise -> credential harvesting (Mimikatz/LSASS dump) -> SMB/WMI/PSExec to adjacent hosts. Detection window is between credential harvest and first lateral hop — usually 4-45 minutes."
+confidence = 0.95
+source = "MITRE ATT&CK T1021, T1047, T1053; Mandiant M-Trends 2024"
+action_trigger = "LSASS access, unusual SMB auth from workstation-to-workstation, or new service creation on remote host"
+edge_case = "Legitimate admin tools (SCCM, PDQ Deploy) produce identical patterns. Baseline normal admin behavior per-host before alerting."
+tags = ["lateral-movement", "credential-theft", "detection-window"]
+
+[[beliefs]]
+fact = "C2 beaconing exhibits regularity even when jittered. True C2 channels show statistical periodicity (entropy analysis) in connection intervals, consistent payload sizes, and DNS query patterns with high consonant-to-vowel ratios or base32/64 encoding artifacts."
+confidence = 0.92
+source = "SANS FOR578; JA3/JA3S fingerprinting research; DNS tunneling detection papers"
+action_trigger = "Outbound connections with >70% interval regularity after jitter normalization, or DNS TXT queries exceeding 100 bytes to newly registered domains"
+edge_case = "CDN heartbeats (Akamai, Cloudflare) and software update checkers produce similar periodic patterns. Whitelist known-good domains and focus on JA3 hash anomalies."
+tags = ["c2", "beaconing", "dns-tunneling", "network-detection"]
+
+[[beliefs]]
+fact = "Data exfiltration over DNS is limited to ~18KB/s throughput but evades most firewalls. Over HTTPS to cloud storage (S3, GDrive, OneDrive), attackers achieve full bandwidth and blend with legitimate traffic. Volume-based detection misses low-and-slow exfil; focus on destination anomaly and timing."
+confidence = 0.90
+source = "MITRE ATT&CK T1048; CrowdStrike threat reports; DNS exfil bandwidth measurements"
+action_trigger = "Unusual upload volume to cloud storage outside business hours, DNS query volume >3x baseline to single domain, or large outbound transfers to IP ranges not in business partner list"
+edge_case = "Developers uploading large artifacts to cloud CI/CD or syncing to personal cloud storage can mimic exfil patterns. Correlate with user role and historical upload destinations."
+tags = ["exfiltration", "dns-exfil", "cloud-exfil", "data-loss"]
+
+[[beliefs]]
+fact = "Living-off-the-land binaries (LOLBins) are the primary evasion technique for sophisticated attackers. PowerShell, certutil, bitsadmin, mshta, regsvr32, and wmic are legitimate system tools weaponized for download, execution, and persistence. EDR signature-based detection misses these; behavioral analytics on parent-child process chains are required."
+confidence = 0.94
+source = "LOLBAS project; MITRE ATT&CK T1218, T1059; CrowdStrike Overwatch 2024"
+action_trigger = "certutil with -urlcache flag, PowerShell with -enc or -nop flags from non-admin context, bitsadmin transfer to external URL, or mshta executing from temp directory"
+edge_case = "IT automation scripts legitimately use PowerShell -enc for encoding issues and certutil for certificate management. Key differentiator: process lineage — automation spawns from scheduled tasks or SCCM, attacks spawn from Office macros or explorer.exe."
+tags = ["lolbins", "evasion", "process-chain", "behavioral-detection"]
+
+[[beliefs]]
+fact = "Automated attacks (botnets, mass scanners) vs manual intrusion (hands-on-keyboard) produce fundamentally different telemetry. Automated: uniform timing, sequential IP scanning, identical payloads. Manual: irregular timing, targeted host selection, adaptive payloads. Manual intrusion is 100x more dangerous but produces subtler signals."
+confidence = 0.91
+source = "SANS SOC analyst training; Secureworks threat group analysis; honeypot research"
+action_trigger = "Detection of non-uniform attack timing with targeted host selection suggests hands-on-keyboard — escalate immediately to P2 minimum regardless of individual IOC severity"
+edge_case = "Advanced automation frameworks (Cobalt Strike, Metasploit Pro) can simulate manual behavior with randomized timing. Look for session management artifacts: sleep/jitter configuration, process injection patterns."
+tags = ["automated-vs-manual", "threat-classification", "escalation-criteria"]

@@ -312,7 +312,7 @@
                     let connected_count = sister_list.iter().filter(|(_, _, c, _)| *c).count();
                     let categories = ["Foundation", "Cognitive", "Astral"];
                     rsx! {
-                        div { class: "sisters-total", "{connected_count}/14 connected \u{00B7} {total} tools" }
+                        div { class: "sisters-total", "{connected_count}/17 connected \u{00B7} {total} tools" }
                         for cat in categories.iter() {
                             div { class: "sisters-category",
                                 span { class: "sisters-cat-label", "{cat}" }

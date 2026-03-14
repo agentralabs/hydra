@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "The equity put/call ratio (10-day moving average) is a reliable contrarian indicator at extremes: when it exceeds 1.2 (extreme fear), the S&P 500 returns an average of +8% over the next 3 months. When it drops below 0.5 (extreme complacency), the S&P 500 returns an average of -3% over the next 3 months. The signal is only useful at the extremes — readings between 0.6 and 1.0 have no predictive power."
+confidence = 0.87
+source = "CBOE put/call ratio data 2000-2024, contrarian indicator backtests, Bollen/Whaley 2004"
+action_trigger = "10-day MA put/call ratio > 1.2 → flag as bullish contrarian signal, accumulate equities. 10-day MA < 0.5 → flag as bearish contrarian signal, reduce equity exposure or add hedges."
+edge_case = "Index put/call ratio includes portfolio hedging activity by institutions, which creates a permanently elevated baseline. Use equity-only put/call ratio (excluding index options) for a cleaner sentiment read. The thresholds for equity-only are 0.9 (fear extreme) and 0.45 (complacency)."
+tags = ["sentiment", "put_call_ratio", "contrarian", "extremes"]
+
+[[beliefs]]
+fact = "VIX term structure is more informative than the VIX level itself. Normal contango (front month < second month) indicates orderly market conditions. Backwardation (front month > second month by >2 points) signals acute fear — markets expect near-term volatility to exceed longer-term volatility. Sustained backwardation (>5 consecutive trading days) has preceded 5-8% equity declines with 75% accuracy. A flip from backwardation back to contango is the all-clear signal."
+confidence = 0.90
+source = "VIX futures term structure data 2004-2024, CBOE research, empirical analysis of backwardation episodes"
+action_trigger = "VIX term structure enters backwardation → increase hedges, reduce gross exposure. Backwardation persists 5+ days → maximum defensive posture. Backwardation resolves → begin re-risking."
+edge_case = "Around VIX futures expiration (every Wednesday), the term structure can temporarily invert due to roll mechanics rather than sentiment. Exclude the 2 trading days around expiration from the backwardation signal."
+tags = ["sentiment", "vix", "term_structure", "backwardation"]
+
+[[beliefs]]
+fact = "The AAII (American Association of Individual Investors) bull-bear spread is a pure retail sentiment measure. When bears exceed bulls by more than 30 percentage points (spread < -30), subsequent 12-month S&P 500 returns average +22%. When bulls exceed bears by more than 30 points (spread > +30), subsequent 12-month returns average +4%. Retail investors are reliably wrong at extremes — not because they are dumb, but because extreme sentiment is only possible after extended price moves that are due to mean-revert."
+confidence = 0.86
+source = "AAII Sentiment Survey data 1987-2024, Fisher/Statman 2000 investor sentiment and stock returns"
+action_trigger = "AAII bull-bear spread < -30 → strong contrarian buy signal on 6-12 month horizon, begin accumulating. Spread > +30 → not an immediate sell signal but stop adding risk, tighten stops."
+edge_case = "The AAII survey was more reliable before 2020 when it primarily captured older, wealthier retail investors. Post-2020, the influx of younger retail traders (Robinhood generation) has diluted the survey's signal quality. Cross-reference with Investors Intelligence (advisory service sentiment) for confirmation."
+tags = ["sentiment", "aaii", "retail", "contrarian"]
+
+[[beliefs]]
+fact = "The CNN Fear & Greed Index — a composite of 7 indicators including VIX, put/call ratio, junk bond demand, market breadth, safe haven demand, stock price strength, and stock price breadth — provides a cleaner signal than any single sentiment indicator because it aggregates across asset classes. Readings below 20 (extreme fear) have preceded positive 3-month returns in 85% of cases since 2012. Readings above 80 (extreme greed) have preceded flat or negative 3-month returns in 65% of cases."
+confidence = 0.84
+source = "CNN Fear & Greed Index data 2012-2024, composite indicator analysis"
+action_trigger = "Fear & Greed Index < 20 → accumulate equities, the multi-asset confirmation makes this a higher-conviction signal than any single indicator. Index > 80 → reduce new equity purchases, tighten stops on existing positions."
+edge_case = "The Fear & Greed Index can get stuck at extremes for weeks during trending markets (stayed above 70 for most of 2023) without triggering a correction. It is better as a mean-reversion timer than a trend-following tool — use it for entry timing, not for calling tops."
+tags = ["sentiment", "fear_greed", "composite", "contrarian"]
+
+[[beliefs]]
+fact = "Sentiment indicators work as contrarian signals ONLY at extremes — the top and bottom 10% of their historical distributions. In the middle 80% of readings, sentiment has zero predictive power because it simply reflects the current price trend. The most common mistake is over-trading on moderate sentiment readings. Patience to wait for true extremes is the edge — these occur 2-4 times per year, not weekly."
+confidence = 0.91
+source = "Meta-analysis of sentiment indicator performance 2000-2024, Baker/Wurgler 2006 investor sentiment in the cross-section"
+action_trigger = "Sentiment indicator at extreme (top/bottom decile of 5-year distribution) → act on the contrarian signal. Sentiment in middle 80% → ignore entirely, do not adjust positions based on moderate sentiment readings."
+edge_case = "During secular bull markets (2009-2019), sentiment can remain in the upper quartile for years without triggering a correction — the extreme threshold needs to be adaptive. Use a rolling 5-year distribution rather than an all-time distribution to define extremes."
+tags = ["sentiment", "extremes", "contrarian", "patience"]

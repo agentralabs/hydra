@@ -23,7 +23,6 @@ pub struct Capability {
 pub enum CapabilityHandler {
     ProjectExec,
     Swarm,
-    SisterImprove,
     RemoteExec,
     ThreatCheck,
     EnvironmentProbe,
@@ -67,6 +66,8 @@ impl CapabilityRegistry {
                         "deploy agents", "spawn agents", "multiple agents",
                         "test with agents", "agents to test", "create agents",
                         "launch agents", "start agents", "deploy workers",
+                        "stop the agents", "stop agents", "kill agents",
+                        "kill the agents", "terminate agents", "shut down agents",
                         "buyers and sellers", "buy and sell",
                         "parallel agents", "agent army", "agent swarm",
                         "deploy a swarm", "swarm of agents",
@@ -76,18 +77,7 @@ impl CapabilityRegistry {
                     handler: CapabilityHandler::Swarm,
                     requires_url: false,
                 },
-                Capability {
-                    name: "sister_improve",
-                    slash_command: "/improve-sister",
-                    description: "Analyze and improve a sister system's code",
-                    trigger_patterns: &[
-                        "improve sister", "fix sister", "upgrade sister",
-                        "patch sister", "make memory better", "improve the",
-                    ],
-                    trigger_keywords: &[],
-                    handler: CapabilityHandler::SisterImprove,
-                    requires_url: false,
-                },
+                // SisterImprove removed — needs LLM/API access, routes via intent dispatch instead
                 Capability {
                     name: "remote_exec",
                     slash_command: "/ssh-exec",
@@ -130,10 +120,11 @@ impl CapabilityRegistry {
                     slash_command: "/env",
                     description: "Show environment and system capabilities",
                     trigger_patterns: &[
-                        "what environment", "system info", "what's installed",
-                        "show environment", "check environment", "what tools",
+                        "what environment", "my environment", "system info",
+                        "what's installed", "show environment", "check environment",
+                        "what tools", "show env", "my setup", "what's my env",
                     ],
-                    trigger_keywords: &[],
+                    trigger_keywords: &["environment"],
                     handler: CapabilityHandler::EnvironmentProbe,
                     requires_url: false,
                 },
@@ -353,6 +344,14 @@ mod tests {
         let m = reg.match_intent("/tasks");
         assert!(m.is_some());
         assert_eq!(m.unwrap().capability.handler, CapabilityHandler::TaskList);
+    }
+
+    #[test]
+    fn test_env_natural_language() {
+        let reg = CapabilityRegistry::new();
+        let m = reg.match_intent("what's my environment?");
+        assert!(m.is_some());
+        assert_eq!(m.unwrap().capability.handler, CapabilityHandler::EnvironmentProbe);
     }
 
     #[test]

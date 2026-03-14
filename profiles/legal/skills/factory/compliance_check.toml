@@ -1,0 +1,21 @@
+[metadata]
+name = "compliance_check"
+description = "Assess compliance with applicable regulations for a specific operation or product"
+version = "1.0.0"
+
+[trigger]
+patterns = ["compliance check", "are we compliant", "regulatory review", "what regulations apply"]
+intent = "compliance-assessment"
+
+[steps]
+sequence = [
+    "Identify the relevant jurisdictions and applicable regulatory frameworks",
+    "Map current operations against regulatory requirements",
+    "Identify gaps between current state and required compliance posture",
+    "Assess severity of each gap (violation risk, penalty exposure, timeline)",
+    "Recommend remediation steps prioritized by risk and effort",
+]
+
+[sisters]
+primary = ["Contract", "Veritas", "Time"]
+optional = ["Memory"]

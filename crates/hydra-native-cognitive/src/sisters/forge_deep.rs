@@ -75,11 +75,13 @@ impl Sisters {
     /// Register a new entity in the blueprint.
     pub async fn forge_entity_add(&self, blueprint_id: &str, entity: &str, kind: &str) {
         if let Some(forge) = &self.forge {
-            let _ = forge.call_tool("forge_entity_add", serde_json::json!({
+            if let Err(e) = forge.call_tool("forge_entity_add", serde_json::json!({
                 "blueprint_id": blueprint_id,
                 "name": entity,
                 "kind": kind,
-            })).await;
+            })).await {
+                eprintln!("[hydra:forge] forge_entity_add FAILED: {}", e);
+            }
         }
     }
 
@@ -116,10 +118,12 @@ impl Sisters {
     /// Add a dependency to a blueprint.
     pub async fn forge_dependency_add(&self, blueprint_id: &str, dep: &str) {
         if let Some(forge) = &self.forge {
-            let _ = forge.call_tool("forge_dependency_add", serde_json::json!({
+            if let Err(e) = forge.call_tool("forge_dependency_add", serde_json::json!({
                 "blueprint_id": blueprint_id,
                 "dependency": dep,
-            })).await;
+            })).await {
+                eprintln!("[hydra:forge] forge_dependency_add FAILED: {}", e);
+            }
         }
     }
 

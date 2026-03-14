@@ -327,4 +327,44 @@ impl App {
             phase: None,
         });
     }
+
+    /// /stats — Show sister gateway usage stats (sister-first enforcement metrics).
+    pub(crate) fn slash_cmd_stats(&mut self, timestamp: &str) {
+        let msg = if self.gateway_stats.is_empty() {
+            "Sister Gateway Stats\n\n  No stats yet. Send a message first to generate sister usage data.".to_string()
+        } else {
+            format!("Sister Gateway Stats\n\n{}", self.gateway_stats)
+        };
+        self.messages.push(Message {
+            role: MessageRole::System,
+            content: msg,
+            timestamp: timestamp.to_string(),
+            phase: None,
+        });
+    }
+
+    pub(crate) fn slash_cmd_roi(&mut self, timestamp: &str) {
+        let summary = hydra_native::knowledge::economics_tracker::roi_summary();
+        self.messages.push(Message {
+            role: MessageRole::System,
+            content: summary,
+            timestamp: timestamp.to_string(),
+            phase: None,
+        });
+    }
+
+    pub(crate) fn slash_cmd_knowledge(&mut self, timestamp: &str) {
+        let mentor = hydra_native::knowledge::mentor_system::mentor_state();
+        let summary = if let Ok(state) = mentor.lock() {
+            state.progress_summary()
+        } else {
+            "Knowledge tracker unavailable.".into()
+        };
+        self.messages.push(Message {
+            role: MessageRole::System,
+            content: format!("Knowledge Progress\n\n{}", summary),
+            timestamp: timestamp.to_string(),
+            phase: None,
+        });
+    }
 }

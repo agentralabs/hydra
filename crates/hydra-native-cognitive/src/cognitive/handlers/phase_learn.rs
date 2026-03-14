@@ -1,7 +1,4 @@
-//! LEARN + DELIVER phase — extracted from loop_runner.rs for compilation performance.
-//!
-//! Stores learnings, revises beliefs, crystallizes patterns, delivers final response.
-//! Belief persistence logic lives in `phase_learn_beliefs`.
+//! LEARN + DELIVER phase. Belief persistence in `phase_learn_beliefs`.
 
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -9,7 +6,7 @@ use tokio::sync::mpsc;
 use crate::cognitive::inventions::InventionEngine;
 use crate::sisters::SistersHandle;
 use hydra_native_state::state::hydra::{CognitivePhase, PhaseState, PhaseStatus};
-use hydra_native_state::utils::safe_truncate;
+use hydra_native_state::utils::{safe_truncate, strip_emojis};
 
 use super::super::loop_runner::CognitiveUpdate;
 use super::llm_helpers::extract_primary_topic;
@@ -58,8 +55,14 @@ pub(crate) async fn run_learn(
             // Planning: update goal progress from this interaction
             sh.learn_planning(&user_text, safe_truncate(final_response, 200)).await;
 
-            // Comm: share significant learnings with peers
-            sh.learn_comm_share(&format!("Completed: {}", safe_truncate(&user_text, 100))).await;
+            // Comm: share learnings + command results with peers for cross-session context
+            let comm_msg = if !all_exec_results.is_empty() {
+                let exec_brief: String = all_exec_results.iter().take(3)
+                    .map(|(c, _, ok)| format!("{}: {}", if *ok {"OK"} else {"FAIL"}, safe_truncate(c, 40)))
+                    .collect::<Vec<_>>().join("; ");
+                format!("{} [{}]", safe_truncate(&user_text, 80), exec_brief)
+            } else { format!("Completed: {}", safe_truncate(&user_text, 100)) };
+            sh.learn_comm_share(&comm_msg).await;
 
             // Phase 5.5 P1: Store decisions with proper edge types
             let lower = user_text.to_lowercase();
@@ -152,18 +155,16 @@ pub(crate) async fn run_learn(
         }
     }
 
-    // ── IMMORTAL CAPTURE: Capture exchanges based on memory_capture setting ──
     let rt = &config.runtime;
     if let Some(ref sh) = sisters_handle {
-        if rt.should_capture_all() {
-            // Full capture — every exchange in V3 immortal log + comm trail
-            sh.memory_capture_exchange(text, final_response).await;
-            sh.comm_session_log(text, final_response).await;
-        } else if rt.should_capture_facts() {
-            // Facts-only — comm trail but no V3 immortal capture
-            sh.comm_session_log(text, final_response).await;
+        eprintln!("[hydra:learn] capture mode={} memory_sister={}", rt.memory_capture, sh.memory.is_some());
+        if rt.should_capture_all() { sh.memory_capture_exchange(text, final_response).await; sh.comm_session_log(text, final_response).await; }
+        else if rt.should_capture_facts() { sh.comm_session_log(text, final_response).await; }
+        if let Some(stats_raw) = sh.memory_stats().await {
+            let (f, t, r) = parse_memory_stats(&stats_raw);
+            eprintln!("[hydra:learn] memory_stats: facts={} tokens={} receipts={}", f, t, r);
+            let _ = tx.send(CognitiveUpdate::MemoryStatsUpdate { facts: f, tokens_avg: t, receipts: r });
         }
-        // "none" mode: no capture at all
     }
 
     // ── BELIEF UPDATE: Extract and persist beliefs from this interaction ──
@@ -298,31 +299,30 @@ pub(crate) async fn run_learn(
         }
     }
 
-    // ── PER-INTERACTION INTELLIGENCE: audit trail + identity fingerprinting ──
     if let Some(ref sh) = sisters_handle {
         sh.contract_context_log(safe_truncate(text, 200), safe_truncate(final_response, 200)).await;
-        let _ = sh.identity_fingerprint_build().await;
+        if sh.identity_fingerprint_build().await.is_none() {
+            eprintln!("[hydra:learn] identity_fingerprint_build returned None");
+        }
     }
-
-    // ── PERIODIC DEEP INTELLIGENCE: sister calls gated by message count ──
     let msg_count = config.history.len();
     if msg_count > 0 {
         if let Some(ref sh) = sisters_handle {
-            // Every 10 messages: drift, metabolism, pattern optimization
             if msg_count % 10 == 0 {
                 sh.memory_metabolism_process().await;
                 for (title, result) in [
                     ("Belief Drift", sh.cognition_drift_track().await),
                     ("Pattern Optimization", sh.evolve_optimize().await),
                 ] { if let Some(c) = result { let _ = tx.send(CognitiveUpdate::EvidenceMemory { title: title.into(), content: c }); } }
+                let lc = hydra_model::llm_config::LlmConfig::from_env();
+                super::phase_dream::run_light(&config.active_beliefs, sh, &lc, tx).await;
             }
-            // Every 15 messages: recurring themes
             if msg_count % 15 == 0 {
                 if let Some(c) = sh.planning_identify_themes().await {
                     let _ = tx.send(CognitiveUpdate::EvidenceMemory { title: "Recurring Themes".into(), content: c });
                 }
             }
-            // Every 20 messages: gaps, trust, decay, dream, shadow, immune, calibration, vision
+            if msg_count % 20 == 0 { let lc2 = hydra_model::llm_config::LlmConfig::from_env(); super::phase_dream::run_deep(&config.active_beliefs, sh, &lc2, tx).await; }
             if msg_count % 20 == 0 {
                 for (title, result) in [
                     ("Knowledge Gaps", sh.memory_meta_gaps(text).await),
@@ -333,16 +333,17 @@ pub(crate) async fn run_learn(
                     ("Calibration", sh.memory_meta_calibration().await),
                     ("Visual Memory", sh.vision_consolidate("session").await),
                 ] { if let Some(c) = result { let _ = tx.send(CognitiveUpdate::EvidenceMemory { title: title.into(), content: c }); } }
-                let _ = sh.memory_dream_start("periodic consolidation").await;
+                if sh.memory_dream_start("periodic consolidation").await.is_none() {
+                    eprintln!("[hydra:learn] memory_dream_start returned None");
+                }
             }
-            // Every 50 messages: crystallize session consciousness
-            if msg_count % 50 == 0 {
-                let _ = sh.memory_crystal_create("session crystallization").await;
-            }
+            if msg_count % 50 == 0 { let _ = sh.memory_crystal_create("session crystallization").await; }
         }
     }
 
     let learn_ms = learn_start.elapsed().as_millis() as u64;
+    // Round 6: Economic tracking — auto-detect value from this interaction
+    crate::knowledge::economics_tracker::auto_track(text, perceive_ms + think_ms + act_ms + learn_ms, llm_ok);
     let _ = tx.send(CognitiveUpdate::Typing(false));
     let _ = tx.send(CognitiveUpdate::PhaseStatuses(vec![
         PhaseStatus { phase: CognitivePhase::Perceive, state: PhaseState::Completed, tokens_used: Some(0), duration_ms: Some(perceive_ms) },
@@ -360,7 +361,7 @@ pub(crate) async fn run_learn(
     let css = if llm_result.is_ok() { "history-only" } else { "message hydra" };
     let _ = tx.send(CognitiveUpdate::Message {
         role: "hydra".into(),
-        content: final_response.to_string(),
+        content: strip_emojis(final_response),
         css_class: css.into(),
     });
 
@@ -382,4 +383,17 @@ pub(crate) async fn run_learn(
 
     tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
     let _ = tx.send(CognitiveUpdate::ResetIdle);
+}
+
+/// Parse memory stats from Memory sister MCP response. Returns (facts, tokens_avg, receipts).
+pub(crate) fn parse_memory_stats(raw: &str) -> (u64, u64, u64) {
+    let (mut facts, mut tokens, mut receipts) = (0u64, 0u64, 0u64);
+    for line in raw.lines() {
+        let l = line.to_lowercase();
+        let num = || -> Option<u64> { l.split(|c: char| !c.is_ascii_digit()).find(|s| !s.is_empty())?.parse().ok() };
+        if l.contains("node_count") || l.contains("total_events") { facts = num().unwrap_or(facts); }
+        else if l.contains("session_count") { tokens = num().unwrap_or(tokens); }
+        else if l.contains("edge_count") { receipts = num().unwrap_or(receipts); }
+    }
+    (facts, tokens, receipts)
 }

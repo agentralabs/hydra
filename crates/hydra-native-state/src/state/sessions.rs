@@ -220,9 +220,9 @@ impl Default for SessionStore {
     }
 }
 
-/// Get home directory path.
+/// Get home directory path (cross-platform).
 fn dirs_or_home() -> Option<PathBuf> {
-    std::env::var("HOME").ok().map(PathBuf::from)
+    Some(PathBuf::from(crate::utils::home_dir()))
 }
 
 #[cfg(test)]

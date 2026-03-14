@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Landmark cases establish principles that govern entire categories of disputes — knowing the leading cases in your area prevents arguing positions that courts have already rejected"
+confidence = 0.92
+source = "factory"
+action_trigger = "When assessing legal risk or advising on contract positions"
+edge_case = "Landmark cases may be from a different jurisdiction — their persuasive authority varies and they may not be binding in your forum"
+tags = ["risk", "precedent", "landmark-cases"]
+
+[[beliefs]]
+fact = "Damages awarded in prior cases set expectations for exposure — understanding typical ranges for breach of contract, IP infringement, and data breach helps quantify risk"
+confidence = 0.90
+source = "factory"
+action_trigger = "When estimating potential financial exposure from a legal dispute"
+edge_case = "Published case law skews toward unusual or large outcomes — most disputes settle for undisclosed amounts, making the true distribution of outcomes hard to know"
+tags = ["risk", "precedent", "damages"]
+
+[[beliefs]]
+fact = "Common dispute triggers include scope creep without contract amendment, personnel changes that break institutional memory, and ambiguous deliverable definitions"
+confidence = 0.91
+source = "factory"
+action_trigger = "When identifying operational risks that could escalate into legal disputes"
+edge_case = "Not all disputes are foreseeable — black swan events (pandemic, sanctions, technology shifts) can create disputes that no contract anticipated"
+tags = ["risk", "precedent", "dispute-triggers"]
+
+[[beliefs]]
+fact = "Settlement patterns reveal that most commercial disputes settle before trial — the cost of litigation often exceeds the amount in dispute, making early resolution economically rational"
+confidence = 0.89
+source = "factory"
+action_trigger = "When advising on dispute resolution strategy"
+edge_case = "Some disputes are worth litigating to establish precedent, deter future claims, or because the reputational cost of settling exceeds the litigation cost"
+tags = ["risk", "precedent", "settlement"]

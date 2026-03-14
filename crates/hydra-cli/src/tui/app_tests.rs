@@ -5,8 +5,8 @@ use super::*;
 #[test]
 fn app_creation() {
     let app = App::new();
-    assert_eq!(app.sisters.len(), 14);
-    assert_eq!(app.total_sisters, 14);
+    assert_eq!(app.sisters.len(), 17);
+    assert_eq!(app.total_sisters, 17);
     assert!(!app.should_quit);
     assert_eq!(app.input_mode, InputMode::Insert);
     assert_eq!(app.boot_state, BootState::Booting);

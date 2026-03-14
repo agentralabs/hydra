@@ -37,7 +37,8 @@ pub(crate) async fn handle_sister_diagnose(
 
         // Overall status
         let connected = sh.connected_count();
-        report.push_str(&format!("**{}/14 sisters connected**\n\n", connected));
+        let total = sh.all_sisters().len();
+        report.push_str(&format!("**{}/{} sisters connected**\n\n", connected, total));
 
         // Per-sister detail
         report.push_str("| Sister | Status | Tools |\n|--------|--------|-------|\n");

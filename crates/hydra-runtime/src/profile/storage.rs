@@ -38,6 +38,7 @@ impl ProfileStorage {
     /// Default profile path: ~/.hydra/profile.json
     pub fn default_path() -> PathBuf {
         std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
             .map(|h| PathBuf::from(h).join(".hydra").join("profile.json"))
             .unwrap_or_else(|_| PathBuf::from("/tmp/.hydra/profile.json"))
     }

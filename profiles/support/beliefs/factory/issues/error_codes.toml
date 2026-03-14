@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Error code taxonomy should separate user-facing codes (meaningful to customers) from internal codes (meaningful to engineers) — never expose internal codes to users"
+confidence = 0.90
+source = "factory"
+action_trigger = "When a customer reports an error code or when creating new error messages"
+edge_case = "Legacy systems often leak internal codes; maintain a translation table for customer communication"
+tags = ["issues", "error-codes", "taxonomy"]
+
+[[beliefs]]
+fact = "User-facing errors should include what happened, why, and what to do next — technical stack traces are not user-facing errors"
+confidence = 0.90
+source = "factory"
+action_trigger = "When communicating an error to a customer or reviewing error message quality"
+edge_case = "Developer-facing APIs can include technical detail; end-user interfaces should not"
+tags = ["issues", "error-codes", "ux"]
+
+[[beliefs]]
+fact = "Error severity mapping — P1 (service down, all users), P2 (major feature broken, many users), P3 (minor feature broken, some users), P4 (cosmetic, workaround exists)"
+confidence = 0.90
+source = "factory"
+action_trigger = "When assessing the urgency of a reported issue"
+edge_case = "A P3 for one enterprise customer with contractual SLA may need P2 treatment; consider account tier"
+tags = ["issues", "severity", "prioritization"]
+
+[[beliefs]]
+fact = "Fix paths should map each error code to resolution steps, estimated time, and whether self-service is possible — 40% of issues can be self-served with good guidance"
+confidence = 0.85
+source = "factory"
+action_trigger = "When building or updating the error resolution knowledge base"
+edge_case = "Self-service paths need clear escalation points for when they don't work"
+tags = ["issues", "error-codes", "self-service"]

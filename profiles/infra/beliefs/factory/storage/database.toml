@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Aurora provides 3-5x throughput over standard RDS MySQL/PostgreSQL with automatic storage scaling — default choice for relational workloads on AWS"
+confidence = 0.85
+source = "factory"
+action_trigger = "When provisioning a new relational database on AWS"
+edge_case = "Aurora pricing is higher per-hour; for small or dev databases, standard RDS may be more cost-effective"
+tags = ["storage", "database", "aurora"]
+
+[[beliefs]]
+fact = "DynamoDB excels at single-digit millisecond reads with known access patterns — design with access patterns first, schema second; avoid scan operations"
+confidence = 0.90
+source = "factory"
+action_trigger = "When the workload has predictable access patterns and needs consistent low-latency at any scale"
+edge_case = "Complex queries, JOINs, and ad-hoc analytics don't fit DynamoDB; use relational or export to analytics"
+tags = ["storage", "database", "dynamodb"]
+
+[[beliefs]]
+fact = "Read replicas reduce primary database load for read-heavy workloads — acceptable for eventual consistency; use synchronous replicas only when strong consistency is required"
+confidence = 0.85
+source = "factory"
+action_trigger = "When primary database CPU exceeds 60% and read/write ratio exceeds 3:1"
+edge_case = "Replication lag under load can cause stale reads; monitor lag and route critical reads to primary"
+tags = ["storage", "database", "read-replicas"]
+
+[[beliefs]]
+fact = "Connection pooling (PgBouncer, RDS Proxy) is essential when application instances exceed 50 — each connection consumes ~10MB of database memory"
+confidence = 0.90
+source = "factory"
+action_trigger = "When database connection count approaches 80% of max_connections or when scaling application instances"
+edge_case = "Some ORMs hold connections for prepared statements; transaction-mode pooling may break prepared statement caching"
+tags = ["storage", "database", "connection-pooling"]

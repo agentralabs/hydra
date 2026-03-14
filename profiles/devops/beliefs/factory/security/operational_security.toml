@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "All access must follow least privilege — service accounts, IAM roles, and human users receive only the permissions required for their specific function, with no standing admin access"
+confidence = 0.98
+source = "NIST SP 800-53 AC-6 — Least Privilege"
+action_trigger = "IAM role created, permission change requested, or quarterly access review"
+edge_case = "Break-glass procedures require temporary elevated access; implement just-in-time access with automatic expiration (max 4 hours) and full audit logging"
+tags = ["security", "least-privilege", "iam", "access-control"]
+
+[[beliefs]]
+fact = "Audit logs must be enabled for all control plane actions, authentication events, and data access — logs must be immutable, shipped to a separate account, and retained for at least 1 year"
+confidence = 0.97
+source = "CIS Controls v8 — Control 8: Audit Log Management"
+action_trigger = "New service deployed, logging configuration reviewed, or compliance audit"
+edge_case = "High-volume data plane logs may need sampling to control cost; ensure control plane and auth logs are always at 100% capture regardless of volume"
+tags = ["security", "audit-logs", "compliance", "observability"]
+
+[[beliefs]]
+fact = "Critical and high-severity patches must be applied within 14 days of publication; all other patches within 30 days — unpatched systems are the most common attack vector"
+confidence = 0.95
+source = "CISA Known Exploited Vulnerabilities catalog and patch management best practices"
+action_trigger = "Vulnerability scan results received or CVE advisory published for in-use software"
+edge_case = "Legacy systems that cannot be patched immediately require compensating controls (network isolation, WAF rules, enhanced monitoring) documented in a risk acceptance form"
+tags = ["security", "patching", "vulnerability-management", "compliance"]
+
+[[beliefs]]
+fact = "A complete and current inventory of all infrastructure assets (servers, containers, cloud resources, third-party services) must exist — you cannot secure what you do not know about"
+confidence = 0.96
+source = "CIS Controls v8 — Control 1: Inventory and Control of Enterprise Assets"
+action_trigger = "New infrastructure provisioned, quarterly asset audit, or shadow IT discovered"
+edge_case = "Ephemeral resources (spot instances, serverless functions, CI runners) must be inventoried by type and configuration even if individual instances are transient"
+tags = ["security", "inventory", "asset-management", "compliance"]

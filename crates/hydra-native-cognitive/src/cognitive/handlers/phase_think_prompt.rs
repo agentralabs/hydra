@@ -32,6 +32,43 @@ pub(crate) fn build_system_prompt(
     veritas_intent: &Option<String>,
     _active_model: &str,
 ) -> String {
+    let base = build_system_prompt_inner(
+        text, config, intent, perceive, _is_simple, is_complex, is_action_request,
+        complexity, sisters_handle, decide_engine, inventions, forge_blueprint,
+        veritas_intent, _active_model,
+    );
+    // UCU #9: Interface-first prompting for complex code tasks
+    let base = if is_complex && is_action_request {
+        format!("{}\n\n# Design Approach\n\
+            When designing a complex solution, first describe the interfaces \
+            (what each component does, what it accepts, what it returns). \
+            Then implement each interface. For code: generate trait/type \
+            definitions first, then implement them.\n", base)
+    } else { base };
+    // Append operational profile prompt overlay (Phase 6)
+    if let Some(ref overlay) = config.prompt_overlay {
+        format!("{}\n\n{}", base, overlay)
+    } else {
+        base
+    }
+}
+
+fn build_system_prompt_inner(
+    text: &str,
+    config: &super::super::loop_runner::CognitiveLoopConfig,
+    intent: &ClassifiedIntent,
+    perceive: &PerceiveResult,
+    _is_simple: bool,
+    is_complex: bool,
+    is_action_request: bool,
+    complexity: &str,
+    sisters_handle: &Option<SistersHandle>,
+    decide_engine: &Arc<DecideEngine>,
+    inventions: &Option<Arc<InventionEngine>>,
+    forge_blueprint: &Option<String>,
+    veritas_intent: &Option<String>,
+    _active_model: &str,
+) -> String {
     if let Some(ref sh) = sisters_handle {
         let mut sp = sh.build_cognitive_prompt(&config.user_name, &perceive.perceived, is_complex);
         if let Some(ref blueprint) = forge_blueprint {
@@ -185,6 +222,17 @@ pub(crate) fn build_system_prompt(
             }
         }
         sp.push('\n');
+        // UCU #9: Interface-first prompting for complex code tasks
+        if is_complex && is_action_request {
+            sp.push_str(
+                "# Design Approach\n\
+                 When designing a complex solution, first describe the interfaces \
+                 (what each component does, what it accepts, what it returns). \
+                 Then implement each interface. Never implement without defining \
+                 the interface first. For code generation: generate trait/type \
+                 definitions first, then implement them.\n\n"
+            );
+        }
         // Tool routing
         let routed_tools = route_tools_for_prompt(intent, complexity, is_action_request, sh, text);
         let tool_line_count = routed_tools.lines().count();
@@ -203,6 +251,33 @@ pub(crate) fn build_system_prompt(
         // Matched skills from registry
         if let Some(ref skills_ctx) = perceive.skills_context {
             sp.push_str(&format!("\n# Available Skills\n{}\n\n", skills_ctx));
+        }
+        // Cognitive Amplification: sister synapse + causal model + meta-reasoning
+        if let Some(ref synapse) = perceive.synapse_context {
+            sp.push_str(&format!("\n{}\n\n", synapse));
+        }
+        if let Some(ref causal) = perceive.causal_context {
+            sp.push_str(&format!("\n{}\n\n", causal));
+        }
+        if let Some(ref strategy) = perceive.meta_strategy {
+            sp.push_str(&format!("\n{}\n", strategy));
+        }
+        // Mentor system: inject teaching mode if user knows this topic
+        if let Some(mentor_ctx) = crate::knowledge::mentor_system::format_for_prompt(text) {
+            sp.push_str(&format!("\n{}\n", mentor_ctx));
+        }
+        // Social reasoning: inject recipient context for draft calibration
+        if text.to_lowercase().contains("email") || text.to_lowercase().contains("draft") || text.to_lowercase().contains("message to") {
+            let words: Vec<&str> = text.split_whitespace().collect();
+            if let Some(name) = words.iter().rev().find(|w| w.chars().next().map(|c| c.is_uppercase()).unwrap_or(false)) {
+                if let Some(social_ctx) = crate::knowledge::social_reasoning::format_for_prompt(name) {
+                    sp.push_str(&format!("\n{}\n", social_ctx));
+                }
+            }
+        }
+        // Production orchestrator: inject plan if deliverable detected
+        if let Some(ref prod) = perceive.production_context {
+            sp.push_str(&format!("\n{}\n", prod));
         }
         // Capability awareness — tell LLM what Hydra can DO
         let cap_section = crate::cognitive::capability_registry::CapabilityRegistry::new()

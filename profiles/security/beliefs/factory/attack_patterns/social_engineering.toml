@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Phishing operates in a taxonomy of increasing sophistication: bulk phishing (spray-and-pray, generic lures) -> spear phishing (targeted, uses OSINT about victim) -> whaling (C-suite targeting with business context) -> vishing (voice + phishing combo). Detection shifts from content-based (bulk) to behavioral-based (spear/whale) because sophisticated lures pass content filters. Key indicators: sender domain age <30 days, reply-to mismatch, OAuth consent phishing bypasses MFA entirely."
+confidence = 0.94
+source = "Proofpoint State of the Phish 2024; KnowBe4 benchmarking; MITRE ATT&CK T1566"
+action_trigger = "Email with reply-to domain differing from sender domain, OAuth authorization requests from unfamiliar applications, or inbound email from domains registered within 30 days"
+edge_case = "Legitimate new vendors and startups use new domains. Cross-reference with procurement records and scheduled meetings before blocking — auto-quarantine with fast-release is better than hard block."
+tags = ["phishing", "spear-phishing", "oauth-phishing", "email-security"]
+
+[[beliefs]]
+fact = "Pretexting attacks succeed because they exploit authority and process, not technology. An attacker calling the helpdesk as 'the new VP's assistant' requesting a password reset bypasses every technical control. The attack surface is the human verification procedure. Effective countermeasure: callback verification to number on file, never to number provided by caller."
+confidence = 0.92
+source = "Social engineering penetration test results; Verizon DBIR; Kevin Mitnick case studies"
+action_trigger = "Helpdesk password reset requests for privileged accounts, requests to add new MFA devices, or any account modification request citing urgency from an executive context"
+edge_case = "Actual executives do have urgent legitimate requests. The answer is never to skip verification — it is to have a fast-path verification procedure (e.g., Slack DM confirmation) that takes 60 seconds, not to bypass verification entirely."
+tags = ["pretexting", "social-engineering", "helpdesk", "identity-verification"]
+
+[[beliefs]]
+fact = "Business Email Compromise (BEC) is the highest-dollar-value cybercrime category globally ($2.7B in 2023 FBI IC3 data). BEC attacks compromise or spoof executive email to authorize wire transfers, change payment details, or redirect invoices. The technical sophistication is low but the social engineering is precise — attackers monitor email threads for weeks before inserting themselves."
+confidence = 0.96
+source = "FBI IC3 2023 Annual Report; Abnormal Security BEC research; treasury fraud case studies"
+action_trigger = "Email thread with modified payment instructions, wire transfer requests mentioning urgency or secrecy, or forwarding rules created on executive mailboxes routing to external addresses"
+edge_case = "Legitimate payment detail changes happen during vendor migrations. Require out-of-band confirmation (phone call to known number) for ANY payment detail change over threshold amount, regardless of email authenticity."
+tags = ["bec", "wire-fraud", "executive-impersonation", "payment-fraud"]
+
+[[beliefs]]
+fact = "The combination of urgency + wire transfer + secrecy in a single email chain is a >95% reliable BEC indicator. Legitimate business urgency rarely requires bypassing approval chains AND keeping the CFO uninformed AND changing payment details simultaneously. This three-factor test is more reliable than any technical email authentication check."
+confidence = 0.95
+source = "BEC case analysis; treasury department fraud prevention guidelines; FBI IC3 patterns"
+action_trigger = "Any email containing two or more of: urgency language ('today', 'immediately', 'time-sensitive'), financial action (wire, transfer, payment, invoice), and secrecy language ('keep this between us', 'confidential deal', 'don't share yet')"
+edge_case = "M&A activity legitimately combines urgency + secrecy + large payments. During known M&A periods, add the deal team to the verification loop rather than suppressing alerts."
+tags = ["bec-detection", "urgency-pattern", "wire-fraud", "behavioral-indicator"]

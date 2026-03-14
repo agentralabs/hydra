@@ -3,6 +3,7 @@
 use std::io::{BufRead, BufReader};
 use std::time::Duration;
 
+/// Default server URL — override with HYDRA_SERVER_URL env var.
 const DEFAULT_BASE_URL: &str = "http://127.0.0.1:7777";
 
 pub struct HydraClient {

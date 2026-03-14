@@ -1,0 +1,23 @@
+[[beliefs]]
+fact = "SOX Section 404 requires management to assess and report on internal controls over financial reporting — material weaknesses must be disclosed and remediated"
+confidence = 0.93
+source = "factory"
+action_trigger = "When reviewing financial controls or preparing for audit"
+edge_case = "SOX applies to US public companies — private companies and foreign private issuers have different (often lighter) requirements"
+tags = ["compliance", "sox", "internal-controls"]
+
+[[beliefs]]
+fact = "A material weakness in internal controls means there is a reasonable possibility that a material misstatement will not be prevented or detected — it triggers disclosure obligations and can affect stock price"
+confidence = 0.94
+source = "factory"
+action_trigger = "When a control deficiency is identified during audit or review"
+edge_case = "The distinction between significant deficiency and material weakness is a matter of judgment — auditor and management may disagree, requiring negotiation"
+tags = ["compliance", "sox", "material-weakness"]
+
+[[beliefs]]
+fact = "CEO and CFO certification under SOX Sections 302 and 906 creates personal liability for the accuracy of financial statements — this is why executive leadership takes compliance seriously"
+confidence = 0.95
+source = "factory"
+action_trigger = "When discussing the importance of financial compliance with leadership"
+edge_case = "Certification liability has rarely been enforced absent fraud — but the threat of personal liability is the compliance mechanism, and enforcement standards may tighten"
+tags = ["compliance", "sox", "certification"]

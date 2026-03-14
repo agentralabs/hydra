@@ -105,7 +105,7 @@ impl Sisters {
 
     /// Find which sister connection owns a tool by name.
     fn find_tool_owner(&self, tool_name: &str) -> Option<&super::connection::SisterConnection> {
-        let sisters: [(&Option<super::connection::SisterConnection>, &str); 14] = [
+        let sisters: [(&Option<super::connection::SisterConnection>, &str); 17] = [
             (&self.memory, "memory"),
             (&self.identity, "identity"),
             (&self.codebase, "codebase"),
@@ -120,6 +120,9 @@ impl Sisters {
             (&self.aegis, "aegis"),
             (&self.veritas, "veritas"),
             (&self.evolve, "evolve"),
+            (&self.data, "data"),
+            (&self.connect, "connect"),
+            (&self.workflow, "workflow"),
         ];
         for (opt, _name) in &sisters {
             if let Some(conn) = opt.as_ref() {

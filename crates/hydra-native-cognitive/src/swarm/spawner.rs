@@ -70,7 +70,8 @@ impl SwarmSpawner {
             .map_err(|e| format!("Failed to serialize config: {}", e))?;
 
         // Upload config via SSH
-        let remote_path = format!("/tmp/hydra-agent-{}.json", &agent.id[..8]);
+        let tmp = std::env::temp_dir();
+        let remote_path = format!("{}/hydra-agent-{}.json", tmp.display(), &agent.id[..8]);
         let upload_cmd = format!(
             "echo '{}' > {}",
             config_json.replace('\'', "'\\''"),
@@ -84,8 +85,8 @@ impl SwarmSpawner {
 
         // Start agent on remote machine
         let start_cmd = format!(
-            "nohup hydra-cli --agent-mode --config {} > /tmp/hydra-agent-{}.log 2>&1 &",
-            remote_path, &agent.id[..8],
+            "nohup hydra-cli --agent-mode --config {} > {}/hydra-agent-{}.log 2>&1 &",
+            remote_path, tmp.display(), &agent.id[..8],
         );
         let start_output = crate::remote::ssh_execute(host, user, &start_cmd).await?;
         if start_output.exit_code != 0 {
@@ -118,9 +119,10 @@ impl SwarmSpawner {
     /// Terminate a remote agent via SSH.
     pub async fn terminate_remote(&self, agent: &mut AgentInstance) {
         if let AgentHost::Remote { ref host, ref user } = agent.host {
+            let tmp = std::env::temp_dir();
             let kill_cmd = format!(
-                "pkill -f 'hydra-cli --agent-mode.*{}' 2>/dev/null; rm -f /tmp/hydra-agent-{}*",
-                &agent.id[..8], &agent.id[..8],
+                "pkill -f 'hydra-cli --agent-mode.*{}' 2>/dev/null; rm -f {}/hydra-agent-{}*",
+                &agent.id[..8], tmp.display(), &agent.id[..8],
             );
             let _ = crate::remote::ssh_execute(host, user, &kill_cmd).await;
         }
@@ -136,6 +138,6 @@ impl Default for SwarmSpawner {
 
 /// Get the local workspace directory for an agent.
 fn agent_workspace_dir(agent_id: &str) -> String {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+    let home = hydra_native_state::utils::home_dir();
     format!("{}/.hydra/agents/{}", home, &agent_id[..8])
 }

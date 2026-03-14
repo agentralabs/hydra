@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "10-K filings are due 60 days after fiscal year-end for large accelerated filers (>$700M float), 75 days for accelerated filers ($75M-$700M), and 90 days for non-accelerated filers. Late filings (NT 10-K) are a significant red flag — companies that file late have a 25% probability of subsequent restatement, versus 3% for on-time filers. The late filing itself often triggers covenant violations in credit agreements that accelerate debt."
+confidence = 0.92
+source = "SEC filing deadlines (Rule 12b-25), Alford/Jones/Zmijewski 2004 late filings study, updated through 2024"
+action_trigger = "NT 10-K filed → immediately check: (1) credit agreement covenant terms related to timely filing, (2) auditor change or going concern qualification, (3) CFO departure within 90 days. Any two of three = high probability of material restatement."
+edge_case = "COVID-era SEC relief orders (2020-2021) granted automatic 45-day extensions, creating a wave of late filings that were administratively late, not substantively problematic. Post-relief, late filings have returned to their historical signal strength."
+tags = ["regulatory", "sec", "10k", "filing_deadlines"]
+
+[[beliefs]]
+fact = "8-K filings for unscheduled material events — particularly Item 4.02 (non-reliance on previously issued financial statements) and Item 5.02 (departure of directors or principal officers) — are among the strongest short-term sell signals in equity markets. A stock experiencing an Item 4.02 8-K declines an average of 12-18% over the subsequent 30 days. An Item 5.02 filing for CFO departure (not retirement) precedes negative news in 40% of cases."
+confidence = 0.89
+source = "SEC 8-K filing data 2005-2024, event study analysis of 8-K items, Heron/Lie 2017"
+action_trigger = "Item 4.02 8-K filed → immediately exit long positions, potential restatement underway. Item 5.02 CFO departure → investigate reason, if 'to pursue other opportunities' with no named successor, treat as red flag."
+edge_case = "Planned executive successions (announced months in advance with a named successor starting on a specific date) trigger Item 5.02 filings that are procedural, not concerning. The signal is only negative when the departure is abrupt and the successor is unnamed or an interim appointment."
+tags = ["regulatory", "sec", "8k", "material_events"]
+
+[[beliefs]]
+fact = "Regulation FD (Fair Disclosure) prohibits selective disclosure of material non-public information, but companies have developed compliant workarounds that create information asymmetry: pre-earnings guidance updates via 8-K, industry conference presentations with new data points, and the timing of earnings calls (companies that move their earnings date forward by >5 days typically have good news; those that delay have bad news with 65% accuracy)."
+confidence = 0.84
+source = "SEC Regulation FD (2000), earnings date change analysis 2010-2024, So/Wang 2014 earnings announcement timing"
+action_trigger = "Earnings date moved forward > 5 days → bullish signal, consider adding to position before announcement. Earnings date delayed > 5 days → bearish signal, reduce position or add puts."
+edge_case = "Companies that routinely change their earnings dates (some small-caps shift by 1-3 days every quarter due to calendar mechanics) should be excluded from this signal. Only flag changes of 5+ days that break the company's own historical pattern."
+tags = ["regulatory", "sec", "reg_fd", "earnings_timing"]
+
+[[beliefs]]
+fact = "Short sale restrictions (SSR / Rule 201 'alternative uptick rule') trigger when a stock declines 10%+ from the prior close, restricting short sales to above the best bid for the remainder of that day and the following day. Stocks on the SSR list tend to bounce 1-3% on the following day because short sellers cannot aggressively press the stock lower, but this bounce is typically temporary — stocks that triggered SSR underperform their sector by 5-8% over the following month as the fundamental reason for the decline persists."
+confidence = 0.86
+source = "SEC Rule 201 (2010), empirical analysis of SSR-triggered stocks 2010-2024, Boulton/Braga-Alves 2010"
+action_trigger = "SSR triggered → expect 1-3% dead-cat bounce on Day 2, do NOT buy the bounce for a swing trade. If fundamentally bearish, wait for SSR to expire and resume short positioning on Day 3."
+edge_case = "During broad market selloffs (>3% index decline), hundreds of stocks trigger SSR simultaneously. In this scenario, the next-day bounce is amplified (3-5%) because the short-selling restriction is market-wide, creating a coordinated buying opportunity for day traders."
+tags = ["regulatory", "sec", "short_sale_restriction", "ssr"]

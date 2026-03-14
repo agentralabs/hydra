@@ -11,9 +11,7 @@ use hydra_runtime::approval::{ApprovalDecision, ApprovalManager};
 use super::super::super::loop_runner::{CognitiveLoopConfig, CognitiveUpdate};
 use super::super::super::intent_router::{IntentCategory, ClassifiedIntent};
 
-/// Handle self-implement — self-modification pipeline (Phase 5, Priority 1).
-///
-/// Flow: read spec -> approve -> Forge/LLM gap analysis -> Forge/LLM patch gen -> apply with retry -> report.
+/// Handle self-implement — self-modification pipeline.
 pub(crate) async fn handle_self_implement(
     text: &str,
     intent: &ClassifiedIntent,
@@ -41,10 +39,18 @@ pub(crate) async fn handle_self_implement(
 
     // -- Step 1: Read spec --
     let repo_root = std::env::current_dir().unwrap_or_default();
-    let spec_content = match read_spec(text, &repo_root, tx) {
+    let spec_content = match read_spec(text, &repo_root, sisters_handle, tx).await {
         Some(s) => s,
         None => return true,
     };
+
+    // Branch to project creation if spec describes a NEW project
+    if let Some(project_config) = hydra_kernel::project_creation::detect_new_project(&spec_content) {
+        eprintln!("[hydra:self-impl] Detected new project: {} → {}", project_config.name, project_config.target_dir.display());
+        return super::implement_new_project::handle_new_project_implement(
+            &spec_content, &project_config, config, sisters_handle, approval_manager, tx,
+        ).await;
+    }
 
     // -- Step 2: Request human approval --
     let approved = request_approval(text, config, approval_manager, tx).await;
@@ -85,14 +91,16 @@ pub(crate) async fn handle_self_implement(
     true
 }
 
-/// Read spec from file path or inline text. Returns None on error (already reported).
-fn read_spec(
+/// Read spec from file path or inline text (Codebase sister fallback).
+async fn read_spec(
     text: &str,
     repo_root: &std::path::Path,
+    sisters_handle: &Option<SistersHandle>,
     tx: &mpsc::UnboundedSender<CognitiveUpdate>,
 ) -> Option<String> {
     if let Some(spec_path) = hydra_kernel::self_modify_llm::extract_spec_path(text) {
         let full_path = repo_root.join(&spec_path);
+        // Try local first (fast), then Codebase sister search as fallback
         match std::fs::read_to_string(&full_path) {
             Ok(content) => {
                 let _ = tx.send(CognitiveUpdate::Message {
@@ -100,14 +108,34 @@ fn read_spec(
                     content: format!("Read spec: **{}** ({} bytes)", spec_path.display(), content.len()),
                     css_class: "message hydra thinking".into(),
                 });
-                Some(content)
+                return Some(content);
             }
-            Err(e) => {
-                let _ = tx.send(CognitiveUpdate::Message {
-                    role: "hydra".into(),
-                    content: format!("Cannot read spec file `{}`: {}", full_path.display(), e),
-                    css_class: "message hydra error".into(),
-                });
+            Err(_) => {
+                // Sister-first fallback: ask Codebase sister to find the file
+                let filename = spec_path.file_name().and_then(|f| f.to_str()).unwrap_or("");
+                if let Some(ref sh) = sisters_handle {
+                    if let Some(ref cb) = sh.codebase {
+                        if let Ok(v) = cb.call_tool("file_search", serde_json::json!({"query": filename})).await {
+                            let found = crate::sisters::connection::extract_text(&v);
+                            if !found.is_empty() && !found.contains("No results") {
+                                eprintln!("[hydra:spec] Codebase sister found: {}", found.lines().next().unwrap_or(""));
+                                // Try reading the first result path
+                                if let Some(path) = found.lines().next() {
+                                    let p = path.trim();
+                                    if let Ok(c) = std::fs::read_to_string(p) {
+                                        let _ = tx.send(CognitiveUpdate::Message { role: "hydra".into(),
+                                            content: format!("Read spec via Codebase search: **{}** ({} bytes)", p, c.len()),
+                                            css_class: "message hydra thinking".into() });
+                                        return Some(c);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                let _ = tx.send(CognitiveUpdate::Message { role: "hydra".into(),
+                    content: format!("Cannot find spec `{}`", full_path.display()),
+                    css_class: "message hydra error".into() });
                 let _ = tx.send(CognitiveUpdate::ResetIdle);
                 None
             }
@@ -117,7 +145,7 @@ fn read_spec(
     }
 }
 
-/// Run gap analysis (Forge first, LLM fallback). Returns None if no gaps found (already reported).
+/// Run gap analysis (Forge first, LLM fallback).
 async fn run_gap_analysis(
     sisters_handle: &Option<SistersHandle>,
     spec_content: &str,
@@ -204,7 +232,7 @@ async fn generate_initial_patches(
     }
 }
 
-/// Apply patches with agentic retry loop (up to 3 attempts).
+/// Apply patches with agentic retry loop (up to 10 attempts).
 /// On compile failure, feeds errors back to the LLM for correction.
 async fn apply_with_retry(
     initial_patches: Vec<hydra_kernel::self_modify::Patch>,
@@ -214,7 +242,7 @@ async fn apply_with_retry(
     repo_root: &std::path::Path,
     tx: &mpsc::UnboundedSender<CognitiveUpdate>,
 ) {
-    let max_retries: u8 = 3;
+    let max_retries: u8 = 10;
     let mut current_patches = initial_patches;
     let mut attempt: u8 = 0;
 

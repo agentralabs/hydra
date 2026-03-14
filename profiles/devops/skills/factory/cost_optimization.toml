@@ -1,0 +1,21 @@
+[metadata]
+name = "cost_optimization"
+description = "Analyze cloud spending and recommend cost reduction strategies"
+version = "1.0.0"
+
+[trigger]
+patterns = ["cost", "spending", "expensive", "optimize cost", "save money", "budget"]
+intent = "cost-analysis"
+
+[steps]
+sequence = [
+    "Gather current resource utilization and billing data",
+    "Identify idle or underutilized resources",
+    "Check for reserved instance or savings plan opportunities",
+    "Evaluate right-sizing recommendations",
+    "Propose prioritized savings with estimated impact",
+]
+
+[sisters]
+primary = ["Reality", "Data", "Connect"]
+optional = ["Planning"]

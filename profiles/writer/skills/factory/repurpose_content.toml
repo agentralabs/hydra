@@ -1,0 +1,21 @@
+[metadata]
+name = "repurpose_content"
+description = "Transform one piece of content into multiple platform-specific formats"
+version = "1.0.0"
+
+[trigger]
+patterns = ["repurpose", "reuse this", "turn into", "adapt for", "cross-post"]
+intent = "content-repurposing"
+
+[steps]
+sequence = [
+    "Analyze the source content for key insights and quotes",
+    "Identify target platforms and their format requirements",
+    "Extract 5-10 standalone points from the source",
+    "Adapt each point for platform-specific format (thread, post, newsletter snippet)",
+    "Ensure consistent voice while matching platform conventions",
+]
+
+[sisters]
+primary = ["Memory", "Identity"]
+optional = ["Comm"]

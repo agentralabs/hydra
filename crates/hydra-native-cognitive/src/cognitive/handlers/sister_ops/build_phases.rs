@@ -139,18 +139,22 @@ pub(super) async fn run_verify_phase(
     let _ = tokio::time::timeout(std::time::Duration::from_secs(3), async {
         let sh = match sisters.as_ref() { Some(s) => s, None => return };
         if let Some(ref aegis) = sh.aegis {
-            let _ = aegis.call_tool("aegis_validate", serde_json::json!({
+            if let Err(e) = aegis.call_tool("aegis_validate", serde_json::json!({
                 "action": "build_system_verify",
                 "context": format!("Build completed with {} warnings", warn_count),
-            })).await;
+            })).await {
+                eprintln!("[hydra:aegis] aegis_validate FAILED: {}", e);
+            }
         }
         if let Some(ref codebase) = sh.codebase {
             for step in &orchestrator.plan().implementation_order {
                 for file in step.files.iter().take(3) {
-                    let _ = codebase.call_tool("hallucination_check", serde_json::json!({
+                    if let Err(e) = codebase.call_tool("hallucination_check", serde_json::json!({
                         "file": file,
                         "claim": format!("Code in {} implements the spec correctly", file),
-                    })).await;
+                    })).await {
+                        eprintln!("[hydra:codebase] hallucination_check FAILED: {}", e);
+                    }
                 }
             }
         }

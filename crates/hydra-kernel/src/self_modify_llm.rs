@@ -15,10 +15,6 @@ pub use crate::self_modify_llm_parse::{
 // ---- re-export parse helpers used by tests ----
 use crate::self_modify_llm_parse::{parse_gaps_from_json, parse_patches_from_json};
 
-// ===============================================================
-// SPEC FILE EXTRACTION
-// ===============================================================
-
 /// Extract a spec file path from user text (e.g., "implement spec test-specs/FOO.md").
 pub fn extract_spec_path(text: &str) -> Option<PathBuf> {
     for word in text.split_whitespace() {
@@ -31,10 +27,6 @@ pub fn extract_spec_path(text: &str) -> Option<PathBuf> {
     }
     None
 }
-
-// ===============================================================
-// CODEBASE CONTEXT GATHERING
-// ===============================================================
 
 /// Build a compact workspace map for LLM context.
 /// Reads root Cargo.toml to list workspace members, then lists src/*.rs for each.
@@ -307,7 +299,8 @@ fn build_request(
     }
 }
 
-/// Make a direct LLM call. Tries preferred provider first, falls back to the other.
+/// Make a direct LLM call with rate-limit retry and provider fallback.
+/// Retry chain: same model (30s wait) -> fallback provider -> cheaper model -> give up.
 pub async fn call_llm(
     user_content: &str,
     system_prompt: &str,
@@ -320,37 +313,52 @@ pub async fn call_llm(
     }
 
     let call_future = async {
+        // Attempt 1: primary provider
         let request = build_request(&model, user_content, system_prompt, max_tokens);
         let result = try_provider(provider, request, llm_config).await;
+        if result.is_ok() { return result; }
+        let err = result.unwrap_err();
+        let is_rate_limited = is_rate_limit_error(&err);
 
-        if result.is_err() {
-            let fallback = match provider {
-                "anthropic" if llm_config.openai_api_key.is_some() => {
-                    let fb_model = std::env::var("HYDRA_MODEL")
-                        .unwrap_or_else(|_| "gpt-4o-mini".into());
-                    Some((fb_model, "openai"))
-                }
-                "openai" if llm_config.anthropic_api_key.is_some() => {
-                    Some(("claude-haiku-4-5-20251001".into(), "anthropic"))
-                }
-                _ => None,
-            };
-            if let Some((fb_model, fb_provider)) = fallback {
-                eprintln!("[hydra:self-impl] Primary ({}) failed, trying {}", provider, fb_provider);
-                let fb_req = build_request(&fb_model, user_content, system_prompt, max_tokens);
-                let fb_result = try_provider(fb_provider, fb_req, llm_config).await;
-                if fb_result.is_ok() {
-                    return fb_result;
-                }
-            }
+        // Rate limited: wait and retry same provider
+        if is_rate_limited {
+            eprintln!("[hydra:llm] Rate limited on {}, retrying in 30s...", provider);
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            let req2 = build_request(&model, user_content, system_prompt, max_tokens);
+            let retry = try_provider(provider, req2, llm_config).await;
+            if retry.is_ok() { return retry; }
         }
-        result
+
+        // Attempt 2: fallback provider
+        let fallback = match provider {
+            "anthropic" if llm_config.openai_api_key.is_some() => {
+                let fb = std::env::var("HYDRA_MODEL").unwrap_or_else(|_| "gpt-4o-mini".into());
+                Some((fb, "openai"))
+            }
+            "openai" if llm_config.anthropic_api_key.is_some() =>
+                Some(("claude-haiku-4-5-20251001".into(), "anthropic")),
+            _ => None,
+        };
+        if let Some((fb_model, fb_provider)) = fallback {
+            eprintln!("[hydra:llm] Trying fallback: {} on {}", fb_model, fb_provider);
+            let fb_req = build_request(&fb_model, user_content, system_prompt, max_tokens);
+            let fb_result = try_provider(fb_provider, fb_req, llm_config).await;
+            if fb_result.is_ok() { return fb_result; }
+        }
+        Err(err)
     };
 
-    match tokio::time::timeout(std::time::Duration::from_secs(45), call_future).await {
+    match tokio::time::timeout(std::time::Duration::from_secs(90), call_future).await {
         Ok(result) => result,
-        Err(_) => Err("LLM call timed out after 45s".into()),
+        Err(_) => Err("LLM call timed out after 90s (including retries)".into()),
     }
+}
+
+/// Detect rate-limit errors from provider error messages.
+fn is_rate_limit_error(err: &str) -> bool {
+    let lower = err.to_lowercase();
+    lower.contains("429") || lower.contains("rate limit") || lower.contains("too many requests")
+        || lower.contains("overloaded") || lower.contains("capacity")
 }
 
 // ---- ERROR CORRECTION -- fix patches that failed cargo check ----

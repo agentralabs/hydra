@@ -16,20 +16,19 @@ impl Sisters {
         let involves_code = Self::detects_code(text);
         let involves_vision = Self::detects_visual(text);
 
-        // Facts/corrections/decisions first — high-signal stored preferences
+        // Generic memory queries — no event_type filter, max 20
         let facts_fut = async {
             if let Some(s) = &self.memory {
                 s.call_tool("memory_query", serde_json::json!({
                     "query": text,
-                    "event_types": ["fact", "correction", "decision"],
-                    "max_results": 5,
+                    "max_results": 20,
                     "sort_by": "highest_confidence"
                 })).await.ok()
             } else { None }
         };
         let memory_fut = async {
             if let Some(s) = &self.memory {
-                s.call_tool("memory_query", serde_json::json!({"query": text, "max_results": 5})).await.ok()
+                s.call_tool("memory_query", serde_json::json!({"query": text, "max_results": 10, "sort_by": "most_recent"})).await.ok()
             } else { None }
         };
         // V4 longevity search: deeper semantic search across 20-year hierarchy
@@ -81,7 +80,7 @@ impl Sisters {
         let mem_predict_fut = async {
             if let Some(s) = &self.memory {
                 s.call_tool("memory_predict", serde_json::json!({
-                    "context": text, "max_results": 5, "include_confidence": true,
+                    "context": text, "max_results": 20, "include_confidence": true,
                 })).await.ok()
             } else { None }
         };
@@ -256,18 +255,14 @@ impl Sisters {
         let facts_fut = async {
             if let Some(s) = &self.memory {
                 s.call_tool("memory_query", serde_json::json!({
-                    "query": text,
-                    "event_types": ["fact", "correction", "decision"],
-                    "max_results": 5,
-                    "sort_by": "highest_confidence"
+                    "query": text, "max_results": 20, "sort_by": "highest_confidence"
                 })).await.ok()
             } else { None }
         };
         let general_memory_fut = async {
             if let Some(s) = &self.memory {
                 s.call_tool("memory_query", serde_json::json!({
-                    "query": text,
-                    "max_results": 3
+                    "query": text, "max_results": 10, "sort_by": "most_recent"
                 })).await.ok()
             } else { None }
         };

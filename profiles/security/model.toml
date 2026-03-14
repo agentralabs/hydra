@@ -1,0 +1,12 @@
+[model]
+default = "claude-sonnet-4-6"
+fallback = "claude-haiku-4-5"
+
+[model.routing]
+# High-stakes decisions get the best model
+incident_response = "claude-sonnet-4-6"
+threat_analysis = "claude-sonnet-4-6"
+# Routine triage can use faster model
+alert_triage = "claude-haiku-4-5"
+log_parsing = "claude-haiku-4-5"
+compliance_check = "claude-sonnet-4-6"

@@ -10,7 +10,7 @@ use std::time::Instant;
 use tokio::sync::mpsc;
 
 use crate::cognitive::decide::DecideEngine;
-use crate::sisters::SistersHandle;
+use crate::sisters::{SistersHandle, SisterGateway};
 use hydra_native_state::state::hydra::{CognitivePhase, PhaseState, PhaseStatus};
 use hydra_native_state::utils::{extract_json_plan, format_bytes, safe_truncate};
 use hydra_db::{HydraDb, BeliefRow};
@@ -45,6 +45,7 @@ pub(crate) async fn run_act(
     risk_level: &str,
     gate_decision: &str,
     perceive_memory: &Option<String>,
+    task_plan: &Option<crate::cognitive::iterative_planner::TaskPlan>,
     decide_engine: &Arc<DecideEngine>,
     sisters_handle: &Option<SistersHandle>,
     undo_stack: &Option<Arc<parking_lot::Mutex<UndoStack>>>,
@@ -54,8 +55,10 @@ pub(crate) async fn run_act(
     perceive_ms: u64,
     think_ms: u64,
     decide_ms: u64,
+    gateway: &Option<Arc<SisterGateway>>,
     tx: &mpsc::UnboundedSender<CognitiveUpdate>,
 ) -> ActResult {
+    let _gateway = gateway; // Available for future sister-first risk assessment
     let _ = tx.send(CognitiveUpdate::Phase("Act".into()));
     let _ = tx.send(CognitiveUpdate::IconState("working".into()));
     let act_start = Instant::now();
@@ -96,7 +99,7 @@ pub(crate) async fn run_act(
             final_response = execute_json_plan(plan, tx, undo_stack).await;
 
             // Multi-pass deepening: if generated files are shallow stubs, expand them
-            let home = std::env::var("HOME").unwrap_or_default();
+            let home = hydra_native_state::utils::home_dir();
             let project_dir_name = plan["project_dir"].as_str().unwrap_or("hydra-project");
             let base_dir = format!("{}/projects/{}", home, project_dir_name);
             let summary = plan["summary"].as_str().unwrap_or("Project");
@@ -152,12 +155,17 @@ pub(crate) async fn run_act(
         all_exec_results = exec_results;
     }
 
-    // ── MULTI-TURN AGENTIC LOOP ──
+    // ── MULTI-TURN AGENTIC LOOP (UCU parallel_dispatch aware) ──
     // If the response has tool/exec tags AND agentic loop is enabled,
     // enter multi-turn mode: execute → feed results back to LLM → repeat.
     if llm_result.is_ok() && is_complex && config.runtime.agentic_loop
         && super::agentic_loop_format::has_actionable_tags(&final_response)
     {
+        // UCU: compute iteration budget dynamically instead of fixed total
+        let iter_budget = crate::cognitive::token_budget::agentic_iteration_budget(
+            0, config.runtime.agentic_max_turns, config.runtime.agentic_token_budget, 0,
+        );
+        eprintln!("[hydra:agentic] UCU budget: {} per iteration (total {})", iter_budget, config.runtime.agentic_token_budget);
         let loop_cfg = agentic_loop_entry::AgenticLoopConfig {
             max_turns: config.runtime.agentic_max_turns.min(10),
             turn_timeout_secs: 30,
@@ -180,6 +188,31 @@ pub(crate) async fn run_act(
             stop_reason: loop_result.stop_reason.to_string(),
         });
         eprintln!("[hydra:agentic] Loop done: {} turns, reason={}", loop_result.turns_completed, loop_result.stop_reason);
+    }
+
+    // ── UCU PARALLEL DISPATCH — track plan step completion + guide agentic loop ──
+    if let Some(ref plan) = task_plan {
+        let mut graph = crate::cognitive::parallel_dispatch::DependencyGraph::new(&plan.steps);
+        let success_count = all_exec_results.iter().filter(|(_, _, s)| *s).count();
+        for i in 0..success_count.min(plan.steps.len()) {
+            graph.mark_completed(i);
+            let _ = tx.send(CognitiveUpdate::PlanStepComplete { index: i, duration_ms: None });
+        }
+        // Report remaining work to the LLM via response annotation
+        if !graph.all_complete() {
+            if let Some(batch) = graph.next_batch() {
+                let remaining: Vec<String> = batch.step_ids.iter()
+                    .filter_map(|&id| plan.steps.get(id).map(|s| s.description.clone()))
+                    .collect();
+                if !remaining.is_empty() {
+                    final_response.push_str(&format!(
+                        "\n\n**Next steps ({}/{} complete):**\n{}",
+                        graph.completed_count(), graph.total_steps(),
+                        remaining.iter().map(|s| format!("- {}", s)).collect::<Vec<_>>().join("\n"),
+                    ));
+                }
+            }
+        }
     }
 
     // ── RESPONSE VERIFICATION PIPELINE ──
@@ -240,12 +273,14 @@ pub(crate) async fn run_act(
     // Sign receipt via Identity sister
     if let Some(ref sh) = sisters_handle {
         if let Some(id) = &sh.identity {
-            let _ = id.call_tool("receipt_create", serde_json::json!({
+            if let Err(e) = id.call_tool("receipt_create", serde_json::json!({
                 "action": text,
                 "risk_level": risk_level,
                 "gate_decision": gate_decision,
                 "tokens_used": input_tokens + output_tokens,
-            })).await;
+            })).await {
+                eprintln!("[hydra:identity] receipt_create FAILED: {}", e);
+            }
         }
     }
 
@@ -257,7 +292,9 @@ pub(crate) async fn run_act(
     // Vision: capture screen state after execution (complex tasks only)
     if is_complex {
         if let Some(ref sh) = sisters_handle {
-            let _ = sh.act_vision_capture(text).await;
+            if sh.act_vision_capture(text).await.is_none() {
+                eprintln!("[hydra:act] act_vision_capture returned None");
+            }
         }
     }
 
@@ -266,6 +303,19 @@ pub(crate) async fn run_act(
         decide_engine.record_success(risk_level, "");
     } else {
         decide_engine.record_failure(risk_level, "");
+    }
+
+    // UCU dependency_resolver: detect missing deps from execution failures
+    for (cmd, output, success) in &all_exec_results {
+        if !*success {
+            if let Some(dep) = crate::cognitive::dependency_resolver::detect_missing_dependency(output) {
+                let res = crate::cognitive::dependency_resolver::suggest_resolution(&dep);
+                eprintln!("[hydra:deps] {:?} '{}' — {:?}", dep.kind, dep.name, res.action_taken);
+                if let crate::cognitive::dependency_resolver::ResolutionAction::SuggestInstall(ref install_cmd) = res.action_taken {
+                    final_response.push_str(&format!("\n\n**Missing dependency:** {}\nSuggested fix: `{}`", res.description, install_cmd));
+                }
+            }
+        }
     }
 
     // Phase 2, A1: Failure Belief Generation
@@ -296,11 +346,15 @@ pub(crate) async fn run_act(
         }
     }
 
-    // Phase 5, P2: Obstacle resolution — classify failures, store solutions, send UI updates
+    // Phase 5, P2: Obstacle resolution + UCU backtrack analysis
     {
         let mut resolver = super::obstacle_handler::create_resolver();
-        for (cmd, output, success) in &all_exec_results {
+        for (idx, (cmd, output, success)) in all_exec_results.iter().enumerate() {
             if !*success {
+                // UCU backtrack: analyze failure for root cause fix suggestions
+                if let Some(fix) = crate::cognitive::backtrack::suggest_fix(output) {
+                    eprintln!("[hydra:backtrack] step={} fix_hint={}", idx, fix);
+                }
                 if let Some(resolution) = super::obstacle_handler::try_resolve_obstacle(
                     output, cmd, &mut resolver, llm_config, tx,
                 ).await {

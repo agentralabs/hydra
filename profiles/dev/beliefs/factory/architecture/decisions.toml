@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Start with a monolith and extract services only when you have clear, proven module boundaries — premature microservices multiply operational complexity without delivering benefits"
+confidence = 0.93
+source = "factory"
+action_trigger = "When designing the initial architecture for a new product or system"
+edge_case = "If the team is very large (50+ engineers) and organizational boundaries are already clear, starting with separate services aligned to team ownership can reduce coordination overhead from day one"
+tags = ["architecture", "decisions", "monolith", "microservices"]
+
+[[beliefs]]
+fact = "Serverless (Lambda, Cloud Functions) excels for sporadic, event-driven workloads with variable traffic — but cold starts, execution limits, and vendor lock-in make it a poor fit for latency-sensitive or long-running processes"
+confidence = 0.88
+source = "factory"
+action_trigger = "When evaluating compute platforms for a new service or workload"
+edge_case = "Provisioned concurrency mitigates cold starts but eliminates the cost advantage — if you need always-warm instances, a container on ECS/Cloud Run is simpler and often cheaper"
+tags = ["architecture", "decisions", "serverless", "cloud"]
+
+[[beliefs]]
+fact = "Event-driven architecture decouples producers from consumers and enables replay, audit, and independent scaling — but it trades simple request/response debugging for distributed tracing complexity"
+confidence = 0.90
+source = "factory"
+action_trigger = "When designing inter-service communication or considering Kafka, NATS, or SQS"
+edge_case = "Event ordering guarantees vary by broker and partition strategy — if your business logic depends on strict ordering, verify partition-key design and idempotency before assuming events arrive in sequence"
+tags = ["architecture", "decisions", "event-driven", "messaging"]
+
+[[beliefs]]
+fact = "Choose the simplest architecture that meets current requirements plus 6 months of foreseeable growth — over-engineering for hypothetical scale is the most common and most expensive architectural mistake"
+confidence = 0.95
+source = "factory"
+action_trigger = "When making any significant architectural decision or reviewing system design proposals"
+edge_case = "Certain decisions are genuinely hard to change later (database choice, wire protocol, encryption scheme) — invest more upfront analysis in these irreversible decisions while keeping everything else simple"
+tags = ["architecture", "decisions", "simplicity", "yagni"]

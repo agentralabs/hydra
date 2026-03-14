@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Cite specific sources with names, dates, and numbers — 'a 2024 McKinsey study of 1,200 companies' is more credible than 'research shows'"
+confidence = 0.92
+source = "academic writing standards, journalism ethics"
+action_trigger = "when making any factual claim or referencing external evidence"
+edge_case = "Casual social media posts may not need full citations; link to the source instead of inline attribution"
+tags = ["credibility", "sources", "evidence", "trust"]
+
+[[beliefs]]
+fact = "Acknowledging counterarguments strengthens your position — readers trust writers who address objections honestly rather than ignoring them"
+confidence = 0.89
+source = "rhetoric (Aristotle), persuasion psychology, debate methodology"
+action_trigger = "when making a strong claim or recommendation that has known objections"
+edge_case = "Very short copy (ads, tweets) may not have space for counterarguments; address them in supporting content instead"
+tags = ["credibility", "counterarguments", "honesty", "persuasion"]
+
+[[beliefs]]
+fact = "Combine personal experience with external data — anecdotes without data are unconvincing, data without stories is forgettable"
+confidence = 0.90
+source = "narrative nonfiction craft, content marketing effectiveness research"
+action_trigger = "when building an argument that relies on either pure anecdote or pure data"
+edge_case = "Academic or scientific writing may appropriately rely on data alone; personal essays may rely on experience alone"
+tags = ["credibility", "experience", "data", "balance"]
+
+[[beliefs]]
+fact = "Apply the expert test: would a knowledgeable person in this field find your content accurate and useful, or would they spot oversimplifications and errors?"
+confidence = 0.88
+source = "Google E-E-A-T guidelines, editorial quality standards"
+action_trigger = "before publishing content on any specialized topic"
+edge_case = "Beginner-focused content may intentionally simplify; flag simplifications transparently rather than presenting them as complete truths"
+tags = ["credibility", "expertise", "quality", "accuracy"]

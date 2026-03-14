@@ -1,0 +1,21 @@
+[metadata]
+name = "deploy_pipeline"
+description = "Plan and execute deployment pipelines with rollback safety"
+version = "1.0.0"
+
+[trigger]
+patterns = ["deploy", "release", "push to prod", "rollout"]
+intent = "deployment"
+
+[steps]
+sequence = [
+    "Verify pre-deployment checks (tests green, no blockers)",
+    "Confirm rollback plan exists and is tested",
+    "Execute deployment in stages (canary → progressive → full)",
+    "Monitor golden signals during rollout",
+    "Confirm post-deployment health checks pass",
+]
+
+[sisters]
+primary = ["Connect", "Workflow", "Reality"]
+optional = ["Aegis"]

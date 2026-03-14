@@ -97,9 +97,11 @@ impl Sisters {
     /// Create a decay policy for knowledge freshness.
     pub async fn time_decay_create(&self, topic: &str, half_life_days: u32) {
         if let Some(time) = &self.time {
-            let _ = time.call_tool("time_decay_create", serde_json::json!({
+            if let Err(e) = time.call_tool("time_decay_create", serde_json::json!({
                 "topic": topic, "half_life_days": half_life_days,
-            })).await;
+            })).await {
+                eprintln!("[hydra:time] time_decay_create FAILED: {}", e);
+            }
         }
     }
 
@@ -155,9 +157,11 @@ impl Sisters {
     /// Mark a deadline as completed.
     pub async fn time_deadline_complete(&self, task: &str) {
         if let Some(time) = &self.time {
-            let _ = time.call_tool("time_deadline_complete", serde_json::json!({
+            if let Err(e) = time.call_tool("time_deadline_complete", serde_json::json!({
                 "task": task,
-            })).await;
+            })).await {
+                eprintln!("[hydra:time] time_deadline_complete FAILED: {}", e);
+            }
         }
     }
 

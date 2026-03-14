@@ -1,0 +1,21 @@
+[metadata]
+name = "health_check"
+description = "Run comprehensive health checks across infrastructure components"
+version = "1.0.0"
+
+[trigger]
+patterns = ["health check", "status", "is everything ok", "system health"]
+intent = "monitoring"
+
+[steps]
+sequence = [
+    "Query service endpoints for health status",
+    "Check resource utilization (CPU, memory, disk, network)",
+    "Review recent error logs and alert history",
+    "Verify backup and replication status",
+    "Report summary with any action items",
+]
+
+[sisters]
+primary = ["Reality", "Connect"]
+optional = ["Memory"]

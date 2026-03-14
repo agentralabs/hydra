@@ -46,7 +46,10 @@ impl DecideEngine {
         }
     }
 
-    /// Classify a shell command into an ActionType for the risk assessor
+    /// SAFETY-CRITICAL: Hardcoded command classification for risk assessment.
+    /// These MUST remain hardcoded — they're safety rails, not intelligence.
+    /// rm, sudo, git, curl, etc. must always be classified regardless of LLM availability.
+    /// Maps shell commands to ActionType variants for the risk scoring pipeline.
     pub(crate) fn classify_command(cmd: &str) -> ActionType {
         let lower = cmd.to_lowercase();
         if lower.starts_with("rm ") || lower.contains("unlink ") || lower.contains("trash ") {

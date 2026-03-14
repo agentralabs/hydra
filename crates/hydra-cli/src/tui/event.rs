@@ -157,6 +157,7 @@ pub fn handle_key_event(app: &mut App, key: KeyEvent) {
             // Clear conversation
             app.messages.clear();
             app.scroll_offset = 0;
+            app.scroll_pinned_top = None;
             return;
         }
         (KeyModifiers::CONTROL, KeyCode::Char('r')) => {
@@ -301,6 +302,8 @@ fn handle_insert_mode(app: &mut App, key: KeyEvent) {
             }
         }
         KeyCode::Char(c) => {
+            // Guard: cap input at 10,000 chars to prevent memory issues
+            if app.input.len() >= 10_000 { return; }
             let byte_idx = char_to_byte(&app.input, app.cursor_pos);
             app.input.insert(byte_idx, c);
             app.cursor_pos += 1;

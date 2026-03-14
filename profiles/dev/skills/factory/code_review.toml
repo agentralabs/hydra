@@ -1,0 +1,21 @@
+[metadata]
+name = "code_review"
+description = "Review code changes for correctness, style, and potential issues"
+version = "1.0.0"
+
+[trigger]
+patterns = ["review this", "code review", "check this code", "what do you think of"]
+intent = "code-quality"
+
+[steps]
+sequence = [
+    "Read the changed files or diff",
+    "Check for correctness issues (logic errors, off-by-one, null handling)",
+    "Check for style consistency with surrounding code",
+    "Check for security issues (injection, unsafe input handling)",
+    "Summarize findings with actionable suggestions",
+]
+
+[sisters]
+primary = ["Codebase", "Forge"]
+optional = ["Aegis"]

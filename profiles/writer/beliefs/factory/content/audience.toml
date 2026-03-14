@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Define one specific reader before writing — a piece for everyone resonates with no one"
+confidence = 0.91
+source = "content strategy fundamentals, persona-driven marketing"
+action_trigger = "before outlining or drafting any content piece"
+edge_case = "Brand-awareness content may target a broader segment; even then, a representative archetype sharpens the writing"
+tags = ["audience", "targeting", "persona"]
+
+[[beliefs]]
+fact = "Meet the audience where they are, not where you wish they were — match their current knowledge level, vocabulary, and context"
+confidence = 0.89
+source = "curriculum design (ZPD theory), UX writing principles"
+action_trigger = "when choosing tone, vocabulary, and assumed background knowledge"
+edge_case = "Aspirational content may deliberately stretch the audience slightly beyond their current level"
+tags = ["audience", "tone", "knowledge-level"]
+
+[[beliefs]]
+fact = "Lead with pain points, not features — readers care about their problems before they care about your solution"
+confidence = 0.92
+source = "Jobs-to-be-Done framework, copywriting best practices"
+action_trigger = "when writing introductions, landing pages, or product-adjacent content"
+edge_case = "Technical documentation for existing users can lead with features since the pain point is already understood"
+tags = ["audience", "pain-points", "positioning"]
+
+[[beliefs]]
+fact = "B2B readers are still humans — they respond to stories, emotion, and clarity just like B2C audiences, but they also need to justify decisions to stakeholders"
+confidence = 0.87
+source = "B2B content marketing research, Gartner buyer studies"
+action_trigger = "when writing B2B content that defaults to dry, feature-list style"
+edge_case = "Highly regulated industries (finance, healthcare) may require more formal and evidence-heavy approaches"
+tags = ["audience", "b2b", "b2c", "tone"]

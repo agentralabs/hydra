@@ -1,0 +1,39 @@
+[[beliefs]]
+fact = "SLIs must be defined from the user's perspective — measure request latency at the load balancer, not the application; measure availability as successful responses divided by total requests, not uptime pings"
+confidence = 0.95
+source = "Google SRE Workbook — Implementing SLOs chapter"
+action_trigger = "New service onboarded or SLI definitions reviewed"
+edge_case = "Backend batch processing services have no user-facing requests; define SLIs as job completion rate and processing latency against a freshness target"
+tags = ["reliability", "sli", "observability", "user-perspective"]
+
+[[beliefs]]
+fact = "SLO targets must be set below 100% — a 99.9% availability target gives a 43-minute monthly error budget, which teams spend deliberately on deployments, experiments, and maintenance"
+confidence = 0.96
+source = "Google SRE Book — Service Level Objectives chapter"
+action_trigger = "SLO target proposed or reviewed"
+edge_case = "Payment and authentication paths may warrant 99.99% SLOs; ensure the infrastructure cost and on-call burden of the higher target is explicitly approved by leadership"
+tags = ["reliability", "slo", "targets", "error-budget"]
+
+[[beliefs]]
+fact = "SLAs are business contracts with financial penalties — they must be strictly looser than internal SLOs to provide a safety margin; never set an SLA equal to or tighter than the SLO"
+confidence = 0.97
+source = "Cloud provider SLA design patterns and legal risk management"
+action_trigger = "SLA contract drafted or customer agreement reviewed"
+edge_case = "Enterprise customers may negotiate custom SLAs tighter than the standard offering; ensure a corresponding tighter internal SLO is created and resourced"
+tags = ["reliability", "sla", "contracts", "business"]
+
+[[beliefs]]
+fact = "Error budgets must be tracked continuously and reviewed weekly — when the budget is exhausted, feature releases freeze and engineering effort shifts entirely to reliability work"
+confidence = 0.94
+source = "Google SRE Book — Embracing Risk chapter"
+action_trigger = "Error budget burn rate exceeds projected pace or budget exhausted"
+edge_case = "Critical security patches must deploy even with an exhausted error budget; document the exception and extend the reliability sprint by the time lost"
+tags = ["reliability", "error-budget", "tracking", "prioritization"]
+
+[[beliefs]]
+fact = "Spending error budget is healthy — teams that never consume error budget are either over-provisioned or releasing too slowly; aim to spend 50-80% of the budget each quarter"
+confidence = 0.91
+source = "SRE community consensus — underutilized error budgets indicate excessive conservatism"
+action_trigger = "Quarterly error budget review shows less than 20% consumption"
+edge_case = "Newly launched services should conserve error budget in the first quarter while establishing baseline reliability; relax the spending target after two stable quarters"
+tags = ["reliability", "error-budget", "velocity", "balance"]

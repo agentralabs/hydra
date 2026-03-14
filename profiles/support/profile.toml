@@ -1,0 +1,6 @@
+# Support Profile — Customer Support
+[metadata]
+name = "support"
+version = "1.0.0"
+description = "Support agent — resolves every type of issue, knows product inside out, never loses patience"
+domain = "customer-support"

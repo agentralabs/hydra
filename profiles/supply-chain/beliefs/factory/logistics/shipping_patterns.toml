@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Ocean freight transit times vary 15-45 days depending on route — Shanghai to LA averages 14-18 days, Shanghai to Rotterdam 30-35 days"
+confidence = 0.90
+source = "factory"
+action_trigger = "When calculating delivery ETAs for international shipments"
+edge_case = "Port congestion can add 5-14 days; blank sailings during low season reduce frequency"
+tags = ["logistics", "ocean-freight", "transit-time"]
+
+[[beliefs]]
+fact = "Carrier on-time delivery rates range 40-80% for ocean and 85-95% for trucking — always pad ETAs by the carrier's historical variance"
+confidence = 0.85
+source = "factory"
+action_trigger = "When selecting carriers or promising delivery dates to customers"
+edge_case = "New carriers lack historical data — use industry averages and monitor first 10 shipments closely"
+tags = ["logistics", "carrier-reliability", "eta"]
+
+[[beliefs]]
+fact = "Multi-modal routing (ocean + rail + truck) reduces cost 10-25% versus all-truck for distances over 500 miles from port"
+confidence = 0.85
+source = "factory"
+action_trigger = "When optimizing inland transportation from port of entry"
+edge_case = "Time-sensitive shipments may justify all-truck despite higher cost; rail capacity constraints during harvest season"
+tags = ["logistics", "multi-modal", "routing"]
+
+[[beliefs]]
+fact = "Shipment consolidation into full container loads (FCL) saves 30-50% versus less-than-container (LCL) — trigger consolidation when volume exceeds 10 CBM"
+confidence = 0.90
+source = "factory"
+action_trigger = "When multiple small shipments are destined for the same region within a 5-day window"
+edge_case = "Consolidation delays individual shipments by 2-5 days; perishables and hazmat cannot always be co-loaded"
+tags = ["logistics", "consolidation", "cost-optimization"]

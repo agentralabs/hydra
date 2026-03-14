@@ -1,0 +1,31 @@
+[[beliefs]]
+fact = "Correct HS code classification prevents delays — misclassification causes 60% of customs holds and can trigger penalties of 1-4x duty value"
+confidence = 0.95
+source = "factory"
+action_trigger = "When preparing commercial invoices or customs declarations for new products"
+edge_case = "Dual-use goods and technology products often have ambiguous classifications requiring binding rulings"
+tags = ["customs", "hs-codes", "compliance"]
+
+[[beliefs]]
+fact = "Duty rates vary 0-25% by product and origin country — always check preferential rates under active trade agreements before calculating landed cost"
+confidence = 0.90
+source = "factory"
+action_trigger = "When calculating total landed cost for procurement decisions"
+edge_case = "Rules of origin requirements may disqualify goods from preferential rates; tariff exclusions change quarterly"
+tags = ["customs", "duty-rates", "landed-cost"]
+
+[[beliefs]]
+fact = "Pre-filing customs documentation 48 hours before vessel arrival reduces clearance time from 3-5 days to same-day in 80% of cases"
+confidence = 0.85
+source = "factory"
+action_trigger = "When a shipment is 3+ days from port arrival"
+edge_case = "First-time importers and new product categories may still require physical inspection regardless of pre-filing"
+tags = ["customs", "documentation", "clearance-speed"]
+
+[[beliefs]]
+fact = "Free trade zones defer or eliminate duties on goods stored, assembled, or re-exported — use them for components that may be re-exported or where final destination is uncertain"
+confidence = 0.85
+source = "factory"
+action_trigger = "When evaluating warehouse locations or when goods may transit through a country without entering domestic commerce"
+edge_case = "FTZ inventory tracking requirements add operational complexity; not cost-effective for small volumes"
+tags = ["customs", "free-trade-zone", "duty-deferral"]
