@@ -295,8 +295,8 @@ impl App {
 
         // Copy to clipboard using platform command
         let cmd = if cfg!(target_os = "macos") { "pbcopy" } else { "xclip -selection clipboard" };
-        let result = std::process::Command::new("sh")
-            .arg("-c")
+        let result = std::process::Command::new(hydra_native::utils::shell_command().0)
+                        .arg(hydra_native::utils::shell_command().1)
             .arg(cmd)
             .stdin(std::process::Stdio::piped())
             .spawn()

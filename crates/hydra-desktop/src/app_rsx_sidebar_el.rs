@@ -262,9 +262,9 @@ rsx! {
                         }
                         #[cfg(not(target_os = "macos"))]
                         {
-                            let _ = std::process::Command::new("sh")
+                            let _ = std::process::Command::new(hydra_native::utils::shell_command().0)
                                 .args([
-                                    "-c",
+                                    hydra_native::utils::shell_command().1,
                                     &format!(
                                         "x-terminal-emulator -e 'cd {} && cargo run -q --bin hydra-cli' &",
                                         project_root

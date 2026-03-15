@@ -142,8 +142,8 @@ impl SelfRepairEngine {
             };
         }
 
-        let output = match tokio::process::Command::new("sh")
-            .arg("-c")
+        let output = match tokio::process::Command::new(hydra_native_state::utils::shell_command().0)
+                        .arg(hydra_native_state::utils::shell_command().1)
             .arg(&check.check)
             .current_dir(&self.repo_root)
             .stdout(Stdio::piped())

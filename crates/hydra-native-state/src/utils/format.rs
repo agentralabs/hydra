@@ -159,6 +159,17 @@ pub fn home_dir() -> String {
         .unwrap_or_else(|_| ".".into())
 }
 
+/// Cross-platform shell command execution.
+/// Returns (shell_program, shell_arg) for the current OS.
+/// Unix: ("sh", "-c"), Windows: ("cmd", "/C").
+pub fn shell_command() -> (&'static str, &'static str) {
+    if cfg!(windows) {
+        ("cmd", "/C")
+    } else {
+        ("sh", "-c")
+    }
+}
+
 /// Cross-platform hydra data directory (~/.hydra). Auto-creates if missing.
 pub fn hydra_data_dir() -> std::path::PathBuf {
     let dir = std::path::PathBuf::from(home_dir()).join(".hydra");

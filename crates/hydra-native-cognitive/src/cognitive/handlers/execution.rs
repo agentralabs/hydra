@@ -94,8 +94,9 @@ pub(crate) async fn execute_json_plan(
                     let cwd = step["cwd"].as_str().unwrap_or(".");
                     let work_dir = if cwd == "." { base_dir.clone() } else { format!("{}/{}", base_dir, cwd) };
 
-                    let output = tokio::process::Command::new("sh")
-                        .arg("-c")
+                    let (shell, shell_arg) = hydra_native_state::utils::shell_command();
+                    let output = tokio::process::Command::new(shell)
+                        .arg(shell_arg)
                         .arg(cmd)
                         .current_dir(&work_dir)
                         .output()

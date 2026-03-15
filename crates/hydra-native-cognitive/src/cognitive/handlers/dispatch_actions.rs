@@ -18,7 +18,8 @@ use super::platform_system::detect_system_control;
 
 /// Run a shell command and return (formatted_output, raw_output).
 async fn run_shell_cmd(cmd: &str) -> Result<(String, String), String> {
-    match tokio::process::Command::new("sh").arg("-c").arg(cmd).output().await {
+    let (shell, shell_arg) = hydra_native_state::utils::shell_command();
+    match tokio::process::Command::new(shell).arg(shell_arg).arg(cmd).output().await {
         Ok(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let stderr = String::from_utf8_lossy(&output.stderr);

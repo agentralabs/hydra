@@ -102,8 +102,9 @@ pub fn execute_hooks(settings: &HydraSettings, event: &str, tool_name: &str) {
                 for action in &rule.hooks {
                     if action.action_type == "command" {
                         if let Some(ref cmd) = action.command {
-                            let _ = std::process::Command::new("sh")
-                                .args(["-c", cmd])
+                            let (shell, shell_arg) = hydra_native::utils::shell_command();
+                            let _ = std::process::Command::new(shell)
+                                .args([shell_arg, cmd.as_str()])
                                 .output();
                         }
                     }

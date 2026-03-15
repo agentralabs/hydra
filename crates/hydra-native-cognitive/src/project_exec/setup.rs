@@ -50,8 +50,9 @@ pub fn run_command(cmd: &str, dir: &Path, _timeout_secs: u64) -> CommandOutput {
     let start = Instant::now();
 
     // Split command for shell execution
-    let output = Command::new("sh")
-        .args(["-c", cmd])
+    let (shell, shell_arg) = hydra_native_state::utils::shell_command();
+    let output = Command::new(shell)
+        .args([shell_arg, cmd])
         .current_dir(dir)
         .env("CI", "true") // Prevent interactive prompts
         .output();

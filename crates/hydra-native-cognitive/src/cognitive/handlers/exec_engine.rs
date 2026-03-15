@@ -57,8 +57,9 @@ pub async fn run_command(cmd: &str) -> std::io::Result<Output> {
     let wrapped = format!(
         "cd {:?} 2>/dev/null; {}", cwd.display(), cmd
     );
-    let mut command = tokio::process::Command::new("sh");
-    command.arg("-c").arg(&wrapped);
+    let (shell, shell_arg) = hydra_native_state::utils::shell_command();
+    let mut command = tokio::process::Command::new(shell);
+    command.arg(shell_arg).arg(&wrapped);
     for (k, v) in &env_vars {
         command.env(k, v);
     }

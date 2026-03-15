@@ -161,8 +161,8 @@ pub async fn run_tests(sister_path: &Path, analysis: &SisterAnalysis) -> TestRes
 pub async fn run_tests_with_timeout(
     sister_path: &Path, analysis: &SisterAnalysis, timeout_secs: u64,
 ) -> TestResults {
-    let fut = tokio::process::Command::new("sh")
-        .arg("-c")
+    let fut = tokio::process::Command::new(hydra_native_state::utils::shell_command().0)
+                        .arg(hydra_native_state::utils::shell_command().1)
         .arg(&analysis.test_command)
         .current_dir(sister_path)
         .output();

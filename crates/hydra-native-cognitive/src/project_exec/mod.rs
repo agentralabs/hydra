@@ -229,7 +229,7 @@ impl ProjectExecutor {
             Err(_) => return false,
         };
         send_msg(tx, &format!("Installing {} via {}...", tool.name, pm));
-        let output = std::process::Command::new("sh").arg("-c").arg(&cmd).output();
+        let output = std::process::Command::new(hydra_native_state::utils::shell_command().0).arg(hydra_native_state::utils::shell_command().1).arg(&cmd).output();
         match output {
             Ok(o) if o.status.success() => {
                 let stdout = String::from_utf8_lossy(&o.stdout).to_string();

@@ -126,8 +126,8 @@ pub(crate) async fn diagnose_and_retry(
             return None;
         }
         // Execute the fix
-        match tokio::process::Command::new("sh")
-            .arg("-c").arg(&fix_cmd)
+        match tokio::process::Command::new(hydra_native_state::utils::shell_command().0)
+                        .arg(hydra_native_state::utils::shell_command().1).arg(&fix_cmd)
             .output().await
         {
             Ok(output) => {
@@ -204,8 +204,8 @@ pub(crate) async fn diagnose_and_retry(
             return None;
         }
 
-        match tokio::process::Command::new("sh")
-            .arg("-c").arg(&fix_cmd)
+        match tokio::process::Command::new(hydra_native_state::utils::shell_command().0)
+                        .arg(hydra_native_state::utils::shell_command().1).arg(&fix_cmd)
             .output().await
         {
             Ok(output) => {
