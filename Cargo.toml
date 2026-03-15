@@ -98,7 +98,7 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 lettre = { version = "0.11", default-features = false, features = ["tokio1-native-tls", "smtp-transport", "builder"] }
 
 # Internal crates
-hydra-core = { path = "crates/hydra-core" }
+hydra-core = { package = "agentic-hydra-core", path = "crates/hydra-core" }
 hydra-ux = { path = "crates/hydra-ux" }
 hydra-kernel = { path = "crates/hydra-kernel" }
 hydra-intent = { path = "crates/hydra-intent" }

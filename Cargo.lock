@@ -9,6 +9,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
+name = "agentic-hydra-core"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "pretty_assertions",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-test",
+ "toml",
+ "uuid",
+]
+
+[[package]]
 name = "ahash"
 version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2547,8 +2563,8 @@ checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 name = "hydra-autonomy"
 version = "0.1.0"
 dependencies = [
+ "agentic-hydra-core",
  "chrono",
- "hydra-core",
  "parking_lot",
  "pretty_assertions",
  "serde",
@@ -2561,9 +2577,9 @@ dependencies = [
 name = "hydra-belief"
 version = "0.1.0"
 dependencies = [
+ "agentic-hydra-core",
  "chrono",
  "futures",
- "hydra-core",
  "parking_lot",
  "pretty_assertions",
  "serde",
@@ -2578,9 +2594,9 @@ dependencies = [
 name = "hydra-cache"
 version = "0.1.0"
 dependencies = [
+ "agentic-hydra-core",
  "chrono",
  "dashmap",
- "hydra-core",
  "parking_lot",
  "pretty_assertions",
  "serde",
@@ -2595,10 +2611,10 @@ dependencies = [
 name = "hydra-cli"
 version = "0.1.0"
 dependencies = [
+ "agentic-hydra-core",
  "chrono",
  "cpal",
  "crossterm",
- "hydra-core",
  "hydra-db",
  "hydra-federation",
  "hydra-model",
@@ -2623,7 +2639,7 @@ dependencies = [
 name = "hydra-collab"
 version = "0.1.0"
 dependencies = [
- "hydra-core",
+ "agentic-hydra-core",
 ]
 
 [[package]]
@@ -2637,22 +2653,6 @@ dependencies = [
  "serde_json",
  "tokio-test",
  "tracing",
- "uuid",
-]
-
-[[package]]
-name = "hydra-core"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "chrono",
- "pretty_assertions",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tokio-test",
- "toml",
  "uuid",
 ]
 
@@ -2713,8 +2713,8 @@ dependencies = [
 name = "hydra-gate"
 version = "0.1.0"
 dependencies = [
+ "agentic-hydra-core",
  "chrono",
- "hydra-core",
  "parking_lot",
  "pretty_assertions",
  "serde",
@@ -2737,11 +2737,11 @@ dependencies = [
 name = "hydra-integration"
 version = "0.1.0"
 dependencies = [
+ "agentic-hydra-core",
  "async-trait",
  "axum",
  "chrono",
  "futures",
- "hydra-core",
  "hydra-db",
  "hydra-gate",
  "hydra-kernel",
@@ -2763,16 +2763,16 @@ dependencies = [
 name = "hydra-integrations"
 version = "0.1.0"
 dependencies = [
- "hydra-core",
+ "agentic-hydra-core",
 ]
 
 [[package]]
 name = "hydra-intent"
 version = "0.1.0"
 dependencies = [
+ "agentic-hydra-core",
  "dashmap",
  "futures",
- "hydra-core",
  "parking_lot",
  "pretty_assertions",
  "serde",
@@ -2805,10 +2805,10 @@ dependencies = [
 name = "hydra-kernel"
 version = "0.1.0"
 dependencies = [
+ "agentic-hydra-core",
  "async-trait",
  "chrono",
  "futures",
- "hydra-core",
  "hydra-gate",
  "hydra-intent",
  "hydra-model",
@@ -2830,10 +2830,10 @@ dependencies = [
 name = "hydra-ledger"
 version = "0.1.0"
 dependencies = [
+ "agentic-hydra-core",
  "chrono",
  "dashmap",
  "futures",
- "hydra-core",
  "parking_lot",
  "pretty_assertions",
  "serde",
@@ -2863,11 +2863,11 @@ dependencies = [
 name = "hydra-model"
 version = "0.1.0"
 dependencies = [
+ "agentic-hydra-core",
  "async-trait",
  "chrono",
  "dashmap",
  "futures",
- "hydra-core",
  "parking_lot",
  "pretty_assertions",
  "reqwest",
@@ -2883,7 +2883,7 @@ dependencies = [
 name = "hydra-monitor"
 version = "0.1.0"
 dependencies = [
- "hydra-core",
+ "agentic-hydra-core",
 ]
 
 [[package]]
@@ -2909,11 +2909,11 @@ dependencies = [
 name = "hydra-native-cognitive"
 version = "0.1.0"
 dependencies = [
+ "agentic-hydra-core",
  "chrono",
  "hydra-autonomy",
  "hydra-belief",
  "hydra-collab",
- "hydra-core",
  "hydra-db",
  "hydra-federation",
  "hydra-gate",
@@ -2975,10 +2975,10 @@ dependencies = [
 name = "hydra-protocol"
 version = "0.1.0"
 dependencies = [
+ "agentic-hydra-core",
  "async-trait",
  "chrono",
  "dashmap",
- "hydra-core",
  "parking_lot",
  "pretty_assertions",
  "serde",
@@ -3023,11 +3023,11 @@ dependencies = [
 name = "hydra-runtime"
 version = "0.1.0"
 dependencies = [
+ "agentic-hydra-core",
  "async-trait",
  "chrono",
  "dashmap",
  "hydra-belief",
- "hydra-core",
  "hydra-gate",
  "hydra-intent",
  "hydra-kernel",
@@ -3057,11 +3057,11 @@ dependencies = [
 name = "hydra-server"
 version = "0.1.0"
 dependencies = [
+ "agentic-hydra-core",
  "async-trait",
  "axum",
  "chrono",
  "futures",
- "hydra-core",
  "hydra-db",
  "hydra-kernel",
  "hydra-ledger",
@@ -3086,11 +3086,11 @@ dependencies = [
 name = "hydra-sisters"
 version = "0.1.0"
 dependencies = [
+ "agentic-hydra-core",
  "async-trait",
  "chrono",
  "dashmap",
  "futures",
- "hydra-core",
  "parking_lot",
  "pretty_assertions",
  "reqwest",
@@ -3121,11 +3121,11 @@ dependencies = [
 name = "hydra-stress"
 version = "0.1.0"
 dependencies = [
+ "agentic-hydra-core",
  "async-trait",
  "axum",
  "chrono",
  "futures",
- "hydra-core",
  "hydra-db",
  "hydra-gate",
  "hydra-integration",
@@ -3149,22 +3149,22 @@ dependencies = [
 name = "hydra-tasks"
 version = "0.1.0"
 dependencies = [
- "hydra-core",
+ "agentic-hydra-core",
 ]
 
 [[package]]
 name = "hydra-trace"
 version = "0.1.0"
 dependencies = [
- "hydra-core",
+ "agentic-hydra-core",
 ]
 
 [[package]]
 name = "hydra-ux"
 version = "0.1.0"
 dependencies = [
+ "agentic-hydra-core",
  "chrono",
- "hydra-core",
  "parking_lot",
  "pretty_assertions",
  "serde",
@@ -3179,8 +3179,8 @@ dependencies = [
 name = "hydra-voice"
 version = "0.1.0"
 dependencies = [
+ "agentic-hydra-core",
  "chrono",
- "hydra-core",
  "parking_lot",
  "pretty_assertions",
  "serde",

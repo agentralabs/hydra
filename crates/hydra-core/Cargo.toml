@@ -1,11 +1,14 @@
 [package]
-name = "hydra-core"
+name = "agentic-hydra-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 description = "Core types, traits, and errors for agentic-hydra"
+
+[lib]
+name = "hydra_core"
 
 [dependencies]
 serde = { workspace = true }
