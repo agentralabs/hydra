@@ -40,6 +40,7 @@ members = [
     "crates/hydra-cache",
     "crates/hydra-router",
     "crates/hydra-desktop",
+    "crates/hydra-tui",
 ]
 exclude = [
     "extensions/*",
