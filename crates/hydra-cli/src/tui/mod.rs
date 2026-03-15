@@ -23,6 +23,7 @@ pub mod slash_commands_ssh;
 pub mod slash_commands_sister_improve;
 pub mod slash_commands_swarm;
 pub mod slash_commands_profile;
+pub mod voice;
 pub mod settings;
 pub mod skills;
 pub mod theme;

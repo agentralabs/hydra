@@ -5,15 +5,7 @@ use super::app::{App, Message, MessageRole};
 
 impl App {
     // ── Config ──
-
-    pub(crate) fn slash_cmd_voice(&mut self, timestamp: &str) {
-        self.messages.push(Message {
-            role: MessageRole::System,
-            content: "Voice input: not yet available in TUI mode.".to_string(),
-            timestamp: timestamp.to_string(),
-            phase: None,
-        });
-    }
+    // /voice → implemented in voice.rs (mic capture + Whisper STT)
 
     pub(crate) fn slash_cmd_sidebar(&mut self) {
         self.sidebar_visible = !self.sidebar_visible;
