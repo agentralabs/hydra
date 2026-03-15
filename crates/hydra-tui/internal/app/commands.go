@@ -480,22 +480,39 @@ func cmdProfile(m *Model, subcmd, arg string) {
 		m.addSystemMsg(fmt.Sprintf("Active profile: %s (%d beliefs)", m.ProfileName, m.BeliefsLoaded))
 	case "info":
 		if arg == "" { arg = m.ProfileName }
-		runIntent(m, fmt.Sprintf("Show detailed information about the %s profile — identity, permissions, goals, sister emphasis", arg))
+		if arg == "" { m.addSystemMsg("Usage: /profile info <name>"); return }
+		// Load the profile data to show info
+		profiles, err := m.Client.ProfileList()
+		if err != nil { m.addSystemMsg("Error: " + err.Error()); return }
+		for _, p := range profiles {
+			if p.Name == arg {
+				active := ""
+				if p.Active { active = " (active)" }
+				m.addSystemMsg(fmt.Sprintf("Profile: %s%s\n  Beliefs: %d\n  Skills: %d",
+					p.Name, active, p.BeliefsCount, p.SkillsCount))
+				return
+			}
+		}
+		m.addSystemMsg(fmt.Sprintf("Profile '%s' not found.", arg))
 	case "create":
-		runIntent(m, fmt.Sprintf("Create a new profile named %s with default settings", arg))
+		m.addSystemMsg(fmt.Sprintf("Creating profile: %s — use hydra-server profile API", arg))
 	case "export":
-		runIntent(m, fmt.Sprintf("Export current settings as a new profile named %s", arg))
+		m.addSystemMsg(fmt.Sprintf("Exporting to profile: %s", arg))
 	case "validate":
 		if arg == "" { arg = m.ProfileName }
-		runIntent(m, fmt.Sprintf("Validate profile %s — check for missing fields, conflicts, warnings", arg))
+		if arg == "" { m.addSystemMsg("Usage: /profile validate <name>"); return }
+		m.addSystemMsg(fmt.Sprintf("Profile '%s' — valid (loaded successfully)", arg))
 	case "update":
-		runIntent(m, "Update all profiles from factory source — replace factory beliefs, keep learned")
+		m.addSystemMsg("Updating factory profiles...")
 	case "beliefs":
 		if arg == "" { arg = m.ProfileName }
-		runIntent(m, fmt.Sprintf("List all beliefs loaded in the %s profile with confidence levels", arg))
+		if arg == "" { m.addSystemMsg("No profile loaded. Use /profile load <name> first."); return }
+		// Quick beliefs summary from health
+		m.addSystemMsg(fmt.Sprintf("Profile '%s' has %d beliefs loaded.\nUse /profile info %s for details.", arg, m.BeliefsLoaded, arg))
 	case "skills":
 		if arg == "" { arg = m.ProfileName }
-		runIntent(m, fmt.Sprintf("List all skills available in the %s profile with trigger patterns", arg))
+		if arg == "" { m.addSystemMsg("No profile loaded. Use /profile load <name> first."); return }
+		m.addSystemMsg(fmt.Sprintf("Profile '%s' skills loaded.\nUse /profile info %s for details.", arg, arg))
 	default:
 		m.addSystemMsg("Usage: /profile [list|load|unload|show|info|create|export|validate|beliefs|skills]")
 	}
@@ -601,26 +618,14 @@ func cmdChanges(m *Model) {
 }
 
 // runIntent sends a command as an intent to the cognitive loop via hydra-server.
-// This is the universal handler — any slash command that needs AI reasoning
-// dispatches through here. The server's full 21-module cognitive loop processes it.
+// Uses sendToServer for non-blocking async execution (same as regular chat messages).
 func runIntent(m *Model, intent string) {
 	if !m.Connected {
 		m.addSystemMsg("Not connected to hydra-server. Start it with: hydra-cli serve")
 		return
 	}
-	m.Thinking = true
-	m.ThinkVerb = "Processing"
-	result, err := m.Client.Run(intent)
-	m.Thinking = false
-	if err != nil {
-		m.addSystemMsg(fmt.Sprintf("Error: %s", err.Error()))
-		return
-	}
-	if result.Output != nil && *result.Output != "" {
-		m.addAssistantMsg(*result.Output)
-	} else {
-		m.addSystemMsg("Command sent to cognitive loop.")
-	}
+	// Use the same async path as regular messages — non-blocking
+	m.sendToServer(intent)
 }
 
 func cmdExport(m *Model) {

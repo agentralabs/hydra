@@ -109,6 +109,7 @@ type Model struct {
 	ThinkVerb     string
 	SpinnerPhase  int
 	ThinkStart    time.Time
+	PendingInput  string // async server call pending
 
 	// Terminal
 	Width  int

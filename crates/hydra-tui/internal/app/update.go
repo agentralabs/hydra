@@ -28,6 +28,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
+
+	case serverResultMsg:
+		m.StreamActive = false
+		m.Thinking = false
+		m.Mode = ModeChat
+		m.InputEnabled = true
+		if msg.err != "" {
+			m.addSystemMsg("Error: " + msg.err)
+		} else if msg.output != "" {
+			m.StreamBuf = msg.output
+			m.finishResponse()
+		} else {
+			m.StreamRunID = msg.runID
+		}
+		return m, nil
 	}
 
 	return m, nil
@@ -347,6 +362,12 @@ func (m Model) handleSubmit() (tea.Model, tea.Cmd) {
 	// Route
 	if input[0] == '/' {
 		HandleSlashCommand(&m, input)
+		// If a slash command triggered sendToServer, return the async cmd
+		if m.PendingInput != "" {
+			pending := m.PendingInput
+			m.PendingInput = ""
+			return m, sendToServerCmd(m.Client, pending)
+		}
 		return m, nil
 	}
 	if input[0] == '!' {
@@ -354,9 +375,18 @@ func (m Model) handleSubmit() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Send to server
+	// Send to server (async — non-blocking)
 	m.sendToServer(input)
-	return m, nil
+	pending := m.PendingInput
+	m.PendingInput = ""
+	return m, sendToServerCmd(m.Client, pending)
+}
+
+// serverResultMsg carries the async result from the server.
+type serverResultMsg struct {
+	runID  string
+	output string
+	err    string
 }
 
 func (m *Model) sendToServer(input string) {
@@ -369,24 +399,22 @@ func (m *Model) sendToServer(input string) {
 	m.RevealedChars = 0
 	m.StreamActive = true
 	m.StreamSpeed = 1.0
+	m.PendingInput = input
+}
 
-	result, err := m.Client.Run(input)
-	if err != nil {
-		m.addSystemMsg("Error: " + err.Error())
-		m.StreamActive = false
-		m.Thinking = false
-		m.Mode = ModeChat
-		m.InputEnabled = true
-		return
+// sendToServerCmd returns a tea.Cmd that runs the HTTP call in background.
+func sendToServerCmd(c *client.HydraRpcClient, input string) tea.Cmd {
+	return func() tea.Msg {
+		result, err := c.Run(input)
+		if err != nil {
+			return serverResultMsg{err: err.Error()}
+		}
+		output := ""
+		if result.Output != nil {
+			output = *result.Output
+		}
+		return serverResultMsg{runID: result.RunID, output: output}
 	}
-
-	m.StreamRunID = result.RunID
-	// If server returned output synchronously, finish immediately
-	if result.Output != nil && *result.Output != "" {
-		m.StreamBuf = *result.Output
-		m.finishResponse()
-	}
-	// Otherwise, SSE "done" event will call finishResponse()
 }
 
 func (m *Model) finishResponse() {
@@ -424,6 +452,10 @@ func (m *Model) handleStreamChunk(chunk client.StreamChunk) {
 		// tool results handled inline
 	case "done":
 		m.Thinking = false
+		// If content arrived with "done" and buffer is empty, use it directly
+		if chunk.Content != nil && *chunk.Content != "" && m.StreamBuf == "" {
+			m.StreamBuf = *chunk.Content
+		}
 		m.finishResponse()
 	case "error":
 		m.Thinking = false

@@ -252,6 +252,10 @@ async fn execute_run_kernel(state: Arc<AppState>, run_id: String, intent: String
         // Extract the final response from the last phase output
         let final_response = extract_response(&output);
 
+        // Signal stream completion to TUI clients
+        state.event_bus.publish(SseEvent::new(SseEventType::StreamChunk,
+            serde_json::json!({"type": "done", "run_id": run_id, "content": final_response})));
+
         state.event_bus.publish(SseEvent::new(
             SseEventType::RunCompleted,
             serde_json::json!({
