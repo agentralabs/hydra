@@ -45,7 +45,7 @@ func (m Model) renderUpperFrame() string {
 	innerW := w - 4 // 2 for │ borders + 2 for padding
 
 	blue := lipgloss.NewStyle().Foreground(theme.HydraBlue)
-	bb := lipgloss.NewStyle().Foreground(theme.HydraBlue).Bold(true)
+	_ = lipgloss.NewStyle().Foreground(theme.HydraBlue).Bold(true) // bb available if needed
 	cyan := lipgloss.NewStyle().Foreground(theme.HydraCyan)
 	dim := theme.Dim
 	green := lipgloss.NewStyle().Foreground(theme.HydraGreen)
@@ -158,64 +158,38 @@ func (m Model) renderUpperFrame() string {
 		rightLines = append(rightLines, "")
 	}
 
-	// === ASSEMBLE FRAME using lipgloss border ===
-	leftW := w/2 - 3
-	rightW := w/2 - 3
+	// === ASSEMBLE FRAME — manual borders, no lipgloss border ===
+	// Use exact same approach as old Rust TUI: plain text with ANSI colors
+	sp := w * 45 / 100 // split point for left|right columns
 
-	// Pad columns to same height
-	for len(leftLines) < len(rightLines) { leftLines = append(leftLines, "") }
-	for len(rightLines) < len(leftLines) { rightLines = append(rightLines, "") }
+	var frameLines []string
 
-	// Build left and right column content strings
-	var leftBuf, rightBuf strings.Builder
-	for i, l := range leftLines {
-		leftBuf.WriteString(padRight(l, leftW))
-		if i < len(leftLines)-1 { leftBuf.WriteString("\n") }
+	// Top: ┌─── Hydra v0.2.0 ────────────────────────────────────┐
+	title := " Hydra v" + m.Version + " "
+	topLine := "┌───" + title + strings.Repeat("─", w-5-len(title)) + "┐"
+	frameLines = append(frameLines, blue.Render(topLine))
+
+	// Content rows: │ left                    │ right                   │
+	for i := 0; i < len(leftLines) && i < len(rightLines); i++ {
+		l := leftLines[i]
+		r := rightLines[i]
+		lVis := lipgloss.Width(l)
+		rVis := lipgloss.Width(r)
+		lPad := sp - 1 - lVis  // space between │ and middle │
+		rPad := w - sp - 2 - rVis // space between middle │ and right │
+		if lPad < 0 { lPad = 0 }
+		if rPad < 0 { rPad = 0 }
+		row := blue.Render("│") + l + strings.Repeat(" ", lPad) +
+			blue.Render("│") + r + strings.Repeat(" ", rPad) + blue.Render("│")
+		frameLines = append(frameLines, row)
 	}
-	for i, r := range rightLines {
-		rightBuf.WriteString(padRight(r, rightW))
-		if i < len(rightLines)-1 { rightBuf.WriteString("\n") }
-	}
 
-	// Join columns side by side
-	content := lipgloss.JoinHorizontal(lipgloss.Top,
-		leftBuf.String(),
-		" "+blue.Render("│")+"\n"+strings.Repeat(" "+blue.Render("│")+"\n", len(leftLines)-2)+" "+blue.Render("│"),
-		rightBuf.String(),
-	)
-
-	// Apply border using lipgloss — handles width correctly
-	frameStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.HydraBlue).
-		Width(w - 2)
-
-	framedContent := frameStyle.Render(content)
-
-	// Build title and footer overlays
-	title := fmt.Sprintf(" Hydra v%s ", m.Version)
-	titleStyled := bb.Render(title)
+	// Bottom: └─── Agentra Labs ──────────────────────────────────┘
 	footer := " Agentra Labs "
-	footerStyled := dim.Render(footer)
+	botLine := "└───" + footer + strings.Repeat("─", w-5-len(footer)) + "┘"
+	frameLines = append(frameLines, blue.Render(botLine))
 
-	// Split framed output into lines and overlay title/footer on borders
-	framedLines := strings.Split(framedContent, "\n")
-	if len(framedLines) > 0 {
-		// Replace top border with title-embedded version
-		top := framedLines[0]
-		if len(top) > 6 {
-			framedLines[0] = top[:5] + titleStyled + top[5+lipgloss.Width(title):]
-		}
-	}
-	if len(framedLines) > 1 {
-		// Replace bottom border with footer-embedded version
-		last := framedLines[len(framedLines)-1]
-		if len(last) > 6 {
-			framedLines[len(framedLines)-1] = last[:5] + footerStyled + last[5+lipgloss.Width(footer):]
-		}
-	}
-
-	result := strings.Join(framedLines, "\n")
+	result := strings.Join(frameLines, "\n")
 
 	// Execution context line below frame
 	execCtx := m.getExecutionContext()
