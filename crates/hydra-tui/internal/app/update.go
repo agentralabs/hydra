@@ -553,11 +553,13 @@ func (m *Model) refreshHealth() {
 		return
 	}
 	m.SistersConn = health.SistersConnected
-	// Only update total if server reports > 0 (don't clobber default 17)
 	if health.SistersTotal > 0 {
 		m.SistersTotal = health.SistersTotal
 	}
 	m.BeliefsLoaded = health.BeliefsLoaded
+	if health.ToolsCount > 0 {
+		m.ToolsCount = health.ToolsCount
+	}
 	total := m.SistersTotal
 	if total == 0 {
 		total = 17

@@ -1,6 +1,10 @@
 package client
 
-import "time"
+import (
+	"strconv"
+	"strings"
+	"time"
+)
 
 // RpcRequest is a JSON-RPC 2.0 request.
 type RpcRequest struct {
@@ -26,13 +30,41 @@ type RpcError struct {
 
 // HealthInfo from hydra.health RPC.
 type HealthInfo struct {
-	SistersConnected uint32  `json:"sisters_connected"`
-	SistersTotal     uint32  `json:"sisters_total"`
-	UptimeSecs       uint64  `json:"uptime_secs"`
-	Profile          *string `json:"profile,omitempty"`
-	BeliefsLoaded    uint32  `json:"beliefs_loaded"`
-	Model            *string `json:"model,omitempty"`
+	Sisters       string  `json:"sisters"`
+	SistersCount  uint32  `json:"sisters_count"`
+	UptimeSecs    uint64  `json:"uptime_seconds"`
+	Profile       *string `json:"profile"`
+	BeliefsLoaded uint32  `json:"beliefs_loaded"`
+	Engine        string  `json:"engine"`
+	Status        string  `json:"status"`
+	Model         *string `json:"model"`
+
+	// Computed from sisters string
+	SistersConnected uint32 `json:"-"`
+	SistersTotal     uint32 `json:"-"`
+	ToolsCount       uint32 `json:"-"`
 }
+
+func (h *HealthInfo) ComputeSisterCounts() {
+	h.SistersTotal = h.SistersCount
+	if h.SistersTotal == 0 { h.SistersTotal = 17 }
+	if h.Sisters != "" && h.Sisters != "not initialized" {
+		parts := strings.Split(h.Sisters, ",")
+		h.SistersConnected = uint32(len(parts))
+		// Count tools from "Name (N tools)" pattern
+		h.ToolsCount = 0
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if idx := strings.Index(p, "("); idx > 0 {
+				numStr := strings.TrimRight(p[idx+1:], " tools)")
+				if n, err := strconv.ParseUint(strings.TrimSpace(numStr), 10, 32); err == nil {
+					h.ToolsCount += uint32(n)
+				}
+			}
+		}
+	}
+}
+
 
 // SisterStatus for health dashboard.
 type SisterStatus struct {

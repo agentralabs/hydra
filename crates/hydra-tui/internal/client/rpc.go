@@ -95,6 +95,7 @@ func (c *HydraRpcClient) Health() (*HealthInfo, error) {
 	if err := json.Unmarshal(raw, &info); err != nil {
 		return nil, err
 	}
+	info.ComputeSisterCounts()
 	return &info, nil
 }
 

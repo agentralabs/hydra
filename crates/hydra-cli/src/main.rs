@@ -179,6 +179,21 @@ fn print_help() {
     );
     println!(
         "    {}           {}",
+        colors::blue("inspect <id>"),
+        "Inspect a run in detail"
+    );
+    println!(
+        "    {}            {}",
+        colors::blue("config"),
+        "Manage configuration"
+    );
+    println!(
+        "    {}            {}",
+        colors::blue("skills"),
+        "Manage skills"
+    );
+    println!(
+        "    {}           {}",
         colors::blue("sisters"),
         "Manage sister connections"
     );
