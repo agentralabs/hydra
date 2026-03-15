@@ -66,12 +66,12 @@ func (m Model) renderUpperFrame() string {
 	var leftLines []string
 	leftLines = append(leftLines, fmt.Sprintf("    Welcome back %s!", theme.FrameUsername.Render(m.Username)))
 	leftLines = append(leftLines, "")
-	// Diamond logo
-	leftLines = append(leftLines, fmt.Sprintf("            %s", cyan.Render("●")))
-	leftLines = append(leftLines, fmt.Sprintf("          %s   %s", blue.Render("╱"), blue.Render("╲")))
-	leftLines = append(leftLines, fmt.Sprintf("    %s%s%s", cyan.Render("●"), blue.Render("─────────"), cyan.Render("●")))
-	leftLines = append(leftLines, fmt.Sprintf("          %s   %s", blue.Render("╲"), blue.Render("╱")))
-	leftLines = append(leftLines, fmt.Sprintf("            %s", cyan.Render("●")))
+	// Diamond logo (Hydra node graph)
+	leftLines = append(leftLines, fmt.Sprintf("           %s", cyan.Render("◉")))
+	leftLines = append(leftLines, fmt.Sprintf("         %s   %s", blue.Render("/"), blue.Render("\\")))
+	leftLines = append(leftLines, fmt.Sprintf("       %s──%s──%s", cyan.Render("◉"), blue.Render("───"), cyan.Render("◉")))
+	leftLines = append(leftLines, fmt.Sprintf("         %s   %s", blue.Render("\\"), blue.Render("/")))
+	leftLines = append(leftLines, fmt.Sprintf("           %s", cyan.Render("◉")))
 	leftLines = append(leftLines, "")
 	// Model + provider + branch
 	leftLines = append(leftLines, fmt.Sprintf("  %s %s · %s",
@@ -156,14 +156,12 @@ func (m Model) renderUpperFrame() string {
 
 	var frameLines []string
 
-	// Top border: ─── Hydra v0.2.0 ═══════════════════════════
+	// Top border: ┌─── Hydra v0.2.0 ───────────────────────────┐
 	title := fmt.Sprintf(" Hydra v%s ", m.Version)
-	topPad := w - 6 - len(title)
-	if topPad < 2 {
-		topPad = 2
-	}
+	topPad := w - 5 - len(title) // ┌ + ─── + title + ───pad + ┐
+	if topPad < 2 { topPad = 2 }
 	frameLines = append(frameLines,
-		blue.Render("───")+theme.FrameTitle.Render(title)+blue.Render(strings.Repeat("─", topPad)))
+		blue.Render("┌───")+theme.FrameTitle.Render(title)+blue.Render(strings.Repeat("─", topPad))+blue.Render("┐"))
 
 	// Content rows: │ leftcol          rightcol         │
 	for i := 0; i < len(leftLines); i++ {
@@ -176,14 +174,12 @@ func (m Model) renderUpperFrame() string {
 		frameLines = append(frameLines, row)
 	}
 
-	// Bottom border: ─── Agentra Labs ─────────────────────────
+	// Bottom border: └─── Agentra Labs ─────────────────────────┘
 	footer := " Agentra Labs "
-	botPad := w - 6 - len(footer)
-	if botPad < 2 {
-		botPad = 2
-	}
+	botPad := w - 5 - len(footer)
+	if botPad < 2 { botPad = 2 }
 	frameLines = append(frameLines,
-		blue.Render("───")+dim.Render(footer)+blue.Render(strings.Repeat("─", botPad)))
+		blue.Render("└───")+dim.Render(footer)+blue.Render(strings.Repeat("─", botPad))+blue.Render("┘"))
 
 	result := strings.Join(frameLines, "\n")
 
