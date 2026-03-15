@@ -479,19 +479,23 @@ func cmdProfile(m *Model, subcmd, arg string) {
 	case "show":
 		m.addSystemMsg(fmt.Sprintf("Active profile: %s (%d beliefs)", m.ProfileName, m.BeliefsLoaded))
 	case "info":
-		m.addSystemMsg(fmt.Sprintf("Profile info: %s — query via hydra-server.", arg))
+		if arg == "" { arg = m.ProfileName }
+		runIntent(m, fmt.Sprintf("Show detailed information about the %s profile — identity, permissions, goals, sister emphasis", arg))
 	case "create":
-		m.addSystemMsg(fmt.Sprintf("Creating profile scaffold: %s", arg))
+		runIntent(m, fmt.Sprintf("Create a new profile named %s with default settings", arg))
 	case "export":
-		m.addSystemMsg(fmt.Sprintf("Exporting config to profile: %s", arg))
+		runIntent(m, fmt.Sprintf("Export current settings as a new profile named %s", arg))
 	case "validate":
-		m.addSystemMsg(fmt.Sprintf("Validating profile: %s", arg))
+		if arg == "" { arg = m.ProfileName }
+		runIntent(m, fmt.Sprintf("Validate profile %s — check for missing fields, conflicts, warnings", arg))
 	case "update":
-		m.addSystemMsg("Updating profiles from factory.")
+		runIntent(m, "Update all profiles from factory source — replace factory beliefs, keep learned")
 	case "beliefs":
-		m.addSystemMsg(fmt.Sprintf("Beliefs in profile %s — query via hydra-server.", arg))
+		if arg == "" { arg = m.ProfileName }
+		runIntent(m, fmt.Sprintf("List all beliefs loaded in the %s profile with confidence levels", arg))
 	case "skills":
-		m.addSystemMsg(fmt.Sprintf("Skills in profile %s — query via hydra-server.", arg))
+		if arg == "" { arg = m.ProfileName }
+		runIntent(m, fmt.Sprintf("List all skills available in the %s profile with trigger patterns", arg))
 	default:
 		m.addSystemMsg("Usage: /profile [list|load|unload|show|info|create|export|validate|beliefs|skills]")
 	}

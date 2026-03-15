@@ -159,24 +159,47 @@ func (m Model) renderUpperFrame() string {
 	rightCol := lipgloss.NewStyle().Width(rightW).Render(right.String())
 	content := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, rightCol)
 
-	// Frame border
-	border := lipgloss.NewStyle().
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(theme.HydraBlue).
-		Width(w)
+	// Build frame manually with title + footer embedded in borders
+	titleText := fmt.Sprintf(" Hydra v%s ", m.Version)
+	footerText := " Agentra Labs "
+	borderChar := "─"
 
-	framed := border.Render(content)
+	// Top border: ─── Hydra v0.2.0 ─────────────────────
+	topPadRight := w - len(titleText) - 2
+	if topPadRight < 2 {
+		topPadRight = 2
+	}
+	topBorder := blue.Render(strings.Repeat(borderChar, 3)) +
+		theme.FrameTitle.Render(titleText) +
+		blue.Render(strings.Repeat(borderChar, topPadRight))
 
-	// Title: "─── Hydra v0.2.0 ───" at top
-	// Footer: "─── Agentra Labs ───" at bottom
+	// Bottom border: ─── Agentra Labs ───────────────────
+	botPadRight := w - len(footerText) - 2
+	if botPadRight < 2 {
+		botPadRight = 2
+	}
+	botBorder := blue.Render(strings.Repeat(borderChar, 3)) +
+		dim.Render(footerText) +
+		blue.Render(strings.Repeat(borderChar, botPadRight))
+
+	// Content lines with left/right borders
+	contentLines := strings.Split(content, "\n")
+	var framedLines []string
+	framedLines = append(framedLines, topBorder)
+	for _, line := range contentLines {
+		framedLines = append(framedLines, blue.Render("│")+" "+line)
+	}
+	framedLines = append(framedLines, botBorder)
+
+	framed := strings.Join(framedLines, "\n")
+
 	// Execution context line below frame
 	execCtx := m.getExecutionContext()
-	footer := ""
 	if execCtx != "" {
-		footer = "\n" + cyan.Render(execCtx)
+		framed += "\n" + cyan.Render(execCtx)
 	}
 
-	return framed + footer
+	return framed
 }
 
 func (m Model) getExecutionContext() string {
