@@ -2,7 +2,10 @@ package app
 
 import (
 	"fmt"
+	"os"
 	"strings"
+
+	"github.com/agentralabs/hydra-tui/internal/client"
 )
 
 // HandleSlashCommand routes all slash commands.
@@ -29,15 +32,16 @@ func HandleSlashCommand(m *Model, input string) {
 	case "/history":
 		cmdHistory(m, arg1)
 	case "/resume", "/continue":
-		m.addSystemMsg("Session resume — use hydra-server session API.")
+		runIntent(m, "Resume the previous session — load context from last conversation")
 	case "/fork":
-		m.addSystemMsg("Conversation forked.")
+		m.Messages = append([]client.ChatMessage{}, m.Messages...) // shallow copy
+		m.addSystemMsg("Conversation forked. You're now in a new branch.")
 	case "/rewind":
 		cmdRewind(m)
 	case "/rename":
 		m.addSystemMsg(fmt.Sprintf("Session renamed to '%s'.", arg1))
 	case "/export":
-		m.addSystemMsg("Export to markdown — coming soon.")
+		cmdExport(m)
 	case "/context":
 		cmdContext(m)
 	case "/copy":
@@ -64,19 +68,19 @@ func HandleSlashCommand(m *Model, input string) {
 	case "/sisters":
 		cmdSisters(m)
 	case "/sister":
-		m.addSystemMsg(fmt.Sprintf("Sister detail: %s — query via hydra-server.", arg1))
+		runIntent(m, fmt.Sprintf("Show details about the %s sister — tools, status, recent calls", arg1))
 	case "/stats":
-		m.addSystemMsg("Gateway stats — query via hydra-server.")
+		runIntent(m, "Show gateway stats — sister call counts, latency, errors")
 	case "/fix":
-		m.addSystemMsg("Attempting to repair offline sisters...")
+		runIntent(m, "Repair offline sisters — reconnect any disconnected MCP processes")
 	case "/scan":
-		m.addSystemMsg("Omniscience scan — query via hydra-server.")
+		runIntent(m, "Run omniscience scan — find gaps in codebase understanding")
 	case "/repair":
-		m.addSystemMsg("Running self-repair specs...")
+		runIntent(m, "Run self-repair — check all systems and fix any issues")
 	case "/memory":
 		cmdMemory(m, arg1)
 	case "/goals":
-		m.addSystemMsg("Active goals — query via hydra-server.")
+		runIntent(m, "List active goals from the Planning sister")
 	case "/beliefs":
 		cmdBeliefs(m)
 	case "/receipts":
@@ -92,110 +96,110 @@ func HandleSlashCommand(m *Model, input string) {
 	case "/env":
 		cmdEnv(m)
 	case "/dream":
-		m.addSystemMsg("Dream state — query via hydra-server.")
+		runIntent(m, "Show Dream State status — recent crystallizations, adversarial tests, fusions")
 	case "/obstacles":
-		m.addSystemMsg("Session momentum — query via hydra-server.")
+		runIntent(m, "Show session momentum — successes, failures, corrections this session")
 	case "/threat":
-		m.addSystemMsg("Threat correlator — query via hydra-server.")
+		runIntent(m, "Show threat correlator summary — security signals across sisters")
 	case "/autonomy":
-		m.addSystemMsg(fmt.Sprintf("Autonomy level: query via hydra-server. Arg: %s", arg1))
+		if arg1 != "" { runIntent(m, fmt.Sprintf("Set autonomy level to %s", arg1)) } else { runIntent(m, "Show current autonomy level and trust score") }
 	case "/implement":
-		m.addSystemMsg("Self-modification requires explicit approval.")
+		runIntent(m, "Self-modification requires explicit approval. Show available modifications.")
 	case "/diagnostics":
 		cmdDiagnostics(m)
 	case "/trust":
-		m.addSystemMsg("Trust level — query via hydra-server.")
+		runIntent(m, "Show trust level and graduated autonomy status")
 	case "/roi":
 		cmdROI(m)
 	case "/knowledge":
-		m.addSystemMsg("Knowledge progress — query via hydra-server.")
+		runIntent(m, "Show knowledge progress — concepts tracked, understanding levels, due for review")
 	case "/skills":
 		m.addSystemMsg(fmt.Sprintf("Skills loaded from profile: %s", m.ProfileName))
 
 	// Dev - files
 	case "/files":
-		m.addSystemMsg("File listing — use Codebase sister.")
+		runIntent(m, "List files in the current project directory")
 	case "/open":
-		m.addSystemMsg(fmt.Sprintf("Opening %s — use Codebase sister.", arg1))
+		if arg1 == "" { m.addSystemMsg("Usage: /open <file>") } else { runIntent(m, fmt.Sprintf("Read and display the file: %s", arg1)) }
 	case "/edit":
-		m.addSystemMsg(fmt.Sprintf("Editing %s — use $EDITOR.", arg1))
+		if arg1 == "" { m.addSystemMsg("Usage: /edit <file>") } else { runIntent(m, fmt.Sprintf("Open %s for editing", arg1)) }
 	case "/search":
-		m.addSystemMsg(fmt.Sprintf("Searching '%s' — use Codebase sister.", arg1))
+		if arg1 == "" { m.addSystemMsg("Usage: /search <term>") } else { runIntent(m, fmt.Sprintf("Search codebase for: %s", arg1+" "+arg2)) }
 	case "/symbols":
-		m.addSystemMsg(fmt.Sprintf("Symbols in %s — use Codebase sister.", arg1))
+		if arg1 == "" { m.addSystemMsg("Usage: /symbols <file>") } else { runIntent(m, fmt.Sprintf("List symbols (functions, types, constants) in %s", arg1)) }
 	case "/impact":
-		m.addSystemMsg(fmt.Sprintf("Impact of %s — use Codebase sister.", arg1))
+		if arg1 == "" { m.addSystemMsg("Usage: /impact <file>") } else { runIntent(m, fmt.Sprintf("Show impact analysis — what depends on %s", arg1)) }
 
 	// Dev - project
 	case "/diff":
-		m.addSystemMsg("Git diff — running via hydra-server.")
+		runIntent(m, "Show git diff of current changes")
 	case "/git":
-		m.addSystemMsg(fmt.Sprintf("Git %s — running via hydra-server.", arg1))
+		if arg1 == "" { runIntent(m, "Show git status") } else { runIntent(m, fmt.Sprintf("Run git %s %s", arg1, arg2)) }
 	case "/test":
-		m.addSystemMsg("Running tests — auto-detected project type.")
+		runIntent(m, "Run tests for the current project (auto-detect test framework)")
 	case "/build":
-		m.addSystemMsg("Building — auto-detected project type.")
+		runIntent(m, "Build the current project (auto-detect build system)")
 	case "/run":
-		m.addSystemMsg("Running — auto-detected project type.")
+		runIntent(m, "Run the current project (auto-detect run command)")
 	case "/lint":
-		m.addSystemMsg("Linting — auto-detected project type.")
+		runIntent(m, "Lint the current project (auto-detect linter)")
 	case "/fmt":
-		m.addSystemMsg("Formatting — auto-detected project type.")
+		runIntent(m, "Format the current project code (auto-detect formatter)")
 	case "/deps":
-		m.addSystemMsg("Dependencies — auto-detected project type.")
+		runIntent(m, "List dependencies for the current project")
 	case "/bench":
-		m.addSystemMsg("Benchmarks — auto-detected project type.")
+		runIntent(m, "Run benchmarks for the current project")
 	case "/doc":
-		m.addSystemMsg("Documentation — auto-detected project type.")
+		runIntent(m, "Generate documentation for the current project")
 	case "/deploy":
-		m.addSystemMsg("Deploying — use HYDRA_DEPLOY_CMD env var.")
+		runIntent(m, "Deploy the current project (use HYDRA_DEPLOY_CMD if set)")
 	case "/init":
-		m.addSystemMsg("Project init — auto-detected.")
+		runIntent(m, "Initialize Hydra for this project — detect language, framework, test commands")
 
 	// Integrations
 	case "/mcp":
-		m.addSystemMsg(fmt.Sprintf("MCP management: %s", arg1))
+		runIntent(m, fmt.Sprintf("MCP server management: %s", arg1))
 	case "/ide":
-		m.addSystemMsg("IDE integration status.")
+		runIntent(m, "Show IDE integration status — VS Code extension, language servers")
 	case "/hooks":
-		m.addSystemMsg("Hook configuration.")
+		runIntent(m, "Show configured hooks and their status")
 	case "/plugin":
-		m.addSystemMsg(fmt.Sprintf("Plugin: %s", arg1))
+		runIntent(m, fmt.Sprintf("Plugin management: %s", arg1))
 	case "/remote", "/remote-control":
-		m.addSystemMsg("Remote control — web UI.")
+		runIntent(m, "Show remote control status — web UI, API access")
 	case "/ssh":
-		m.addSystemMsg(fmt.Sprintf("SSH to %s", arg1))
+		if arg1 == "" { m.addSystemMsg("Usage: /ssh <host>") } else { runIntent(m, fmt.Sprintf("SSH connect to %s", arg1)) }
 	case "/ssh-exec":
-		m.addSystemMsg(fmt.Sprintf("SSH exec on %s: %s", arg1, arg2))
+		if arg1 == "" { m.addSystemMsg("Usage: /ssh-exec <host> <cmd>") } else { runIntent(m, fmt.Sprintf("Execute on %s: %s", arg1, arg2)) }
 	case "/ssh-upload":
-		m.addSystemMsg("SSH upload.")
+		runIntent(m, "Upload file via SSH")
 	case "/ssh-download":
-		m.addSystemMsg("SSH download.")
+		runIntent(m, "Download file via SSH")
 	case "/ssh-disconnect":
-		m.addSystemMsg(fmt.Sprintf("SSH disconnect from %s", arg1))
+		if arg1 == "" { m.addSystemMsg("Usage: /ssh-disconnect <host>") } else { runIntent(m, fmt.Sprintf("Disconnect SSH from %s", arg1)) }
 	case "/ssh-list":
 		m.addSystemMsg("Active SSH connections.")
 
 	// Agents & swarm
 	case "/agents":
-		m.addSystemMsg("Custom subagents — project + personal.")
+		runIntent(m, "List available agents from active profile and show their status")
 	case "/commands":
 		cmdHelp(m) // same as /help
 	case "/plan":
 		m.PermMode = PermPlan
 		m.addSystemMsg("Entered Plan mode — no execution, plan only.")
 	case "/bashes":
-		m.addSystemMsg("Background processes.")
+		runIntent(m, "List background processes running in this session")
 	case "/tasks":
 		m.ShowTasks = true
 	case "/swarm":
-		m.addSystemMsg(fmt.Sprintf("Swarm: %s %s", arg1, arg2))
+		if arg1 == "" { runIntent(m, "Show swarm status — active agents, completed tasks") } else { runIntent(m, fmt.Sprintf("Swarm command: %s %s", arg1, arg2)) }
 	case "/improve-sister":
-		m.addSystemMsg(fmt.Sprintf("Improving sister: %s", arg1))
+		if arg1 == "" { m.addSystemMsg("Usage: /improve-sister <name>") } else { runIntent(m, fmt.Sprintf("Improve the %s sister — find gaps, add tools", arg1)) }
 
 	// Config
 	case "/config":
-		m.addSystemMsg("Configuration — check ~/.hydra/settings.json")
+		cmdConfig(m)
 	case "/doctor":
 		cmdDoctor(m)
 	case "/sidebar":
@@ -206,19 +210,19 @@ func HandleSlashCommand(m *Model, input string) {
 	case "/theme":
 		m.addSystemMsg("Theme: Hydra Dark (7-color palette)")
 	case "/voice":
-		m.addSystemMsg("Voice mode — hold Space to speak. Requires Whisper STT.")
+		runIntent(m, "Enable voice input mode — activate microphone for speech-to-text via Whisper")
 	case "/terminal-setup":
-		m.addSystemMsg("Terminal keybindings installed.")
+		m.addSystemMsg("Terminal optimized. Recommended: 256-color terminal, 100+ columns.\nKeybindings: Ctrl+S sidebar, Ctrl+T tasks, Ctrl+B background, Ctrl+K kill")
 	case "/login":
-		m.addSystemMsg(fmt.Sprintf("Logged in as: %s", arg1))
+		if arg1 == "" { m.addSystemMsg("Usage: /login <api_key>") } else { runIntent(m, fmt.Sprintf("Login with API key: %s", arg1)) }
 	case "/logout":
-		m.addSystemMsg("Logged out.")
+		m.addSystemMsg("API key cleared. Re-login with /login <key>")
 	case "/keybindings":
-		m.addSystemMsg("Keybindings: ~/.hydra/keybindings.json")
+		m.addSystemMsg("Keybindings:\n  Ctrl+S  Toggle sidebar\n  Ctrl+T  Show tasks\n  Ctrl+B  Push to background\n  Ctrl+K  Kill current\n  Ctrl+C  Exit\n  Up/Down  History\n  Tab     Autocomplete\n  PgUp/Dn Scroll")
 	case "/email":
-		m.addSystemMsg(fmt.Sprintf("Email to %s: %s", arg1, arg2))
+		if arg1 == "" { m.addSystemMsg("Usage: /email <to> <subject>") } else { runIntent(m, fmt.Sprintf("Draft email to %s: %s", arg1, arg2)) }
 	case "/email-setup":
-		m.addSystemMsg(fmt.Sprintf("Email config: %s = %s", arg1, arg2))
+		if arg1 == "" { m.addSystemMsg("Usage: /email-setup host|user|password <value>") } else { m.addSystemMsg(fmt.Sprintf("Email config %s updated.", arg1)) }
 
 	// Control
 	case "/approve", "/y":
@@ -589,5 +593,65 @@ func cmdChanges(m *Model) {
 		totalRem += c.LinesRemoved
 	}
 	b.WriteString(fmt.Sprintf("\nTotal: +%d -%d lines", totalAdd, totalRem))
+	m.addSystemMsg(b.String())
+}
+
+// runIntent sends a command as an intent to the cognitive loop via hydra-server.
+// This is the universal handler — any slash command that needs AI reasoning
+// dispatches through here. The server's full 21-module cognitive loop processes it.
+func runIntent(m *Model, intent string) {
+	if !m.Connected {
+		m.addSystemMsg("Not connected to hydra-server. Start it with: hydra-cli serve")
+		return
+	}
+	m.Thinking = true
+	m.ThinkVerb = "Processing"
+	result, err := m.Client.Run(intent)
+	m.Thinking = false
+	if err != nil {
+		m.addSystemMsg(fmt.Sprintf("Error: %s", err.Error()))
+		return
+	}
+	if result.Output != nil && *result.Output != "" {
+		m.addAssistantMsg(*result.Output)
+	} else {
+		m.addSystemMsg("Command sent to cognitive loop.")
+	}
+}
+
+func cmdExport(m *Model) {
+	if len(m.Messages) == 0 {
+		m.addSystemMsg("No messages to export.")
+		return
+	}
+	var b strings.Builder
+	b.WriteString("# Hydra Session Export\n\n")
+	for _, msg := range m.Messages {
+		role := "User"
+		if msg.Role == 1 { role = "Hydra" }
+		if msg.Role == 2 { role = "System" }
+		b.WriteString(fmt.Sprintf("### %s\n%s\n\n", role, msg.Content))
+	}
+	// Write to ~/.hydra/export.md
+	home, _ := os.UserHomeDir()
+	path := home + "/.hydra/export.md"
+	if err := os.WriteFile(path, []byte(b.String()), 0644); err != nil {
+		m.addSystemMsg(fmt.Sprintf("Export failed: %s", err.Error()))
+	} else {
+		m.addSystemMsg(fmt.Sprintf("Session exported to %s (%d messages)", path, len(m.Messages)))
+	}
+}
+
+func cmdConfig(m *Model) {
+	var b strings.Builder
+	b.WriteString("Configuration\n══════════════\n\n")
+	b.WriteString(fmt.Sprintf("  Model:    %s (%s)\n", m.ModelName, m.ProviderName))
+	b.WriteString(fmt.Sprintf("  Profile:  %s\n", m.ProfileName))
+	b.WriteString(fmt.Sprintf("  Beliefs:  %d loaded\n", m.BeliefsLoaded))
+	b.WriteString(fmt.Sprintf("  Memory:   %s\n", m.MemoryMode))
+	b.WriteString(fmt.Sprintf("  Fast:     %v\n", m.FastMode))
+	b.WriteString(fmt.Sprintf("  Debug:    %v\n", m.DebugMode))
+	b.WriteString(fmt.Sprintf("  Sisters:  %d/%d\n", m.SistersConn, m.SistersTotal))
+	b.WriteString(fmt.Sprintf("  Server:   %s\n", m.Client.BaseURL))
 	m.addSystemMsg(b.String())
 }

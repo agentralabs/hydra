@@ -443,6 +443,15 @@ func (m *Model) addSystemMsg(content string) {
 	})
 }
 
+func (m *Model) addAssistantMsg(content string) {
+	m.Messages = append(m.Messages, client.ChatMessage{
+		ID:        time.Now().Format(time.RFC3339Nano),
+		Role:      client.RoleAssistant,
+		Content:   content,
+		Timestamp: time.Now(),
+	})
+}
+
 // Input helpers
 func (m *Model) insertChar(c rune) {
 	if !m.InputEnabled {
