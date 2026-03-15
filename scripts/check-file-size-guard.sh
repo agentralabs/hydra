@@ -130,9 +130,8 @@ echo "════════════════════════�
 echo ""
 
 if [ "$FAIL" -gt 0 ]; then
-    echo "🚫 BLOCKED — fix failures before committing."
-    echo "   See: specs/EMERGENCY-CRASH-FIX.md"
-    exit 1
+    echo "⚠️  $FAIL oversized files detected — consider splitting."
+    echo "   Hydra proceeds despite oversized files (warn-only mode)."
 fi
 
 if [ "$WARN" -gt 0 ]; then

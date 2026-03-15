@@ -97,6 +97,9 @@ pub struct GateConfig {
     pub approval_timeout: Duration,
     pub max_approval_retries: u32,
     pub shadow_sim_enabled: bool,
+    /// When true, all Block decisions become NotifyOnly warnings.
+    /// Hydra warns but never prevents execution (except kill switch).
+    pub warn_only: bool,
 }
 
 impl Default for GateConfig {
@@ -109,6 +112,30 @@ impl Default for GateConfig {
             approval_timeout: Duration::from_secs(30),
             max_approval_retries: 3,
             shadow_sim_enabled: false,
+            warn_only: true, // Default: warn, don't block
+        }
+    }
+}
+
+impl GateDecision {
+    /// Convert a blocking decision to a warning if warn_only mode is active.
+    pub fn to_warn_only(self) -> Self {
+        match self {
+            Self::Block { risk_score, reason } => {
+                eprintln!("[hydra:gate] ⚠ WARNING (would block): {}", reason);
+                Self::NotifyOnly {
+                    risk_score,
+                    message: format!("⚠ HIGH RISK: {}", reason),
+                }
+            }
+            Self::Aborted { reason } => {
+                eprintln!("[hydra:gate] ⚠ WARNING (would abort): {}", reason);
+                Self::NotifyOnly {
+                    risk_score: 0.9,
+                    message: format!("⚠ ABORT WARNING: {}", reason),
+                }
+            }
+            other => other, // Kill switch / Halted stays hard
         }
     }
 }

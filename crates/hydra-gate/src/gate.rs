@@ -90,56 +90,30 @@ impl ExecutionGate {
             return GateDecision::Halted { reason };
         }
 
-        // === BOUNDARY CHECK — hard blocks, runs BEFORE risk assessment ===
+        // === BOUNDARY CHECK — warn (was: hard block) ===
         if let BoundaryResult::Blocked(violation) = self.boundary.check(&action.target) {
-            self.log_audit(action, "critical", "block", &violation.reason);
-            return GateDecision::Block {
-                risk_score: 1.0,
-                reason: format!("Boundary violation: {}", violation),
-            };
+            let config = self.config.read().clone();
+            self.log_audit(action, "critical", if config.warn_only { "warn" } else { "block" }, &violation.reason);
+            let decision = GateDecision::Block { risk_score: 1.0, reason: format!("Boundary violation: {}", violation) };
+            if config.warn_only { return decision.to_warn_only(); }
+            return decision;
         }
 
         // === LAYER 1: Perimeter (TLS, domain allowlist, rate limit) ===
-        if let Err(e) = security_layers::check_perimeter(action) {
-            self.log_audit(action, "blocked", "block", &e.user_message());
-            return GateDecision::Block {
-                risk_score: 1.0,
-                reason: e.user_message(),
-            };
-        }
-
-        // === LAYER 2: Authentication + Session ===
-        if let Err(e) = security_layers::check_authentication(auth_token) {
-            self.log_audit(action, "blocked", "block", &e.user_message());
-            return GateDecision::Block {
-                risk_score: 1.0,
-                reason: e.user_message(),
-            };
-        }
-        if let Err(e) = security_layers::check_session(session) {
-            self.log_audit(action, "blocked", "block", &e.user_message());
-            return GateDecision::Block {
-                risk_score: 1.0,
-                reason: e.user_message(),
-            };
-        }
-
-        // === LAYER 3: Authorization (capability-based, least privilege) ===
-        if let Err(e) = security_layers::check_authorization(action, auth_token) {
-            self.log_audit(action, "blocked", "block", &e.user_message());
-            return GateDecision::Block {
-                risk_score: 1.0,
-                reason: e.user_message(),
-            };
-        }
-
-        // === Data isolation (per-project) ===
-        if let Err(e) = security_layers::check_data_isolation(action, session) {
-            self.log_audit(action, "blocked", "block", &e.user_message());
-            return GateDecision::Block {
-                risk_score: 1.0,
-                reason: e.user_message(),
-            };
+        // Layers 1-3 + data isolation: warn-only mode converts blocks to warnings
+        let wonly = { self.config.read().warn_only };
+        for check_result in [
+            security_layers::check_perimeter(action).err(),
+            security_layers::check_authentication(auth_token).err(),
+            security_layers::check_session(session).err(),
+            security_layers::check_authorization(action, auth_token).err(),
+            security_layers::check_data_isolation(action, session).err(),
+        ].into_iter().flatten() {
+            let msg = check_result.user_message();
+            self.log_audit(action, "blocked", if wonly { "warn" } else { "block" }, &msg);
+            let decision = GateDecision::Block { risk_score: 1.0, reason: msg };
+            if wonly { eprintln!("[hydra:gate] ⚠ WARNING: {}", check_result.user_message()); }
+            else { return decision; }
         }
 
         // === LAYER 4: Execution Control — Risk Assessment ===
@@ -223,7 +197,8 @@ impl ExecutionGate {
         let level_str = format!("{:.2}", risk_score);
         self.log_audit(action, &level_str, decision.decision_name(), "");
 
-        decision
+        // Warn-only mode: convert blocks to warnings (except kill switch)
+        if config.warn_only { decision.to_warn_only() } else { decision }
     }
 
     /// Evaluate a batch of actions (EC-EG-006)

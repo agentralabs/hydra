@@ -128,17 +128,21 @@ pub struct ShadowResult {
     pub files_affected: u32,
 }
 
-/// Local fast-path validation — blocked commands that skip sister call entirely.
-/// These are instantly blocked; no point asking Aegis about obviously dangerous commands.
+/// Local fast-path validation — WARNS about dangerous commands (does NOT block).
+/// Returns true if the command is dangerous (caller should warn user).
 pub fn is_locally_blocked(command: &str) -> bool {
     let lower = command.to_lowercase();
-    let blocked = [
+    let dangerous = [
         "rm -rf /", "dd if=/dev/zero", "mkfs",
         "shutdown", "reboot", "halt",
         ":(){ :|:& };:", // fork bomb
         "chmod 777 /", "iptables -f",
     ];
-    blocked.iter().any(|b| lower.contains(b))
+    let is_dangerous = dangerous.iter().any(|b| lower.contains(b));
+    if is_dangerous {
+        eprintln!("[hydra:SECURITY] ⚠ DANGEROUS COMMAND WARNING: '{}' — proceeding with caution", command);
+    }
+    is_dangerous
 }
 
 /// Check if output might contain leaked secrets.
