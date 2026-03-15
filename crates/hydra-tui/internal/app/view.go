@@ -158,38 +158,60 @@ func (m Model) renderUpperFrame() string {
 		rightLines = append(rightLines, "")
 	}
 
-	// === ASSEMBLE FRAME — manual borders, no lipgloss border ===
-	// Use exact same approach as old Rust TUI: plain text with ANSI colors
-	sp := w * 45 / 100 // split point for left|right columns
+	// === ASSEMBLE FRAME — Claude Code style using lipgloss border ===
+	// 1. Build two-column content with middle separator
+	leftW := w/2 - 2
+	rightW := w - leftW - 5 // account for │ borders and middle │
 
-	var frameLines []string
-
-	// Top: ┌─── Hydra v0.2.0 ────────────────────────────────────┐
-	title := " Hydra v" + m.Version + " "
-	topLine := "┌───" + title + strings.Repeat("─", w-5-len(title)) + "┐"
-	frameLines = append(frameLines, blue.Render(topLine))
-
-	// Content rows: │ left                    │ right                   │
+	var contentLines []string
 	for i := 0; i < len(leftLines) && i < len(rightLines); i++ {
-		l := leftLines[i]
-		r := rightLines[i]
-		lVis := lipgloss.Width(l)
-		rVis := lipgloss.Width(r)
-		lPad := sp - 1 - lVis  // space between │ and middle │
-		rPad := w - sp - 2 - rVis // space between middle │ and right │
-		if lPad < 0 { lPad = 0 }
-		if rPad < 0 { rPad = 0 }
-		row := blue.Render("│") + l + strings.Repeat(" ", lPad) +
-			blue.Render("│") + r + strings.Repeat(" ", rPad) + blue.Render("│")
-		frameLines = append(frameLines, row)
+		l := padRight(leftLines[i], leftW)
+		r := padRight(rightLines[i], rightW)
+		contentLines = append(contentLines, l + " " + blue.Render("│") + " " + r)
+	}
+	content := strings.Join(contentLines, "\n")
+
+	// 2. Render with lipgloss rounded border
+	frameStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.HydraBlue).
+		Width(w - 2).
+		Padding(0)
+
+	rendered := frameStyle.Render(content)
+
+	// 3. Overlay title on the top border line (like Claude Code does)
+	lines := strings.Split(rendered, "\n")
+	if len(lines) > 0 {
+		topBorder := lines[0]
+		title := " Hydra v" + m.Version + " "
+		// Find position after "╭──" (3 visual chars = varying bytes with ANSI)
+		// Insert title by replacing dashes starting at position 4
+		plain := lipgloss.NewStyle().Render(title) // unstyled to measure
+		styledTitle := blue.Bold(true).Render(title)
+		if lipgloss.Width(topBorder) > len(title)+6 {
+			// Rebuild: keep first 4 chars of border, insert title, fill rest
+			runes := []rune(stripAnsi(topBorder))
+			if len(runes) > 4 {
+				newTop := string(runes[:4]) + title + string(runes[4+len([]rune(title)):])
+				lines[0] = blue.Render(newTop[:4]) + styledTitle + blue.Render(string([]rune(newTop)[4+len([]rune(title)):]))
+			}
+		}
+		_ = plain
 	}
 
-	// Bottom: └─── Agentra Labs ──────────────────────────────────┘
-	footer := " Agentra Labs "
-	botLine := "└───" + footer + strings.Repeat("─", w-5-len(footer)) + "┘"
-	frameLines = append(frameLines, blue.Render(botLine))
+	// 4. Overlay footer on the bottom border line
+	if len(lines) > 1 {
+		footer := " Agentra Labs "
+		lastIdx := len(lines) - 1
+		runes := []rune(stripAnsi(lines[lastIdx]))
+		if len(runes) > 4+len([]rune(footer)) {
+			newBot := string(runes[:4]) + footer + string(runes[4+len([]rune(footer)):])
+			lines[lastIdx] = blue.Render(string([]rune(newBot)[:4])) + dim.Render(footer) + blue.Render(string([]rune(newBot)[4+len([]rune(footer)):]))
+		}
+	}
 
-	result := strings.Join(frameLines, "\n")
+	result := strings.Join(lines, "\n")
 
 	// Execution context line below frame
 	execCtx := m.getExecutionContext()
@@ -202,6 +224,26 @@ func (m Model) renderUpperFrame() string {
 
 // padRight pads a string with spaces to the given visible width.
 // Accounts for ANSI escape codes by using lipgloss width measurement.
+// stripAnsi removes ANSI escape sequences to get plain text.
+func stripAnsi(s string) string {
+	var result strings.Builder
+	inEsc := false
+	for _, r := range s {
+		if r == '\033' {
+			inEsc = true
+			continue
+		}
+		if inEsc {
+			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+				inEsc = false
+			}
+			continue
+		}
+		result.WriteRune(r)
+	}
+	return result.String()
+}
+
 func padRight(s string, width int) string {
 	visibleLen := lipgloss.Width(s)
 	if visibleLen >= width {
