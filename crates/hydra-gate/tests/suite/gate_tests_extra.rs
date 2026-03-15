@@ -230,7 +230,7 @@ async fn test_ec_eg_009_infinite_approval_prevention() {
 
 #[tokio::test]
 async fn test_ec_eg_010_self_modification_blocked() {
-    let gate = ExecutionGate::default();
+    let gate = ExecutionGate::new(GateConfig { warn_only: false, ..GateConfig::default() });
     let decision = gate
         .evaluate(
             &hydra_config_action(),

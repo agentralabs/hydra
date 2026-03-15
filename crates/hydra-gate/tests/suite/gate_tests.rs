@@ -6,6 +6,11 @@ use hydra_gate::kill_switch::KillSwitch;
 use hydra_gate::risk::{ActionContext, RiskAssessor};
 use hydra_gate::security_layers::{self, PerimeterConfig, ResourceLimits, SessionContext};
 
+/// Gate with blocking enabled (warn_only = false) for tests that assert is_blocked()
+fn enforcing_gate() -> ExecutionGate {
+    ExecutionGate::new(GateConfig { warn_only: false, ..GateConfig::default() })
+}
+
 fn read_action() -> Action {
     Action::new(ActionType::Read, "src/main.rs")
 }
@@ -100,7 +105,7 @@ async fn test_auto_approve_low_risk() {
 
 #[tokio::test]
 async fn test_require_approval_high_risk() {
-    let gate = ExecutionGate::default();
+    let gate = enforcing_gate();
     let mut ctx = default_context();
     ctx.in_sandbox = false;
     let decision = gate.evaluate(&shell_action(), &ctx, None).await;
@@ -109,7 +114,7 @@ async fn test_require_approval_high_risk() {
 
 #[tokio::test]
 async fn test_block_critical_risk() {
-    let gate = ExecutionGate::default();
+    let gate = enforcing_gate();
     let ctx = ActionContext {
         is_hydra_internal: true,
         ..Default::default()
@@ -135,7 +140,7 @@ async fn test_gate_generates_audit_log() {
 
 #[tokio::test]
 async fn test_layer1_tls_blocks_http() {
-    let gate = ExecutionGate::default();
+    let gate = enforcing_gate();
     let decision = gate
         .evaluate(&network_http_action(), &default_context(), None)
         .await;
@@ -178,7 +183,7 @@ fn test_layer1_domain_allowlist() {
 
 #[tokio::test]
 async fn test_layer2_expired_token_blocked() {
-    let gate = ExecutionGate::default();
+    let gate = enforcing_gate();
     let expired = CapabilityToken {
         id: uuid::Uuid::new_v4(),
         holder_id: uuid::Uuid::new_v4(),

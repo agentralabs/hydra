@@ -107,7 +107,7 @@ async fn gate_requires_approval_for_high_risk() {
 
 #[tokio::test]
 async fn gate_blocks_critical_risk() {
-    let gate = ExecutionGate::default();
+    let gate = ExecutionGate::new(GateConfig { warn_only: false, ..GateConfig::default() });
     let action = critical_action();
     let ctx = critical_context();
     let decision = gate.evaluate(&action, &ctx, None).await;
@@ -135,7 +135,7 @@ async fn gate_kill_switch_halts_all() {
 
 #[tokio::test]
 async fn gate_boundary_violation_blocks() {
-    let gate = ExecutionGate::default();
+    let gate = ExecutionGate::new(GateConfig { warn_only: false, ..GateConfig::default() });
     let action = Action::new(ActionType::Read, "/etc/passwd");
     let ctx = safe_context();
     let decision = gate.evaluate(&action, &ctx, None).await;
@@ -191,7 +191,7 @@ async fn gate_audit_chain_integrity() {
 
 #[tokio::test]
 async fn gate_batch_evaluation() {
-    let gate = ExecutionGate::default();
+    let gate = ExecutionGate::new(GateConfig { warn_only: false, ..GateConfig::default() });
     let actions = vec![
         safe_read_action(),
         medium_risk_action(),

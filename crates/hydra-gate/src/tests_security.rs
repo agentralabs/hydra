@@ -364,12 +364,13 @@ async fn gate_config_update_changes_thresholds() {
     let decision = gate.evaluate(&safe_read_action(), &safe_context(), None).await;
     assert!(decision.is_approved());
 
-    // Change config to block everything (block_above = 0.0)
+    // Change config to block everything (block_above = 0.0, warn_only = false)
     gate.update_config(GateConfig {
         auto_approve_below: 0.0,
         notify_below: 0.0,
         require_approval_below: 0.0,
         block_above: 0.0,
+        warn_only: false,
         ..GateConfig::default()
     });
 
