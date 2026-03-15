@@ -88,12 +88,12 @@ mod tests {
     }
 
     #[test]
-    fn test_registry_register_all_14() {
+    fn test_registry_register_all_17() {
         let mut reg = SisterRegistry::new();
         for b in bridges::all_bridges() {
             reg.register(b);
         }
-        assert_eq!(reg.count(), 14);
+        assert_eq!(reg.count(), 17);
     }
 
     #[test]

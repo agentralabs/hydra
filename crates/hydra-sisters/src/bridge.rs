@@ -22,6 +22,10 @@ pub enum SisterId {
     Aegis,
     Veritas,
     Evolve,
+    // Utility (3)
+    Data,
+    Connect,
+    Workflow,
 }
 
 impl SisterId {
@@ -41,6 +45,9 @@ impl SisterId {
             Self::Aegis,
             Self::Veritas,
             Self::Evolve,
+            Self::Data,
+            Self::Connect,
+            Self::Workflow,
         ]
     }
 
@@ -60,7 +67,14 @@ impl SisterId {
             Self::Aegis => "agentic-aegis",
             Self::Veritas => "agentic-veritas",
             Self::Evolve => "agentic-evolve",
+            Self::Data => "agentic-data",
+            Self::Connect => "agentic-connect",
+            Self::Workflow => "agentic-workflow",
         }
+    }
+
+    pub fn is_utility(&self) -> bool {
+        matches!(self, Self::Data | Self::Connect | Self::Workflow)
     }
 
     pub fn is_foundation(&self) -> bool {

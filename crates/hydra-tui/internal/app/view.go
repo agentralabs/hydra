@@ -67,11 +67,11 @@ func (m Model) renderUpperFrame() string {
 	leftLines = append(leftLines, fmt.Sprintf("    Welcome back %s!", theme.FrameUsername.Render(m.Username)))
 	leftLines = append(leftLines, "")
 	// Diamond logo (Hydra node graph)
-	leftLines = append(leftLines, fmt.Sprintf("           %s", cyan.Render("◉")))
-	leftLines = append(leftLines, fmt.Sprintf("         %s   %s", blue.Render("/"), blue.Render("\\")))
-	leftLines = append(leftLines, fmt.Sprintf("       %s──%s──%s", cyan.Render("◉"), blue.Render("───"), cyan.Render("◉")))
-	leftLines = append(leftLines, fmt.Sprintf("         %s   %s", blue.Render("\\"), blue.Render("/")))
-	leftLines = append(leftLines, fmt.Sprintf("           %s", cyan.Render("◉")))
+	leftLines = append(leftLines, "           "+cyan.Render("◉"))
+	leftLines = append(leftLines, "          "+blue.Render("/ \\"))
+	leftLines = append(leftLines, "       "+cyan.Render("◉")+blue.Render("─────")+cyan.Render("◉"))
+	leftLines = append(leftLines, "          "+blue.Render("\\ /"))
+	leftLines = append(leftLines, "           "+cyan.Render("◉"))
 	leftLines = append(leftLines, "")
 	// Model + provider + branch
 	leftLines = append(leftLines, fmt.Sprintf("  %s %s · %s",
@@ -136,8 +136,15 @@ func (m Model) renderUpperFrame() string {
 		lipgloss.NewStyle().Foreground(healthColor).Render(fmt.Sprintf("%.0f%%", m.HealthPct))))
 	modeColor := theme.HydraGreen
 	modeStr := "Local"
-	if m.Online {
-		modeStr = "Online"
+	if m.SistersConn > 0 {
+		modeStr = "Local"
+		modeColor = theme.HydraGreen
+	} else if m.Connected {
+		modeStr = "Connecting"
+		modeColor = theme.HydraYellow
+	} else {
+		modeStr = "Offline"
+		modeColor = theme.HydraRed
 	}
 	rightLines = append(rightLines, fmt.Sprintf("Mode       %s %s",
 		lipgloss.NewStyle().Foreground(modeColor).Render("●"), modeStr))
@@ -158,10 +165,10 @@ func (m Model) renderUpperFrame() string {
 
 	// Top border: ┌─── Hydra v0.2.0 ───────────────────────────┐
 	title := fmt.Sprintf(" Hydra v%s ", m.Version)
-	topPad := w - 5 - len(title) // ┌ + ─── + title + ───pad + ┐
-	if topPad < 2 { topPad = 2 }
-	frameLines = append(frameLines,
-		blue.Render("┌───")+theme.FrameTitle.Render(title)+blue.Render(strings.Repeat("─", topPad))+blue.Render("┐"))
+	topDashes := w - 2 - 3 - len(title) // w minus ┌ ┐ minus ─── minus title
+	if topDashes < 2 { topDashes = 2 }
+	topBorder := "┌───" + title + strings.Repeat("─", topDashes) + "┐"
+	frameLines = append(frameLines, blue.Render(topBorder))
 
 	// Content rows: │ leftcol          rightcol         │
 	for i := 0; i < len(leftLines); i++ {
@@ -176,10 +183,10 @@ func (m Model) renderUpperFrame() string {
 
 	// Bottom border: └─── Agentra Labs ─────────────────────────┘
 	footer := " Agentra Labs "
-	botPad := w - 5 - len(footer)
-	if botPad < 2 { botPad = 2 }
-	frameLines = append(frameLines,
-		blue.Render("└───")+dim.Render(footer)+blue.Render(strings.Repeat("─", botPad))+blue.Render("┘"))
+	botDashes := w - 2 - 3 - len(footer)
+	if botDashes < 2 { botDashes = 2 }
+	botBorder := "└───" + footer + strings.Repeat("─", botDashes) + "┘"
+	frameLines = append(frameLines, blue.Render(botBorder))
 
 	result := strings.Join(frameLines, "\n")
 

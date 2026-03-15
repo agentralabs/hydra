@@ -305,3 +305,79 @@ pub fn evolve_bridge() -> McpSisterBridge {
         ],
     )
 }
+
+// ═══════════════════════════════════════════════════════════
+// UTILITY SISTERS — data, connect, workflow
+// ═══════════════════════════════════════════════════════════
+
+pub fn data_bridge() -> McpSisterBridge {
+    McpSisterBridge::new(
+        SisterId::Data,
+        "agentic-data",
+        "0.1.0",
+        &[
+            "data_schema_infer",
+            "data_schema_validate",
+            "data_format_detect",
+            "data_format_convert",
+            "data_quality_score",
+            "data_quality_report",
+            "data_dna_trace",
+            "data_dna_lineage",
+            "data_query_natural",
+            "data_query_structured",
+            "data_transform_apply",
+            "data_redact_detect",
+            "data_vault_store",
+            "data_vault_retrieve",
+        ],
+    )
+}
+
+pub fn connect_bridge() -> McpSisterBridge {
+    McpSisterBridge::new(
+        SisterId::Connect,
+        "agentic-connect",
+        "0.1.0",
+        &[
+            "connect_protocol_detect",
+            "connect_protocol_test",
+            "connect_auth_configure",
+            "connect_auth_test",
+            "connect_soul_inspect",
+            "connect_soul_refresh",
+            "connect_retry_configure",
+            "connect_retry_status",
+            "connect_api_request",
+            "connect_api_graphql",
+            "connect_browse_navigate",
+            "connect_browse_extract",
+            "connect_security_tls",
+            "connect_security_sentinel",
+        ],
+    )
+}
+
+pub fn workflow_bridge() -> McpSisterBridge {
+    McpSisterBridge::new(
+        SisterId::Workflow,
+        "agentic-workflow",
+        "0.1.0",
+        &[
+            "workflow_dag_create",
+            "workflow_dag_validate",
+            "workflow_execute_start",
+            "workflow_execute_status",
+            "workflow_schedule_create",
+            "workflow_schedule_list",
+            "workflow_trigger_add",
+            "workflow_trigger_remove",
+            "workflow_resilience_retry",
+            "workflow_resilience_circuit",
+            "workflow_governance_approve",
+            "workflow_governance_audit",
+            "workflow_template_create",
+            "workflow_template_apply",
+        ],
+    )
+}

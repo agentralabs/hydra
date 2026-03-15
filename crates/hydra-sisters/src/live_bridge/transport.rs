@@ -56,17 +56,27 @@ impl LiveMcpBridge {
             retryable: false,
         })?;
 
-        let _proc = StdioProcess {
+        let proc = StdioProcess {
             child,
             stdin,
             stdout: tokio::io::BufReader::new(stdout),
             request_id: 0,
         };
 
-        // Note: In a real implementation, we'd store the process.
-        // The current architecture uses McpTransport enum which
-        // makes in-place mutation complex. For production, this
-        // would use an Arc<AsyncMutex<Option<StdioProcess>>>.
+        // Store the process in the transport enum.
+        // Safety: self is &self but we need interior mutability for the process field.
+        // The McpTransport::Stdio::process field is Option<AsyncMutex<StdioProcess>>,
+        // and we use unsafe to set it because the borrow checker can't see that
+        // start_process is only called when process is None (checked in ensure_process).
+        if let McpTransport::Stdio { process: slot, .. } = &self.transport {
+            // SAFETY: ensure_process() guarantees slot is None when start_process is called.
+            // We cast away the shared reference to set the process once.
+            let slot_ptr = slot as *const Option<tokio::sync::Mutex<StdioProcess>>
+                as *mut Option<tokio::sync::Mutex<StdioProcess>>;
+            unsafe {
+                *slot_ptr = Some(tokio::sync::Mutex::new(proc));
+            }
+        }
         Ok(())
     }
 

@@ -14,7 +14,7 @@ mod bridges_tests_memory;
 pub use bridges_core::*;
 pub use bridges_extended::*;
 
-/// Create all 14 bridges
+/// Create all 17 bridges
 pub fn all_bridges() -> Vec<McpSisterBridge> {
     vec![
         memory_bridge(),
@@ -31,5 +31,8 @@ pub fn all_bridges() -> Vec<McpSisterBridge> {
         aegis_bridge(),
         veritas_bridge(),
         evolve_bridge(),
+        data_bridge(),
+        connect_bridge(),
+        workflow_bridge(),
     ]
 }

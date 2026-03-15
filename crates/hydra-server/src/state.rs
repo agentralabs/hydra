@@ -81,6 +81,19 @@ impl AppState {
     pub fn load_profile(&self, name: &str) -> Result<(), String> {
         let profile = hydra_native::cognitive::profile_loader::load_profile(name)?;
         let overlay = hydra_native::cognitive::profile_applier::build_prompt_overlay(&profile);
+
+        // Store beliefs in Memory sister if sisters are connected
+        if let Some(ref sisters) = self.sisters {
+            let profile_clone = profile.clone();
+            let sisters_clone = sisters.clone();
+            tokio::spawn(async move {
+                let mut settings = hydra_runtime::RuntimeSettings::default();
+                hydra_native::cognitive::profile_applier::apply_profile(
+                    &profile_clone, &mut settings, Some(&sisters_clone),
+                ).await;
+            });
+        }
+
         *self.prompt_overlay.lock() = overlay;
         *self.active_profile.lock() = Some(profile);
         Ok(())
