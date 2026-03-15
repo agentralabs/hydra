@@ -30,14 +30,25 @@ impl App {
     }
 
     pub(crate) fn slash_cmd_fast(&mut self, timestamp: &str) {
-        // Toggle fast mode — same model, faster output
-        self.messages.push(Message {
-            role: MessageRole::System,
-            content: "Fast Mode toggled. Same model, faster output (2.5x speed).\n\
-                     Note: may increase cost per token.".to_string(),
-            timestamp: timestamp.to_string(),
-            phase: None,
-        });
+        // Toggle between current model and Haiku (fastest)
+        let is_fast = self.model_name.contains("haiku");
+        if is_fast {
+            // Switch back to Sonnet
+            std::env::set_var("HYDRA_MODEL", "claude-sonnet-4-6");
+            let (m, p) = super::app_helpers::resolve_model_and_provider();
+            self.model_name = m; self.provider_name = p;
+            self.messages.push(Message { role: MessageRole::System,
+                content: format!("Fast mode OFF. Model: {} (full quality).", self.model_name),
+                timestamp: timestamp.to_string(), phase: None });
+        } else {
+            // Switch to Haiku
+            std::env::set_var("HYDRA_MODEL", "claude-haiku-4-5-20251001");
+            let (m, p) = super::app_helpers::resolve_model_and_provider();
+            self.model_name = m; self.provider_name = p;
+            self.messages.push(Message { role: MessageRole::System,
+                content: format!("Fast mode ON. Model: {} (2.5x faster, lower cost).", self.model_name),
+                timestamp: timestamp.to_string(), phase: None });
+        }
     }
 
     // ── Code & Review additions (§5.3) ──
@@ -263,14 +274,17 @@ impl App {
     }
 
     pub(crate) fn slash_cmd_diagnostics(&mut self, timestamp: &str) {
+        let connected = self.sisters.iter().filter(|s| s.connected).count();
+        let total_tools: usize = self.sisters.iter().map(|s| s.tool_count).sum();
+        let (successes, failures, _) = self.invention_engine.session_momentum();
+        let profile_name = self.active_profile.as_ref().map(|p| p.name.as_str()).unwrap_or("none");
+        let beliefs = self.active_profile.as_ref().map(|p| p.beliefs.len()).unwrap_or(0);
+        let msg = format!("Diagnostics\n\n  Sisters: {}/{} connected ({} tools)\n  Profile: {} ({} beliefs)\n  Model: {}\n  Session: {} interactions ({} successes, {} failures)\n  Cognitive loop: idle\n  Memory pressure: normal",
+            connected, self.sisters.len(), total_tools, profile_name, beliefs,
+            self.model_name, successes + failures, successes, failures);
         self.messages.push(Message {
             role: MessageRole::System,
-            content: "Diagnostics\n\
-                     \n\
-                     Last consolidation: none this session\n\
-                     Cognitive loop: idle\n\
-                     Intent queue: empty\n\
-                     Memory pressure: normal".to_string(),
+            content: msg,
             timestamp: timestamp.to_string(),
             phase: None,
         });

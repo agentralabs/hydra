@@ -178,12 +178,17 @@ impl App {
     }
 
     pub(crate) fn slash_cmd_obstacles(&mut self, timestamp: &str) {
-        self.messages.push(Message {
-            role: MessageRole::System,
-            content: "Obstacle history: no obstacles encountered this session.".to_string(),
-            timestamp: timestamp.to_string(),
-            phase: None,
-        });
+        let (successes, failures, corrections) = self.invention_engine.session_momentum();
+        let total = successes + failures;
+        let content = if total == 0 {
+            "No obstacles encountered this session.".into()
+        } else {
+            format!("Session Obstacles\n\nTotal interactions: {}\n  Successes: {}\n  Failures: {}\n  Corrections: {}\n  Success rate: {:.0}%",
+                total, successes, failures, corrections,
+                if total > 0 { successes as f64 / total as f64 * 100.0 } else { 0.0 })
+        };
+        self.messages.push(Message { role: MessageRole::System,
+            content, timestamp: timestamp.to_string(), phase: None });
     }
 
     pub(crate) fn slash_cmd_threat(&mut self, args: &str, timestamp: &str) {
@@ -319,12 +324,18 @@ impl App {
     }
 
     pub(crate) fn slash_cmd_debug(&mut self, timestamp: &str) {
-        self.messages.push(Message {
-            role: MessageRole::System,
-            content: "Debug mode: not yet implemented.".to_string(),
-            timestamp: timestamp.to_string(),
-            phase: None,
-        });
+        let is_debug = std::env::var("HYDRA_DEBUG_MODE").map(|v| v == "1").unwrap_or(false);
+        if is_debug {
+            std::env::set_var("HYDRA_DEBUG_MODE", "0");
+            self.messages.push(Message { role: MessageRole::System,
+                content: "Debug mode OFF. Verbose logging disabled.".into(),
+                timestamp: timestamp.to_string(), phase: None });
+        } else {
+            std::env::set_var("HYDRA_DEBUG_MODE", "1");
+            self.messages.push(Message { role: MessageRole::System,
+                content: "Debug mode ON. Verbose phase logging enabled.".into(),
+                timestamp: timestamp.to_string(), phase: None });
+        }
     }
 
     // ── Help ──
