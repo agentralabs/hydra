@@ -53,13 +53,21 @@ pub async fn handle_rpc(state: &AppState, body: &str) -> JsonRpcResponse {
 }
 
 async fn handle_run(state: &AppState, req: &JsonRpcRequest) -> JsonRpcResponse {
-    let intent = match req.params.get("intent").and_then(|v| v.as_str()) {
-        Some(i) => i.to_string(),
-        None => {
+    // Accept "intent", "input", "text", or "message" — any client can use its preferred key
+    let intent = req.params.get("intent")
+        .or_else(|| req.params.get("input"))
+        .or_else(|| req.params.get("text"))
+        .or_else(|| req.params.get("message"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let intent = match intent {
+        Some(i) if !i.trim().is_empty() => i,
+        _ => {
             return JsonRpcResponse::error(
                 req.id.clone(),
                 RpcErrorCodes::INVALID_PARAMS,
-                "Missing required parameter 'intent'. Provide what you want Hydra to do.",
+                "Missing required parameter. Provide 'intent', 'input', 'text', or 'message' with what you want Hydra to do.",
             );
         }
     };

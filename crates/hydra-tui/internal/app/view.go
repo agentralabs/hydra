@@ -180,35 +180,26 @@ func (m Model) renderUpperFrame() string {
 
 	rendered := frameStyle.Render(content)
 
-	// 3. Overlay title on the top border line (like Claude Code does)
+	// 3. Overlay title and footer on border lines
+	// Instead of splicing ANSI strings, rebuild top/bottom borders from scratch
 	lines := strings.Split(rendered, "\n")
+	borderW := w - 2 // inner width of lipgloss border
+
 	if len(lines) > 0 {
-		topBorder := lines[0]
+		// Rebuild top: ╭─── Hydra v0.2.0 ─────────────────────╮
 		title := " Hydra v" + m.Version + " "
-		// Find position after "╭──" (3 visual chars = varying bytes with ANSI)
-		// Insert title by replacing dashes starting at position 4
-		plain := lipgloss.NewStyle().Render(title) // unstyled to measure
-		styledTitle := blue.Bold(true).Render(title)
-		if lipgloss.Width(topBorder) > len(title)+6 {
-			// Rebuild: keep first 4 chars of border, insert title, fill rest
-			runes := []rune(stripAnsi(topBorder))
-			if len(runes) > 4 {
-				newTop := string(runes[:4]) + title + string(runes[4+len([]rune(title)):])
-				lines[0] = blue.Render(newTop[:4]) + styledTitle + blue.Render(string([]rune(newTop)[4+len([]rune(title)):]))
-			}
-		}
-		_ = plain
+		dashes := borderW - 2 - len(title) // minus ╭ and ╮
+		if dashes < 2 { dashes = 2 }
+		lines[0] = blue.Render("╭──") + blue.Bold(true).Render(title) + blue.Render(strings.Repeat("─", dashes) + "╮")
 	}
 
-	// 4. Overlay footer on the bottom border line
 	if len(lines) > 1 {
+		// Rebuild bottom: ╰─── Agentra Labs ──────────────────────╯
 		footer := " Agentra Labs "
 		lastIdx := len(lines) - 1
-		runes := []rune(stripAnsi(lines[lastIdx]))
-		if len(runes) > 4+len([]rune(footer)) {
-			newBot := string(runes[:4]) + footer + string(runes[4+len([]rune(footer)):])
-			lines[lastIdx] = blue.Render(string([]rune(newBot)[:4])) + dim.Render(footer) + blue.Render(string([]rune(newBot)[4+len([]rune(footer)):]))
-		}
+		dashes := borderW - 2 - len(footer)
+		if dashes < 2 { dashes = 2 }
+		lines[lastIdx] = blue.Render("╰──") + dim.Render(footer) + blue.Render(strings.Repeat("─", dashes) + "╯")
 	}
 
 	result := strings.Join(lines, "\n")
