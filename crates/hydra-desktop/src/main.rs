@@ -6,6 +6,7 @@ use std::sync::Arc;
 mod app_init_settings;
 mod app_profile;
 mod platform;
+mod platform_desktop;
 mod pulse_voice;
 mod voice_capture;
 // Data structures from hydra-native (tested, working)
@@ -69,6 +70,11 @@ fn App() -> Element {
     let (init_op_profile, init_overlay) = app_profile::auto_load_profile()
         .map(|(p, o)| (Some(p), o)).unwrap_or((None, None));
     let chat_db = Arc::new(ChatPersistence::init_or_memory());
+    // Desktop platform: register global hotkey + notify on startup
+    platform_desktop::register_global_hotkey();
+    if init_op_profile.is_some() {
+        platform_desktop::show_notification("Hydra Ready", "Profile loaded. Cmd+Shift+H to focus.");
+    }
     let (decide_engine, invention_engine, proactive_notifier, agent_spawner, undo_stack, approval_manager, federation_manager, hydra_db, swarm_manager, file_watcher, proactive_file_engine) = include!("app_engines.rs");
     let (send_msg_approval_mgr, palette_approval_mgr, card_approval_mgr) = (approval_manager.clone(), approval_manager.clone(), approval_manager.clone());
     let sisters: Signal<Option<SistersHandle>> = use_signal(|| None);

@@ -233,6 +233,15 @@ fn build_system_prompt_inner(
                  definitions first, then implement them.\n\n"
             );
         }
+        // Surgical edit guidance
+        sp.push_str(
+            "# File Editing Best Practices\n\
+             When modifying existing files, prefer surgical edits over full rewrites:\n\
+             - Use targeted replacements with unique context (surrounding lines)\n\
+             - Avoid rewriting entire files when only a few lines change\n\
+             - For new files use full write; for existing files use edit\n\
+             - Always verify the old text is unique before replacing\n\n"
+        );
         // Tool routing
         let routed_tools = route_tools_for_prompt(intent, complexity, is_action_request, sh, text);
         let tool_line_count = routed_tools.lines().count();

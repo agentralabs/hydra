@@ -67,6 +67,17 @@ func (m Model) handleTick() (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// Auto-collapse tool results after 3 seconds
+	now := time.Now()
+	for i := range m.Messages {
+		for j := range m.Messages[i].ToolResults {
+			tr := &m.Messages[i].ToolResults[j]
+			if tr.Expanded && !tr.ExpandedAt.IsZero() && now.Sub(tr.ExpandedAt) > 3*time.Second {
+				tr.Expanded = false
+			}
+		}
+	}
+
 	// Thinking spinner + tip rotation
 	if m.Thinking {
 		m.SpinnerPhase++
@@ -503,6 +514,9 @@ func (m *Model) toggleToolExpand() {
 		if len(last.ToolResults) > 0 {
 			tr := &last.ToolResults[len(last.ToolResults)-1]
 			tr.Expanded = !tr.Expanded
+			if tr.Expanded {
+				tr.ExpandedAt = time.Now()
+			}
 		}
 	}
 }

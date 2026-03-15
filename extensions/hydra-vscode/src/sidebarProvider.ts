@@ -74,6 +74,13 @@ export class HydraSidebarProvider implements vscode.WebviewViewProvider {
           await this.refreshData();
           break;
         }
+        case 'fileDrop': {
+          const fileUri = msg.uri as string;
+          if (fileUri) {
+            await this.handleFileDrop(fileUri);
+          }
+          break;
+        }
       }
     });
   }
@@ -105,6 +112,42 @@ export class HydraSidebarProvider implements vscode.WebviewViewProvider {
   refresh(): void {
     if (this.view) {
       this.view.webview.html = this.getHtml();
+    }
+  }
+
+  /**
+   * Handle a file dropped into the sidebar webview.
+   * Reads the file content and sends it to the Hydra server as a run intent.
+   */
+  private async handleFileDrop(uriString: string): Promise<void> {
+    try {
+      // Parse the URI — could be file:///path or just /path
+      let fileUri: vscode.Uri;
+      if (uriString.startsWith('file://')) {
+        fileUri = vscode.Uri.parse(uriString);
+      } else {
+        fileUri = vscode.Uri.file(uriString);
+      }
+
+      const fileBytes = await vscode.workspace.fs.readFile(fileUri);
+      const content = Buffer.from(fileBytes).toString('utf-8');
+      const fileName = fileUri.path.split('/').pop() || 'file';
+
+      // Truncate very large files
+      const maxChars = 10000;
+      const truncated =
+        content.length > maxChars
+          ? content.substring(0, maxChars) + '\n... (truncated)'
+          : content;
+
+      const intent = `Here is the file "${fileName}":\n\`\`\`\n${truncated}\n\`\`\`\nPlease analyze this file.`;
+
+      await this.client.createRun(intent);
+      vscode.window.showInformationMessage(
+        `Hydra: Analyzing dropped file "${fileName}"...`
+      );
+    } catch (err) {
+      vscode.window.showErrorMessage(`Hydra: Failed to read dropped file - ${err}`);
     }
   }
 
@@ -423,6 +466,43 @@ export class HydraSidebarProvider implements vscode.WebviewViewProvider {
       div.textContent = str;
       return div.innerHTML;
     }
+
+    // Drag-and-drop: accept files dragged into the sidebar chat area
+    const dropZone = document.body;
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.style.outline = '2px dashed #4A9EFF';
+      dropZone.style.outlineOffset = '-4px';
+    });
+
+    dropZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dropZone.style.outline = 'none';
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.style.outline = 'none';
+
+      // VS Code webviews receive text/uri-list for file drops from the explorer
+      const uriList = e.dataTransfer && e.dataTransfer.getData('text/uri-list');
+      if (uriList) {
+        const uris = uriList.split('\\n').filter(u => u.trim().length > 0);
+        for (const uri of uris) {
+          vscode.postMessage({ type: 'fileDrop', uri: uri.trim() });
+        }
+        return;
+      }
+
+      // Fallback: check for plain text (e.g., a path)
+      const text = e.dataTransfer && e.dataTransfer.getData('text/plain');
+      if (text) {
+        vscode.postMessage({ type: 'fileDrop', uri: text.trim() });
+      }
+    });
 
     // Request initial data
     vscode.postMessage({ type: 'refresh' });

@@ -103,7 +103,8 @@ type ToolResult struct {
 	DurationMs  uint64
 	Success     bool
 	Expanded    bool
-	DotCategory int // maps to theme.DotCategory
+	ExpandedAt  time.Time // when Expanded was set to true
+	DotCategory int       // maps to theme.DotCategory
 }
 
 // BeliefCitation in a response.

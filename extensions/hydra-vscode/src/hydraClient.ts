@@ -11,6 +11,10 @@ export class HydraClient {
     this.protocol = this.baseUrl.startsWith('https') ? https : http;
   }
 
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
   updateBaseUrl(url: string): void {
     this.baseUrl = url.replace(/\/$/, '');
     this.protocol = this.baseUrl.startsWith('https') ? https : http;

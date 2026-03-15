@@ -24,7 +24,8 @@
       { "command": "hydra.showImpact", "title": "Hydra: Show Impact Analysis" },
       { "command": "hydra.suggestRefactor", "title": "Hydra: Suggest Refactor" },
       { "command": "hydra.toggleVoice", "title": "Hydra: Toggle Voice" },
-      { "command": "hydra.showPanel", "title": "Hydra: Show Workspace Panel" }
+      { "command": "hydra.showPanel", "title": "Hydra: Show Workspace Panel" },
+      { "command": "hydra.commitChanges", "title": "Hydra: Commit Hydra Changes" }
     ],
     "menus": {
       "editor/context": [

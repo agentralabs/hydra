@@ -71,6 +71,9 @@ export class HydraCodeLensProvider implements vscode.CodeLensProvider {
     // Resolve references in background if server is available
     this.resolveReferences(document, lenses);
 
+    // Add belief lenses if server is available
+    await this.resolveBeliefLenses(document, lenses);
+
     return lenses;
   }
 
@@ -115,6 +118,70 @@ export class HydraCodeLensProvider implements vscode.CodeLensProvider {
       }
     }
     return Math.min(startLine + 50, document.lineCount);
+  }
+
+  /**
+   * Query beliefs from the server and add CodeLens indicators above functions
+   * whose names match a belief topic.
+   */
+  private async resolveBeliefLenses(
+    document: vscode.TextDocument,
+    lenses: vscode.CodeLens[]
+  ): Promise<void> {
+    try {
+      const running = await this.client.isServerRunning();
+      if (!running) {
+        return;
+      }
+
+      const beliefs = await this.client.rpc('beliefs.list', {}) as
+        Array<{ topic: string; confidence: number }> | null;
+
+      if (!beliefs || !Array.isArray(beliefs) || beliefs.length === 0) {
+        return;
+      }
+
+      const text = document.getText().toLowerCase();
+
+      for (const belief of beliefs) {
+        const topic = belief.topic.toLowerCase();
+        // Find function lines that reference this belief topic
+        for (let i = 0; i < document.lineCount; i++) {
+          const line = document.lineAt(i);
+          if (!FUNCTION_PATTERN.test(line.text)) {
+            continue;
+          }
+
+          const funcName = extractFunctionName(line.text);
+          if (!funcName) {
+            continue;
+          }
+
+          // Check if function name or surrounding context references this belief
+          const funcNameLower = funcName.toLowerCase();
+          const topicWords = topic.split(/\s+/);
+          const matches = topicWords.some(
+            (w) => w.length > 3 && (funcNameLower.includes(w) || text.indexOf(w) !== -1)
+          );
+
+          if (matches) {
+            const pct = Math.round(belief.confidence * 100);
+            const range = new vscode.Range(i, 0, i, line.text.length);
+            lenses.push(
+              new vscode.CodeLens(range, {
+                title: `Belief: ${belief.topic} (${pct}%)`,
+                command: 'hydra.run',
+                arguments: [`Tell me about belief: ${belief.topic}`],
+                tooltip: `Hydra belief — confidence ${pct}%`,
+              })
+            );
+            break; // One lens per belief
+          }
+        }
+      }
+    } catch {
+      // Server unavailable or beliefs not loaded — skip silently
+    }
   }
 
   refresh(): void {

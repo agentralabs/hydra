@@ -27,3 +27,12 @@ chrono = { workspace = true }
 hydra-pulse = { path = "../hydra-pulse" }
 hydra-monitor = { path = "../hydra-monitor" }
 hydra-trace = { path = "../hydra-trace" }
+
+# Desktop platform features
+notify-rust = { version = "4", optional = true }
+global-hotkey = { version = "0.6", optional = true }
+
+[features]
+default = ["notifications", "hotkey"]
+notifications = ["dep:notify-rust"]
+hotkey = ["dep:global-hotkey"]

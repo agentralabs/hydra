@@ -9,6 +9,8 @@ import { registerCodeActionsProvider } from './providers/codeActionsProvider';
 import { registerCodeLensProvider } from './providers/codeLensProvider';
 import { registerDiagnosticsProvider } from './providers/diagnosticsProvider';
 import { registerHoverProvider } from './providers/hoverProvider';
+import { registerSourceControlProvider } from './providers/sourceControlProvider';
+import { registerFileDecorationProvider } from './providers/fileDecorationProvider';
 
 let statusBar: HydraStatusBar;
 let pollInterval: ReturnType<typeof setInterval> | undefined;
@@ -66,6 +68,10 @@ export function activate(context: vscode.ExtensionContext): void {
   registerCodeLensProvider(context, client);
   registerDiagnosticsProvider(context, client);
   registerHoverProvider(context, client);
+
+  // Register source control and file decoration providers
+  registerSourceControlProvider(context, client);
+  registerFileDecorationProvider(context);
 
   // Listen for config changes
   context.subscriptions.push(

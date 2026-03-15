@@ -25,6 +25,10 @@ pub mod mentor_system;
 pub mod creative_engine;
 pub mod knowledge_hunter;
 pub mod economics_tracker;
+// Surgical edit system
+pub mod edit_tool;
+pub mod diff_engine;
+pub mod change_tracker;
 
 pub use api_learner::{ApiEndpoint, ApiKnowledge, FixKnowledge};
 pub use doc_reader::{DocFile, DocKind};

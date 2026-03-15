@@ -286,6 +286,11 @@ pub(crate) async fn execute_commands(
                     sh.learn_capture_command(cmd, &combined, success).await;
                 }
 
+                // ── TRACK: Record file writes in the change tracker ──
+                if success {
+                    record_file_write_if_applicable(cmd, &combined);
+                }
+
                 // Ghost cursor: Hide after visual command completes
                 if is_visual_cmd {
                     let _ = tx.send(CognitiveUpdate::CursorVisibility { visible: false });
@@ -395,4 +400,61 @@ pub(crate) async fn execute_commands(
     }
 
     (updated_response, exec_results)
+}
+
+/// Detect file-write commands and record them in the global change tracker.
+///
+/// Recognizes common shell patterns: tee, redirect (>), cp, mv, and
+/// explicit write commands. Records old content when available.
+fn record_file_write_if_applicable(cmd: &str, _output: &str) {
+    use crate::knowledge::change_tracker::{
+        global_tracker, FileChange, FileChangeType,
+    };
+    use crate::knowledge::diff_engine::diff_summary_string;
+    use std::path::PathBuf;
+
+    // Detect file path from common write patterns
+    let target_path: Option<PathBuf> = if cmd.contains(" > ") || cmd.contains(" >> ") {
+        // Redirect: cmd > file or cmd >> file
+        let sep = if cmd.contains(" >> ") { " >> " } else { " > " };
+        cmd.split(sep).nth(1).map(|p| PathBuf::from(p.trim()))
+    } else if cmd.starts_with("tee ") {
+        cmd.split_whitespace().nth(1).map(PathBuf::from)
+    } else if cmd.starts_with("cp ") {
+        // cp src dest — target is last arg
+        cmd.split_whitespace().last().map(PathBuf::from)
+    } else {
+        None
+    };
+
+    let Some(path) = target_path else { return };
+
+    // Read new content if the file exists now
+    let new_content = std::fs::read_to_string(&path).ok();
+    let change_type = if path.exists() {
+        FileChangeType::Edited
+    } else {
+        FileChangeType::Created
+    };
+
+    let diff = match (&new_content, &change_type) {
+        (Some(nc), FileChangeType::Created) => {
+            diff_summary_string("", nc)
+        }
+        _ => "+? -?".to_string(),
+    };
+
+    let change = FileChange {
+        file_path: path,
+        change_type,
+        timestamp: chrono::Utc::now().to_rfc3339(),
+        old_content: None, // We don't have old content for shell writes
+        new_content,
+        diff_summary: diff,
+        description: safe_truncate(cmd, 120).to_string(),
+    };
+
+    if let Ok(mut tracker) = global_tracker().lock() {
+        tracker.record_change(change);
+    }
 }

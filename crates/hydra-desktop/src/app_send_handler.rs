@@ -313,6 +313,10 @@
                         };
                         let now = chrono::Local::now().format("%H:%M:%S").to_string();
                         timeline_panel.write().push_event(&now, kind, &format!("[{}] {}", priority, title), Some(&message), None);
+                        // Desktop: show OS notification for urgent alerts
+                        if priority == "Urgent" || priority == "High" {
+                            crate::platform_desktop::notify_urgent(&title, &message);
+                        }
                     }
                     CognitiveUpdate::SkillCrystallized { name, actions_count } => {
                         let now = chrono::Local::now().format("%H:%M:%S").to_string();
