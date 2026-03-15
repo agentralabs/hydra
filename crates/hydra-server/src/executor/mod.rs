@@ -82,16 +82,37 @@ async fn execute_run_full(state: Arc<AppState>, run_id: String, intent: String) 
             None, None, fed, swarm).await;
     });
 
-    // Collect response from updates
+    // Forward cognitive updates to SSE so TUI/clients receive streamed responses
     let mut final_response = String::new();
     while let Some(update) = rx.recv().await {
         match update {
-            CognitiveUpdate::StreamChunk { content } => final_response.push_str(&content),
-            CognitiveUpdate::Message { content, .. } => { if final_response.is_empty() { final_response = content; } }
+            CognitiveUpdate::StreamChunk { content } => {
+                // TUI expects: {"type":"text","content":"...","run_id":"..."}
+                state.event_bus.publish(SseEvent::new(SseEventType::StreamChunk,
+                    serde_json::json!({"type": "text", "run_id": run_id, "content": content})));
+                final_response.push_str(&content);
+            }
+            CognitiveUpdate::Message { content, css_class: _, role: _ } => {
+                state.event_bus.publish(SseEvent::new(SseEventType::StreamChunk,
+                    serde_json::json!({"type": "text", "run_id": run_id, "content": content})));
+                if final_response.is_empty() { final_response = content; }
+            }
+            CognitiveUpdate::Phase(phase) => {
+                state.event_bus.publish(SseEvent::new(SseEventType::StreamChunk,
+                    serde_json::json!({"type": "thinking", "run_id": run_id, "content": phase})));
+            }
+            CognitiveUpdate::ToolAction { tool, args: _, result: _, success: _ } => {
+                state.event_bus.publish(SseEvent::new(SseEventType::StreamChunk,
+                    serde_json::json!({"type": "tool_start", "run_id": run_id, "tool": tool})));
+            }
             CognitiveUpdate::ResetIdle => break,
             _ => {}
         }
     }
+
+    // Signal stream completion to TUI clients
+    state.event_bus.publish(SseEvent::new(SseEventType::StreamChunk,
+        serde_json::json!({"type": "done", "run_id": run_id, "content": final_response})));
 
     let now = Utc::now().to_rfc3339();
     let _ = state.db.update_run_status(&run_id, RunStatus::Completed, Some(&now));

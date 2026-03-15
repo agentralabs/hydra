@@ -19,6 +19,10 @@ pub enum SseEventType {
     ApprovalRequired,
     RunCompleted,
     RunError,
+    /// Streamed text chunk from the LLM (for real-time display)
+    StreamChunk,
+    /// A cognitive phase has started (perceive, think, decide, act, learn)
+    PhaseStarted,
     Heartbeat,
     SystemReady,
     SystemShutdown,

@@ -2,6 +2,7 @@ package app
 
 import (
 	"math/rand"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -380,10 +381,12 @@ func (m *Model) sendToServer(input string) {
 	}
 
 	m.StreamRunID = result.RunID
-	if result.Output != nil {
+	// If server returned output synchronously, finish immediately
+	if result.Output != nil && *result.Output != "" {
 		m.StreamBuf = *result.Output
+		m.finishResponse()
 	}
-	m.finishResponse()
+	// Otherwise, SSE "done" event will call finishResponse()
 }
 
 func (m *Model) finishResponse() {
@@ -421,6 +424,7 @@ func (m *Model) handleStreamChunk(chunk client.StreamChunk) {
 		// tool results handled inline
 	case "done":
 		m.Thinking = false
+		m.finishResponse()
 	case "error":
 		m.Thinking = false
 		m.StreamActive = false
@@ -601,18 +605,14 @@ func (m *Model) killBackgroundTasks() {
 }
 
 func (m *Model) updateAutocomplete() {
-	if len(m.Input) < 2 || m.Input[0] != '/' {
+	if len(m.Input) < 1 || m.Input[0] != '/' || strings.Contains(m.Input, " ") {
 		m.ShowAC = false
 		return
 	}
-	prefix := m.Input[1:]
-	if len(prefix) == 0 {
-		m.ShowAC = false
-		return
-	}
+	prefix := m.Input[1:] // empty for just "/"
 	m.Suggestions = nil
 	for _, cmd := range allCommands {
-		if len(cmd) > len(prefix) && cmd[:len(prefix)] == prefix {
+		if prefix == "" || (len(cmd) >= len(prefix) && cmd[:len(prefix)] == prefix) {
 			m.Suggestions = append(m.Suggestions, cmd)
 		}
 	}

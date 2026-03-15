@@ -97,13 +97,18 @@ async fn handle_run(state: &AppState, req: &JsonRpcRequest) -> JsonRpcResponse {
 
     // Spawn async cognitive loop execution
     // The executor handles: SSE events, DB updates, receipt generation
-    let state_arc = Arc::new(AppState::new_from_shared(
+    let mut shared_state = AppState::new_from_shared(
         state.db.clone(),
         state.event_bus.clone(),
         state.ledger.clone(),
         state.server_mode,
         state.auth_token.clone(),
-    ));
+    );
+    // Carry over sisters, profile, and prompt overlay from the main state
+    shared_state.sisters = state.sisters.clone();
+    *shared_state.active_profile.lock() = state.active_profile.lock().clone();
+    *shared_state.prompt_overlay.lock() = state.prompt_overlay.lock().clone();
+    let state_arc = Arc::new(shared_state);
     let rid = run_id.clone();
     let i = intent.clone();
     tokio::spawn(async move {

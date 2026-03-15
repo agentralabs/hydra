@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/agentralabs/hydra-tui/internal/client"
+	"github.com/agentralabs/hydra-tui/internal/input"
 	"github.com/agentralabs/hydra-tui/internal/theme"
 )
 
@@ -409,18 +410,18 @@ func (m Model) renderBriefing() []string {
 
 func (m Model) renderInputArea() string {
 	w := m.Width - 4
-	if w < 10 {
-		w = 76
-	}
+	if w < 10 { w = 76 }
+	blue := lipgloss.NewStyle().Foreground(theme.HydraBlue)
+	dim := theme.Dim
+
 	borderColor := theme.HydraBlue
-	if !m.InputEnabled {
-		borderColor = theme.HydraBorder
-	}
+	if !m.InputEnabled { borderColor = theme.HydraBorder }
 	border := lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(borderColor).
 		Width(w)
 
+	// Input content
 	var content string
 	if m.Mode == ModeStreaming && !m.InputEnabled {
 		content = theme.StreamingIndicator.Render("  Streaming... press Esc to cancel")
@@ -428,28 +429,59 @@ func (m Model) renderInputArea() string {
 		content = lipgloss.NewStyle().Foreground(theme.HydraOrange).
 			Render("  [Y]es  [N]o  [A]llow all this session")
 	} else if m.Input == "" {
-		hint := "! for bash · / for commands · \\ + enter for newline"
-		if m.ProfileName != "" {
-			hint += fmt.Sprintf(" · %s (%d beliefs)", m.ProfileName, m.BeliefsLoaded)
-		}
 		content = theme.InputPrompt.Render("> ") +
-			lipgloss.NewStyle().Foreground(theme.HydraCyan).Render("█") +
-			"  " + theme.InputHint.Render(hint)
+			lipgloss.NewStyle().Foreground(theme.HydraCyan).Render("█")
 	} else {
 		before := m.Input[:m.CursorPos]
 		cursorChar := " "
 		after := ""
 		if m.CursorPos < len(m.Input) {
 			cursorChar = string(m.Input[m.CursorPos])
-			if m.CursorPos+1 <= len(m.Input) {
-				after = m.Input[m.CursorPos+1:]
-			}
+			if m.CursorPos+1 <= len(m.Input) { after = m.Input[m.CursorPos+1:] }
 		}
 		cursor := lipgloss.NewStyle().Foreground(lipgloss.Color("#000")).
 			Background(theme.HydraCyan).Render(cursorChar)
 		content = theme.InputPrompt.Render("> ") + before + cursor + after
 	}
-	return border.Render(content)
+
+	result := border.Render(content)
+
+	// Autocomplete dropdown (below input, like Claude Code)
+	if m.ShowAC && len(m.Suggestions) > 0 {
+		result += "\n" + blue.Render(strings.Repeat("─", w+2))
+		for i, sug := range m.Suggestions {
+			if i >= 10 { break } // max 10 visible
+			desc := getCommandDesc(sug)
+			nameStyle := dim
+			descStyle := dim
+			if i == m.SelIdx {
+				nameStyle = lipgloss.NewStyle().Foreground(theme.HydraCyan)
+				descStyle = lipgloss.NewStyle().Foreground(theme.HydraCyan)
+			}
+			cmdStr := nameStyle.Render(fmt.Sprintf("  /%s", sug))
+			descStr := descStyle.Render(desc)
+			padW := 24 - len(sug)
+			if padW < 2 { padW = 2 }
+			result += "\n" + cmdStr + strings.Repeat(" ", padW) + descStr
+		}
+	}
+
+	// Hints always below (after autocomplete or alone)
+	hint := "  ! for bash · / for commands · \\ + enter for newline"
+	if m.ProfileName != "" {
+		hint += fmt.Sprintf(" · %s (%d beliefs)", m.ProfileName, m.BeliefsLoaded)
+	}
+	result += "\n" + dim.Render(hint)
+
+	_ = blue
+	return result
+}
+
+func getCommandDesc(name string) string {
+	for _, c := range input.CommandList() {
+		if c.Name == name { return c.Desc }
+	}
+	return ""
 }
 
 func getRecentCommits(n int) []string {

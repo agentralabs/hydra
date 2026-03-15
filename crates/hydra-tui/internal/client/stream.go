@@ -29,7 +29,7 @@ func NewStreamReceiver(baseURL string) *StreamReceiver {
 func (sr *StreamReceiver) listen() {
 	defer close(sr.Ch)
 
-	req, err := http.NewRequest("GET", sr.baseURL+"/api/push/sse", nil)
+	req, err := http.NewRequest("GET", sr.baseURL+"/events", nil)
 	if err != nil {
 		fmt.Fprintf(nil, "[hydra-tui] SSE request error: %v\n", err)
 		return
