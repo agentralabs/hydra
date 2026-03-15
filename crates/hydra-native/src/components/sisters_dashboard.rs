@@ -43,7 +43,7 @@ impl SisterInfo {
     }
 }
 
-/// The known 14 sisters in the Hydra ecosystem.
+/// The known 17 sisters in the Hydra ecosystem.
 pub const KNOWN_SISTERS: &[&str] = &[
     "Memory",
     "Vision",

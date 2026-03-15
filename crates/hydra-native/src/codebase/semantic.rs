@@ -163,7 +163,7 @@ impl CodebaseSemanticEngine {
 
         // Fallback description
         "Hydra is a cognitive AI assistant built in Rust with a 5-phase loop: \
-         Perceive → Think → Decide → Act → Learn. It has 14 sister subsystems \
+         Perceive → Think → Decide → Act → Learn. It has 17 sister subsystems \
          for memory, identity, codebase analysis, communication, security (Aegis), \
          code generation (Forge), reality sensing, contract management, writing (Scribe), \
          vision, collaboration, ledger tracking, and evolution. The Codebase sister \

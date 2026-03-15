@@ -1,4 +1,4 @@
-//! Sister Dispatch Matrix — routes cognitive phases to the 14 sisters.
+//! Sister Dispatch Matrix — routes cognitive phases to the 17 sisters.
 //! ACT and LEARN implementations are in dispatch_act.rs.
 //! PERCEIVE, THINK, DECIDE, and ASSESS_RISK implementations are in dispatch_phases.rs.
 
@@ -56,7 +56,7 @@ impl Default for DispatchContext {
     }
 }
 
-/// The Sister Dispatcher — implements PhaseHandler by routing to 14 sisters
+/// The Sister Dispatcher — implements PhaseHandler by routing to 17 sisters
 pub struct SisterDispatcher {
     registry: Arc<SisterRegistry>,
     pub(crate) compiler: Arc<IntentCompiler>,

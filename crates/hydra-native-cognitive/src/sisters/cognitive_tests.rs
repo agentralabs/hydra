@@ -93,7 +93,7 @@ fn test_cognitive_prompt_honesty_in_simple_mode() {
     assert!(prompt.contains("## Memory & Honesty Rules"),
         "Compact mode must include honesty rules");
     // Compact mode mentions sisters but NOT the full organ metaphor
-    assert!(prompt.contains("14 sister agents"),
+    assert!(prompt.contains("17 sister agents"),
         "Compact mode must reference sisters");
 }
 

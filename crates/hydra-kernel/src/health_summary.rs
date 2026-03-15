@@ -116,7 +116,7 @@ mod tests {
     fn test_display_no_error() {
         let h = generate_with_memory(5, 14, 3661, None, 128.0);
         let text = format!("{}", h);
-        assert!(text.contains("5/14 connected"));
+        assert!(text.contains("5/17 connected"));
         assert!(text.contains("1h 1m 1s"));
         assert!(text.contains("128.0 MB"));
         assert!(text.contains("Last error: none"));
@@ -126,7 +126,7 @@ mod tests {
     fn test_display_with_error() {
         let h = generate_with_memory(0, 14, 0, Some("builder error".into()), 0.0);
         let text = format!("{}", h);
-        assert!(text.contains("0/14 connected"));
+        assert!(text.contains("0/17 connected"));
         assert!(text.contains("Last error: builder error"));
     }
 }

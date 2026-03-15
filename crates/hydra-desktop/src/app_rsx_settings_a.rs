@@ -274,7 +274,7 @@
             div { class: "settings-section",
                 h3 { class: "settings-section-title", "Built-in Sisters" }
                 p { class: "settings-desc sisters-desc",
-                    "14 specialized AI agents connected via MCP (Model Context Protocol)."
+                    "17 specialized AI agents connected via MCP (Model Context Protocol)."
                 }
                 {
                     let sh = sisters.read();

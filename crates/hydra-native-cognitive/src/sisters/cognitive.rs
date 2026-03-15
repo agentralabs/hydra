@@ -1,6 +1,6 @@
-//! Cognitive sister dispatch — 14 sisters, 5 phases.
+//! Cognitive sister dispatch — 17 sisters, 5 phases.
 //!
-//! This module contains the `Sisters` struct that holds all 14 sister connections
+//! This module contains the `Sisters` struct that holds all 17 sister connections
 //! and provides the PERCEIVE, THINK (prompt building), DECIDE (risk), ACT, and LEARN
 //! phase dispatch methods.
 
@@ -37,7 +37,7 @@ pub struct Sisters {
 }
 
 impl Sisters {
-    /// Spawn ALL 14 sisters in PARALLEL. Non-blocking: sisters that fail are None.
+    /// Spawn ALL 17 sisters in PARALLEL. Non-blocking: sisters that fail are None.
     pub async fn spawn_all() -> Self {
         let home = hydra_native_state::utils::home_dir();
         // Configurable via HYDRA_SISTER_BIN_DIR env var (default: ~/.local/bin)
@@ -72,7 +72,7 @@ impl Sisters {
         let hydra_memory = format!("{}/hydra.amem", memory_dir);
         let memory_args: Vec<&str> = vec!["serve", "--memory", &hydra_memory];
 
-        // Spawn ALL 14 sisters in parallel for fastest startup
+        // Spawn ALL 17 sisters in parallel for fastest startup
         let (memory, identity, codebase, vision, comm, contract, time,
              planning, cognition, reality, forge, aegis, veritas, evolve,
              data, connect, workflow) = tokio::join!(

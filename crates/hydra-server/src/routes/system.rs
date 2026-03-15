@@ -104,20 +104,14 @@ pub struct SystemStatusResponse {
     pub server_mode: bool,
     pub active_runs: usize,
     pub total_runs: usize,
-    pub sisters: SistersStatus,
+    pub sisters: String,
+    pub sisters_count: usize,
     pub autonomy_level: String,
     pub federation: FederationStatus,
     pub events_published: u64,
 }
 
-#[derive(Debug, Serialize)]
-pub struct SistersStatus {
-    pub memory: &'static str,
-    pub identity: &'static str,
-    pub codebase: &'static str,
-    pub vision: &'static str,
-    pub time: &'static str,
-}
+// SistersStatus replaced with dynamic String from sisters.status_summary()
 
 #[derive(Debug, Serialize)]
 pub struct FederationStatus {

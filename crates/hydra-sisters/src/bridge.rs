@@ -150,7 +150,7 @@ pub enum HealthStatus {
     Unavailable,
 }
 
-/// The sister bridge trait — all 14 sisters implement this
+/// The sister bridge trait — all 17 sisters implement this
 #[async_trait]
 pub trait SisterBridge: Send + Sync {
     fn sister_id(&self) -> SisterId;

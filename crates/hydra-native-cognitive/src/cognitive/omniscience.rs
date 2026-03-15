@@ -6,7 +6,7 @@
 //!   2. **Forge sister** generates repair specs from gap analysis
 //!   3. **Aegis sister** shadow-validates generated fixes before applying
 //!
-//! Supports **multi-repo scanning**: Hydra + all 14 sister repos. Each repo gets
+//! Supports **multi-repo scanning**: Hydra + all 17 sister repos. Each repo gets
 //! its own analysis, gap detection, spec generation, and validation.
 
 use std::path::PathBuf;

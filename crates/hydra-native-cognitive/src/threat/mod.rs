@@ -1,6 +1,6 @@
 //! Predictive Threat Intelligence — P11.
 //!
-//! Correlates signals from all 14 sisters to detect coordinated threats
+//! Correlates signals from all 17 sisters to detect coordinated threats
 //! before they land. Individual sisters handle local defense; this module
 //! detects systemic attacks.
 

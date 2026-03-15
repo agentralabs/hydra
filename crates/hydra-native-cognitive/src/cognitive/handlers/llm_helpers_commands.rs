@@ -229,7 +229,7 @@ pub(crate) fn handle_universal_slash_command(input: &str) -> Option<String> {
 }
 
 /// Select which MCP tools to include in the LLM prompt based on intent.
-/// Delegates to llm_tool_routing.rs for the full routing table across all 14 sisters.
+/// Delegates to llm_tool_routing.rs for the full routing table across all 17 sisters.
 pub(crate) fn route_tools_for_prompt(
     intent: &crate::cognitive::intent_router::ClassifiedIntent,
     complexity: &str,

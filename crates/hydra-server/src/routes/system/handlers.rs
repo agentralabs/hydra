@@ -13,7 +13,7 @@ use crate::state::AppState;
 
 use super::{
     ApprovalActionResponse, DenyRequest, FederationStatus, RunActionResponse, RunStatusResponse,
-    SistersStatus, StepsQuery, SystemStatusResponse,
+    StepsQuery, SystemStatusResponse,
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -54,13 +54,8 @@ pub async fn system_status(
         server_mode: state.server_mode,
         active_runs,
         total_runs,
-        sisters: SistersStatus {
-            memory: "not_connected",
-            identity: "not_connected",
-            codebase: "not_connected",
-            vision: "not_connected",
-            time: "not_connected",
-        },
+        sisters: state.sisters.as_ref().map(|s| s.status_summary()).unwrap_or_else(|| "not initialized".into()),
+        sisters_count: 17,
         autonomy_level: "supervised".into(),
         federation: FederationStatus {
             enabled: false,
