@@ -16,16 +16,18 @@ impl LiveMcpBridge {
             process,
         } = &self.transport
         {
-            if let Some(proc_mutex) = process {
+            let mut guard = process.lock().await;
+            if let Some(ref mut proc) = *guard {
                 // Check if process is still alive
-                let mut proc = proc_mutex.lock().await;
                 if proc.child.try_wait().ok().flatten().is_some() {
-                    // Process exited, need to restart
-                    drop(proc);
+                    // Process exited, restart
+                    *guard = None;
+                    drop(guard);
                     return self.start_process(command, args).await;
                 }
                 return Ok(());
             }
+            drop(guard);
             return self.start_process(command, args).await;
         }
         Ok(())
@@ -63,19 +65,10 @@ impl LiveMcpBridge {
             request_id: 0,
         };
 
-        // Store the process in the transport enum.
-        // Safety: self is &self but we need interior mutability for the process field.
-        // The McpTransport::Stdio::process field is Option<AsyncMutex<StdioProcess>>,
-        // and we use unsafe to set it because the borrow checker can't see that
-        // start_process is only called when process is None (checked in ensure_process).
-        if let McpTransport::Stdio { process: slot, .. } = &self.transport {
-            // SAFETY: ensure_process() guarantees slot is None when start_process is called.
-            // We cast away the shared reference to set the process once.
-            let slot_ptr = slot as *const Option<tokio::sync::Mutex<StdioProcess>>
-                as *mut Option<tokio::sync::Mutex<StdioProcess>>;
-            unsafe {
-                *slot_ptr = Some(tokio::sync::Mutex::new(proc));
-            }
+        // Store the process via Arc<AsyncMutex<Option<>>>
+        if let McpTransport::Stdio { process, .. } = &self.transport {
+            let mut guard = process.lock().await;
+            *guard = Some(proc);
         }
         Ok(())
     }
@@ -88,13 +81,12 @@ impl LiveMcpBridge {
     ) -> Result<serde_json::Value, SisterError> {
         match &self.transport {
             McpTransport::Stdio { process, .. } => {
-                let proc_mutex = process.as_ref().ok_or_else(|| SisterError {
+                let mut guard = process.lock().await;
+                let proc = guard.as_mut().ok_or_else(|| SisterError {
                     sister_id: self.sister_id,
                     message: "Stdio process not started".to_string(),
                     retryable: true,
                 })?;
-
-                let mut proc = proc_mutex.lock().await;
                 proc.request_id += 1;
                 let request = JsonRpcRequest {
                     jsonrpc: "2.0",

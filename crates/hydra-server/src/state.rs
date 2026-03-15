@@ -87,7 +87,7 @@ impl AppState {
             let profile_clone = profile.clone();
             let sisters_clone = sisters.clone();
             tokio::spawn(async move {
-                let mut settings = hydra_runtime::RuntimeSettings::default();
+                let mut settings = hydra_native::RuntimeSettings::default();
                 hydra_native::cognitive::profile_applier::apply_profile(
                     &profile_clone, &mut settings, Some(&sisters_clone),
                 ).await;

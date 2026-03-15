@@ -39,7 +39,7 @@ pub enum McpTransport {
     Stdio {
         command: String,
         args: Vec<String>,
-        process: Option<AsyncMutex<StdioProcess>>,
+        process: std::sync::Arc<AsyncMutex<Option<StdioProcess>>>,
     },
     /// Connect to sister HTTP endpoint (JSON-RPC over HTTP POST)
     Http {
@@ -124,7 +124,7 @@ impl LiveMcpBridge {
             transport: McpTransport::Stdio {
                 command: command.into(),
                 args,
-                process: None,
+                process: std::sync::Arc::new(AsyncMutex::new(None)),
             },
             circuit_breaker: CircuitBreaker::with_defaults(sister_id),
             config,
@@ -208,7 +208,9 @@ impl SisterBridge for LiveMcpBridge {
         // Try to ensure the process is running (stdio) or reachable (http)
         match &self.transport {
             McpTransport::Stdio { process, .. } => {
-                if process.is_none() {
+                let guard = process.lock().await;
+                if guard.is_none() {
+                    drop(guard);
                     if self.ensure_process().await.is_err() {
                         return HealthStatus::Unavailable;
                     }

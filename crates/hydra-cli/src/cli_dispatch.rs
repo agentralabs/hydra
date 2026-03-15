@@ -13,7 +13,7 @@ fn dispatch_mcp(args: &[String]) {
             let sisters = [
                 "Memory", "Identity", "Codebase", "Vision", "Comm", "Contract",
                 "Time", "Planning", "Cognition", "Reality", "Veritas", "Aegis",
-                "Evolve", "Forge",
+                "Evolve", "Forge", "Data", "Connect", "Workflow",
             ];
             for name in &sisters {
                 println!("  ● {}  (sister)", name);

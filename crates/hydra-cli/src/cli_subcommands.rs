@@ -348,9 +348,11 @@ pub fn dispatch_profile(args: &[String]) {
                 Err(_) => {
                     output::print_warning("Server offline. Listing from disk.");
                     use hydra_native::operational_profile::list_profiles;
-                    match list_profiles() {
-                        Ok(names) => { for n in &names { println!("  {}", n); } }
-                        Err(e) => output::print_error(&format!("Failed: {}", e)),
+                    let names = list_profiles();
+                    if names.is_empty() {
+                        output::print_info("No profiles found. Check ~/.hydra/profiles/");
+                    } else {
+                        for n in &names { println!("  {}", n); }
                     }
                 }
             }

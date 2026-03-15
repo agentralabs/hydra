@@ -57,13 +57,8 @@ fn test_system_status_response_serialization() {
         server_mode: true,
         active_runs: 2,
         total_runs: 10,
-        sisters: SistersStatus {
-            memory: "not_connected",
-            identity: "not_connected",
-            codebase: "not_connected",
-            vision: "not_connected",
-            time: "not_connected",
-        },
+        sisters: "17/17 connected".into(),
+        sisters_count: 17,
         autonomy_level: "supervised".into(),
         federation: FederationStatus {
             enabled: false,
@@ -77,7 +72,8 @@ fn test_system_status_response_serialization() {
     assert_eq!(json["server_mode"], true);
     assert_eq!(json["active_runs"], 2);
     assert_eq!(json["total_runs"], 10);
-    assert_eq!(json["sisters"]["memory"], "not_connected");
+    assert_eq!(json["sisters"], "17/17 connected");
+    assert_eq!(json["sisters_count"], 17);
     assert_eq!(json["autonomy_level"], "supervised");
     assert_eq!(json["federation"]["enabled"], false);
     assert_eq!(json["events_published"], 42);

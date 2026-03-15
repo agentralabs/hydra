@@ -36,6 +36,7 @@ async fn run_offline(text: &str) -> Vec<CognitiveUpdate> {
         anthropic_oauth_token: None,
         runtime: Default::default(),
         prompt_overlay: None,
+        active_beliefs: vec![],
     };
 
     let sisters = Arc::new(Sisters::empty());

@@ -45,6 +45,7 @@ func (m Model) renderUpperFrame() string {
 	innerW := w - 4 // 2 for │ borders + 2 for padding
 
 	blue := lipgloss.NewStyle().Foreground(theme.HydraBlue)
+	bb := lipgloss.NewStyle().Foreground(theme.HydraBlue).Bold(true)
 	cyan := lipgloss.NewStyle().Foreground(theme.HydraCyan)
 	dim := theme.Dim
 	green := lipgloss.NewStyle().Foreground(theme.HydraGreen)
@@ -66,12 +67,12 @@ func (m Model) renderUpperFrame() string {
 	var leftLines []string
 	leftLines = append(leftLines, fmt.Sprintf("    Welcome back %s!", theme.FrameUsername.Render(m.Username)))
 	leftLines = append(leftLines, "")
-	// Diamond logo (Hydra node graph)
-	leftLines = append(leftLines, "           "+cyan.Render("◉"))
-	leftLines = append(leftLines, "          "+blue.Render("/ \\"))
-	leftLines = append(leftLines, "       "+cyan.Render("◉")+blue.Render("─────")+cyan.Render("◉"))
-	leftLines = append(leftLines, "          "+blue.Render("\\ /"))
-	leftLines = append(leftLines, "           "+cyan.Render("◉"))
+	// Diamond logo (Hydra node graph) — matches old Rust TUI
+	leftLines = append(leftLines, "            "+cyan.Render("◉"))
+	leftLines = append(leftLines, "          "+blue.Render("╱")+"   "+blue.Render("╲"))
+	leftLines = append(leftLines, "        "+cyan.Render("◉")+blue.Render("───────")+cyan.Render("◉"))
+	leftLines = append(leftLines, "          "+blue.Render("╲")+"   "+blue.Render("╱"))
+	leftLines = append(leftLines, "            "+cyan.Render("◉"))
 	leftLines = append(leftLines, "")
 	// Model + provider + branch
 	leftLines = append(leftLines, fmt.Sprintf("  %s %s · %s",
@@ -163,30 +164,30 @@ func (m Model) renderUpperFrame() string {
 
 	var frameLines []string
 
-	// Top border: ┌─── Hydra v0.2.0 ───────────────────────────┐
+	// Top border: ─── Hydra v0.2.0 ════════════════════════════
+	// Match old Rust TUI: no ┌┐ — just dashes with embedded title
 	title := fmt.Sprintf(" Hydra v%s ", m.Version)
-	topDashes := w - 2 - 3 - len(title) // w minus ┌ ┐ minus ─── minus title
+	topDashes := w - 3 - len(title)
 	if topDashes < 2 { topDashes = 2 }
-	topBorder := "┌───" + title + strings.Repeat("─", topDashes) + "┐"
-	frameLines = append(frameLines, blue.Render(topBorder))
+	frameLines = append(frameLines,
+		blue.Render("───")+bb.Render(title)+blue.Render(strings.Repeat("─", topDashes)))
 
-	// Content rows: │ leftcol          rightcol         │
+	// Content rows: │ leftcol          │ rightcol         │
 	for i := 0; i < len(leftLines); i++ {
 		l := leftLines[i]
 		r := rightLines[i]
-		// Pad each column to fixed width using spaces
 		lPadded := padRight(l, leftW)
-		rPadded := padRight(r, rightW)
-		row := blue.Render("│") + lPadded + rPadded + blue.Render("│")
+		rPadded := padRight(r, rightW-1)
+		row := blue.Render("│") + lPadded + blue.Render("│") + rPadded + blue.Render("│")
 		frameLines = append(frameLines, row)
 	}
 
-	// Bottom border: └─── Agentra Labs ─────────────────────────┘
+	// Bottom border: ─── Agentra Labs ──────────────────────────
 	footer := " Agentra Labs "
-	botDashes := w - 2 - 3 - len(footer)
+	botDashes := w - 3 - len(footer)
 	if botDashes < 2 { botDashes = 2 }
-	botBorder := "└───" + footer + strings.Repeat("─", botDashes) + "┘"
-	frameLines = append(frameLines, blue.Render(botBorder))
+	frameLines = append(frameLines,
+		blue.Render("───")+dim.Render(footer)+blue.Render(strings.Repeat("─", botDashes)))
 
 	result := strings.Join(frameLines, "\n")
 
