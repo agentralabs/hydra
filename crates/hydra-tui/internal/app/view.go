@@ -430,7 +430,7 @@ func (m Model) renderInputArea() string {
 			Render("  [Y]es  [N]o  [A]llow all this session")
 	} else if m.Input == "" {
 		content = theme.InputPrompt.Render("> ") +
-			lipgloss.NewStyle().Foreground(theme.HydraCyan).Render("█")
+			lipgloss.NewStyle().Foreground(theme.HydraBlue).Render("█")
 	} else {
 		before := m.Input[:m.CursorPos]
 		cursorChar := " "
@@ -440,7 +440,7 @@ func (m Model) renderInputArea() string {
 			if m.CursorPos+1 <= len(m.Input) { after = m.Input[m.CursorPos+1:] }
 		}
 		cursor := lipgloss.NewStyle().Foreground(lipgloss.Color("#000")).
-			Background(theme.HydraCyan).Render(cursorChar)
+			Background(theme.HydraBlue).Render(cursorChar)
 		content = theme.InputPrompt.Render("> ") + before + cursor + after
 	}
 

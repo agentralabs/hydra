@@ -29,7 +29,8 @@ var (
 			Foreground(HydraCyan).
 			Bold(true)
 
-	AssistantMsg = lipgloss.NewStyle()
+	AssistantMsg = lipgloss.NewStyle().
+			Foreground(HydraBlue)
 
 	SystemMsg = lipgloss.NewStyle().
 			Foreground(HydraDim)
@@ -42,7 +43,7 @@ var (
 // Input styles
 var (
 	InputPrompt = lipgloss.NewStyle().
-			Foreground(HydraCyan).
+			Foreground(HydraBlue).
 			Bold(true)
 
 	InputHint = lipgloss.NewStyle().

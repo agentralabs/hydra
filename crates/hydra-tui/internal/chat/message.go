@@ -274,7 +274,8 @@ func RenderMarkdown(text string) []string {
 		} else if trimmed == "---" || trimmed == "***" {
 			lines = append(lines, "  "+theme.Dim.Render("────────────────────────────────"))
 		} else {
-			lines = append(lines, "  "+raw)
+			// Assistant response text in Hydra Blue
+			lines = append(lines, "  "+lipgloss.NewStyle().Foreground(theme.HydraBlue).Render(raw))
 		}
 	}
 
