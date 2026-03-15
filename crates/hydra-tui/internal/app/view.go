@@ -24,16 +24,17 @@ func (m Model) View() string {
 }
 
 func (m Model) renderChatView() string {
-	var sections []string
-	sections = append(sections, m.renderUpperFrame())
+	frame := m.renderUpperFrame()
+	frameLines := strings.Count(frame, "\n") + 1
+	input := m.renderInputArea()
+	inputLines := strings.Count(input, "\n") + 1
 
-	chatHeight := m.Height - m.FrameHeight() - 3
-	if chatHeight < 3 {
-		chatHeight = 3
+	chatHeight := m.Height - frameLines - inputLines
+	if chatHeight < 1 {
+		chatHeight = 1
 	}
-	sections = append(sections, m.renderChatArea(chatHeight))
-	sections = append(sections, m.renderInputArea())
-	return strings.Join(sections, "\n")
+
+	return frame + "\n" + m.renderChatArea(chatHeight) + "\n" + input
 }
 
 func (m Model) renderUpperFrame() string {
