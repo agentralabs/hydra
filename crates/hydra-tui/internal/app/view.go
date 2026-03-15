@@ -25,81 +25,76 @@ func (m Model) View() string {
 
 func (m Model) renderChatView() string {
 	var sections []string
-
-	// 1. Pinned upper frame
 	sections = append(sections, m.renderUpperFrame())
 
-	// 2. Chat area
-	chatHeight := m.Height - m.FrameHeight() - 3 // 3 for input
+	chatHeight := m.Height - m.FrameHeight() - 3
 	if chatHeight < 3 {
 		chatHeight = 3
 	}
 	sections = append(sections, m.renderChatArea(chatHeight))
-
-	// 3. Input area
 	sections = append(sections, m.renderInputArea())
-
 	return strings.Join(sections, "\n")
 }
 
 func (m Model) renderUpperFrame() string {
-	w := m.Width - 2
+	w := m.Width
 	if w < 20 {
-		w = 78
+		w = 80
 	}
+	innerW := w - 4 // 2 for │ borders + 2 for padding
 
-	sisterPct := float64(m.SistersConn) / float64(max(m.SistersTotal, 1)) * 100
-	sisterColor := theme.HealthColor(sisterPct)
-	healthColor := theme.HealthColor(m.HealthPct)
 	blue := lipgloss.NewStyle().Foreground(theme.HydraBlue)
 	cyan := lipgloss.NewStyle().Foreground(theme.HydraCyan)
 	dim := theme.Dim
 	green := lipgloss.NewStyle().Foreground(theme.HydraGreen)
+	purple := lipgloss.NewStyle().Foreground(theme.HydraPurple)
+
+	sisterPct := float64(m.SistersConn) / float64(max(m.SistersTotal, 1)) * 100
+	sisterColor := theme.HealthColor(sisterPct)
+	healthColor := theme.HealthColor(m.HealthPct)
 
 	if m.IsNarrow() {
-		content := fmt.Sprintf(
-			"%s · %s  Sisters %d/%d",
+		line := fmt.Sprintf("%s · %s  Sisters %d/%d",
 			theme.FrameModel.Render(m.ModelName),
 			theme.FrameGitBranch.Render(m.GitBranch),
-			m.SistersConn, m.SistersTotal,
-		)
-		return theme.FrameBorder.Width(w).Render(content)
+			m.SistersConn, m.SistersTotal)
+		return blue.Render("─── ") + theme.FrameTitle.Render("Hydra") + blue.Render(" ───") + "\n" + line
 	}
 
-	// === LEFT COLUMN ===
-	var left strings.Builder
-	// Welcome
-	left.WriteString(fmt.Sprintf("    Welcome back %s!\n", theme.FrameUsername.Render(m.Username)))
-	left.WriteString("\n")
-	// Diamond logo (matches the screenshot exactly)
-	left.WriteString(fmt.Sprintf("            %s\n", cyan.Render("●")))
-	left.WriteString(fmt.Sprintf("          %s   %s\n", blue.Render("╱"), blue.Render("╲")))
-	left.WriteString(fmt.Sprintf("    %s%s%s\n", cyan.Render("●"), blue.Render("─────────"), cyan.Render("●")))
-	left.WriteString(fmt.Sprintf("          %s   %s\n", blue.Render("╲"), blue.Render("╱")))
-	left.WriteString(fmt.Sprintf("            %s\n", cyan.Render("●")))
-	left.WriteString("\n")
-	// Model + git branch
-	left.WriteString(fmt.Sprintf("  %s %s · %s\n",
-		theme.FrameModel.Render(m.ModelName),
-		dim.Render("("+strings.Title(m.ProviderName)+")"),
-		theme.FrameGitBranch.Render(m.GitBranch)))
-	// Project path
-	left.WriteString(fmt.Sprintf("  %s\n", dim.Render(m.ProjectPath)))
+	// === BUILD LEFT COLUMN LINES ===
+	var leftLines []string
+	leftLines = append(leftLines, fmt.Sprintf("    Welcome back %s!", theme.FrameUsername.Render(m.Username)))
+	leftLines = append(leftLines, "")
+	// Diamond logo
+	leftLines = append(leftLines, fmt.Sprintf("            %s", cyan.Render("●")))
+	leftLines = append(leftLines, fmt.Sprintf("          %s   %s", blue.Render("╱"), blue.Render("╲")))
+	leftLines = append(leftLines, fmt.Sprintf("    %s%s%s", cyan.Render("●"), blue.Render("─────────"), cyan.Render("●")))
+	leftLines = append(leftLines, fmt.Sprintf("          %s   %s", blue.Render("╲"), blue.Render("╱")))
+	leftLines = append(leftLines, fmt.Sprintf("            %s", cyan.Render("●")))
+	leftLines = append(leftLines, "")
+	// Model + provider + branch
+	leftLines = append(leftLines, fmt.Sprintf("  %s %s · %s",
+		purple.Render(m.ModelName),
+		dim.Render("("+capitalize(m.ProviderName)+")"),
+		green.Render(m.GitBranch)))
+	// Project path (shorten if needed)
+	projPath := m.ProjectPath
+	if len(projPath) > innerW/2-4 {
+		projPath = "..." + projPath[len(projPath)-(innerW/2-7):]
+	}
+	leftLines = append(leftLines, "  "+dim.Render(projPath))
 	// Project name + crate count
 	projName := "project"
 	if proj := DetectProject(); proj != nil {
 		projName = proj.Name
 	}
 	if m.CrateCount > 0 {
-		left.WriteString(fmt.Sprintf("  %s\n",
-			cyan.Bold(true).Render(fmt.Sprintf("%s (%d crates)", projName, m.CrateCount))))
+		leftLines = append(leftLines, "  "+cyan.Bold(true).Render(fmt.Sprintf("%s (%d crates)", projName, m.CrateCount)))
 	} else {
-		left.WriteString(fmt.Sprintf("  %s\n", cyan.Bold(true).Render(projName)))
+		leftLines = append(leftLines, "  "+cyan.Bold(true).Render(projName))
 	}
 	// Memory mode
-	memAll := dim.Render("all")
-	memFacts := dim.Render("facts")
-	memNone := dim.Render("none")
+	memAll, memFacts, memNone := dim.Render("all"), dim.Render("facts"), dim.Render("none")
 	switch m.MemoryMode {
 	case "all":
 		memAll = green.Render("all")
@@ -108,163 +103,151 @@ func (m Model) renderUpperFrame() string {
 	case "none":
 		memNone = green.Render("none")
 	}
-	left.WriteString(fmt.Sprintf("  /memory %s · %s · %s\n", memAll, memFacts, memNone))
+	leftLines = append(leftLines, fmt.Sprintf("  /memory %s · %s · %s", memAll, memFacts, memNone))
 
-	// === RIGHT COLUMN ===
-	var right strings.Builder
-	// Tips section
-	right.WriteString(theme.SectionHeader.Render("Tips for getting started") + "\n")
-	right.WriteString(dim.Render("/memory all · facts · none to change") + "\n")
-	right.WriteString(dim.Render("/init to set up project instructions") + "\n")
-	right.WriteString(dim.Render("────────────────────────────────────") + "\n")
-
-	// Recent activity (last 2 git commits)
-	right.WriteString(theme.SectionHeader.Render("Recent activity") + "\n")
+	// === BUILD RIGHT COLUMN LINES ===
+	var rightLines []string
+	rightLines = append(rightLines, theme.SectionHeader.Render("Tips for getting started"))
+	rightLines = append(rightLines, dim.Render("/memory all · facts · none to change"))
+	rightLines = append(rightLines, dim.Render("/init to set up project instructions"))
+	rightLines = append(rightLines, dim.Render("────────────────────────────────────"))
+	// Recent activity
+	rightLines = append(rightLines, theme.SectionHeader.Render("Recent activity"))
 	commits := getRecentCommits(2)
 	for _, c := range commits {
-		right.WriteString(dim.Render(truncate(c, 40)) + "\n")
+		rightLines = append(rightLines, dim.Render(truncate(c, innerW/2-2)))
 	}
 	if len(commits) == 0 {
-		right.WriteString(dim.Render("(no recent activity)") + "\n")
+		rightLines = append(rightLines, dim.Render("(no recent activity)"))
 	}
-	right.WriteString(dim.Render("────────────────────────────────────") + "\n")
-
-	// System section
-	right.WriteString(theme.SectionHeader.Render("System") + "\n")
-	right.WriteString(fmt.Sprintf("Sisters    %s\n",
+	rightLines = append(rightLines, dim.Render("────────────────────────────────────"))
+	// System
+	rightLines = append(rightLines, theme.SectionHeader.Render("System"))
+	rightLines = append(rightLines, fmt.Sprintf("Sisters    %s",
 		lipgloss.NewStyle().Foreground(sisterColor).Render(
 			fmt.Sprintf("%d/%d connected", m.SistersConn, m.SistersTotal))))
 	if m.ToolsCount > 0 {
-		right.WriteString(fmt.Sprintf("Tools      %d+\n", m.ToolsCount))
+		rightLines = append(rightLines, fmt.Sprintf("Tools      %d+", m.ToolsCount))
 	} else {
-		right.WriteString("Tools      —\n")
+		rightLines = append(rightLines, "Tools      —")
 	}
-	right.WriteString(fmt.Sprintf("Health     %s\n",
+	rightLines = append(rightLines, fmt.Sprintf("Health     %s",
 		lipgloss.NewStyle().Foreground(healthColor).Render(fmt.Sprintf("%.0f%%", m.HealthPct))))
 	modeColor := theme.HydraGreen
 	modeStr := "Local"
 	if m.Online {
 		modeStr = "Online"
-	} else {
-		modeColor = theme.HydraGreen // green dot even for local (matches screenshot)
 	}
-	right.WriteString(fmt.Sprintf("Mode       %s %s\n",
-		lipgloss.NewStyle().Foreground(modeColor).Render("●"),
-		modeStr))
+	rightLines = append(rightLines, fmt.Sprintf("Mode       %s %s",
+		lipgloss.NewStyle().Foreground(modeColor).Render("●"), modeStr))
 
-	// Combine columns
-	leftW := w * 50 / 100
-	rightW := w - leftW
-	leftCol := lipgloss.NewStyle().Width(leftW).Render(left.String())
-	rightCol := lipgloss.NewStyle().Width(rightW).Render(right.String())
-	content := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, rightCol)
-
-	// Build frame manually with title + footer embedded in borders
-	titleText := fmt.Sprintf(" Hydra v%s ", m.Version)
-	footerText := " Agentra Labs "
-	borderChar := "─"
-
-	// Top border: ─── Hydra v0.2.0 ─────────────────────
-	topPadRight := w - len(titleText) - 2
-	if topPadRight < 2 {
-		topPadRight = 2
+	// Pad columns to same height
+	for len(leftLines) < len(rightLines) {
+		leftLines = append(leftLines, "")
 	}
-	topBorder := blue.Render(strings.Repeat(borderChar, 3)) +
-		theme.FrameTitle.Render(titleText) +
-		blue.Render(strings.Repeat(borderChar, topPadRight))
-
-	// Bottom border: ─── Agentra Labs ───────────────────
-	botPadRight := w - len(footerText) - 2
-	if botPadRight < 2 {
-		botPadRight = 2
+	for len(rightLines) < len(leftLines) {
+		rightLines = append(rightLines, "")
 	}
-	botBorder := blue.Render(strings.Repeat(borderChar, 3)) +
-		dim.Render(footerText) +
-		blue.Render(strings.Repeat(borderChar, botPadRight))
 
-	// Content lines with left/right borders
-	contentLines := strings.Split(content, "\n")
-	var framedLines []string
-	framedLines = append(framedLines, topBorder)
-	for _, line := range contentLines {
-		framedLines = append(framedLines, blue.Render("│")+" "+line)
+	// === ASSEMBLE FRAME ===
+	leftW := w/2 - 2
+	rightW := w/2 - 2
+
+	var frameLines []string
+
+	// Top border: ─── Hydra v0.2.0 ═══════════════════════════
+	title := fmt.Sprintf(" Hydra v%s ", m.Version)
+	topPad := w - 6 - len(title)
+	if topPad < 2 {
+		topPad = 2
 	}
-	framedLines = append(framedLines, botBorder)
+	frameLines = append(frameLines,
+		blue.Render("───")+theme.FrameTitle.Render(title)+blue.Render(strings.Repeat("─", topPad)))
 
-	framed := strings.Join(framedLines, "\n")
+	// Content rows: │ leftcol          rightcol         │
+	for i := 0; i < len(leftLines); i++ {
+		l := leftLines[i]
+		r := rightLines[i]
+		// Pad each column to fixed width using spaces
+		lPadded := padRight(l, leftW)
+		rPadded := padRight(r, rightW)
+		row := blue.Render("│") + lPadded + rPadded + blue.Render("│")
+		frameLines = append(frameLines, row)
+	}
+
+	// Bottom border: ─── Agentra Labs ─────────────────────────
+	footer := " Agentra Labs "
+	botPad := w - 6 - len(footer)
+	if botPad < 2 {
+		botPad = 2
+	}
+	frameLines = append(frameLines,
+		blue.Render("───")+dim.Render(footer)+blue.Render(strings.Repeat("─", botPad)))
+
+	result := strings.Join(frameLines, "\n")
 
 	// Execution context line below frame
 	execCtx := m.getExecutionContext()
 	if execCtx != "" {
-		framed += "\n" + cyan.Render(execCtx)
+		result += "\n" + cyan.Render(execCtx)
 	}
 
-	return framed
+	return result
+}
+
+// padRight pads a string with spaces to the given visible width.
+// Accounts for ANSI escape codes by using lipgloss width measurement.
+func padRight(s string, width int) string {
+	visibleLen := lipgloss.Width(s)
+	if visibleLen >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-visibleLen)
 }
 
 func (m Model) getExecutionContext() string {
-	// Show current execution context below the frame (like in the screenshot)
-	// e.g., "project-exec-hydra-native-cognitive"
 	if m.StreamActive {
 		return fmt.Sprintf("streaming-%s", m.StreamRunID)
 	}
 	if m.Thinking {
-		sister := "cognitive"
-		if m.ThinkVerb != "Thinking" {
-			sister = strings.ToLower(m.ThinkVerb)
+		return fmt.Sprintf("thinking-%s", strings.ToLower(m.ThinkVerb))
+	}
+	// Show project exec context like the old TUI
+	if proj := DetectProject(); proj != nil {
+		switch proj.Kind {
+		case ProjectRust:
+			return fmt.Sprintf("project-exec-%s", proj.Name)
+		default:
+			return fmt.Sprintf("project-%s", proj.Name)
 		}
-		return fmt.Sprintf("thinking-%s", sister)
 	}
 	return ""
-}
-
-func getRecentCommits(n int) []string {
-	out, err := exec.Command("git", "log", "--oneline", "--format=%s — …",
-		fmt.Sprintf("-%d", n)).Output()
-	if err != nil {
-		return nil
-	}
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	var result []string
-	for _, l := range lines {
-		if l != "" {
-			result = append(result, l)
-		}
-	}
-	return result
-}
-
-func truncate(s string, max int) string {
-	if len(s) <= max {
-		return s
-	}
-	return s[:max-1] + "…"
 }
 
 func (m Model) renderChatArea(height int) string {
 	var lines []string
 
-	// Briefing
 	if !m.BriefingDismissed && len(m.BriefingItems) > 0 {
 		lines = append(lines, m.renderBriefing()...)
 		lines = append(lines, "")
 	}
 
-	// Messages
 	for _, msg := range m.Messages {
 		lines = append(lines, m.renderMessage(msg)...)
 		lines = append(lines, "")
 	}
 
-	// Streaming
 	if m.StreamActive && m.RevealedChars > 0 {
-		visible := m.StreamBuf[:m.RevealedChars]
+		end := m.RevealedChars
+		if end > len(m.StreamBuf) {
+			end = len(m.StreamBuf)
+		}
+		visible := m.StreamBuf[:end]
 		for _, line := range strings.Split(visible, "\n") {
 			lines = append(lines, "  "+line)
 		}
 	}
 
-	// Thinking indicator — live stats (Pattern 19 addendum)
 	if m.Thinking {
 		spinner := theme.SpinnerChars[m.SpinnerPhase%len(theme.SpinnerChars)]
 		elapsed := ""
@@ -276,62 +259,44 @@ func (m Model) renderChatArea(height int) string {
 				elapsed = fmt.Sprintf("%.0fs", dur.Seconds())
 			}
 		}
-		tokenStr := ""
-		if m.ThinkTokens > 0 {
-			if m.ThinkTokens > 1000 {
-				tokenStr = fmt.Sprintf("↓ %.1fk tokens", float64(m.ThinkTokens)/1000.0)
-			} else {
-				tokenStr = fmt.Sprintf("↓ %d tokens", m.ThinkTokens)
-			}
-		}
-		costStr := ""
-		if m.ThinkCost > 0 {
-			costStr = fmt.Sprintf("$%.3f", m.ThinkCost)
-		}
-
-		// Build stats string
-		stats := ""
 		parts := []string{}
 		if elapsed != "" {
 			parts = append(parts, elapsed)
 		}
-		if tokenStr != "" {
-			parts = append(parts, tokenStr)
+		if m.ThinkTokens > 0 {
+			if m.ThinkTokens > 1000 {
+				parts = append(parts, fmt.Sprintf("↓ %.1fk tokens", float64(m.ThinkTokens)/1000.0))
+			} else {
+				parts = append(parts, fmt.Sprintf("↓ %d tokens", m.ThinkTokens))
+			}
 		}
-		if costStr != "" {
-			parts = append(parts, costStr)
+		if m.ThinkCost > 0 {
+			parts = append(parts, fmt.Sprintf("$%.3f", m.ThinkCost))
 		}
+		stats := ""
 		if len(parts) > 0 {
 			stats = " (" + strings.Join(parts, " · ") + ")"
 		}
-
 		thinkLine := fmt.Sprintf("✱ %s%c%s", m.ThinkVerb, spinner, stats)
 		lines = append(lines,
 			"  "+lipgloss.NewStyle().Foreground(theme.HydraOrange).Render(thinkLine))
-
-		// Contextual tip (rotates every ~15s)
 		if m.ThinkTip != "" {
 			lines = append(lines,
 				"    "+theme.ToolConnector.Render("└ Tip: ")+theme.Dim.Render(m.ThinkTip))
 		}
 	}
 
-	// Trim to height (show last N lines)
 	if len(lines) > height {
 		lines = lines[len(lines)-height:]
 	}
-
-	// Pad to height
 	for len(lines) < height {
 		lines = append(lines, "")
 	}
-
 	return strings.Join(lines, "\n")
 }
 
 func (m Model) renderMessage(msg client.ChatMessage) []string {
 	var lines []string
-
 	switch msg.Role {
 	case client.RoleUser:
 		lines = append(lines, "  "+theme.InputPrompt.Render("❯ ")+theme.UserLabel.Render("You"))
@@ -350,7 +315,6 @@ func (m Model) renderMessage(msg client.ChatMessage) []string {
 			lines = append(lines, "  "+theme.SystemMsg.Render(line))
 		}
 	}
-
 	return lines
 }
 
@@ -362,14 +326,12 @@ func (m Model) renderToolResult(tr client.ToolResult) []string {
 		collapse = "⏷"
 	}
 	dur := fmt.Sprintf("%.1fs", float64(tr.DurationMs)/1000.0)
-
 	lines = append(lines,
 		"  "+lipgloss.NewStyle().Foreground(dotColor).Render(collapse+" ")+
 			theme.ToolSisterName.Render(tr.Sister)+
 			theme.ToolConnector.Render(" ▸ ")+
 			tr.Action+"  "+
 			theme.ToolDuration.Render(dur))
-
 	if tr.Expanded && tr.Output != "" {
 		outLines := strings.Split(tr.Output, "\n")
 		show := 10
@@ -380,8 +342,7 @@ func (m Model) renderToolResult(tr client.ToolResult) []string {
 			lines = append(lines, "    "+theme.ToolConnector.Render("└ ")+theme.Dim.Render(l))
 		}
 		if len(outLines) > 10 {
-			lines = append(lines,
-				"    "+theme.Dim.Render(fmt.Sprintf("… +%d lines (ctrl+o to expand)", len(outLines)-10)))
+			lines = append(lines, fmt.Sprintf("    "+theme.Dim.Render("… +%d lines (ctrl+o to expand)"), len(outLines)-10))
 		}
 	}
 	return lines
@@ -393,17 +354,14 @@ func (m Model) renderBriefing() []string {
 	lines = append(lines, "  "+border.Render("┌─ Morning Briefing ──────────────────────────┐"))
 	lines = append(lines, "  "+border.Render("│")+"  While you were away:                        "+border.Render("│"))
 	for _, item := range m.BriefingItems {
-		var indicator, style string
+		var style string
 		switch item.Priority {
 		case client.PriorityUrgent:
-			indicator = "▲"
-			style = theme.BriefingUrgent.Render(indicator)
+			style = theme.BriefingUrgent.Render("▲")
 		case client.PriorityImportant:
-			indicator = "●"
-			style = theme.BriefingImportant.Render(indicator)
+			style = theme.BriefingImportant.Render("●")
 		default:
-			indicator = "○"
-			style = theme.BriefingInfo.Render(indicator)
+			style = theme.BriefingInfo.Render("○")
 		}
 		lines = append(lines, "  "+border.Render("│")+"  "+style+" "+item.Text)
 	}
@@ -416,7 +374,6 @@ func (m Model) renderInputArea() string {
 	if w < 10 {
 		w = 76
 	}
-
 	borderColor := theme.HydraBlue
 	if !m.InputEnabled {
 		borderColor = theme.HydraBorder
@@ -433,25 +390,55 @@ func (m Model) renderInputArea() string {
 		content = lipgloss.NewStyle().Foreground(theme.HydraOrange).
 			Render("  [Y]es  [N]o  [A]llow all this session")
 	} else if m.Input == "" {
-		hint := "  ! bash · / commands · \\ + enter for newline"
+		hint := "! for bash · / for commands · \\ + enter for newline"
 		if m.ProfileName != "" {
 			hint += fmt.Sprintf(" · %s (%d beliefs)", m.ProfileName, m.BeliefsLoaded)
 		}
 		content = theme.InputPrompt.Render("> ") +
 			lipgloss.NewStyle().Foreground(theme.HydraCyan).Render("█") +
-			theme.InputHint.Render(hint)
+			"  " + theme.InputHint.Render(hint)
 	} else {
 		before := m.Input[:m.CursorPos]
 		cursorChar := " "
 		after := ""
 		if m.CursorPos < len(m.Input) {
 			cursorChar = string(m.Input[m.CursorPos])
-			after = m.Input[m.CursorPos+1:]
+			if m.CursorPos+1 <= len(m.Input) {
+				after = m.Input[m.CursorPos+1:]
+			}
 		}
 		cursor := lipgloss.NewStyle().Foreground(lipgloss.Color("#000")).
 			Background(theme.HydraCyan).Render(cursorChar)
 		content = theme.InputPrompt.Render("> ") + before + cursor + after
 	}
-
 	return border.Render(content)
+}
+
+func getRecentCommits(n int) []string {
+	out, err := exec.Command("git", "log", "--oneline",
+		fmt.Sprintf("--format=%%s"), fmt.Sprintf("-%d", n)).Output()
+	if err != nil {
+		return nil
+	}
+	var result []string
+	for _, l := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if l != "" {
+			result = append(result, l)
+		}
+	}
+	return result
+}
+
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max-1] + "…"
+}
+
+func capitalize(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
 }

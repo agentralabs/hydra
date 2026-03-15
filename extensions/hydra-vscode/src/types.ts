@@ -4,6 +4,16 @@ export interface HydraStatus {
   pendingApprovals: number;
   phase: string | null;
   tokensToday: number;
+  // Stats for status bar (Pattern 19 + Hydra Pattern 5)
+  sistersConnected?: number;
+  sistersTotal?: number;
+  activeProfile?: string;
+  beliefsLoaded?: number;
+  sessionCost?: number;
+  compiledPatterns?: number;
+  compiledSavings?: number;
+  thinkingVerb?: string;
+  briefingItems?: Array<{ priority: string; text: string }>;
 }
 
 export interface Run {

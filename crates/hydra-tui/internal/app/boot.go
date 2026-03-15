@@ -104,7 +104,9 @@ func TickBoot(m *Model) {
 			m.BootStage = "Loading sisters + beliefs..."
 			if health, err := m.Client.Health(); err == nil {
 				m.SistersConn = health.SistersConnected
-				m.SistersTotal = health.SistersTotal
+				if health.SistersTotal > 0 {
+					m.SistersTotal = health.SistersTotal
+				}
 				m.BeliefsLoaded = health.BeliefsLoaded
 				if health.Model != nil {
 					m.ModelName = *health.Model

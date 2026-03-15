@@ -2,6 +2,7 @@ package frame
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -16,6 +17,7 @@ type FrameData struct {
 	ProviderName  string
 	GitBranch     string
 	ProjectPath   string
+	ProjectName   string
 	CrateCount    uint32
 	ProfileName   string
 	BeliefsLoaded uint32
@@ -28,85 +30,191 @@ type FrameData struct {
 	DreamNew      uint32
 	Online        bool
 	MemoryMode    string
-	PermMode      int // 0=Normal, 1=AutoAccept, 2=Plan
+	RecentCommits []string // last 2 git commits
 	Width         int
 }
 
-// RenderUpperFrame renders the pinned upper frame.
+// RenderUpperFrame renders the pinned upper frame matching the old Rust TUI exactly.
+// Layout: ┌─── Hydra v0.2.0 ──────────────────────────────────┐
+//         │ Left: welcome, logo, model    │ Right: tips, activity, system │
+//         └─── Agentra Labs ──────────────────────────────────┘
 func RenderUpperFrame(d FrameData) string {
-	w := d.Width - 2
-	if w < 20 {
-		w = 78
+	w := d.Width
+	if w < 40 {
+		w = 80
 	}
 
-	sisterColor := theme.HealthColor(float64(d.SistersConn) / float64(maxU(d.SistersTotal, 1)) * 100)
-	healthColor := theme.HealthColor(d.HealthPct)
+	bs := lipgloss.NewStyle().Foreground(theme.HydraBlue)
+	bb := lipgloss.NewStyle().Foreground(theme.HydraBlue).Bold(true)
+	dim := theme.Dim
+	cyan := lipgloss.NewStyle().Foreground(theme.HydraCyan)
+	cyanB := lipgloss.NewStyle().Foreground(theme.HydraCyan).Bold(true)
+	green := lipgloss.NewStyle().Foreground(theme.HydraGreen)
+	yellow := lipgloss.NewStyle().Foreground(theme.HydraYellow)
+	red := lipgloss.NewStyle().Foreground(theme.HydraRed)
+	purple := lipgloss.NewStyle().Foreground(theme.HydraPurple)
 
-	// Left column
-	var left strings.Builder
-	left.WriteString(theme.Dim.Render("Welcome back, ") + theme.FrameUsername.Render(d.Username) + "!\n\n")
-	left.WriteString(theme.FrameModel.Render(d.ModelName) +
-		theme.Dim.Render(" ("+d.ProviderName+") · ") +
-		theme.FrameGitBranch.Render(d.GitBranch) + "\n")
-	left.WriteString(theme.Dim.Render(d.ProjectPath) + "\n")
-	if d.CrateCount > 0 {
-		left.WriteString(theme.Dim.Render(fmt.Sprintf("%d crates · ", d.CrateCount)))
-	}
-	profile := d.ProfileName
-	if profile == "" {
-		profile = "no profile"
-	}
-	left.WriteString(lipgloss.NewStyle().Foreground(theme.HydraCyan).Render(profile) + "\n")
-	left.WriteString(theme.Dim.Render(fmt.Sprintf("/memory %s · $%.3f · %dK tokens",
-		d.MemoryMode, d.SessionCost, d.TokensUsed/1000)))
+	sp := w * 45 / 100 // split point
 
-	// Right column: stats
-	var right strings.Builder
-	right.WriteString(theme.SectionHeader.Render("Session") + "\n")
-	right.WriteString(theme.Dim.Render("Sisters    ") +
-		lipgloss.NewStyle().Foreground(sisterColor).Render(
-			fmt.Sprintf("%d/%d  ●", d.SistersConn, d.SistersTotal)) + "\n")
-	right.WriteString(theme.Dim.Render("Tools      ") + fmt.Sprintf("%d\n", d.ToolsCount))
-	right.WriteString(theme.Dim.Render("Health     ") +
-		lipgloss.NewStyle().Foreground(healthColor).Render(
-			fmt.Sprintf("%.0f%%", d.HealthPct)) + "\n")
-	right.WriteString(theme.Dim.Render("Beliefs    ") +
-		lipgloss.NewStyle().Foreground(theme.HydraCyan).Render(
-			fmt.Sprintf("%d", d.BeliefsLoaded)) + "\n")
-
-	modeColor := theme.HydraGreen
-	modeStr := "Online"
-	if !d.Online {
-		modeColor = theme.HydraRed
-		modeStr = "Local"
-	}
-	right.WriteString(theme.Dim.Render("Mode       ") +
-		lipgloss.NewStyle().Foreground(modeColor).Render("● "+modeStr) + "\n")
-
-	if d.DreamNew > 0 {
-		right.WriteString(theme.Dim.Render("Dream      ") +
-			lipgloss.NewStyle().Foreground(theme.HydraPurple).Render(
-				fmt.Sprintf("%d new", d.DreamNew)) + "\n")
+	// Helper: build a row │ left (padded) │ right (padded) │
+	row := func(left, right string) string {
+		ll := lipgloss.Width(left)
+		rl := lipgloss.Width(right)
+		lpad := sp - ll - 1
+		if lpad < 0 { lpad = 0 }
+		rpad := w - sp - rl - 2
+		if rpad < 0 { rpad = 0 }
+		return bs.Render("│") + left + strings.Repeat(" ", lpad) +
+			bs.Render("│") + right + strings.Repeat(" ", rpad) + bs.Render("│")
 	}
 
-	permLabels := []string{"Normal", "AutoAccept", "Plan"}
-	right.WriteString(theme.Dim.Render("Perm       ") + permLabels[d.PermMode%3])
+	var lines []string
 
-	leftCol := lipgloss.NewStyle().Width(w * 55 / 100).Render(left.String())
-	rightCol := lipgloss.NewStyle().Width(w * 45 / 100).Render(right.String())
-	content := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, rightCol)
+	// ┌─── Hydra v0.2.0 ───────────────────────────────┐
+	title := fmt.Sprintf(" Hydra v%s ", d.Version)
+	ld := 3
+	rd := w - 2 - ld - len(title)
+	if rd < 0 { rd = 0 }
+	lines = append(lines, bs.Render("┌")+bs.Render(strings.Repeat("─", ld))+
+		bb.Render(title)+bs.Render(strings.Repeat("─", rd))+bs.Render("┐"))
 
-	border := lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(theme.HydraBlue).
-		Width(w)
+	// Welcome | Tips header
+	welcome := "      Welcome back " + cyanB.Render(d.Username) + dim.Render("!")
+	tips := " " + bb.Render("Tips for getting started")
+	lines = append(lines, row(welcome, tips))
 
-	return border.Render(content)
+	// (empty) | tip lines
+	lines = append(lines, row("", " "+dim.Render("/memory all · facts · none to change")))
+	lines = append(lines, row("", " "+dim.Render("/init to set up project instructions")))
+
+	// Logo ◉ | separator
+	sepW := w - sp - 4
+	if sepW > 45 { sepW = 45 }
+	lines = append(lines, row("           "+cyan.Render("◉"),
+		" "+dim.Render(strings.Repeat("─", sepW))))
+
+	// Logo ╱╲ | Recent activity header
+	lines = append(lines, row("         "+bs.Render("╱   ╲"),
+		" "+bb.Render("Recent activity")))
+
+	// Logo ◉──◉ | activity 1
+	act1 := ""
+	if len(d.RecentCommits) > 0 {
+		act1 = " " + dim.Render(truncate(d.RecentCommits[0], w-sp-5))
+	}
+	lines = append(lines, row("        "+bs.Render("◉─────◉"), act1))
+
+	// Logo ╲╱ | activity 2
+	act2 := ""
+	if len(d.RecentCommits) > 1 {
+		act2 = " " + dim.Render(truncate(d.RecentCommits[1], w-sp-5))
+	}
+	lines = append(lines, row("         "+bs.Render("╲   ╱"), act2))
+
+	// Logo ◉ | separator
+	lines = append(lines, row("           "+cyan.Render("◉"),
+		" "+dim.Render(strings.Repeat("─", sepW))))
+
+	// (empty) | System header
+	lines = append(lines, row("", " "+bb.Render("System")))
+
+	// Model + branch | Sisters
+	sisterColor := green
+	if d.SistersConn < d.SistersTotal { sisterColor = yellow }
+	if d.SistersConn == 0 { sisterColor = red }
+	modelLine := "  " + purple.Render(d.ModelName)
+	if d.ProviderName != "" {
+		modelLine += dim.Render(" ("+d.ProviderName+")")
+	}
+	if d.GitBranch != "" {
+		modelLine += dim.Render(" · ") + green.Render(d.GitBranch)
+	}
+	lines = append(lines, row(modelLine,
+		" "+dim.Render("Sisters    ")+
+			lipgloss.NewStyle().Foreground(sisterColor.GetForeground()).Render(
+				fmt.Sprintf("%d/%d connected", d.SistersConn, d.SistersTotal))))
+
+	// Path | Tools
+	shortPath := shortenPath(d.ProjectPath, sp-5)
+	toolsStr := "—"
+	if d.ToolsCount > 0 { toolsStr = fmt.Sprintf("%d+", d.ToolsCount) }
+	lines = append(lines, row("  "+dim.Render(shortPath),
+		" "+dim.Render("Tools      ")+dim.Render(toolsStr)))
+
+	// Project | Health
+	healthColor := green
+	if d.HealthPct < 90 { healthColor = yellow }
+	if d.HealthPct < 50 { healthColor = red }
+	projLine := ""
+	if d.ProjectName != "" {
+		if d.CrateCount > 0 {
+			projLine = "  " + bb.Render(fmt.Sprintf("%s (%d crates)", d.ProjectName, d.CrateCount))
+		} else {
+			projLine = "  " + bb.Render(d.ProjectName)
+		}
+	}
+	lines = append(lines, row(projLine,
+		" "+dim.Render("Health     ")+
+			lipgloss.NewStyle().Foreground(healthColor.GetForeground()).Render(
+				fmt.Sprintf("%.0f%%", d.HealthPct))))
+
+	// Memory mode | Mode
+	memActive := d.MemoryMode
+	if memActive == "" { memActive = "all" }
+	memStyle := green
+	if memActive == "none" { memStyle = red }
+	modeColor := green
+	modeStr := "Local"
+	if d.Online { modeStr = "Local" } // Always "Local" for TUI (direct sister connection)
+	if !d.Online && d.SistersConn == 0 { modeColor = red; modeStr = "Offline" }
+	lines = append(lines, row(
+		"  "+dim.Render("/memory ")+
+			lipgloss.NewStyle().Foreground(memStyle.GetForeground()).Render(memActive)+
+			dim.Render(" · facts · none"),
+		" "+dim.Render("Mode       ")+
+			lipgloss.NewStyle().Foreground(modeColor.GetForeground()).Render("● "+modeStr)))
+
+	// Empty row
+	lines = append(lines, row("", ""))
+
+	// └─── Agentra Labs ───────────────────────────────┘
+	brand := " Agentra Labs "
+	bld := 3
+	brd := w - 2 - bld - len(brand)
+	if brd < 0 { brd = 0 }
+	lines = append(lines, bs.Render("└")+bs.Render(strings.Repeat("─", bld))+
+		dim.Render(brand)+bs.Render(strings.Repeat("─", brd))+bs.Render("┘"))
+
+	return strings.Join(lines, "\n")
+}
+
+func truncate(s string, max int) string {
+	if len(s) <= max { return s }
+	if max < 4 { return s[:max] }
+	return s[:max-1] + "…"
+}
+
+func shortenPath(path string, max int) string {
+	if len(path) <= max { return path }
+	// Try replacing home with ~
+	if home := homeDir(); home != "" && strings.HasPrefix(path, home) {
+		path = "~" + path[len(home):]
+	}
+	if len(path) <= max { return path }
+	return "..." + path[len(path)-max+3:]
+}
+
+func homeDir() string {
+	if h, ok := lookupEnv("HOME"); ok { return h }
+	if h, ok := lookupEnv("USERPROFILE"); ok { return h }
+	return ""
+}
+
+func lookupEnv(key string) (string, bool) {
+	return os.LookupEnv(key)
 }
 
 func maxU(a, b uint32) uint32 {
-	if a > b {
-		return a
-	}
+	if a > b { return a }
 	return b
 }

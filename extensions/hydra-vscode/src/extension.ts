@@ -111,13 +111,33 @@ async function checkConnection(
     const running = await client.isServerRunning();
     if (running) {
       const status = await client.getStatus();
+
+      // Feed live stats to status bar (spec: Pattern 19 + Hydra Pattern 5)
+      statusBar.updateStats({
+        sistersConnected: status.sistersConnected || 0,
+        sistersTotal: status.sistersTotal || 17,
+        profileName: status.activeProfile || '',
+        beliefsLoaded: status.beliefsLoaded || 0,
+        sessionCost: status.sessionCost || 0,
+        compiledPatterns: status.compiledPatterns || 0,
+        compiledSavings: status.compiledSavings || 0,
+      });
+
       if (status.pendingApprovals > 0) {
         statusBar.update('approvalNeeded', `${status.pendingApprovals} pending`);
       } else if (status.activeRuns > 0) {
-        statusBar.update('working', `${status.activeRuns} running`);
+        // Show thinking verb during active runs
+        const verb = status.thinkingVerb || 'Working';
+        statusBar.update('working', verb);
       } else {
         statusBar.update('idle');
       }
+
+      // Push briefing to webview if available
+      if (status.briefingItems && HydraWebviewPanel.currentPanel) {
+        HydraWebviewPanel.currentPanel.postBriefing(status.briefingItems);
+      }
+
       await sidebar.refreshData();
     } else {
       statusBar.update('offline');

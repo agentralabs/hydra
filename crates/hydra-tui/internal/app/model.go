@@ -226,11 +226,11 @@ func (m Model) IsNarrow() bool { return m.Width < 60 }
 // FrameHeight based on responsive breakpoint.
 func (m Model) FrameHeight() int {
 	if m.IsNarrow() {
-		return 4
+		return 6
 	} else if m.IsMedium() {
-		return 8
+		return 10
 	}
-	return 14
+	return 16 // enough for logo + all sections
 }
 
 // tickMsg is sent every 33ms (~30fps).

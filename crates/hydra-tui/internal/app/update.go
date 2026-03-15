@@ -55,6 +55,11 @@ func (m Model) handleTick() (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// Periodic health poll every ~10s (300 ticks at 33ms)
+	if m.TickCount%300 == 0 {
+		m.refreshHealth()
+	}
+
 	// Streaming reveal
 	if m.StreamActive && len(m.StreamBuf) > m.RevealedChars {
 		chars := int(3.0 * m.StreamSpeed)
@@ -528,6 +533,43 @@ func (m *Model) toggleToolExpand() {
 			}
 		}
 	}
+}
+
+func (m *Model) refreshHealth() {
+	if !m.Connected {
+		m.Connected = m.Client.HealthCheck()
+		if !m.Connected {
+			m.Online = false
+			return
+		}
+		if m.Stream == nil {
+			m.Stream = client.NewStreamReceiver(m.Client.BaseURL)
+		}
+	}
+	health, err := m.Client.Health()
+	if err != nil {
+		m.Connected = false
+		m.Online = false
+		return
+	}
+	m.SistersConn = health.SistersConnected
+	// Only update total if server reports > 0 (don't clobber default 17)
+	if health.SistersTotal > 0 {
+		m.SistersTotal = health.SistersTotal
+	}
+	m.BeliefsLoaded = health.BeliefsLoaded
+	total := m.SistersTotal
+	if total == 0 {
+		total = 17
+	}
+	m.HealthPct = float64(m.SistersConn) / float64(total) * 100
+	if health.Model != nil && *health.Model != "" {
+		m.ModelName = *health.Model
+	}
+	if health.Profile != nil && *health.Profile != "" {
+		m.ProfileName = *health.Profile
+	}
+	m.Online = m.SistersConn > 0
 }
 
 func (m *Model) pushToBackground() {
