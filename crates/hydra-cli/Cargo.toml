@@ -1,5 +1,5 @@
 [package]
-description = "Hydra CLI with TUI mode — cognitive AI orchestrator"
+description = "Hydra CLI — thin launcher for hydra-tui + subcommand dispatcher"
 name = "hydra-cli"
 version.workspace = true
 edition.workspace = true
@@ -8,31 +8,27 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+# Core crates (needed for subcommand dispatch)
 hydra-core = { workspace = true }
 hydra-native = { workspace = true }
 hydra-runtime = { workspace = true }
 hydra-db = { workspace = true }
 hydra-federation = { workspace = true }
 hydra-model = { workspace = true }
+
+# HTTP client (for CLI subcommands)
 ureq = { version = "2", features = ["json"] }
 serde_json = { workspace = true }
 serde = { workspace = true }
-parking_lot = { workspace = true }
-ratatui = "0.29"
-crossterm = { version = "0.28", features = ["event-stream"] }
+
+# Async runtime (for subcommands that need it)
 tokio = { workspace = true }
-unicode-width = "0.2"
-textwrap = "0.16"
+
+# Utilities
 chrono = { workspace = true }
 uuid = { workspace = true }
 hydra-pulse = { workspace = true }
-libc = "0.2"
-syntect = { version = "5", default-features = false, features = ["default-syntaxes", "default-themes", "regex-onig"] }
 
-# Voice input (optional — adds cpal + reqwest for mic capture + Whisper STT)
-cpal = { version = "0.15", optional = true }
-reqwest = { version = "0.12", features = ["json", "multipart", "rustls-tls"], optional = true }
-
-[features]
-default = ["voice"]
-voice = ["dep:cpal", "dep:reqwest"]
+# TUI launcher (find hydra-tui binary)
+which = "7"
+dirs-next = "2"

@@ -1,10 +1,13 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { HydraClient } from '../hydraClient';
 
 export class HydraWebviewPanel {
     public static currentPanel: HydraWebviewPanel | undefined;
     private readonly panel: vscode.WebviewPanel;
     private readonly client: HydraClient;
+    private readonly extensionUri: vscode.Uri;
 
     public static createOrShow(extensionUri: vscode.Uri, client: HydraClient): void {
         const column = vscode.window.activeTextEditor?.viewColumn;
@@ -18,32 +21,54 @@ export class HydraWebviewPanel {
             'hydraWorkspace',
             'Hydra Workspace',
             column || vscode.ViewColumn.One,
-            { enableScripts: true, retainContextWhenHidden: true }
+            {
+                enableScripts: true,
+                retainContextWhenHidden: true,
+                localResourceRoots: [
+                    vscode.Uri.joinPath(extensionUri, 'media'),
+                    // Allow access to shared UI components
+                    vscode.Uri.file(path.join(extensionUri.fsPath, '..', '..', 'shared', 'hydra-ui')),
+                ],
+            }
         );
 
-        HydraWebviewPanel.currentPanel = new HydraWebviewPanel(panel, client);
+        HydraWebviewPanel.currentPanel = new HydraWebviewPanel(panel, client, extensionUri);
     }
 
-    private constructor(panel: vscode.WebviewPanel, client: HydraClient) {
+    private constructor(panel: vscode.WebviewPanel, client: HydraClient, extensionUri: vscode.Uri) {
         this.panel = panel;
         this.client = client;
+        this.extensionUri = extensionUri;
         this.panel.webview.html = this.getHtml();
 
         this.panel.webview.onDidReceiveMessage(async (msg) => {
             switch (msg.command) {
                 case 'query':
                     try {
-                        const result = await this.client.rpc('run', { intent: msg.text });
+                        const result = await this.client.rpc('hydra.run', { input: msg.text });
                         this.panel.webview.postMessage({ type: 'response', data: result });
                     } catch (e: any) {
                         this.panel.webview.postMessage({ type: 'error', message: e.message });
                     }
                     break;
                 case 'approve':
-                    await this.client.rpc('approve', { run_id: msg.id });
+                    await this.client.rpc('hydra.approve', { run_id: msg.id, decision: 'approved' });
                     break;
                 case 'deny':
-                    await this.client.rpc('deny', { run_id: msg.id });
+                    await this.client.rpc('hydra.approve', { run_id: msg.id, decision: 'denied' });
+                    break;
+                case 'applyDiff':
+                    // Open diff in VS Code native diff editor
+                    const uri = vscode.Uri.file(msg.filePath);
+                    vscode.commands.executeCommand('vscode.diff', uri, uri, `Hydra: ${msg.filePath}`);
+                    break;
+                case 'openFile':
+                    const fileUri = vscode.Uri.file(msg.filePath);
+                    vscode.window.showTextDocument(fileUri, { preview: false });
+                    break;
+                case 'copyToClipboard':
+                    vscode.env.clipboard.writeText(msg.text);
+                    vscode.window.showInformationMessage('Copied to clipboard');
                     break;
             }
         });
@@ -51,232 +76,324 @@ export class HydraWebviewPanel {
         this.panel.onDidDispose(() => {
             HydraWebviewPanel.currentPanel = undefined;
         });
+
+        // Subscribe to SSE for real-time updates
+        this.startSSE();
+    }
+
+    private async startSSE(): Promise<void> {
+        try {
+            const baseUrl = this.client.getBaseUrl?.() || 'http://127.0.0.1:7777';
+            // SSE subscription handled via periodic polling in webview
+            // since VS Code webviews can't directly connect to SSE
+            this.panel.webview.postMessage({ type: 'sseConnected', baseUrl });
+        } catch {
+            // Server not available
+        }
+    }
+
+    /** Send a streaming chunk to the webview */
+    public postStreamChunk(chunk: any): void {
+        this.panel.webview.postMessage({ type: 'streamChunk', chunk });
+    }
+
+    /** Send a thinking update */
+    public postThinking(verb: string, sister?: string): void {
+        this.panel.webview.postMessage({ type: 'thinking', verb, sister });
+    }
+
+    /** Send morning briefing */
+    public postBriefing(items: any[]): void {
+        this.panel.webview.postMessage({ type: 'briefing', items });
+    }
+
+    /** Send approval request */
+    public postApproval(approval: any): void {
+        this.panel.webview.postMessage({ type: 'approval', card: approval });
+    }
+
+    private loadSharedCSS(): string {
+        try {
+            const cssPath = path.join(this.extensionUri.fsPath, '..', '..', 'shared', 'hydra-ui', 'css', 'hydra-patterns.css');
+            return fs.readFileSync(cssPath, 'utf8');
+        } catch {
+            return '/* shared CSS not found */';
+        }
+    }
+
+    private loadSharedJS(): string {
+        try {
+            const jsPath = path.join(this.extensionUri.fsPath, '..', '..', 'shared', 'hydra-ui', 'js', 'hydra-streaming.js');
+            return fs.readFileSync(jsPath, 'utf8');
+        } catch {
+            return '/* shared JS not found */';
+        }
     }
 
     private getHtml(): string {
+        const sharedCSS = this.loadSharedCSS();
+        const sharedJS = this.loadSharedJS();
+
         return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-    :root {
-        --trust-blue: #4A9EFF;
-        --success: #4ADE80;
-        --attention: #FFAA4A;
-        --error: #FF6B6B;
-    }
-    body {
-        font-family: var(--vscode-font-family);
-        padding: 0;
-        margin: 0;
-        color: var(--vscode-foreground);
-        background: var(--vscode-editor-background);
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-    }
-    .workspace {
-        display: grid;
-        grid-template-columns: 1fr 1.5fr 1fr;
-        gap: 12px;
-        padding: 12px;
-        flex: 1;
-        min-height: 0;
-        overflow: hidden;
-    }
-    .panel {
-        background: var(--vscode-sideBar-background);
-        border: 1px solid var(--vscode-panel-border);
-        border-radius: 8px;
-        padding: 12px;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-    }
-    .panel h3 {
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        color: var(--trust-blue);
-        margin: 0 0 8px 0;
-        font-weight: 700;
-    }
-    .panel-empty {
-        font-size: 12px;
-        color: var(--vscode-descriptionForeground);
-        font-style: italic;
-        text-align: center;
-        padding: 20px 0;
-    }
-    .plan-step {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 12px;
-        padding: 3px 0;
-    }
-    .plan-step .icon { width: 16px; text-align: center; }
-    .plan-step.completed { color: var(--success); }
-    .plan-step.running { color: var(--trust-blue); font-weight: 600; }
-    .plan-step.pending { color: var(--vscode-descriptionForeground); }
-    .timeline-event {
-        display: flex;
-        gap: 8px;
-        font-size: 11px;
-        padding: 4px 0;
-        border-left: 2px solid var(--vscode-panel-border);
-        padding-left: 8px;
-        margin-left: 4px;
-    }
-    .timeline-event .time {
-        font-family: monospace;
-        color: var(--vscode-descriptionForeground);
-        min-width: 50px;
-    }
-    .evidence-item {
-        background: var(--vscode-editor-background);
-        border: 1px solid var(--vscode-panel-border);
-        border-radius: 6px;
-        padding: 8px;
-        margin-bottom: 8px;
-        font-size: 11px;
-    }
-    .evidence-item .title {
-        font-weight: 600;
-        margin-bottom: 4px;
-    }
-    .evidence-item .content {
-        font-family: monospace;
-        font-size: 10px;
-        color: var(--vscode-descriptionForeground);
-        white-space: pre-wrap;
-        max-height: 80px;
-        overflow-y: auto;
-    }
-    .chat-area {
-        border-top: 1px solid var(--vscode-panel-border);
-        padding: 12px;
-        display: flex;
-        gap: 8px;
-    }
-    .chat-area input {
-        flex: 1;
-        padding: 8px 14px;
-        border-radius: 20px;
-        border: 1px solid var(--vscode-input-border);
-        background: var(--vscode-input-background);
-        color: var(--vscode-input-foreground);
-        font-size: 13px;
-        outline: none;
-    }
-    .chat-area button {
-        padding: 8px 16px;
-        border-radius: 20px;
-        border: none;
-        background: var(--trust-blue);
-        color: white;
-        cursor: pointer;
-        font-size: 13px;
-    }
-    .approval-card {
-        background: rgba(255, 170, 74, 0.1);
-        border: 1px solid var(--attention);
-        border-radius: 8px;
-        padding: 12px;
-        margin: 8px 12px;
-    }
-    .approval-card h4 { margin: 0 0 6px; font-size: 13px; }
-    .approval-card p { margin: 0 0 8px; font-size: 12px; color: var(--vscode-descriptionForeground); }
-    .approval-actions { display: flex; gap: 8px; }
-    .approval-actions button { padding: 6px 14px; border-radius: 14px; border: none; cursor: pointer; font-size: 12px; }
-    .btn-approve { background: var(--success); color: white; }
-    .btn-deny { background: var(--error); color: white; }
+/* Shared Hydra patterns CSS */
+${sharedCSS}
+
+/* VS Code-specific overrides */
+body {
+    font-family: var(--vscode-font-family);
+    padding: 0; margin: 0;
+    color: var(--vscode-foreground);
+    background: var(--vscode-editor-background);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+#chat-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+#thinking-area { padding: 0 12px; }
+#approval-area { padding: 0 12px; }
+#briefing-area { padding: 0 12px; }
 </style>
 </head>
 <body>
-    <div class="workspace">
-        <div class="panel" id="plan-panel">
-            <h3>Plan</h3>
-            <div id="plan-content"><p class="panel-empty">No active plan</p></div>
-        </div>
-        <div class="panel" id="timeline-panel">
-            <h3>Timeline</h3>
-            <div id="timeline-content"><p class="panel-empty">No events yet</p></div>
-        </div>
-        <div class="panel" id="evidence-panel">
-            <h3>Evidence</h3>
-            <div id="evidence-content"><p class="panel-empty">No evidence collected</p></div>
-        </div>
+    <div id="briefing-area"></div>
+    <div id="chat-container"></div>
+    <div id="thinking-area"></div>
+    <div id="approval-area"></div>
+    <div class="input-area">
+        <input type="text" id="chat-input" placeholder="Ask Hydra... (! for bash, / for commands)" />
+        <button class="send-btn" onclick="send()">Send</button>
     </div>
-    <div id="approval-container"></div>
-    <div class="chat-area">
-        <input type="text" id="chat-input" placeholder="Ask Hydra..." />
-        <button onclick="send()">Send</button>
-    </div>
-    <script>
-        const vscode = acquireVsCodeApi();
-        function send() {
-            const input = document.getElementById('chat-input');
-            if (!input.value.trim()) return;
-            vscode.postMessage({ command: 'query', text: input.value });
-            addTimeline('Sent: ' + input.value);
-            input.value = '';
-        }
-        document.getElementById('chat-input').addEventListener('keypress', e => {
-            if (e.key === 'Enter') send();
-        });
-        function addTimeline(text) {
-            const el = document.getElementById('timeline-content');
-            const empty = el.querySelector('.panel-empty');
-            if (empty) empty.remove();
-            const now = new Date().toLocaleTimeString('en-US', {hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
-            el.innerHTML += '<div class="timeline-event"><span class="time">' + now + '</span><span>' + text + '</span></div>';
-            el.scrollTop = el.scrollHeight;
-        }
-        function showApproval(card) {
-            document.getElementById('approval-container').innerHTML =
-                '<div class="approval-card"><h4>' + card.title + '</h4><p>' + card.description +
-                '</p><div class="approval-actions"><button class="btn-approve" onclick="approve(\\'' +
-                card.id + '\\')">Approve (Y)</button><button class="btn-deny" onclick="deny(\\'' +
-                card.id + '\\')">Deny (N)</button></div></div>';
-        }
-        function approve(id) { vscode.postMessage({command:'approve',id}); document.getElementById('approval-container').innerHTML=''; }
-        function deny(id) { vscode.postMessage({command:'deny',id}); document.getElementById('approval-container').innerHTML=''; }
-        window.addEventListener('message', event => {
-            const msg = event.data;
-            if (msg.type === 'response') {
-                addTimeline('Response received');
-                if (msg.data?.plan) updatePlan(msg.data.plan);
-                if (msg.data?.evidence) updateEvidence(msg.data.evidence);
+
+<script>
+/* Shared Hydra streaming + rendering engine */
+${sharedJS}
+
+const vscode = acquireVsCodeApi();
+const chatContainer = document.getElementById('chat-container');
+const thinkingArea = document.getElementById('thinking-area');
+const approvalArea = document.getElementById('approval-area');
+const briefingArea = document.getElementById('briefing-area');
+
+// Streaming engine instance
+const streamer = new HydraStreamer(chatContainer);
+
+// Thinking state
+let thinkingVerb = 'Thinking';
+let thinkingStart = null;
+let thinkingTokens = 0;
+let thinkingTipIdx = 0;
+let thinkingInterval = null;
+const tips = [
+    'Use /btw to ask a quick side question without interrupting',
+    'Use /beliefs to see what Hydra knows',
+    'Use /roi to track value generated',
+    'Dream State will test your beliefs overnight',
+    'Use /undo to revert the last edit',
+    '/compact preserves key decisions, frees context',
+];
+
+function send() {
+    const input = document.getElementById('chat-input');
+    if (!input.value.trim()) return;
+    const text = input.value;
+    input.value = '';
+
+    // Render user message
+    addMessage('user', text);
+
+    // Send to extension
+    vscode.postMessage({ command: 'query', text });
+
+    // Show thinking
+    startThinking('Thinking');
+}
+
+function addMessage(role, content) {
+    const div = document.createElement('div');
+    div.className = 'message message-' + role;
+    if (role === 'user') {
+        div.innerHTML = '<div class="user-label">You</div>' + HydraMarkdown.render(content);
+    } else if (role === 'assistant') {
+        div.innerHTML = HydraMarkdown.render(content);
+    } else {
+        div.innerHTML = '<div class="message-system">' + HydraMarkdown.render(content) + '</div>';
+    }
+    chatContainer.appendChild(div);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+function startThinking(verb, sister) {
+    thinkingVerb = verb || 'Thinking';
+    thinkingStart = Date.now();
+    thinkingTokens = 0;
+
+    if (thinkingInterval) clearInterval(thinkingInterval);
+    thinkingInterval = setInterval(updateThinking, 1000);
+    updateThinking();
+}
+
+function updateThinking() {
+    if (!thinkingStart) { thinkingArea.innerHTML = ''; return; }
+    const elapsed = Math.floor((Date.now() - thinkingStart) / 1000);
+    const elapsedStr = elapsed >= 60
+        ? Math.floor(elapsed / 60) + 'm ' + (elapsed % 60) + 's'
+        : elapsed + 's';
+    const tokenStr = thinkingTokens > 1000
+        ? (thinkingTokens / 1000).toFixed(1) + 'k'
+        : thinkingTokens;
+    const tip = tips[thinkingTipIdx % tips.length];
+
+    thinkingArea.innerHTML = '<div class="thinking-indicator">' +
+        '<div class="thinking-spinner"></div>' +
+        '<span>✱ ' + thinkingVerb + ' (' + elapsedStr +
+        (thinkingTokens > 0 ? ' · ↓ ' + tokenStr + ' tokens' : '') + ')</span>' +
+        '</div>' +
+        '<div class="thinking-tip">└ Tip: ' + tip + '</div>';
+
+    // Rotate tip every 15s
+    if (elapsed > 0 && elapsed % 15 === 0) thinkingTipIdx++;
+}
+
+function stopThinking() {
+    thinkingStart = null;
+    if (thinkingInterval) clearInterval(thinkingInterval);
+    thinkingArea.innerHTML = '';
+}
+
+function showApproval(card) {
+    const level = card.risk || 'medium';
+    approvalArea.innerHTML =
+        '<div class="approval-modal risk-' + level + '">' +
+        '<span class="risk-badge ' + level + '">' + level.toUpperCase() + '</span> ' +
+        '<strong>' + card.title + '</strong>' +
+        '<p>' + (card.description || '') + '</p>' +
+        (card.diff ? HydraDiff.render(card.filePath || '', card.diff, { applyable: true }) : '') +
+        '<div class="approval-actions">' +
+        '<button class="btn-allow" onclick="approve(\\'' + card.id + '\\')">Allow (Y)</button>' +
+        '<button class="btn-deny" onclick="deny(\\'' + card.id + '\\')">Deny (N)</button>' +
+        '<button class="btn-allow-all" onclick="approveAll(\\'' + card.id + '\\')">Allow all this session</button>' +
+        '</div>' +
+        '<label class="approval-checkbox"><input type="checkbox"> Always allow for this file type</label>' +
+        '</div>';
+}
+
+function approve(id) { vscode.postMessage({command:'approve',id}); approvalArea.innerHTML=''; }
+function deny(id) { vscode.postMessage({command:'deny',id}); approvalArea.innerHTML=''; }
+function approveAll(id) { approve(id); /* TODO: store session auto-approve */ }
+function applyDiff(filePath) { vscode.postMessage({command:'applyDiff',filePath}); }
+function openFile(filePath) { vscode.postMessage({command:'openFile',filePath}); }
+
+// Handle messages from extension
+window.addEventListener('message', event => {
+    const msg = event.data;
+    switch (msg.type) {
+        case 'response':
+            stopThinking();
+            if (msg.data?.output) addMessage('assistant', msg.data.output);
+            else if (msg.data?.result) addMessage('assistant', JSON.stringify(msg.data.result, null, 2));
+            break;
+        case 'error':
+            stopThinking();
+            addMessage('system', 'Error: ' + msg.message);
+            break;
+        case 'streamChunk':
+            handleStreamChunk(msg.chunk);
+            break;
+        case 'thinking':
+            startThinking(msg.verb, msg.sister);
+            break;
+        case 'approval':
+            showApproval(msg.card);
+            break;
+        case 'briefing':
+            briefingArea.innerHTML = HydraBriefing.render(msg.items);
+            break;
+    }
+});
+
+function handleStreamChunk(chunk) {
+    switch (chunk.type) {
+        case 'text':
+            if (chunk.content) {
+                if (!streamer.active) {
+                    streamer.start('text');
+                }
+                streamer.append(chunk.content);
+                thinkingTokens += Math.ceil((chunk.content.length) / 4);
             }
-            if (msg.type === 'approval') showApproval(msg.card);
-            if (msg.type === 'error') addTimeline('Error: ' + msg.message);
-        });
-        function updatePlan(plan) {
-            const el = document.getElementById('plan-content');
-            let html = plan.steps ? plan.steps.map((s,i) =>
-                '<div class="plan-step ' + (s.done ? 'completed' : s.current ? 'running' : 'pending') + '"><span class="icon">' +
-                (s.done ? '\\u2713' : s.current ? '\\u25d0' : '\\u25cb') + '</span><span>' + s.label + '</span></div>'
-            ).join('') : '';
-            el.innerHTML = html || '<p class="panel-empty">No active plan</p>';
-        }
-        function updateEvidence(items) {
-            const el = document.getElementById('evidence-content');
-            el.innerHTML = items.map(e =>
-                '<div class="evidence-item"><div class="title">' + e.title + '</div><div class="content">' + (e.content || '') + '</div></div>'
-            ).join('') || '<p class="panel-empty">No evidence</p>';
-        }
-        document.addEventListener('keydown', e => {
-            if (e.key === 'y' || e.key === 'Y') {
-                const approveBtn = document.querySelector('.btn-approve');
-                if (approveBtn) approveBtn.click();
+            break;
+        case 'thinking':
+        case 'tool_start':
+            startThinking(chunk.sister ? pickSisterVerb(chunk.sister) : 'Thinking');
+            break;
+        case 'tool_end':
+            // Show tool result
+            if (chunk.sister && chunk.tool) {
+                const dur = chunk.duration_ms ? (chunk.duration_ms / 1000).toFixed(1) + 's' : '';
+                const dotClass = 'dot-success';
+                const html = '<div class="tool-result"><div class="tool-header">' +
+                    '<span class="dot ' + dotClass + '"></span>' +
+                    '<span class="tool-sister">' + chunk.sister + '</span>' +
+                    '<span class="tool-connector"> ▸ </span>' +
+                    '<span class="tool-action">' + chunk.tool + '</span>' +
+                    '<span class="tool-duration">' + dur + '</span>' +
+                    '</div></div>';
+                chatContainer.insertAdjacentHTML('beforeend', html);
             }
-            if (e.key === 'n' || e.key === 'N') {
-                const denyBtn = document.querySelector('.btn-deny');
-                if (denyBtn) denyBtn.click();
+            break;
+        case 'done':
+            stopThinking();
+            if (streamer.active) {
+                streamer.stop();
+                // Wrap final content as assistant message
             }
-        });
-    </script>
+            break;
+        case 'error':
+            stopThinking();
+            if (chunk.content) addMessage('system', 'Error: ' + chunk.content);
+            break;
+    }
+}
+
+function pickSisterVerb(sister) {
+    const verbs = {
+        Memory:'Remembering', Codebase:'Scanning', Data:'Crunching', Connect:'Reaching',
+        Forge:'Forging', Workflow:'Orchestrating', Veritas:'Verifying', Aegis:'Shielding',
+        Evolve:'Crystallizing', Vision:'Perceiving', Identity:'Authenticating',
+        Time:'Scheduling', Contract:'Reviewing', Planning:'Strategizing',
+        Cognition:'Modeling', Reality:'Probing', Comm:'Dispatching',
+    };
+    return verbs[sister] || 'Thinking';
+}
+
+// Keyboard shortcuts
+document.getElementById('chat-input').addEventListener('keypress', e => {
+    if (e.key === 'Enter') send();
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'y' || e.key === 'Y') {
+        const btn = document.querySelector('.btn-allow');
+        if (btn) btn.click();
+    }
+    if (e.key === 'n' || e.key === 'N') {
+        const btn = document.querySelector('.btn-deny');
+        if (btn) btn.click();
+    }
+    if (e.key === 'Escape') {
+        approvalArea.innerHTML = '';
+        briefingArea.innerHTML = '';
+    }
+});
+</script>
 </body>
 </html>`;
     }

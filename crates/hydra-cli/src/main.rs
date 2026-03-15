@@ -10,7 +10,6 @@ mod commands;
 mod output;
 mod repl;
 mod spinner;
-mod tui;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -36,23 +35,82 @@ fn main() {
 
     // Subcommand present → dispatch
     if !flags.remaining.is_empty() {
-        // Reconstruct args for dispatch: [argv0, subcommand, ...]
         let mut dispatch_args = vec![args[0].clone()];
         dispatch_args.extend(flags.remaining.clone());
         cli_dispatch::dispatch(&dispatch_args);
         return;
     }
 
-    // Default: launch full TUI
-    let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
-    match rt.block_on(tui::run()) {
-        Ok(()) => {}
-        Err(e) => {
-            eprintln!("TUI error: {}", e);
-            eprintln!("Falling back to basic REPL...");
-            repl::run();
+    // Default: launch hydra-tui (Go + Bubble Tea binary)
+    launch_tui(&args);
+}
+
+/// Launch the hydra-tui Go binary.
+/// hydra-cli is now a thin launcher — all TUI logic lives in hydra-tui/.
+fn launch_tui(args: &[String]) {
+    if let Some(tui_path) = find_hydra_tui_binary() {
+        let status = std::process::Command::new(&tui_path)
+            .args(&args[1..])
+            .status();
+        match status {
+            Ok(s) if s.success() => return,
+            Ok(s) => {
+                eprintln!("hydra-tui exited with code: {:?}", s.code());
+                std::process::exit(s.code().unwrap_or(1));
+            }
+            Err(e) => {
+                eprintln!("Failed to launch hydra-tui: {}", e);
+            }
         }
     }
+
+    // hydra-tui not found — tell user how to install
+    eprintln!();
+    eprintln!("  {} hydra-tui binary not found.", colors::red("Error:"));
+    eprintln!();
+    eprintln!("  Install it with one of:");
+    eprintln!("    {}",
+        colors::blue("cd crates/hydra-tui && go build -o ~/.local/bin/hydra-tui ."));
+    eprintln!("    {}",
+        colors::blue("cd crates/hydra-tui && go install ."));
+    eprintln!("    {}",
+        colors::blue("go install github.com/agentralabs/hydra-tui@latest"));
+    eprintln!();
+    eprintln!("  Or use the basic REPL: {}", colors::dim("hydra --repl"));
+    eprintln!();
+    std::process::exit(1);
+}
+
+/// Find the hydra-tui Go binary.
+/// Searches: PATH, ~/.local/bin, project hydra-tui/, GOPATH/bin.
+fn find_hydra_tui_binary() -> Option<String> {
+    // 1. PATH
+    if let Ok(path) = which::which("hydra-tui") {
+        return Some(path.display().to_string());
+    }
+
+    // 2. ~/.local/bin/hydra-tui
+    if let Some(home) = dirs_next::home_dir() {
+        let local = home.join(".local/bin/hydra-tui");
+        if local.exists() {
+            return Some(local.display().to_string());
+        }
+        // 3. GOPATH/bin
+        let gopath = std::env::var("GOPATH")
+            .unwrap_or_else(|_| home.join("go").display().to_string());
+        let gobin = std::path::PathBuf::from(gopath).join("bin/hydra-tui");
+        if gobin.exists() {
+            return Some(gobin.display().to_string());
+        }
+    }
+
+    // 4. Project directory (development) — crates/hydra-tui/hydra-tui
+    let project_bin = std::path::Path::new("crates/hydra-tui/hydra-tui");
+    if project_bin.exists() {
+        return Some(project_bin.display().to_string());
+    }
+
+    None
 }
 
 fn cmd_health() {
@@ -110,44 +168,14 @@ fn print_help() {
         "Deny a pending action"
     );
     println!(
-        "    {}        {}",
-        colors::blue("freeze [id]"),
-        "Freeze active runs"
-    );
-    println!(
-        "    {}        {}",
-        colors::blue("resume <id>"),
-        "Resume a frozen run"
-    );
-    println!(
         "    {}          {}",
         colors::blue("kill [id]"),
         "Kill active runs"
     );
     println!(
-        "    {}       {}",
-        colors::blue("inspect <id>"),
-        "Detailed run inspection"
-    );
-    println!(
-        "    {}     {}",
-        colors::blue("replay <id>"),
-        "Replay a previous run"
-    );
-    println!(
         "    {}           {}",
         colors::blue("profile"),
         "Manage user profile"
-    );
-    println!(
-        "    {}              {}",
-        colors::blue("logs"),
-        "View runtime logs"
-    );
-    println!(
-        "    {}            {}",
-        colors::blue("config"),
-        "Show/set configuration"
     );
     println!(
         "    {}           {}",
@@ -156,58 +184,8 @@ fn print_help() {
     );
     println!(
         "    {}            {}",
-        colors::blue("skills"),
-        "Manage skills"
-    );
-    println!(
-        "    {}            {}",
-        colors::blue("memory"),
-        "Query/manage memory"
-    );
-    println!(
-        "    {}          {}",
-        colors::blue("codebase"),
-        "Codebase analysis & search"
-    );
-    println!(
-        "    {}            {}",
-        colors::blue("vision"),
-        "Visual capture & OCR"
-    );
-    println!(
-        "    {}          {}",
-        colors::blue("planning"),
-        "Plan management"
-    );
-    println!(
-        "    {}              {}",
-        colors::blue("soul"),
-        "Manage persistent state"
-    );
-    println!(
-        "    {}           {}",
-        colors::blue("suspend"),
-        "Suspend Hydra"
-    );
-    println!(
-        "    {}         {}",
-        colors::blue("resurrect"),
-        "Resurrect from soul"
-    );
-    println!(
-        "    {}            {}",
-        colors::blue("remote"),
-        "Manage distributed instances"
-    );
-    println!(
-        "    {}             {}",
-        colors::blue("voice"),
-        "Voice interface"
-    );
-    println!(
-        "    {}            {}",
-        colors::blue("policy"),
-        "Manage execution policies"
+        colors::blue("health"),
+        "Run health checks"
     );
     println!(
         "    {}             {}",
@@ -215,27 +193,7 @@ fn print_help() {
         "Start HTTP/WS server"
     );
     println!(
-        "    {}       {}",
-        colors::blue("completions"),
-        "Generate shell completions"
-    );
-    println!(
-        "    {}             {}",
-        colors::blue("trust"),
-        "Show trust & autonomy level"
-    );
-    println!(
-        "    {}        {}",
-        colors::blue("inventions"),
-        "Show cognitive invention stats"
-    );
-    println!(
-        "    {}            {}",
-        colors::blue("health"),
-        "Run health checks"
-    );
-    println!();
-    println!("    {}              {}",
+        "    {}              {}",
         colors::blue("mcp"),
         "Manage MCP server connections"
     );
@@ -244,29 +202,12 @@ fn print_help() {
     println!("    -h, --help                       Show this help");
     println!("    -V, --version                    Show version");
     println!("    -p \"task\"                        Print mode (non-interactive)");
-    println!("    -c                               Continue last session");
-    println!("    -r <id>                          Resume specific session");
     println!("    --model <name>                   Use specific model");
-    println!("    --permission-mode <mode>         Start in plan/auto-accept");
-    println!("    --verbose                        Full turn-by-turn logging");
-    println!("    --output-format json|stream-json Structured output");
-    println!("    --max-budget-usd <amount>        Cost cap for session");
-    println!("    --system-prompt \"...\"            Inline system prompt");
-    println!("    --system-prompt-file <path>      System prompt from file");
-    println!("    --append-system-prompt \"...\"     Append to default prompt");
-    println!("    --allowedTools \"Read,Write\"      Pre-approve tools");
-    println!("    --disallowedTools \"Bash(rm*)\"    Block tools");
-    println!("    --dangerously-skip-permissions   Skip all approvals");
-    println!("    --add-dir <path>                 Add extra directory");
-    println!("    --from-pr <number>               Resume PR session");
+    println!("    --repl                           Basic REPL mode (no TUI)");
     println!();
-    println!("  {}", colors::bold("EXAMPLES"));
-    println!("    {}", colors::dim("hydra -p \"fix the auth bug\""));
-    println!("    {}", colors::dim("hydra -c"));
-    println!("    {}", colors::dim("hydra --model opus run \"refactor auth\""));
-    println!("    {}", colors::dim("hydra mcp add github -- npx @mcp/github"));
-    println!("{}", colors::dim("    hydra status"));
-    println!("{}", colors::dim("    hydra sisters connect memory"));
+    println!("  {}", colors::bold("TUI"));
+    println!("    Run without arguments to launch the full TUI (hydra-tui).");
+    println!("    Install: cd crates/hydra-tui && go install .");
     println!();
 }
 
