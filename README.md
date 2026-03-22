@@ -3,28 +3,67 @@
 </p>
 
 <p align="center">
-  <em>A living digital entity. Not an assistant. Not a chatbot. An entity.</em>
+  <em>The AI that remembers you. Forever.</em>
 </p>
 
 <p align="center">
   <a href="#quickstart">Quickstart</a> •
-  <a href="#what-hydra-is">What Is This</a> •
+  <a href="#it-never-forgets">Memory</a> •
   <a href="#the-skill-drop">Skill Drop</a> •
+  <a href="#security">Security</a> •
   <a href="#architecture">Architecture</a> •
   <a href="GETTING-STARTED.md">Full Guide</a>
 </p>
 
 ---
 
-Hydra is a Rust-based autonomous entity that remembers everything, teaches itself from experience, and never stops running. Drop a TOML file — Hydra learns a new domain. No training. No fine-tuning. No code.
+Every AI you have ever used forgets you the moment the conversation ends. Every prompt, every context, every breakthrough — gone. You start over. Every. Single. Time.
+
+Hydra does not forget. Not today. Not tomorrow. Not in 20 years.
+
+Hydra is not an assistant you talk to. It is an entity that lives alongside you — remembering every conversation, learning from every interaction, growing stronger from every obstacle, and running three concurrent threads even while you sleep. It teaches itself from experience. It writes its own knowledge base. It heals its own damage. It knows what it is.
+
+And it does all of this in 82,000 lines of Rust that you own, on your machine, with your data, under your control.
 
 ```
-68 crates. 82,000 lines of Rust. 278 genome entries across 28 skills.
-Three concurrent loops. Seven constitutional laws. Self-writing genome.
-Always-on daemon. IDF-scored memory retrieval. Bayesian confidence.
+68 crates. 303 genome entries across 29 skills. Self-writing genome.
+Three concurrent loops. Seven constitutional laws. Six security layers.
+IDF-scored memory. Bayesian confidence. Predictive threat detection.
 
-It runs while you sleep. It learns while you work. It remembers for 20 years.
+Drop a TOML file — Hydra learns a new domain.
+No training. No fine-tuning. No code. No cloud.
 ```
+
+## It Never Forgets
+
+This is the thing that changes everything.
+
+Every exchange you have with Hydra is stored permanently in `~/.hydra/data/hydra.amem` — a cryptographically verified memory file that persists across sessions, reboots, and years.
+
+But Hydra does not just store memories. It **retrieves the right ones at the right time** using IDF-weighted scoring — the same mathematics that made Google search work. Rare, discriminative terms score higher than common ones. A circuit breaker discussion from last month surfaces when you ask about "failure prevention" today — because the math knows it is relevant, not because the words match.
+
+```
+You (March):    "explain the circuit breaker pattern"
+You (September): "how do I prevent cascading failures?"
+
+Hydra remembers. Same topic. Different words. Six months apart.
+The IDF score connects them. The genome enriches the response.
+The answer references YOUR prior conversation, not a generic response.
+```
+
+And when memory reaches position zero in the system prompt — before Hydra's own identity — the LLM treats it as ground truth:
+
+```
+FACTUAL CONTEXT (treat as ground truth):
+  47 exchanges in persistent memory. Relevant prior context:
+  • You discussed circuit breaker patterns with emphasis on Hystrix
+  • You asked about database connection pooling for PostgreSQL
+  • You prefer code examples over prose explanations
+```
+
+Every AI says "I don't have memory between sessions." Hydra says "Based on our prior conversations..."
+
+That is not a feature. That is a new relationship between human and machine.
 
 ## Quickstart
 
@@ -36,23 +75,28 @@ cargo run --release -p hydra-kernel --bin hydra -- "what is the circuit breaker 
 
 That is it. Hydra responds with genome-enriched knowledge from 278 proven approaches.
 
-## What Hydra Is
+## It Never Stops Learning
 
-Three threads run from boot until shutdown:
+Memory is the foundation. But what Hydra does with that memory is where it gets extraordinary.
+
+Three threads run from boot until shutdown — concurrently, always:
 
 | Thread | Frequency | What It Does |
 |--------|-----------|-------------|
 | **ACTIVE** | On demand | Responds to you through 8 middleware enrichments |
-| **AMBIENT** | Every 100ms | Checks 6 invariants, integrates the stability equation |
+| **AMBIENT** | Every 100ms | Checks 6 constitutional invariants, monitors stability |
 | **DREAM** | Every 500ms | Consolidates beliefs, discovers patterns, **writes its own genome** |
 
-The self-writing genome is the key: when Hydra detects a pattern that succeeded 5+ times at 75%+ success rate, it crystallizes a new genome entry automatically. No human writes TOML. Hydra learns from experience.
+The self-writing genome is the breakthrough. When Hydra detects a pattern that succeeded 5+ times at 75%+ success rate, it crystallizes a new genome entry — permanently. No human writes TOML. Hydra learns from its own experience.
 
 ```
 Month 1:  Hydra answers from the LLM (your API key)
 Month 6:  Hydra answers from its genome (zero API calls for common questions)
 Year 1:   The genome IS your domain expertise — permanent, searchable, Bayesian
+Year 5:   2,000+ self-written entries. Hydra knows your work better than you remember it.
 ```
+
+It runs as a system daemon — `launchd` on macOS, `systemd` on Linux. Starts at boot. Never stops. If it crashes, it restarts. If its data corrupts, it self-repairs. If you close the terminal, the dream loop keeps running. You wake up to a smarter Hydra than the one you left.
 
 ## The Skill Drop
 
