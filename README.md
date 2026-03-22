@@ -38,9 +38,11 @@ No training. No fine-tuning. No code. No cloud.
 
 This is the thing that changes everything.
 
-Every exchange you have with Hydra is stored permanently in `~/.hydra/data/hydra.amem` — a cryptographically verified memory file that persists across sessions, reboots, and years.
+Every exchange you have with Hydra is stored permanently in `~/.hydra/data/hydra.amem` — powered by [**AgenticMemory**](https://github.com/agentralabs/agentic-memory), our open-source memory engine with 128-dimension feature vectors, SHA256 integrity verification, and a binary format designed for 20-year persistence.
 
-But Hydra does not just store memories. It **retrieves the right ones at the right time** using IDF-weighted scoring — the same mathematics that made Google search work. Rare, discriminative terms score higher than common ones. A circuit breaker discussion from last month surfaces when you ask about "failure prevention" today — because the math knows it is relevant, not because the words match.
+AgenticMemory is not a database. It is a cognitive memory substrate — eight layers (Verbatim, Episodic, Semantic, Relational, Causal, Procedural, Anticipatory, Identity) organized the way a mind organizes experience. Every memory node carries a timestamp, a causal root, a manifold coordinate, and a feature vector for similarity operations.
+
+But storing memories is the easy part. **Retrieving the right ones at the right time** — that is where the mathematics matters. Hydra uses IDF-weighted scoring with relevance-override and topic deduplication. Rare, discriminative terms score higher than common ones. A circuit breaker discussion from last month surfaces when you ask about "failure prevention" today — because the math knows it is relevant, not because the words match.
 
 ```
 You (March):    "explain the circuit breaker pattern"
