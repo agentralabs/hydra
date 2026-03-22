@@ -1,0 +1,100 @@
+---
+title: "Architecture Layers"
+description: "Seven layers of Hydra's architecture with crate counts and responsibilities per layer."
+---
+
+## Seven Layers, 68 Crates
+
+Hydra is organized into 7 architectural layers plus a UI layer. Each layer has a clear responsibility and communicates only through defined interfaces.
+
+```
+Layer 7: Continuity     [6 crates]   How Hydra survives across time
+Layer 6: Collective     [8 crates]   How Hydra coordinates with others
+Layer 5: Value          [4 crates]   How Hydra accounts for cost and worth
+Layer 4: Judgment       [6 crates]   How Hydra knows what is wise
+Layer 3: Execution      [8 crates]   How Hydra acts on the world
+Layer 2: Cognition      [12 crates]  How Hydra understands input
+Layer 1: Foundation     [14 crates]  The laws, the bus, the alive loop
+UI:      The Cockpit    [10 crates]  How you interact with Hydra
+```
+
+## Layer by Layer
+
+
+#### Layer 1: Foundation (14 crates)
+
+The immutable base. Constitution (7 laws), animus signal bus, kernel alive loop, identity (morphic hash chain), trust thermodynamics, adversary immune system, antifragile resistance, and core types.
+
+Key crates: `hydra-kernel`, `hydra-constitution`, `hydra-animus`, `hydra-identity`, `hydra-trust`
+
+
+
+#### Layer 2: Cognition (12 crates)
+
+How Hydra thinks. Comprehension (domain detection, primitive mapping), language analysis (intent, affect, depth), context building (5 awareness windows), attention allocation, reasoning (5 simultaneous modes), noticing (ambient pattern detection), learning, and synthesis.
+
+Key crates: `hydra-comprehension`, `hydra-language`, `hydra-context`, `hydra-attention`, `hydra-reasoning`, `hydra-noticing`
+
+
+
+#### Layer 3: Execution (8 crates)
+
+How Hydra acts. Task engine (13 approach types, never fails), executor (256 concurrent tasks), automation (pattern crystallization), protocol adaptation, format transformation, and device reach.
+
+Key crates: `hydra-executor`, `hydra-automation`, `hydra-protocol`, `hydra-transform`, `hydra-reach`
+
+
+
+#### Layer 4: Judgment (6 crates)
+
+How Hydra decides. Wisdom (uncertainty trees, weakest-link analysis), calibration (bias correction), oracle (scenario projection), red-teaming (adversarial challenge), and pattern library.
+
+Key crates: `hydra-wisdom`, `hydra-calibration`, `hydra-oracle`, `hydra-patterns`
+
+
+
+#### Layer 5: Value (4 crates)
+
+How Hydra accounts. Settlement ledger (cost per action), attribution engine (WHY each cost occurred), resource allocation (portfolio optimization), and cost projection.
+
+Key crates: `hydra-settlement`, `hydra-attribution`, `hydra-portfolio`
+
+
+
+#### Layer 6: Collective (8 crates)
+
+How Hydra scales. Fleet management (agent spawning/monitoring), swarm consensus (weighted voting), federation (cross-instance knowledge sharing), communication bus, and convergence (independent agents reaching the same conclusion).
+
+Key crates: `hydra-fleet`, `hydra-swarm`, `hydra-federation`, `hydra-convergence`
+
+
+
+#### Layer 7: Continuity (6 crates)
+
+How Hydra survives. Memory persistence (.amem), temporal indexing (B+ tree), genome store (proven approaches), succession (transfer between instances), delta checkpointing, and self-repair.
+
+Key crates: `hydra-memory`, `hydra-temporal`, `hydra-genome`, `hydra-succession`
+
+
+## Design Principles
+
+
+
+  ### No Dead Code
+
+    Every crate is used. Every function is called. 82,000 lines, zero unused.
+  
+  ### Immutable State
+
+    Each ambient tick produces a fresh state snapshot. No mutable globals.
+  
+  ### Constitutional Governance
+
+    All 7 layers are subject to the 7 constitutional laws. No layer is exempt.
+  
+  ### Layer Independence
+
+    Higher layers depend on lower layers, never the reverse. The foundation can run alone.
+  
+
+

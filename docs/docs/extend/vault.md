@@ -1,0 +1,125 @@
+---
+title: "The Vault"
+description: "Centralized credential management with explicit access permissions and hydra-created account tracking."
+---
+
+## One Place for Every Credential
+
+The vault is the single folder where all credentials live -- visible to you, controlled by you.
+
+```
+vault/
+  github.toml              <- you added this
+  slack.toml               <- you added this
+  alpaca.toml              <- you added this
+  hydra-created/           <- Hydra added these (with your approval)
+    analytics-account.toml
+    monitoring-service.toml
+```
+
+## Credential File Format
+
+```toml
+[service]
+name        = "github"
+url         = "https://github.com"
+created_by  = "user"
+created_at  = "2026-03-21"
+notes       = "Personal access token with repo scope"
+
+[credentials]
+token       = "ghp_xxxxxxxxxxxxxxxxxxxx"
+
+[access]
+read        = true
+write       = true
+delete      = false
+spend       = false
+```
+
+## Access Permissions
+
+The `[access]` block controls exactly what Hydra can do with each credential:
+
+| Permission | Default | What It Controls |
+|-----------|---------|-----------------|
+| `read` | `true` | Can Hydra read data from this service? |
+| `write` | `false` | Can Hydra create or modify things? |
+| `delete` | `false` | Can Hydra delete anything? |
+| `spend` | `false` | Can Hydra spend money through this service? |
+| `max_spend` | `0.0` | If spend=true, maximum daily spend in USD |
+
+
+:::tip
+
+Start conservative: `read=true`, everything else `false`. Expand permissions only as you need them.
+
+:::
+
+
+## Hydra-Created Accounts
+
+Sometimes Hydra needs to sign up for a service to complete a task:
+
+```
+You: "Monitor our API uptime"
+Hydra: "I need an UptimeRobot account. Create a free account? Approve?"
+You: "yes"
+
+Hydra:
+  1. Creates the account
+  2. Saves credentials to vault/hydra-created/uptimerobot.toml
+  3. Sets conservative defaults: read+write, no delete, no spend
+  4. Receipts the account creation
+```
+
+
+
+  ### Your Accounts
+
+    Stored in `vault/`. You created these and gave Hydra access.
+  
+  ### Hydra's Accounts
+
+    Stored in `vault/hydra-created/`. Hydra created these with your approval.
+  
+
+
+
+## Your Control
+
+You can at any time:
+
+- **View** -- open any `.toml` file in the vault
+- **Edit** -- change permissions, rotate keys
+- **Revoke** -- delete the file, Hydra loses access immediately
+- **Transfer** -- move from `hydra-created/` to `vault/` to claim the account
+
+## Security
+
+
+:::warning
+
+Every `.toml` in `vault/` is gitignored. Credentials never appear in logs, receipts, or memory. Credentials never leave your machine. API keys are read-only by Hydra.
+
+:::
+
+
+**Constitutional enforcement:**
+
+- **Law 6** (Principal Supremacy): You can revoke any credential at any time
+- **Law 1** (Receipt Immutability): Every credential use is receipted
+- **Law 7** (Causal Chain): Every action traces back through the vault check
+
+## How Integrations Find Credentials
+
+```
+Integration: integrations/alpaca/api.toml
+  -> Looks for: vault/alpaca.toml
+  -> Reads: [credentials] api_key
+  -> Checks: [access] write=true, spend=true, max_spend=500
+  -> If order > $500: BLOCKED by vault permission
+  -> If order <= $500: asks for approval, then executes
+```
+
+The vault is the single gate. No credential, no access. Wrong permission, no action.

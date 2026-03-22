@@ -28,3 +28,6 @@ vault/hydra-created/*.toml
 
 # Disabled test harnesses
 *.rs.disabled
+docs/node_modules/
+docs/build/
+docs/.docusaurus/
