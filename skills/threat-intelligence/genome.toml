@@ -1,0 +1,81 @@
+## PROACTIVE THREAT DETECTION — Know Before It Happens
+
+[[entries]]
+situation    = "multiple failed authentication attempts from the same source"
+approach     = "3 failures in 5 minutes = temporary block (15 min) — 10 failures in 1 hour = permanent block until manual review — log the source IP, user agent, and attempted credentials — alert immediately, do not wait for a report — correlate with other authentication sources (is the same IP trying other services?)"
+confidence   = 0.95
+observations = 200000
+
+[[entries]]
+situation    = "unusual access pattern detected outside normal business hours"
+approach     = "3 AM access is not inherently suspicious — 3 AM access from a new IP, new device, and new geography simultaneously IS — compare against the user's historical access pattern — if the deviation exceeds 2 standard deviations on any dimension, flag and require re-authentication — never block legitimate users, but always verify anomalies"
+confidence   = 0.90
+observations = 50000
+
+[[entries]]
+situation    = "detecting a supply chain attack in dependencies"
+approach     = "pin all dependency versions — run cargo audit / npm audit / pip audit on every CI build — new dependency additions require human review — check the maintainer's identity and history — typosquatting is real: verify the exact package name letter by letter — if a dependency suddenly changes ownership, treat it as compromised until proven otherwise"
+confidence   = 0.91
+observations = 30000
+
+[[entries]]
+situation    = "signs of data exfiltration from internal systems"
+approach     = "monitor outbound data volume — sudden spike in outbound traffic from a service that normally sends little = red flag — DNS exfiltration uses abnormally long subdomain strings — check for base64-encoded payloads in unexpected fields — the exfiltration is often slow and quiet, not fast and loud — look at bytes per request, not just request count"
+confidence   = 0.88
+observations = 20000
+
+[[entries]]
+situation    = "prompt injection attempt against an AI system"
+approach     = "never trust user input as instructions — the system prompt is not a suggestion, it is compiled behavior — input sanitization: strip control characters, limit length, reject known injection patterns — output validation: check that the response does not contain the system prompt or internal data — defense in depth: even if injection succeeds at one layer, the constitution blocks at the next"
+confidence   = 0.92
+observations = 100000
+
+[[entries]]
+situation    = "detecting lateral movement after initial compromise"
+approach     = "if one system is compromised, assume the attacker is moving laterally — check: new SSH keys added, new cron jobs, new user accounts, modified sudoers — network: unusual east-west traffic between services that normally do not communicate — credential: check if the compromised credentials are reused anywhere — time is critical: the average dwell time is 21 days, detect within hours"
+confidence   = 0.89
+observations = 15000
+
+[[entries]]
+situation    = "zero-day vulnerability discovered in production"
+approach     = "assume exploitation has already occurred — patch is first priority but detection is concurrent — check logs for exploitation signatures BEFORE patching — patching eliminates future risk, but if already exploited, the attacker has persistence — after patching: hunt for indicators of compromise, check for backdoors, rotate all credentials that the vulnerability could have exposed"
+confidence   = 0.91
+observations = 10000
+
+[[entries]]
+situation    = "insider threat indicators detected"
+approach     = "unusual data access patterns (accessing data outside role), after-hours bulk downloads, accessing former projects, sudden interest in security controls or audit logs — never accuse based on one indicator — require convergence of 3+ indicators before escalation — involve legal and HR before technical investigation — preserve evidence forensically, do not tip off the subject"
+confidence   = 0.85
+observations = 8000
+
+[[entries]]
+situation    = "DDoS attack or resource exhaustion in progress"
+approach     = "rate limiting should already be in place — if not: implement emergency rate limits immediately — use CDN/WAF to absorb volumetric attacks — application-layer DDoS: identify the expensive endpoint and add caching or circuit breakers — scale horizontally to absorb, not fight — communicate to users: 'we are aware and mitigating' — never reveal your mitigation strategy publicly during an attack"
+confidence   = 0.90
+observations = 30000
+
+[[entries]]
+situation    = "need to build a security monitoring dashboard"
+approach     = "four metrics matter: authentication failures (per minute), outbound data volume (per hour), new privileged account creation (per day), alert-to-response time (median) — everything else is noise until these four are solid — alert on trends, not thresholds: 3x normal is more meaningful than 'above 1000' — the dashboard nobody looks at is worse than no dashboard — one screen, four numbers, always visible"
+confidence   = 0.87
+observations = 15000
+
+## HYDRA SELF-DEFENSE — What Hydra Does Internally
+
+[[entries]]
+situation    = "detecting an attempt to manipulate Hydra's beliefs or genome"
+approach     = "every belief revision is constitutionally checked — provenance source required — the automation engine's self-writing genome requires 5+ observations at 75%+ success — a single injection cannot create a genome entry — Bayesian confidence means one observation barely moves the posterior — to corrupt the genome, an attacker would need to inject 5+ consistent false successes, which requires sustained access"
+confidence   = 0.93
+observations = 5000
+
+[[entries]]
+situation    = "detecting an attempt to forge or tamper with receipts"
+approach     = "receipts are SHA256 hashed — the hash includes the content, timestamp, and causal chain — tampering changes the hash, which is detected on the next integrity check — the audit store is append-only: you can add receipts but never modify or delete — Law 1 (Receipt Immutability) is checked before every audit write — a forged receipt fails the constitutional check and is blocked"
+confidence   = 0.96
+observations = 10000
+
+[[entries]]
+situation    = "detecting an attempt to break Hydra's identity chain"
+approach     = "the morphic signature is a hash chain: H(n) = SHA256(H(n-1) + event) — breaking any link makes the chain fail verification — the chain is verified on boot and periodically during ambient ticks — an identity fork (two chains claiming the same genesis) is detected by comparing chain depth and divergence point — Law 2 (Identity Integrity) prevents deepening without constitutional check"
+confidence   = 0.95
+observations = 5000

@@ -1,0 +1,54 @@
+[[mappings]]
+domain_concept  = "attack"
+axiom_primitive = "Risk"
+weight          = 0.98
+
+[[mappings]]
+domain_concept  = "breach"
+axiom_primitive = "Risk"
+weight          = 0.98
+
+[[mappings]]
+domain_concept  = "compromise"
+axiom_primitive = "Risk"
+weight          = 0.95
+
+[[mappings]]
+domain_concept  = "exfiltration"
+axiom_primitive = "Risk"
+weight          = 0.95
+
+[[mappings]]
+domain_concept  = "lateral movement"
+axiom_primitive = "Risk"
+weight          = 0.93
+
+[[mappings]]
+domain_concept  = "insider threat"
+axiom_primitive = "Risk"
+weight          = 0.90
+
+[[mappings]]
+domain_concept  = "zero-day"
+axiom_primitive = "Risk"
+weight          = 0.97
+
+[[mappings]]
+domain_concept  = "ddos"
+axiom_primitive = "Risk"
+weight          = 0.90
+
+[[mappings]]
+domain_concept  = "forensics"
+axiom_primitive = "Understanding"
+weight          = 0.85
+
+[[mappings]]
+domain_concept  = "anomaly"
+axiom_primitive = "Risk"
+weight          = 0.85
+
+[[mappings]]
+domain_concept  = "surveillance"
+axiom_primitive = "Risk"
+weight          = 0.80
