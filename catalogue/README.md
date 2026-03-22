@@ -55,6 +55,8 @@ Each document describes a capability in plain language — what it does, why it 
 | [22 — The Heartbeat](22-THE-HEARTBEAT.md) | Always-on daemon + self-writing genome — Hydra teaches itself |
 | [23 — Web Omniscience](23-WEB-OMNISCIENCE.md) | Three-layer knowledge: genome → index → search. The internet internalized. |
 | [24 — The Living Entity](24-THE-LIVING-ENTITY.md) | Self-knowledge, self-repair, surprise, introspection — everything alive |
+| [25 — Hydra Security](25-HYDRA-SECURITY.md) | 6 layers of defense — predictive threat detection, immune system |
+| [26 — Astral Mathematics](26-ASTRAL-MATHEMATICS.md) | The roadmap from 8.1 to 9.9 — seven mathematical structures |
 
 ---
 

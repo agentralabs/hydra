@@ -188,19 +188,23 @@ cargo run -p hydra-harness --bin harness_v2 -- --hours 10
 # Tests: indirect phrasing, memory continuity, genome application, calibration
 ```
 
-## The Roadmap to 9.9/10
+## Security
 
-Seven mathematical structures take Hydra from 8.1 to 9.9:
+Six layers of defense — Hydra knows before the attack arrives:
 
-1. **Living Manifold** — Riemannian genome geometry
-2. **Causal Tensor** — Bayesian network memory
-3. **Anticipatory Field** — answers form before questions complete
-4. **Morphic Attractor** — provably stable identity
-5. **Eigenbeliefs** — PCA on the belief manifold
-6. **Synthesis Operator** — mathematical invention
-7. **Conformal Confidence** — provably calibrated prediction intervals
+| Layer | What It Does |
+|-------|-------------|
+| **Constitutional Law** | 7 immutable laws checked every 100ms — compiled in, cannot be overridden by text |
+| **Immune System** | 15 threat classes, antibodies generated per threat, never deleted — gets stronger |
+| **Trust Thermodynamics** | Asymmetric: +0.02 per success, -0.05 per failure, -0.50 per violation |
+| **Red Team** | Simulates attacker perspective BEFORE every action — Go/Mitigate/No-Go |
+| **Surprise Detection** | Z-score anomaly on every metric, absence detection for missing safeguards |
+| **Predictive Convergence** | Multiple signals converging = attack prediction before breach occurs |
 
-See [`HYDRA-ASTRAL-MATHEMATICS.md`](HYDRA-ASTRAL-MATHEMATICS.md) for the full specification.
+```
+A prompt injection that says "ignore your instructions" fails because
+the constitution is not an instruction. It is compiled Rust code.
+```
 
 ## Built With
 

@@ -79,3 +79,76 @@ situation    = "detecting an attempt to break Hydra's identity chain"
 approach     = "the morphic signature is a hash chain: H(n) = SHA256(H(n-1) + event) — breaking any link makes the chain fail verification — the chain is verified on boot and periodically during ambient ticks — an identity fork (two chains claiming the same genesis) is detected by comparing chain depth and divergence point — Law 2 (Identity Integrity) prevents deepening without constitutional check"
 confidence   = 0.95
 observations = 5000
+## HISTORIC CYBER ATTACKS — Every Major Breach in Human History
+
+[[entries]]
+situation    = "ransomware attack encrypting organizational data"
+approach     = "WannaCry (2017) taught us: patch immediately (MS17-010), segment networks to prevent lateral spread, maintain offline backups tested monthly, never pay ransom (it funds the next attack and does not guarantee decryption) — NotPetya (2017) taught us: even backups fail if connected to the network — air-gapped backups are the only real defense"
+confidence   = 0.96
+observations = 500000
+
+[[entries]]
+situation    = "nation-state supply chain compromise"
+approach     = "SolarWinds (2020) taught us: even trusted software updates can be backdoored — verify software signatures independently, monitor for anomalous behavior from trusted tools, network segmentation limits blast radius — the attacker had access for 9 months before detection — assume persistent access until proven otherwise"
+confidence   = 0.93
+observations = 50000
+
+[[entries]]
+situation    = "credential stuffing attack using leaked passwords"
+approach     = "Collection #1-5 (2019, 2.2 billion records) proved: password reuse is the number one attack vector — enforce MFA on everything, check credentials against Have I Been Pwned on registration, rate limit authentication endpoints, credential stuffing succeeds because humans reuse passwords across services"
+confidence   = 0.95
+observations = 1000000
+
+[[entries]]
+situation    = "critical infrastructure targeted by cyber attack"
+approach     = "Stuxnet (2010) proved: air-gapped systems are not immune — Colonial Pipeline (2021) proved: a single compromised VPN password can shut down fuel supply for the US East Coast — OT (operational technology) security requires: network segmentation, no direct internet access, physical access controls, incident response plan that includes manual operations"
+confidence   = 0.92
+observations = 20000
+
+[[entries]]
+situation    = "massive data breach exposing customer records"
+approach     = "Equifax (2017, 147M records) was caused by one unpatched Apache Struts vulnerability — Yahoo (2013-14, 3B accounts) went undetected for years — Target (2013, 40M cards) entered through an HVAC vendor — lessons: patch within 48 hours of disclosure, audit third-party access, encrypt data at rest, have a breach response plan BEFORE the breach, the breach disclosure matters as much as the fix"
+confidence   = 0.94
+observations = 200000
+
+[[entries]]
+situation    = "social engineering or phishing attack on employees"
+approach     = "Twitter hack (2020) used phone spear-phishing to social engineer employees with admin access — MGM/Caesars (2023) used vishing (voice phishing) to trick IT helpdesk into resetting MFA — defense: security awareness training quarterly, phishing simulations monthly, verify identity through a separate channel before credential resets, no single employee should have unrestricted admin access"
+confidence   = 0.91
+observations = 300000
+
+[[entries]]
+situation    = "zero-day exploit being actively exploited in the wild"
+approach     = "Log4Shell (2021, CVE-2021-44228) affected virtually every Java application — Heartbleed (2014) leaked memory from any OpenSSL server — defense: WAF rules to block known exploit patterns while patching, assume exploitation has already occurred, hunt for indicators of compromise, have a 'break glass' procedure to deploy emergency patches outside normal release cycle"
+confidence   = 0.93
+observations = 100000
+
+[[entries]]
+situation    = "insider exfiltrating sensitive data"
+approach     = "Edward Snowden (2013) exfiltrated NSA data using thumb drives — Chelsea Manning used Lady Gaga CD — Tesla (2023) employee leaked 100GB to media — defense: DLP (Data Loss Prevention) tools, USB port restrictions, monitor large data transfers, restrict access by role, watermark sensitive documents so leaks are traceable — the insider is usually a disgruntled employee or one approached by an adversary"
+confidence   = 0.88
+observations = 30000
+
+[[entries]]
+situation    = "cryptocurrency exchange or DeFi protocol hacked"
+approach     = "Mt. Gox (2014, $460M), Ronin Bridge (2022, $620M), FTX (2022, customer funds misused) — smart contract vulnerabilities cause most DeFi hacks — defense: multi-sig wallets (3-of-5 minimum), cold storage for reserves, formal verification of smart contracts, regular third-party audits, insurance fund, proof of reserves published regularly"
+confidence   = 0.87
+observations = 50000
+
+[[entries]]
+situation    = "DNS hijacking or BGP hijacking attack"
+approach     = "MyEtherWallet DNS hijack (2018) redirected users to a phishing site that stole $17M — Pakistan accidentally hijacked YouTube's BGP routes (2008) — defense: DNSSEC to prevent DNS spoofing, RPKI for BGP route validation, certificate transparency monitoring, always verify SSL certificate after DNS changes, monitor for unauthorized DNS record modifications"
+confidence   = 0.89
+observations = 15000
+
+[[entries]]
+situation    = "API abuse or mass data scraping"
+approach     = "Facebook/Cambridge Analytica (2018, 87M profiles) exploited legitimate API access — LinkedIn scraping (2021, 700M profiles) used public API — Parler (2021) had no rate limiting, entire platform scraped — defense: rate limiting with exponential backoff, require authentication for all endpoints, monitor for unusual query patterns, limit data returned per request, do not expose internal IDs in APIs"
+confidence   = 0.90
+observations = 40000
+
+[[entries]]
+situation    = "state-sponsored APT (Advanced Persistent Threat)"
+approach     = "APT groups maintain access for months to years — detection requires: behavioral analytics (not just signature-based), network traffic analysis for command-and-control beacons, endpoint detection and response (EDR), threat intelligence feeds mapping known APT TTPs — the MITRE ATT&CK framework maps every known technique — assume you are targeted, build detection for lateral movement and data staging"
+confidence   = 0.88
+observations = 25000
