@@ -65,6 +65,31 @@ Every AI says "I don't have memory between sessions." Hydra says "Based on our p
 
 That is not a feature. That is a new relationship between human and machine.
 
+## Your Machine. Your Data. Your Moat.
+
+Every cloud AI is a tenant. Your data lives on someone else's server, governed by someone else's privacy policy, accessible to someone else's employees, subject to someone else's subpoenas.
+
+Hydra runs on your machine. Period.
+
+```
+Memory:       ~/.hydra/data/hydra.amem      ← your disk, your file
+Genome:       ~/.hydra/data/genome.db       ← your knowledge, your database
+Credentials:  vault/*.toml                  ← your keys, never transmitted
+Skills:       skills/your-company/*.toml    ← your operational secrets
+Logs:         ~/.hydra/logs/                ← your audit trail
+
+Nothing phones home. Nothing syncs to a cloud.
+Nothing is accessible to anyone but you.
+```
+
+When you teach Hydra your company's operational playbook, that knowledge stays on your hardware. When Hydra learns your debugging patterns over 3 years, that genome belongs to you. When Hydra stores 10,000 conversations, those memories are files on your disk — not rows in someone else's database.
+
+This is not privacy by policy. It is privacy by architecture. There is no server to breach because there is no server.
+
+**The moat is local.** Your competitors cannot access your Hydra's genome. Your Hydra's memory is not training data for anyone else's model. Your operational knowledge does not leave your building.
+
+Every other AI gets smarter by learning from everyone. Your Hydra gets smarter by learning from YOU — and that knowledge is yours alone.
+
 ## Quickstart
 
 ```bash
