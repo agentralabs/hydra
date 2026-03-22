@@ -1,0 +1,84 @@
+[[mappings]]
+domain_concept  = "deploy"
+axiom_primitive = "Risk"
+weight          = 0.85
+
+[[mappings]]
+domain_concept  = "merge"
+axiom_primitive = "Risk"
+weight          = 0.75
+
+[[mappings]]
+domain_concept  = "rebase"
+axiom_primitive = "Risk"
+weight          = 0.80
+
+[[mappings]]
+domain_concept  = "production"
+axiom_primitive = "Risk"
+weight          = 0.90
+
+[[mappings]]
+domain_concept  = "incident"
+axiom_primitive = "Risk"
+weight          = 0.95
+
+[[mappings]]
+domain_concept  = "migration"
+axiom_primitive = "Risk"
+weight          = 0.85
+
+[[mappings]]
+domain_concept  = "refactor"
+axiom_primitive = "Risk"
+weight          = 0.70
+
+[[mappings]]
+domain_concept  = "cache"
+axiom_primitive = "Dependency"
+weight          = 0.75
+
+[[mappings]]
+domain_concept  = "index"
+axiom_primitive = "Volume"
+weight          = 0.75
+
+[[mappings]]
+domain_concept  = "scaling"
+axiom_primitive = "Volume"
+weight          = 0.85
+
+[[mappings]]
+domain_concept  = "latency"
+axiom_primitive = "Volume"
+weight          = 0.80
+
+[[mappings]]
+domain_concept  = "throughput"
+axiom_primitive = "Volume"
+weight          = 0.80
+
+[[mappings]]
+domain_concept  = "dependency"
+axiom_primitive = "Dependency"
+weight          = 0.80
+
+[[mappings]]
+domain_concept  = "monorepo"
+axiom_primitive = "Dependency"
+weight          = 0.70
+
+[[mappings]]
+domain_concept  = "microservice"
+axiom_primitive = "Dependency"
+weight          = 0.80
+
+[[mappings]]
+domain_concept  = "interview"
+axiom_primitive = "Understanding"
+weight          = 0.70
+
+[[mappings]]
+domain_concept  = "open source"
+axiom_primitive = "Understanding"
+weight          = 0.65

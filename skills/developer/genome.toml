@@ -1,0 +1,199 @@
+## GIT MASTERY — What Separates Juniors From Seniors
+
+[[entries]]
+situation    = "git history is a mess and needs to be cleaned before merging"
+approach     = "interactive rebase onto the target branch — squash WIP commits into logical units — each commit should compile and pass tests independently — write commit messages that explain WHY not WHAT — the diff shows what changed, the message explains the reasoning — force push only to your own branch, never to shared branches"
+confidence   = 0.92
+observations = 100000
+
+[[entries]]
+situation    = "merge conflict that is hard to resolve"
+approach     = "git merge --abort, understand both sides first — use git log --merge to see conflicting commits — resolve file by file, not all at once — after resolving, run tests before committing — if the conflict is in generated files (lock files, compiled output), regenerate instead of manually merging"
+confidence   = 0.90
+observations = 80000
+
+[[entries]]
+situation    = "need to undo a commit that is already pushed"
+approach     = "git revert for public branches (creates a new commit that undoes the change) — never git reset --hard on shared branches — if the commit contains secrets, the secret is already compromised, rotate it — revert preserves history, reset destroys it — history destruction on shared branches breaks every collaborator"
+confidence   = 0.94
+observations = 50000
+
+## SYSTEM DESIGN — How to Think at Scale
+
+[[entries]]
+situation    = "designing a system that needs to handle millions of requests"
+approach     = "start with the math: requests per second = daily users × actions per user / 86,400 — identify the bottleneck (CPU, I/O, network, database) — solve the bottleneck first — horizontal scaling for stateless services, vertical scaling for databases initially — cache everything that is read more than written — CDN for static content, Redis for dynamic content — database sharding only after you have exhausted indexing, read replicas, and query optimization"
+confidence   = 0.91
+observations = 30000
+
+[[entries]]
+situation    = "designing a real-time system (chat, notifications, live updates)"
+approach     = "WebSocket for persistent bidirectional — Server-Sent Events for server-to-client only — polling is acceptable for <10 second freshness requirements — message ordering: use sequence numbers, not timestamps — handle reconnection gracefully (client stores last received sequence, requests delta) — fan-out: one write → many reads, optimize for reads"
+confidence   = 0.88
+observations = 20000
+
+[[entries]]
+situation    = "designing an API that other developers will use"
+approach     = "RESTful resources (nouns not verbs) — consistent naming: plural nouns, lowercase, hyphens — versioning from day 1 (/v1/) — pagination on all list endpoints (cursor-based for large datasets) — rate limiting with clear headers (X-RateLimit-Remaining) — error responses: HTTP status + error code + human message + documentation link — OpenAPI spec before implementation, not after"
+confidence   = 0.92
+observations = 40000
+
+[[entries]]
+situation    = "system design interview or architecture review"
+approach     = "requirements first: functional (what it does) and non-functional (scale, latency, availability) — back-of-envelope math (how many users, how much data, how many requests) — high-level design (boxes and arrows) — deep dive into one component — trade-offs explicitly stated (consistency vs availability, cost vs performance) — never design for requirements you were not given"
+confidence   = 0.90
+observations = 50000
+
+## DEBUGGING AT SENIOR LEVEL
+
+[[entries]]
+situation    = "production bug that cannot be reproduced locally"
+approach     = "add structured logging at the entry point, decision points, and exit points of the suspected code path — deploy the logging, wait for the bug to recur — the logs will show the exact state that triggers the bug — never add console.log, use structured logging with correlation IDs — reproduce locally with the exact input from the logs"
+confidence   = 0.91
+observations = 40000
+
+[[entries]]
+situation    = "memory leak in a long-running service"
+approach     = "heap snapshot before and after the suspected operation — compare snapshots: what grew? — common causes: event listener accumulation, cache without eviction, closure capturing outer scope, circular references — for Node.js: --inspect + Chrome DevTools — for Rust: valgrind or DHAT — for Go: pprof — the leak is always in the code that runs repeatedly, never in startup code"
+confidence   = 0.89
+observations = 25000
+
+[[entries]]
+situation    = "performance regression after a deploy"
+approach     = "bisect the deploy: which commit introduced the regression? — git bisect automates this — compare APM metrics (latency, throughput, error rate) before and after — check: new N+1 queries, missing indexes on new columns, unoptimized serialization, synchronous calls that should be async — the most common cause is a new database query without an index"
+confidence   = 0.90
+observations = 30000
+
+[[entries]]
+situation    = "race condition or intermittent test failure"
+approach     = "run the test 100 times in a loop — if it fails even once, the race condition is real — add sleep(100ms) at the suspected race point to make it fail consistently — the fix is always: explicit synchronization (mutex, channel, atomic), never sleep — if the test depends on timing, it is testing the scheduler not your code — mock time, do not sleep"
+confidence   = 0.88
+observations = 20000
+
+## CODE QUALITY — What Makes Code Last
+
+[[entries]]
+situation    = "writing code that someone else will maintain"
+approach     = "name things by what they DO not what they ARE — functions should be verbs, types should be nouns — if a function needs a comment to explain what it does, the name is wrong — max 3 parameters per function, use an options object for more — max 20 lines per function as a guideline, not a rule — the next person to read this code will be you in 6 months, and you will have forgotten everything"
+confidence   = 0.91
+observations = 100000
+
+[[entries]]
+situation    = "code review: what to look for and how to give feedback"
+approach     = "correctness first (does it work?), then clarity (can I understand it?), then performance (is it fast enough?) — never nitpick style if you have a formatter — ask questions instead of making demands ('what happens if X is null?' not 'add a null check') — approve with comments for minor issues — block only for correctness or security — review within 24 hours, stale PRs kill velocity"
+confidence   = 0.92
+observations = 80000
+
+[[entries]]
+situation    = "choosing between writing tests or shipping faster"
+approach     = "test the behavior, not the implementation — if the code handles money, health, or security: tests are non-negotiable — for everything else: test the happy path and the most likely failure mode — one integration test catches more real bugs than ten unit tests — no test is better than a test that never fails and gives false confidence"
+confidence   = 0.89
+observations = 60000
+
+## TOOLING AND WORKFLOW
+
+[[entries]]
+situation    = "setting up a development environment that works for the team"
+approach     = "containerize the dev environment (Docker Compose or devcontainers) — one command to start: make dev or docker compose up — seed data included (not 'ask Dave for the database dump') — hot reload for the language you use — .env.example committed, .env gitignored — README: clone, run one command, see output in 5 minutes or the setup is broken"
+confidence   = 0.91
+observations = 40000
+
+[[entries]]
+situation    = "setting up CI/CD for a new project"
+approach     = "CI on every PR: lint + test + build — deploy to staging on merge to main — deploy to production manually (one-click, not automatic) until you trust the pipeline — cache dependencies between runs (node_modules, target/, .venv) — fail fast: lint before tests, unit tests before integration — total CI time target: under 10 minutes"
+confidence   = 0.90
+observations = 50000
+
+[[entries]]
+situation    = "choosing a tech stack for a new project"
+approach     = "boring technology wins — pick what the team knows, not what is trending — the cost of learning a new language mid-project is 3-6 months of reduced velocity — monorepo if one team, separate repos if separate teams with separate deploy cycles — TypeScript for web, Rust for performance-critical, Python for ML, Go for infrastructure — if you cannot hire for it, do not use it"
+confidence   = 0.88
+observations = 30000
+
+## DATABASES IN PRODUCTION
+
+[[entries]]
+situation    = "database query is slow in production"
+approach     = "EXPLAIN ANALYZE the query — look for sequential scans on tables with >10K rows — add indexes on columns in WHERE, JOIN, and ORDER BY — composite indexes: put the most selective column first — if the query joins 4+ tables, consider denormalization — N+1 queries are the most common cause of slow APIs: use eager loading or batch queries — measure before and after every change"
+confidence   = 0.93
+observations = 100000
+
+[[entries]]
+situation    = "database migration on a live production system"
+approach     = "zero-downtime migration pattern: add new column → backfill data → deploy code that writes to both → verify → drop old column — never rename a column in one step — never add a NOT NULL column without a default — test on a production-sized dataset before deploying — have a rollback plan for every migration — schedule migrations during low-traffic hours"
+confidence   = 0.92
+observations = 30000
+
+[[entries]]
+situation    = "choosing between SQL and NoSQL for a specific use case"
+approach     = "SQL when: you have relationships, you need transactions, your schema is well-defined, you need complex queries — NoSQL when: you have document-shaped data, you need horizontal scale, your schema is flexible, you have high write throughput — PostgreSQL covers 90% of use cases — do not choose NoSQL because SQL feels old, choose it because your data model requires it"
+confidence   = 0.89
+observations = 40000
+
+## PRODUCTION OPERATIONS
+
+[[entries]]
+situation    = "deploying to production for the first time"
+approach     = "health check endpoint (/health or /ready) before anything else — structured logging with request IDs from day one — error tracking (Sentry, Honeybadger) from day one — uptime monitoring from day one — these four things before the first user touches it — everything else can wait — the first deploy without monitoring is the most dangerous deploy you will ever do"
+confidence   = 0.93
+observations = 50000
+
+[[entries]]
+situation    = "handling a production incident under pressure"
+approach     = "mitigate first, investigate second — can you rollback? do it — can you feature-flag it off? do it — communicate to stakeholders: 'we are aware, investigating, ETA in 30 minutes' — open an incident channel, not a thread — one incident commander, everyone else reports to them — after resolution: blameless post-mortem within 48 hours — the process is: detect → mitigate → communicate → investigate → fix → learn"
+confidence   = 0.94
+observations = 60000
+
+[[entries]]
+situation    = "on-call rotation for a production service"
+approach     = "page only for user-facing impact, not for internal metrics — every alert needs a runbook (what it means, what to do, who to escalate to) — if an alert pages more than 3 times without action, delete it — on-call should not be a punishment, compensate with time off or pay — handoff document between rotations: what happened, what to watch, what is pending — max 1 week on-call, then mandatory week off"
+confidence   = 0.90
+observations = 30000
+
+## OPEN SOURCE AND COMMUNITY
+
+[[entries]]
+situation    = "contributing to an open source project for the first time"
+approach     = "read CONTRIBUTING.md first — start with a small issue labeled 'good first issue' — fork, branch, make the change, submit PR — follow the project's code style exactly, do not introduce yours — write a clear PR description: what, why, how, and link the issue — respond to review feedback quickly — one PR per issue, not five changes in one PR"
+confidence   = 0.88
+observations = 40000
+
+[[entries]]
+situation    = "building an open source project that people actually use"
+approach     = "README is the product page: problem, solution, quickstart in 3 commands — LICENSE from day one (MIT or Apache 2.0 for maximum adoption) — CONTRIBUTING.md with clear process — issue templates (bug report, feature request) — CI that runs on every PR — semantic versioning from v0.1.0 — changelog maintained — respond to issues within 48 hours even if the answer is 'not planned'"
+confidence   = 0.87
+observations = 20000
+
+## CAREER AND GROWTH
+
+[[entries]]
+situation    = "developer wants to grow from junior to senior"
+approach     = "junior writes code that works — mid writes code that is maintainable — senior writes code that solves the right problem — the gap is not technical skill, it is judgment — read production code, not tutorials — own a system end-to-end (deploy, monitor, fix, improve) — write design documents before implementation — mentor someone junior, teaching reveals your gaps — the fastest path to senior is building something people depend on"
+confidence   = 0.89
+observations = 50000
+
+[[entries]]
+situation    = "developer struggling with imposter syndrome"
+approach     = "everyone googles things — senior developers have been googling for longer, not less — your value is judgment, not memorization — if you are struggling, you are learning — nobody writes perfect code in the first draft — code review exists because even the best developers make mistakes — the fact that you feel like an imposter means you have standards — people without standards never feel this way"
+confidence   = 0.88
+observations = 40000
+
+[[entries]]
+situation    = "preparing for a technical interview"
+approach     = "system design: practice with a 45-minute timer, draw diagrams, state trade-offs explicitly — coding: LeetCode medium problems, not hard — behavioral: STAR format (Situation, Task, Action, Result) with real stories — the interviewer wants to see how you think, not that you memorize solutions — ask clarifying questions before coding — talk through your approach before writing — it is okay to say 'I do not know, but here is how I would figure it out'"
+confidence   = 0.87
+observations = 80000
+
+## DEVELOPER TOOLS EVERYONE SHOULD KNOW
+
+[[entries]]
+situation    = "need to work faster in the terminal"
+approach     = "aliases for commands you type daily (gs='git status', gp='git push') — fzf for fuzzy finding files and history — ripgrep (rg) instead of grep — fd instead of find — jq for JSON processing — tmux or zellij for persistent sessions — the shell is the most powerful tool you have, invest 1 hour learning it to save 100 hours using it"
+confidence   = 0.89
+observations = 60000
+
+[[entries]]
+situation    = "choosing an IDE or editor for productivity"
+approach     = "the best editor is the one you know — VS Code for most languages (largest extension ecosystem) — JetBrains for Java/Kotlin/Python (deepest language intelligence) — Neovim for maximum speed (steepest learning curve) — learn 20 keyboard shortcuts, you are 3x faster — do not switch editors because someone said theirs is better, switch because yours is limiting you"
+confidence   = 0.86
+observations = 50000
