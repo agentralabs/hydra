@@ -13,6 +13,7 @@
 pub mod constants;
 pub mod distillation;
 pub mod engine;
+pub mod judgment_gate;
 pub mod errors;
 pub mod input;
 pub mod memory;
@@ -22,6 +23,7 @@ pub mod uncertainty;
 
 pub use distillation::{Archetype, MetaPattern, WisdomDistiller};
 pub use engine::WisdomEngine;
+pub use judgment_gate::{BlastRadius, JudgmentDecision, JudgmentInput, judge, can_act_autonomously};
 pub use uncertainty::{UncertaintyNode, UncertaintyTree};
 pub use errors::WisdomError;
 pub use input::{
