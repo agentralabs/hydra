@@ -174,7 +174,7 @@ observations = 5000
 
 Restart Hydra. It loads the skill. Done. No compilation. No training. No API.
 
-**28 skills ship out of the box:**
+**29 skills ship out of the box:**
 
 | Domain | Entries | Highlights |
 |--------|---------|-----------|
@@ -192,13 +192,33 @@ Restart Hydra. It loads the skill. Done. No compilation. No training. No API.
 
 ## Four Drop Folders
 
-Everything extends through text files:
+Everything extends through text files. Each folder has a README with the complete format specification.
+
+| Folder | What It Does | Format | Guide |
+|--------|-------------|--------|-------|
+| [`skills/`](skills/) | What Hydra **KNOWS** — domain knowledge, proven approaches | `genome.toml` + `functor.toml` | [Skills README](skills/README.md) |
+| [`integrations/`](integrations/) | What Hydra **CONNECTS TO** — APIs, data sources, web services | `api.toml` | [Integrations README](integrations/README.md) |
+| [`actions/`](actions/) | What Hydra **DOES** — shell commands, API calls, scheduled jobs | `action.toml` | [Actions README](actions/README.md) |
+| [`vault/`](vault/) | What Hydra **HAS ACCESS TO** — credentials, API keys, tokens | `credentials.toml` | [Vault README](vault/README.md) |
 
 ```
-skills/          → What Hydra KNOWS        (genome.toml + functor.toml)
-integrations/    → What Hydra CONNECTS TO  (api.toml — GitHub, YouTube, any API)
-actions/         → What Hydra DOES         (shell commands, API calls, schedules)
-vault/           → What Hydra HAS ACCESS   (credentials with permission gates)
+# Teach Hydra a new domain
+mkdir skills/your-domain
+echo '[[entries]]
+situation = "your scenario"
+approach  = "your proven solution"
+confidence = 0.90
+observations = 100' > skills/your-domain/genome.toml
+
+# Connect Hydra to a new API
+mkdir integrations/your-api
+# → add api.toml with endpoints + auth type
+
+# Give Hydra a new action
+mkdir actions/your-action
+# → add action.toml with command + approval mode
+
+# Restart. Hydra loads everything. Done.
 ```
 
 No code. Anyone can extend Hydra. A nurse. A trader. A teacher. A farmer.
