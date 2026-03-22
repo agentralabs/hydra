@@ -1,0 +1,44 @@
+[[mappings]]
+domain_concept  = "video"
+axiom_primitive = "Understanding"
+weight          = 0.75
+
+[[mappings]]
+domain_concept  = "transcript"
+axiom_primitive = "Understanding"
+weight          = 0.80
+
+[[mappings]]
+domain_concept  = "edit"
+axiom_primitive = "Dependency"
+weight          = 0.70
+
+[[mappings]]
+domain_concept  = "render"
+axiom_primitive = "Volume"
+weight          = 0.75
+
+[[mappings]]
+domain_concept  = "thumbnail"
+axiom_primitive = "Understanding"
+weight          = 0.65
+
+[[mappings]]
+domain_concept  = "subtitle"
+axiom_primitive = "Understanding"
+weight          = 0.70
+
+[[mappings]]
+domain_concept  = "viral"
+axiom_primitive = "Volume"
+weight          = 0.80
+
+[[mappings]]
+domain_concept  = "ffmpeg"
+axiom_primitive = "Dependency"
+weight          = 0.70
+
+[[mappings]]
+domain_concept  = "remotion"
+axiom_primitive = "Dependency"
+weight          = 0.70

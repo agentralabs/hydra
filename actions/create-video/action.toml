@@ -1,0 +1,53 @@
+# CREATE VIDEO — Generate a video using Remotion.
+# Hydra provides the content. Remotion renders the visuals.
+# World-class video from a conversation.
+#
+# Prerequisites: Node.js, npx, a Remotion project at the specified path
+
+[action]
+name        = "create-video"
+description = "Generate a video using Remotion from conversation content"
+trigger     = "manual"
+approval    = "required"
+
+[action.execute]
+type            = "shell"
+command         = '''
+cd {project_path} && \
+npx remotion render src/index.tsx {composition} \
+  --props='{"title": "{title}", "content": "{content}", "style": "{style}"}' \
+  --output out/{filename}.mp4 \
+  --codec h264
+echo "Video rendered: out/{filename}.mp4"
+'''
+timeout_seconds = 600
+
+[[action.parameters]]
+name     = "project_path"
+type     = "string"
+required = true
+
+[[action.parameters]]
+name     = "composition"
+type     = "string"
+default  = "Main"
+
+[[action.parameters]]
+name     = "title"
+type     = "string"
+required = true
+
+[[action.parameters]]
+name     = "content"
+type     = "string"
+required = true
+
+[[action.parameters]]
+name     = "style"
+type     = "string"
+default  = "professional"
+
+[[action.parameters]]
+name     = "filename"
+type     = "string"
+default  = "output"

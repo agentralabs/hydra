@@ -1,0 +1,46 @@
+# LEARN FROM VIDEO — Extract transcript, process, add to genome.
+# Hydra "watches" a video by reading its transcript.
+# A 1-hour lecture becomes genome entries in seconds.
+#
+# Usage: "Hydra, learn from this video: https://youtube.com/watch?v=..."
+
+[action]
+name        = "learn-from-video"
+description = "Extract transcript from a YouTube video and learn from it"
+trigger     = "manual"
+approval    = "required"
+
+[action.execute]
+type            = "shell"
+command         = '''
+# Extract transcript using yt-dlp (must be installed)
+yt-dlp --write-auto-sub --sub-lang en --skip-download \
+  --output "/tmp/hydra-video-%(id)s" "{url}" 2>/dev/null
+
+# Find the subtitle file
+SUB_FILE=$(ls /tmp/hydra-video-*.vtt 2>/dev/null | head -1)
+if [ -z "$SUB_FILE" ]; then
+  echo "ERROR: Could not extract transcript"
+  exit 1
+fi
+
+# Convert VTT to plain text (strip timestamps and formatting)
+grep -v "^[0-9]" "$SUB_FILE" | grep -v "^$" | grep -v "WEBVTT" | \
+  grep -v "\-\->" | sed 's/<[^>]*>//g' | sort -u > /tmp/hydra-transcript.txt
+
+# Output the transcript
+echo "=== TRANSCRIPT EXTRACTED ==="
+echo "Source: {url}"
+echo "Words: $(wc -w < /tmp/hydra-transcript.txt)"
+echo ""
+cat /tmp/hydra-transcript.txt
+
+# Cleanup
+rm -f /tmp/hydra-video-* /tmp/hydra-transcript.txt
+'''
+timeout_seconds = 120
+
+[[action.parameters]]
+name     = "url"
+type     = "string"
+required = true

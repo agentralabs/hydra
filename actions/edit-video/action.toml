@@ -1,0 +1,21 @@
+# EDIT VIDEO — Process video with FFmpeg.
+# Cut, merge, add subtitles, extract audio, convert formats.
+# World-class editing from a single command.
+#
+# Prerequisites: ffmpeg installed
+
+[action]
+name        = "edit-video"
+description = "Edit video using FFmpeg — cut, merge, subtitle, convert"
+trigger     = "manual"
+approval    = "required"
+
+[action.execute]
+type            = "shell"
+command         = 'ffmpeg -y {ffmpeg_args}'
+timeout_seconds = 300
+
+[[action.parameters]]
+name     = "ffmpeg_args"
+type     = "string"
+required = true

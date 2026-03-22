@@ -1,0 +1,63 @@
+## LEARNING FROM VIDEO
+
+[[entries]]
+situation    = "need to learn from a YouTube video or online lecture"
+approach     = "extract the transcript, not the video — a 1-hour video is 10,000 words of text that can be processed in seconds — the transcript captures 90% of the value, the visuals capture 10% — process the transcript through the cognitive pipeline and crystallize key insights into genome entries"
+confidence   = 0.90
+observations = 30000
+
+[[entries]]
+situation    = "finding the best video resource on a topic"
+approach     = "search by topic, sort by view count and relevance — high view count + high like ratio = community-validated content — check the channel: universities, official docs, and established creators over random uploads — a 15-minute focused video beats a 3-hour rambling one"
+confidence   = 0.87
+observations = 20000
+
+[[entries]]
+situation    = "extracting knowledge from a technical tutorial video"
+approach     = "read the transcript for the structure (intro → problem → solution → summary) — extract the key commands, code snippets, and configuration values — verify against official documentation — the tutorial may be outdated, the docs are current"
+confidence   = 0.85
+observations = 15000
+
+## VIDEO CREATION
+
+[[entries]]
+situation    = "creating a professional video from content"
+approach     = "structure first: hook (5 seconds) → problem (15 seconds) → solution (main content) → call to action (10 seconds) — the first 5 seconds determine if anyone watches the rest — use motion graphics for data, talking head for emotion, screen recording for tutorials — 1080p minimum, 4K for premium"
+confidence   = 0.88
+observations = 25000
+
+[[entries]]
+situation    = "editing video for social media"
+approach     = "vertical (9:16) for TikTok/Reels/Shorts, horizontal (16:9) for YouTube — under 60 seconds for short-form, 8-15 minutes for long-form — captions are mandatory (85% watch without sound) — hook in first 3 seconds — cut dead air aggressively — b-roll every 5 seconds keeps attention"
+confidence   = 0.89
+observations = 40000
+
+[[entries]]
+situation    = "adding subtitles or captions to a video"
+approach     = "auto-generate with Whisper or YouTube, then manually correct — burned-in captions (hardcoded in video) for social media — SRT/VTT files for YouTube and streaming — max 2 lines, max 42 characters per line — yellow or white text with dark outline for readability"
+confidence   = 0.91
+observations = 30000
+
+[[entries]]
+situation    = "choosing music and audio for a video"
+approach     = "audio is 50% of video quality — use royalty-free music (Epidemic Sound, Artlist, YouTube Audio Library) — match the energy: upbeat for intros, ambient for tutorials, dramatic for reveals — audio levels: voice at -6dB, music at -18dB to -24dB — always include a silent review pass to catch audio issues"
+confidence   = 0.87
+observations = 20000
+
+[[entries]]
+situation    = "color grading and visual polish"
+approach     = "start with white balance and exposure correction — apply a LUT (Look Up Table) for consistent color across clips — contrast: lift shadows slightly, pull highlights down — saturation: less is more, oversaturated video looks amateur — consistency matters more than style: every shot should match"
+confidence   = 0.85
+observations = 15000
+
+[[entries]]
+situation    = "creating a video content pipeline that scales"
+approach     = "batch production: script 5 videos → film all in one session → edit in parallel — templates: create reusable Remotion compositions with variable props — thumbnail first: if you cannot make a compelling thumbnail, the video idea is weak — repurpose: every long video becomes 3-5 shorts — schedule publishing, do not publish live"
+confidence   = 0.88
+observations = 20000
+
+[[entries]]
+situation    = "making a video go viral or maximize reach"
+approach     = "virality is not random, it is structural — the video must create an emotion (surprise, awe, anger, curiosity) in the first 3 seconds — titles that create curiosity gaps outperform descriptive titles — the algorithm rewards watch time percentage, not views — a 30-second video watched to completion beats a 10-minute video abandoned at 2 minutes"
+confidence   = 0.83
+observations = 50000

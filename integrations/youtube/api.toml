@@ -1,0 +1,36 @@
+# YOUTUBE — Hydra learns from any video on the internet.
+# Not by watching. By reading transcripts. 1-hour video = 2 seconds.
+#
+# Two capabilities:
+# 1. Get transcript of any video → learn from it → genome entry
+# 2. Search videos by topic → find the best teachers on any subject
+
+[integration]
+name        = "youtube"
+description = "Learn from any YouTube video via transcript extraction"
+protocol    = "REST"
+base_url    = "https://www.googleapis.com/youtube/v3"
+auth_type   = "query_param"
+auth_header = "key"
+docs_url    = "https://developers.google.com/youtube/v3/docs"
+
+# Search for videos on any topic
+[[capabilities.read]]
+name        = "search"
+endpoint    = "/search?part=snippet&q={query}&type=video&maxResults=5&order=relevance"
+method      = "GET"
+description = "Search YouTube for videos on any topic — returns top 5 by relevance"
+
+# Get video details (title, description, channel, duration)
+[[capabilities.read]]
+name        = "video-details"
+endpoint    = "/videos?part=snippet,contentDetails,statistics&id={video_id}"
+method      = "GET"
+description = "Get full details of a video — title, description, view count, duration"
+
+# Get captions/transcript list for a video
+[[capabilities.read]]
+name        = "captions"
+endpoint    = "/captions?part=snippet&videoId={video_id}"
+method      = "GET"
+description = "List available caption tracks for a video"
