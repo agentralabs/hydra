@@ -92,6 +92,35 @@ This is not privacy by policy. It is privacy by architecture. There is no server
 
 Every other AI gets smarter by learning from everyone. Your Hydra gets smarter by learning from YOU — and that knowledge is yours alone.
 
+### Run Anywhere. Backup Everything.
+
+Hydra runs on your laptop. It also runs on a server, a Raspberry Pi, a cloud VM, or a rack in your data center. Anywhere Rust compiles, Hydra lives.
+
+```
+Your laptop:     cargo run --release -p hydra-kernel --bin hydra -- --daemon
+Your server:     same binary, same data directory, same skills
+Your backup:     cp -r ~/.hydra /backup/hydra-$(date +%Y%m%d)
+Restore:         cp -r /backup/hydra-20260321 ~/.hydra
+
+That is it. Your entire Hydra — memory, genome, audit trail,
+settlement records — is a folder. Copy it. Backup it. Move it.
+The entity travels with its data.
+```
+
+**Server deployment** means Hydra is always reachable — from your phone, your laptop, your office, anywhere. The daemon runs 24/7. The dream loop writes genome entries overnight. Fleet agents monitor your systems. You connect via the TUI from any machine on your network.
+
+**Memory backup** means your Hydra can never be lost. A 2-year-old Hydra with 50,000 exchanges and 2,000 self-written genome entries is irreplaceable — unless you backed it up. One `cp` command. One cron job. The entity is immortal.
+
+```bash
+# Automated daily backup (add to crontab)
+0 3 * * * cp -r ~/.hydra /backup/hydra-$(date +\%Y\%m\%d)
+
+# Restore Hydra on a new machine
+cp -r /backup/hydra-20260321 ~/.hydra
+cargo run --release -p hydra-kernel --bin hydra -- --daemon
+# Hydra boots with all memory, genome, and audit trail intact
+```
+
 ## Quickstart
 
 ```bash
