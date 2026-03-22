@@ -1,0 +1,27 @@
+# WIKIPEDIA — The world's encyclopedia. No API key needed.
+# Hydra can read any article on any topic instantly.
+
+[integration]
+name        = "wikipedia"
+description = "Read any Wikipedia article — no API key required"
+protocol    = "REST"
+base_url    = "https://en.wikipedia.org/api/rest_v1"
+auth_type   = "none"
+
+[[capabilities.read]]
+name        = "summary"
+endpoint    = "/page/summary/{title}"
+method      = "GET"
+description = "Get a summary of any Wikipedia article"
+
+[[capabilities.read]]
+name        = "full-article"
+endpoint    = "/page/html/{title}"
+method      = "GET"
+description = "Get the full content of any Wikipedia article"
+
+[[capabilities.read]]
+name        = "search"
+endpoint    = "/page/search?q={query}&limit=5"
+method      = "GET"
+description = "Search Wikipedia for any topic"

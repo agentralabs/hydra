@@ -1,0 +1,40 @@
+[[mappings]]
+domain_concept  = "documentation"
+axiom_primitive = "Understanding"
+weight          = 0.85
+
+[[mappings]]
+domain_concept  = "wikipedia"
+axiom_primitive = "Understanding"
+weight          = 0.75
+
+[[mappings]]
+domain_concept  = "github"
+axiom_primitive = "Understanding"
+weight          = 0.80
+
+[[mappings]]
+domain_concept  = "tutorial"
+axiom_primitive = "Understanding"
+weight          = 0.70
+
+[[mappings]]
+domain_concept  = "stackoverflow"
+axiom_primitive = "Understanding"
+weight          = 0.65
+
+[[mappings]]
+domain_concept  = "official"
+axiom_primitive = "Understanding"
+weight          = 0.90
+
+[[mappings]]
+domain_concept  = "changelog"
+axiom_primitive = "Understanding"
+weight          = 0.75
+
+[[mappings]]
+domain_concept  = "verify"
+axiom_primitive = "Risk"
+weight          = 0.80
+notes           = "Verification signals potential misinformation risk"

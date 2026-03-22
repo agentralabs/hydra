@@ -1,0 +1,24 @@
+# WEB SEARCH — Hydra's gateway to the internet.
+# One API call answers "what does the internet say about X?"
+# Supports: Brave Search (default), Tavily, Google Custom Search
+
+[integration]
+name        = "web-search"
+description = "Search the entire internet — Hydra's omniscience gateway"
+protocol    = "REST"
+base_url    = "https://api.search.brave.com/res/v1"
+auth_type   = "header"
+auth_header = "X-Subscription-Token"
+docs_url    = "https://brave.com/search/api/"
+
+[[capabilities.read]]
+name        = "search"
+endpoint    = "/web/search?q={query}&count=5"
+method      = "GET"
+description = "Search the web for any topic — returns top 5 results with snippets"
+
+[[capabilities.read]]
+name        = "news"
+endpoint    = "/news/search?q={query}&count=5"
+method      = "GET"
+description = "Search recent news for any topic"

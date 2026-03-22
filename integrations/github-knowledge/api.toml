@@ -1,0 +1,46 @@
+# GITHUB KNOWLEDGE — Hydra reads the world's code.
+# Every public repository, every README, every issue is accessible.
+
+[integration]
+name        = "github-knowledge"
+description = "Read any public repository, README, code, issues, discussions"
+protocol    = "REST"
+base_url    = "https://api.github.com"
+auth_type   = "bearer"
+docs_url    = "https://docs.github.com/en/rest"
+
+[[capabilities.read]]
+name        = "search-repos"
+endpoint    = "/search/repositories?q={query}&sort=stars&per_page=5"
+method      = "GET"
+description = "Find repositories by topic, language, or keyword"
+
+[[capabilities.read]]
+name        = "search-code"
+endpoint    = "/search/code?q={query}&per_page=5"
+method      = "GET"
+description = "Search code across all public repositories"
+
+[[capabilities.read]]
+name        = "readme"
+endpoint    = "/repos/{owner}/{repo}/readme"
+method      = "GET"
+description = "Read a repository's README"
+
+[[capabilities.read]]
+name        = "file-content"
+endpoint    = "/repos/{owner}/{repo}/contents/{path}"
+method      = "GET"
+description = "Read any file in any public repository"
+
+[[capabilities.read]]
+name        = "issues"
+endpoint    = "/repos/{owner}/{repo}/issues?state=all&per_page=10"
+method      = "GET"
+description = "Read issues and discussions"
+
+[[capabilities.read]]
+name        = "commits"
+endpoint    = "/repos/{owner}/{repo}/commits?per_page=10"
+method      = "GET"
+description = "Read commit history"

@@ -28,6 +28,7 @@ pub mod self_knowledge;
 pub mod self_repair;
 pub mod state;
 pub mod task_engine;
+pub mod web_knowledge;
 
 // Re-exports for convenience
 pub use boot::{BootResult, run_boot_sequence};

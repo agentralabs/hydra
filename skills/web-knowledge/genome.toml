@@ -1,0 +1,47 @@
+[[entries]]
+situation    = "need to find authoritative documentation for a technology"
+approach     = "go to the official documentation first, never Stack Overflow or blogs for API reference — official docs are the source of truth — if official docs are unclear, check the GitHub repository's README and issues"
+confidence   = 0.95
+observations = 100000
+
+[[entries]]
+situation    = "researching a topic I know nothing about"
+approach     = "Wikipedia summary first for context, then follow the references to primary sources — Wikipedia is not a source, it is an index of sources — read the 'References' section, that is where the real knowledge is"
+confidence   = 0.90
+observations = 80000
+
+[[entries]]
+situation    = "need to understand how a popular open source project works"
+approach     = "read the README first, then the architecture docs or CONTRIBUTING.md, then the main entry point code — do not start with random source files — the README tells you what the project does, the architecture tells you how, the code tells you exactly"
+confidence   = 0.92
+observations = 50000
+
+[[entries]]
+situation    = "trying to solve a coding problem that others have likely solved"
+approach     = "search GitHub for repositories that solve similar problems — look at the most-starred repos first — read their approach, do not copy their code — understanding their solution is more valuable than importing their dependency"
+confidence   = 0.88
+observations = 40000
+
+[[entries]]
+situation    = "verifying if a piece of information is accurate"
+approach     = "check three independent sources — if all three agree, high confidence — if they disagree, investigate why — primary sources beat secondary sources — peer-reviewed beats opinion — recent beats old for fast-moving domains"
+confidence   = 0.91
+observations = 60000
+
+[[entries]]
+situation    = "need real-time or recent information"
+approach     = "web search with time filter — news sources for events, official announcements for product changes — social media is fast but unreliable — wait for confirmation from authoritative sources before acting on breaking news"
+confidence   = 0.85
+observations = 30000
+
+[[entries]]
+situation    = "learning about a domain where I have no existing genome entries"
+approach     = "find the canonical textbook or reference for that domain — every field has one book that everyone reads first — find that book — read its table of contents to understand the structure of the field — then read chapter 1"
+confidence   = 0.89
+observations = 50000
+
+[[entries]]
+situation    = "need to monitor ongoing changes in a technology or market"
+approach     = "subscribe to the official changelog or release notes — for open source: watch the GitHub releases — for APIs: check the changelog endpoint — for markets: official exchange data, not news commentary — first-party data beats third-party analysis"
+confidence   = 0.87
+observations = 20000
