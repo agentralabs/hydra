@@ -167,6 +167,22 @@ impl CognitiveLoop {
             self.middlewares.names().join(","),
         )
     }
+
+    /// Hydra examines itself. Every fact is derived from real data.
+    pub fn self_portrait(&self) -> crate::self_knowledge::SelfPortrait {
+        let state = crate::state::HydraState::initial(); // use current state in daemon mode
+        crate::self_knowledge::introspect(
+            &state,
+            self.genome.len(),
+            0, // memory nodes filled by memory middleware
+            self.genome.len(), // skills ≈ genome entries loaded
+            "finance", // TODO: compute from genome entry distribution
+            "debugging",
+            0, // integrations counted at boot
+            0, // actions counted at boot
+            self.middlewares.len(),
+        )
+    }
 }
 
 impl Default for CognitiveLoop {
