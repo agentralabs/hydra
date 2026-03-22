@@ -189,6 +189,30 @@ impl CycleMiddleware for IntelligenceMiddleware {
             }
         }
 
+        // Judgment Gate: should Hydra act, ask, or refuse?
+        let judgment = hydra_wisdom::judge(&hydra_wisdom::JudgmentInput {
+            confidence: conf,
+            blast_radius: hydra_wisdom::BlastRadius::Contained, // default for queries
+            trust_score: 0.9, // from trust field (simplified for now)
+            prior_successes: self.exchange_count,
+            action_description: perceived.raw.chars().take(60).collect(),
+        });
+        match &judgment {
+            hydra_wisdom::JudgmentDecision::Refuse { reason, .. } => {
+                perceived.enrichments.insert(
+                    "judgment".into(),
+                    format!("REFUSED: {reason}"),
+                );
+            }
+            hydra_wisdom::JudgmentDecision::Ask { reason, .. } => {
+                perceived.enrichments.insert(
+                    "judgment".into(),
+                    format!("NEEDS APPROVAL: {reason}"),
+                );
+            }
+            hydra_wisdom::JudgmentDecision::Act { .. } => {}
+        }
+
         // Wisdom synthesis
         let input = WisdomInput::new(&perceived.raw, domain).with_base_confidence(conf);
         if let Ok(statement) = self.wisdom.synthesize(&input) {
