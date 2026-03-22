@@ -53,6 +53,9 @@ pub fn run_all(hour: u32) -> HarnessRun {
     println!("-- INTEGRATION --------------------------------------");
     results.extend(layers::integration::run());
 
+    println!("-- NEW SUBSYSTEMS -----------------------------------");
+    results.extend(layers::new_subsystems::run());
+
     let ended = chrono::Utc::now();
 
     HarnessRun { hour, results, started, ended }

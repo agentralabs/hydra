@@ -79,6 +79,11 @@ hydra-legacy        = { path = "../hydra-legacy" }
 hydra-influence     = { path = "../hydra-influence" }
 hydra-continuity    = { path = "../hydra-continuity" }
 
+# UI
+hydra-voice         = { path = "../hydra-voice" }
+hydra-memory        = { path = "../hydra-memory" }
+hydra-tui           = { path = "../hydra-tui" }
+
 tokio      = { version = "1", features = ["full"] }
 serde      = { version = "1", features = ["derive"] }
 serde_json = "1"
