@@ -10,6 +10,9 @@ nohup.out
 # Specs — internal build instructions, not for distribution
 specs/
 
+# Catalogue — internal documentation, not public yet
+catalogue/
+
 # Harness reports and logs — generated output
 harness-reports/
 harness-*.log
