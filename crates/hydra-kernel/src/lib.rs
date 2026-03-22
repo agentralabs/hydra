@@ -25,6 +25,7 @@ pub mod loop_ambient;
 pub mod loop_dream;
 pub mod persistence;
 pub mod self_knowledge;
+pub mod self_repair;
 pub mod state;
 pub mod task_engine;
 

@@ -41,6 +41,17 @@ pub async fn run_boot_sequence() -> Result<BootResult, KernelError> {
         (BootPhase::TuiReady, tui_ready),
     ];
 
+    // Self-repair before boot phases — heal any damage from last run
+    let repairs = crate::self_repair::self_repair();
+    if !repairs.is_empty() {
+        let repaired = repairs.iter().filter(|(_, ok)| *ok).count();
+        let unresolved = repairs.len() - repaired;
+        eprintln!(
+            "hydra: boot self-repair: {} fixed, {} unresolved",
+            repaired, unresolved
+        );
+    }
+
     for (phase, f) in phases {
         run_phase(&phase, f).await?;
         phases_completed.push(phase.to_string());
