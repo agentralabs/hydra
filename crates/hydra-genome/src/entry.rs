@@ -77,6 +77,41 @@ impl GenomeEntry {
         let posterior_mean = alpha / (alpha + beta);
         posterior_mean.clamp(GENOME_MIN_CONFIDENCE, 1.0)
     }
+
+    /// Generate a calibrated confidence statement (CCA).
+    /// Computed in Rust — not LLM-generated. Mathematically grounded.
+    pub fn confidence_statement(&self) -> String {
+        let prior_strength = 10.0;
+        let alpha = self.initial_confidence * prior_strength + self.success_count as f64;
+        let beta = (1.0 - self.initial_confidence) * prior_strength
+            + (self.use_count.saturating_sub(self.success_count)) as f64;
+        let mean = alpha / (alpha + beta);
+        let variance = (alpha * beta) / ((alpha + beta).powi(2) * (alpha + beta + 1.0));
+        let std_dev = variance.sqrt();
+        let lower = (mean - 1.96 * std_dev).max(0.0);
+        let upper = (mean + 1.96 * std_dev).min(1.0);
+
+        let strength = if mean > 0.85 && (upper - lower) < 0.15 {
+            "STRONG"
+        } else if mean > 0.60 {
+            "MODERATE"
+        } else {
+            "EXPLORATORY"
+        };
+
+        let obs = self.use_count.max(
+            (self.initial_confidence * prior_strength) as u64,
+        );
+
+        format!(
+            "conf={:.0}% [{:.0}%-{:.0}%] obs={} strength={}",
+            mean * 100.0,
+            lower * 100.0,
+            upper * 100.0,
+            obs,
+            strength,
+        )
+    }
 }
 
 #[cfg(test)]

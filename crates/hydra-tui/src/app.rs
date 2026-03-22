@@ -2,6 +2,7 @@
 //!
 //! Ties together stream, status, input, pacer, and views.
 
+use crate::alert::AlertManager;
 use crate::cockpit::{CockpitMode, CockpitView};
 use crate::input::InputBox;
 use crate::pacer::{OutputPacer, PacerSignals};
@@ -12,7 +13,6 @@ use crate::verb::{ThinkingVerbState, VerbContext};
 use crate::welcome::WelcomeScreen;
 
 /// The top-level TUI state.
-#[derive(Debug, Clone)]
 pub struct HydraTui {
     /// The conversation stream.
     pub stream: ConversationStream,
@@ -26,6 +26,10 @@ pub struct HydraTui {
     pub cockpit: CockpitView,
     /// The welcome screen.
     pub welcome: WelcomeScreen,
+    /// Alert manager for tap-on-shoulder events.
+    pub alerts: AlertManager,
+    /// Companion signal channel (None if companion not enabled).
+    pub companion_channel: Option<hydra_signals::CompanionChannel>,
     /// Whether the TUI should quit.
     pub should_quit: bool,
 }
@@ -40,6 +44,8 @@ impl HydraTui {
             pacer: OutputPacer::new(),
             cockpit: CockpitView::new(),
             welcome: WelcomeScreen::new(),
+            alerts: AlertManager::new(),
+            companion_channel: None,
             should_quit: false,
         }
     }

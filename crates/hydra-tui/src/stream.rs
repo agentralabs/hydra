@@ -1,6 +1,6 @@
 //! ConversationStream — the scrollable stream of items in the cockpit.
 //!
-//! Rendering logic for each `StreamItem` variant.
+//! Multi-line rendering for belief boxes, dream notifications, and tool dots.
 
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
@@ -73,6 +73,7 @@ impl ConversationStream {
     }
 
     /// Render visible items as ratatui Lines for a given viewport height.
+    /// Items may render as multiple lines (belief boxes, dream notifications).
     pub fn to_lines(&self, viewport_height: usize) -> Vec<Line<'static>> {
         if self.items.is_empty() {
             return vec![Line::from("")];
@@ -82,10 +83,25 @@ impl ConversationStream {
         let end = total.saturating_sub(self.scroll_offset);
         let start = end.saturating_sub(viewport_height);
 
-        self.items[start..end]
+        let mut lines: Vec<Line<'static>> = self.items[start..end]
             .iter()
-            .map(|item| render_item(item))
-            .collect()
+            .flat_map(render_item)
+            .collect();
+
+        // Trim to viewport
+        if lines.len() > viewport_height {
+            let skip = lines.len() - viewport_height;
+            lines = lines[skip..].to_vec();
+        }
+
+        lines
+    }
+
+    /// Update the text of the last AssistantText item (for streaming).
+    pub fn update_last_text(&mut self, new_text: &str) {
+        if let Some(StreamItem::AssistantText { text, .. }) = self.items.last_mut() {
+            *text = new_text.to_string();
+        }
     }
 
     /// Clear all items from the stream.
@@ -101,56 +117,46 @@ impl Default for ConversationStream {
     }
 }
 
-/// Render a single stream item to a ratatui Line.
-fn render_item(item: &StreamItem) -> Line<'static> {
+/// Render a stream item to one or more ratatui Lines.
+fn render_item(item: &StreamItem) -> Vec<Line<'static>> {
+    let t = crate::theme::current();
+
     match item {
-        StreamItem::UserMessage { text, .. } => {
-            let (r, g, b) = constants::USER_MESSAGE_COLOR;
-            Line::from(vec![
-                Span::styled("▶ ", Style::default().fg(Color::Rgb(r, g, b))),
-                Span::styled(text.clone(), Style::default().fg(Color::Rgb(r, g, b))),
-            ])
-        }
+        StreamItem::UserMessage { text, .. } => vec![Line::from(vec![
+            Span::styled("▶ ", Style::default().fg(t.user_message)),
+            Span::styled(text.clone(), Style::default().fg(t.user_message)),
+        ])],
 
         StreamItem::AssistantText { text, .. } => {
-            let (r, g, b) = constants::ASSISTANT_TEXT_COLOR;
-            Line::from(Span::styled(
-                text.clone(),
-                Style::default().fg(Color::Rgb(r, g, b)),
-            ))
+            crate::render_markdown::render_assistant_text(text, &t)
         }
 
         StreamItem::ToolDot {
             tool_name, kind, ..
         } => {
             let color = kind.color();
-            Line::from(vec![
+            vec![Line::from(vec![
                 Span::styled(kind.symbol().to_string(), Style::default().fg(color)),
                 Span::raw(format!(" {tool_name}")),
-            ])
+            ])]
         }
 
-        StreamItem::ToolConnector { label, .. } => Line::from(Span::styled(
-            format!("  │ {label}"),
+        StreamItem::ToolConnector { label, .. } => vec![Line::from(Span::styled(
+            format!("  └ {label}"),
             Style::default().fg(Color::DarkGray),
-        )),
+        ))],
 
         StreamItem::Truncation {
             chars_truncated, ..
-        } => Line::from(Span::styled(
-            format!("  ... ({chars_truncated} chars truncated)"),
+        } => vec![Line::from(Span::styled(
+            format!("  ... ({chars_truncated} chars truncated, Ctrl+O to expand)"),
             Style::default().fg(Color::DarkGray),
-        )),
+        ))],
 
+        // Belief citation box — multi-line bordered rendering
         StreamItem::BeliefCitation {
             belief, confidence, ..
-        } => {
-            let conf_pct = (confidence * 100.0) as u8;
-            Line::from(Span::styled(
-                format!("  ⟨belief: {belief} ({conf_pct}%)⟩"),
-                Style::default().fg(Color::Rgb(167, 139, 250)),
-            ))
-        }
+        } => render_belief_box(belief, *confidence),
 
         StreamItem::CompanionTask {
             description,
@@ -158,18 +164,15 @@ fn render_item(item: &StreamItem) -> Line<'static> {
             ..
         } => {
             let (r, g, b) = constants::DOT_COLOR_COMPANION;
-            let status_str = companion_status_symbol(status);
-            Line::from(vec![
-                Span::styled(
-                    format!("{status_str} "),
-                    Style::default().fg(Color::Rgb(r, g, b)),
-                ),
-                Span::raw(description.clone()),
+            let sym = companion_status_symbol(status);
+            vec![Line::from(vec![
+                Span::styled(format!("{sym} "), Style::default().fg(Color::Rgb(r, g, b))),
+                Span::raw(format!("Companion ▸ {description}")),
                 Span::styled(
                     format!(" [{}]", status),
                     Style::default().fg(Color::DarkGray),
                 ),
-            ])
+            ])]
         }
 
         StreamItem::BriefingItem {
@@ -177,44 +180,98 @@ fn render_item(item: &StreamItem) -> Line<'static> {
         } => {
             let color = briefing_priority_color(priority);
             let prefix = match priority {
-                BriefingPriority::Urgent => "⚡",
-                BriefingPriority::High => "▲",
-                BriefingPriority::Normal => "•",
+                BriefingPriority::Urgent => "▲",
+                BriefingPriority::High => "●",
+                BriefingPriority::Normal => "○",
                 BriefingPriority::Low => "·",
             };
-            Line::from(vec![
-                Span::styled(format!("{prefix} "), Style::default().fg(color)),
+            vec![Line::from(vec![
+                Span::styled(format!("  {prefix} "), Style::default().fg(color)),
                 Span::styled(content.clone(), Style::default().fg(color)),
-            ])
+            ])]
         }
 
         StreamItem::DreamNotification { content, .. } => {
-            let (r, g, b) = constants::VERB_COLOR_DREAM;
-            Line::from(Span::styled(
-                format!("  ☽ {content}"),
-                Style::default().fg(Color::Rgb(r, g, b)),
-            ))
+            render_dream_notification(content)
         }
 
-        StreamItem::SystemNotification { content, .. } => {
-            let (r, g, b) = constants::SYSTEM_NOTIFICATION_COLOR;
-            Line::from(Span::styled(
-                format!("  ℹ {content}"),
-                Style::default().fg(Color::Rgb(r, g, b)),
-            ))
-        }
+        StreamItem::SystemNotification { content, .. } => vec![Line::from(Span::styled(
+            format!("  ℹ {content}"),
+            Style::default().fg(t.system_notification),
+        ))],
 
-        StreamItem::Blank => Line::from(""),
+        StreamItem::Blank => vec![Line::from("")],
     }
+}
+
+/// Render a belief citation as a bordered box.
+/// Border color: GREEN (>0.85), YELLOW (0.50-0.85), RED (<0.50).
+fn render_belief_box(belief: &str, confidence: f64) -> Vec<Line<'static>> {
+    let border_color = if confidence > 0.85 {
+        Color::Rgb(74, 222, 128) // green
+    } else if confidence >= 0.50 {
+        Color::Rgb(251, 191, 36) // yellow
+    } else {
+        Color::Rgb(248, 113, 113) // red
+    };
+    let conf_pct = (confidence * 100.0) as u8;
+    let bs = Style::default().fg(border_color);
+    let ts = Style::default().fg(Color::Rgb(180, 180, 180));
+
+    // Measure content width (capped at 60 chars for the belief text)
+    let display_belief: String = belief.chars().take(60).collect();
+    let header = format!(" Belief ({conf_pct}%) ");
+    let inner_width = display_belief.len().max(header.len()) + 2;
+    let top_pad = "─".repeat(inner_width.saturating_sub(header.len()));
+    let bot_line = "─".repeat(inner_width + 2);
+
+    vec![
+        Line::from(vec![
+            Span::styled("  ┌─", bs),
+            Span::styled(header, bs),
+            Span::styled(format!("{top_pad}┐"), bs),
+        ]),
+        Line::from(vec![
+            Span::styled("  │ ", bs),
+            Span::styled(format!("\"{display_belief}\""), ts),
+            Span::styled(" │", bs),
+        ]),
+        Line::from(Span::styled(format!("  └{bot_line}┘"), bs)),
+    ]
+}
+
+/// Render dream notification with numbered discoveries.
+fn render_dream_notification(content: &str) -> Vec<Line<'static>> {
+    let (r, g, b) = constants::VERB_COLOR_DREAM;
+    let dream_color = Color::Rgb(r, g, b);
+    let ds = Style::default().fg(dream_color);
+
+    let mut lines = vec![Line::from(Span::styled(
+        format!("  ☽ {content}"),
+        ds,
+    ))];
+
+    // If content has numbered items separated by newlines, render as connectors
+    for line in content.lines().skip(1) {
+        let trimmed = line.trim();
+        if !trimmed.is_empty() {
+            lines.push(Line::from(Span::styled(
+                format!("    └ {trimmed}"),
+                Style::default().fg(Color::DarkGray),
+            )));
+        }
+    }
+
+    lines
 }
 
 /// Return a status symbol for companion task status.
 fn companion_status_symbol(status: &CompanionStatus) -> &'static str {
     match status {
         CompanionStatus::Pending => "◇",
-        CompanionStatus::Running => "◈",
-        CompanionStatus::Complete => "◆",
-        CompanionStatus::Failed => "◇",
+        CompanionStatus::Running => "⏵",
+        CompanionStatus::Complete => "✓",
+        CompanionStatus::Failed => "✗",
         CompanionStatus::Cancelled => "◇",
     }
 }
@@ -223,10 +280,7 @@ fn companion_status_symbol(status: &CompanionStatus) -> &'static str {
 fn briefing_priority_color(priority: &BriefingPriority) -> Color {
     match priority {
         BriefingPriority::Low => Color::DarkGray,
-        BriefingPriority::Normal => {
-            let (r, g, b) = constants::ASSISTANT_TEXT_COLOR;
-            Color::Rgb(r, g, b)
-        }
+        BriefingPriority::Normal => Color::Rgb(180, 180, 180),
         BriefingPriority::High => {
             let (r, g, b) = constants::VERB_COLOR_GENERAL;
             Color::Rgb(r, g, b)

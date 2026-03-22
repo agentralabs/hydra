@@ -1,6 +1,12 @@
-//! `hydra-reach` — Universal device connectivity.
+//! `hydra-reach` — Universal device connectivity (base types).
 //! Hydra as a presence across any surface.
 //! Same entity. Same memory. Same identity. Any device.
+//!
+//! NOTE: This crate provides BASE TYPES for device connectivity.
+//! The production implementation is `hydra-reach-extended` which builds
+//! on these types and is wired into the kernel at boot.
+//! DO NOT wire hydra-reach directly into the kernel — use hydra-reach-extended.
+//! This crate exists as the type foundation. Changing it affects reach-extended.
 
 pub mod constants;
 pub mod continuity;

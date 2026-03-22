@@ -102,26 +102,34 @@ impl GenomeStore {
             })
             .collect();
 
-        // Score each entry: sum of IDF for matching terms
+        // DSEA: compute query axiom vector for semantic matching
+        let query_axiom = crate::signature::axiom_vector(&query_sig.keywords);
+
+        // Dual-space scoring: max(lexical_IDF, semantic_cosine)
         let mut scored: Vec<(&GenomeEntry, f64)> = self
             .entries
             .iter()
             .filter_map(|entry| {
-                let mut score = 0.0;
+                // Channel 1: Lexical (IDF + Jaccard)
+                let mut lexical_score = 0.0;
                 for (i, term) in query_terms.iter().enumerate() {
                     if entry.situation.keywords.contains(*term) {
-                        score += idfs[i];
+                        lexical_score += idfs[i];
                     }
                 }
-                // Also check Jaccard as a floor — if the entry has decent
-                // keyword overlap, boost it even if IDF terms don't fire
                 let jaccard = entry.situation.similarity(&query_sig);
                 if jaccard >= SITUATION_SIMILARITY_THRESHOLD {
-                    score = score.max(jaccard * 5.0); // scale Jaccard to IDF range
+                    lexical_score = lexical_score.max(jaccard * 5.0);
                 }
 
+                // Channel 2: Semantic (axiom vector cosine similarity)
+                let entry_axiom = crate::signature::axiom_vector(&entry.situation.keywords);
+                let semantic_score = crate::signature::axiom_cosine(&query_axiom, &entry_axiom) * 5.0;
+
+                // Dual-space: take the MAX of both channels
+                let score = lexical_score.max(semantic_score);
+
                 if score > 0.5 {
-                    // Weight by entry confidence
                     let weighted = score * entry.effective_confidence();
                     Some((entry, weighted))
                 } else {

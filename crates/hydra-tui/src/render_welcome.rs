@@ -1,6 +1,7 @@
-//! Welcome screen renderer — exact replica of hydra_welcome_v5.html.
+//! Welcome screen renderer — themed version.
 //!
-//! Every color is from HYDRA-TUI-DESIGN-SPEC.md. No approximations.
+//! Uses theme::current() for all chrome colors.
+//! Brand colors (AMBER, GOLD, etc.) come from the theme's accent fields.
 
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
@@ -8,28 +9,12 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, BorderType, Paragraph};
 use ratatui::Frame;
 
-// Spec colors
-const BG: Color = Color::Rgb(12, 12, 12);
-const AMBER: Color = Color::Rgb(200, 169, 110);
+use crate::theme;
+
+// Brand colors that stay the same in both themes
 const GOLD: Color = Color::Rgb(212, 170, 110);
 const GOLD_BRIGHT: Color = Color::Rgb(232, 200, 122);
-const GREEN: Color = Color::Rgb(74, 170, 106);
-const GREEN_DARK: Color = Color::Rgb(61, 140, 94);
-const GREEN_DIM: Color = Color::Rgb(45, 94, 58);
 const CYAN: Color = Color::Rgb(106, 184, 212);
-const GREETING: Color = Color::Rgb(224, 200, 138);
-const BRIGHT_TEXT: Color = Color::Rgb(153, 153, 153);
-const DIM_TEXT: Color = Color::Rgb(85, 85, 85);
-const DIMMER_TEXT: Color = Color::Rgb(68, 68, 68);
-const GHOST: Color = Color::Rgb(46, 46, 46);
-const AMBER_BORDER: Color = Color::Rgb(122, 106, 74);
-const GREEN_BORDER: Color = Color::Rgb(37, 58, 37);
-const LABEL_AMBER: Color = Color::Rgb(122, 106, 74);
-const LABEL_GREEN: Color = Color::Rgb(90, 122, 74);
-const LABEL_DIM: Color = Color::Rgb(62, 62, 62);
-const LYAP_SUB: Color = Color::Rgb(45, 110, 68);
-const IDENTITY_VAL: Color = Color::Rgb(106, 170, 212);
-const IDENTITY_SUB: Color = Color::Rgb(58, 110, 140);
 
 /// Welcome screen data collected at boot.
 pub struct WelcomeData {
@@ -43,6 +28,7 @@ pub struct WelcomeData {
     pub skills_active: usize,
     pub antifragile_classes: usize,
     pub systems_mapped: usize,
+    pub username: String,
 }
 
 impl Default for WelcomeData {
@@ -58,48 +44,48 @@ impl Default for WelcomeData {
             skills_active: 0,
             antifragile_classes: 0,
             systems_mapped: 0,
+            username: "operator".into(),
         }
     }
 }
 
 /// Render the full welcome screen.
 pub fn render(f: &mut Frame, area: Rect, data: &WelcomeData) {
-    // Check minimum size
+    let t = theme::current();
+
     if area.width < 80 || area.height < 24 {
         let msg = Paragraph::new("◈ HYDRA — Terminal too small (min 80×24)")
-            .style(Style::default().fg(AMBER).bg(BG));
+            .style(Style::default().fg(t.accent).bg(t.bg_primary));
         f.render_widget(msg, area);
         return;
     }
 
-    // Background
-    let bg_block = Block::default().style(Style::default().bg(BG));
+    let bg_block = Block::default().style(Style::default().bg(t.bg_primary));
     f.render_widget(bg_block, area);
 
-    // Main layout: top frame, gap, bottom frame, gap, input row
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
         .constraints([
-            Constraint::Min(12),    // top frame
-            Constraint::Length(1),  // gap
-            Constraint::Min(8),     // bottom frame
-            Constraint::Length(1),  // gap
-            Constraint::Length(2),  // input row
+            Constraint::Min(12),
+            Constraint::Length(1),
+            Constraint::Min(8),
+            Constraint::Length(1),
+            Constraint::Length(2),
         ])
         .split(area);
 
-    render_top_frame(f, chunks[0], data);
-    render_bottom_frame(f, chunks[2], data);
-    render_input_row(f, chunks[4]);
+    render_top_frame(f, chunks[0], data, &t);
+    render_bottom_frame(f, chunks[2], data, &t);
+    render_input_row(f, chunks[4], &t);
 }
 
-fn render_top_frame(f: &mut Frame, area: Rect, data: &WelcomeData) {
+fn render_top_frame(f: &mut Frame, area: Rect, data: &WelcomeData, t: &theme::Theme) {
     let block = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(AMBER_BORDER))
-        .style(Style::default().bg(BG));
+        .border_style(Style::default().fg(t.frame_top))
+        .style(Style::default().bg(t.bg_primary));
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -108,58 +94,84 @@ fn render_top_frame(f: &mut Frame, area: Rect, data: &WelcomeData) {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(inner);
 
-    render_top_left(f, cols[0], data);
-    render_top_right(f, cols[1], data);
+    render_top_left(f, cols[0], data, t);
+    render_top_right(f, cols[1], data, t);
 }
 
-fn render_top_left(f: &mut Frame, area: Rect, data: &WelcomeData) {
+fn render_top_left(f: &mut Frame, area: Rect, data: &WelcomeData, t: &theme::Theme) {
+    let bright = t.fg_primary;
+    let dim = t.fg_secondary;
+    let label_amber = t.label;
+
+    let g1 = GOLD;
+    let g2 = GOLD_BRIGHT;
+    let gr = Color::Rgb(122, 200, 122);
+
     let mut lines = vec![
-        // Logo row: ◈ HYDRA with gradient
+        // Diamond logo — 5 lines, matches HTML SVG diamond shape
         Line::from(vec![
-            Span::styled("  ◈  ", Style::default().fg(AMBER)),
-            Span::styled("H", Style::default().fg(GOLD)),
-            Span::styled("Y", Style::default().fg(GOLD)),
-            Span::styled("D", Style::default().fg(GOLD_BRIGHT)),
-            Span::styled("R", Style::default().fg(Color::Rgb(122, 200, 122))),
-            Span::styled("A", Style::default().fg(CYAN)),
+            Span::styled("        ◆        ", Style::default().fg(g1)),
+        ]),
+        Line::from(vec![
+            Span::styled("      ◇", Style::default().fg(g1)),
+            Span::styled(" ◈ ", Style::default().fg(t.accent)),
+            Span::styled("◇      ", Style::default().fg(gr)),
+        ]),
+        Line::from(vec![
+            Span::styled("    ◇", Style::default().fg(g1)),
+            Span::styled("  H Y D R A  ", Style::default().fg(g2)),
+            Span::styled("◇    ", Style::default().fg(CYAN)),
+        ]),
+        Line::from(vec![
+            Span::styled("      ◇", Style::default().fg(gr)),
+            Span::styled("     ", Style::default().fg(t.accent)),
+            Span::styled("◇      ", Style::default().fg(CYAN)),
+        ]),
+        Line::from(vec![
+            Span::styled("        ◆        ", Style::default().fg(CYAN)),
         ]),
         // Status sub-row
         Line::from(vec![
-            Span::styled("     ● ", Style::default().fg(GREEN_DARK)),
-            Span::styled("alive", Style::default().fg(GREEN_DARK)),
-            Span::styled(" │ ", Style::default().fg(DIM_TEXT)),
-            Span::styled(format!("v{}", data.version), Style::default().fg(DIM_TEXT)),
-            Span::styled(" │ ", Style::default().fg(DIM_TEXT)),
+            Span::styled("     ● ", Style::default().fg(t.alive)),
+            Span::styled("alive", Style::default().fg(t.alive)),
+            Span::styled(" │ ", Style::default().fg(dim)),
+            Span::styled(format!("v{}", data.version), Style::default().fg(dim)),
+            Span::styled(" │ ", Style::default().fg(dim)),
             Span::styled(
                 format!("step {}", format_number(data.step_count)),
-                Style::default().fg(DIM_TEXT),
+                Style::default().fg(dim),
             ),
         ]),
         Line::from(""),
-        // Greeting
         Line::from(Span::styled(
-            format!("  Good {}, Omoshola.", time_of_day()),
-            Style::default().fg(GREETING),
+            format!("  Good {}, {}.", time_of_day(), data.username),
+            Style::default().fg(t.greeting),
         )),
         Line::from(""),
-        // Section: COGNITIVE STATE
-        Line::from(Span::styled(
-            "  COGNITIVE STATE",
-            Style::default().fg(LABEL_AMBER),
-        )),
-        kv_line("  beliefs loaded", &data.beliefs_loaded.to_string(), AMBER),
-        kv_line("  skills active", &data.skills_active.to_string(), BRIGHT_TEXT),
-        kv_line("  persona", "core", GREEN),
-        kv_line("  antifragile", &format!("{} obstacle classes", data.antifragile_classes), CYAN),
-        kv_line("  cartography", &format!("{} systems mapped", data.systems_mapped), CYAN),
+        Line::from(Span::styled("  COGNITIVE STATE", Style::default().fg(label_amber))),
+        kv_line("  beliefs loaded", &data.beliefs_loaded.to_string(), t.accent, t),
+        kv_line("  skills active", &data.skills_active.to_string(), bright, t),
+        kv_line("  persona", "core", t.success, t),
+        kv_line(
+            "  antifragile",
+            &format!("{} obstacle classes", data.antifragile_classes),
+            CYAN,
+            t,
+        ),
+        kv_line(
+            "  cartography",
+            &format!("{} systems mapped", data.systems_mapped),
+            CYAN,
+            t,
+        ),
     ];
     lines.truncate(area.height as usize);
 
-    let para = Paragraph::new(lines).style(Style::default().bg(BG));
+    let para = Paragraph::new(lines).style(Style::default().bg(t.bg_primary));
     f.render_widget(para, area);
 }
 
-fn render_top_right(f: &mut Frame, area: Rect, data: &WelcomeData) {
+fn render_top_right(f: &mut Frame, area: Rect, data: &WelcomeData, t: &theme::Theme) {
     let cwd = std::env::current_dir()
         .map(|p| p.display().to_string())
         .unwrap_or_else(|_| "unknown".into());
@@ -170,44 +182,34 @@ fn render_top_right(f: &mut Frame, area: Rect, data: &WelcomeData) {
     };
 
     let mut lines = vec![
-        Line::from(Span::styled(
-            "  WORKING CONTEXT",
-            Style::default().fg(LABEL_AMBER),
-        )),
-        kv_line("  project", &short_cwd, AMBER),
-        kv_line("  branch", "main · clean", BRIGHT_TEXT),
-        kv_line(
-            "  phase",
-            &format!("{} verified ✓", data.step_count),
-            GREEN,
-        ),
-        kv_line("  model", "claude-opus-4-6", BRIGHT_TEXT),
+        Line::from(Span::styled("  WORKING CONTEXT", Style::default().fg(t.label))),
+        kv_line("  project", &short_cwd, t.accent, t),
+        kv_line("  branch", "main · clean", t.fg_primary, t),
+        kv_line("  phase", &format!("{} verified ✓", data.step_count), t.success, t),
+        kv_line("  model", "claude-sonnet-4-20250514", t.fg_primary, t),
         Line::from(""),
-        Line::from(Span::styled(
-            "  RECENT ACTIVITY",
-            Style::default().fg(LABEL_DIM),
-        )),
-        activity_line("✓", GREEN_DARK, "kernel boot complete", BRIGHT_TEXT),
-        activity_line("✓", GREEN_DARK, "constitution verified (7 laws)", BRIGHT_TEXT),
+        Line::from(Span::styled("  RECENT ACTIVITY", Style::default().fg(t.fg_muted))),
+        activity_line("✓", t.alive, "kernel boot complete", t.fg_primary),
+        activity_line("✓", t.alive, "constitution verified (7 laws)", t.fg_primary),
         activity_line(
             "◑",
-            AMBER,
+            t.accent,
             &format!("genome: {} entries", data.genome_entries),
-            BRIGHT_TEXT,
+            t.fg_primary,
         ),
     ];
     lines.truncate(area.height as usize);
 
-    let para = Paragraph::new(lines).style(Style::default().bg(BG));
+    let para = Paragraph::new(lines).style(Style::default().bg(t.bg_primary));
     f.render_widget(para, area);
 }
 
-fn render_bottom_frame(f: &mut Frame, area: Rect, data: &WelcomeData) {
+fn render_bottom_frame(f: &mut Frame, area: Rect, data: &WelcomeData, t: &theme::Theme) {
     let block = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(GREEN_BORDER))
-        .style(Style::default().bg(BG));
+        .border_style(Style::default().fg(t.frame_bottom))
+        .style(Style::default().bg(t.bg_primary));
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -216,89 +218,82 @@ fn render_bottom_frame(f: &mut Frame, area: Rect, data: &WelcomeData) {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(inner);
 
-    render_bottom_left(f, cols[0]);
-    render_bottom_right(f, cols[1], data);
+    render_bottom_left(f, cols[0], t);
+    render_bottom_right(f, cols[1], data, t);
 }
 
-fn render_bottom_left(f: &mut Frame, area: Rect) {
+fn render_bottom_left(f: &mut Frame, area: Rect, t: &theme::Theme) {
     let mut lines = vec![
         Line::from(Span::styled(
             "  WHILE YOU WERE AWAY",
-            Style::default().fg(LABEL_GREEN),
+            Style::default().fg(t.label_green),
         )),
         Line::from(vec![
-            Span::styled("  ○ ", Style::default().fg(DIMMER_TEXT)),
-            Span::styled("No pending briefings", Style::default().fg(DIM_TEXT)),
+            Span::styled("  ○ ", Style::default().fg(t.fg_muted)),
+            Span::styled("No pending briefings", Style::default().fg(t.fg_secondary)),
         ]),
     ];
     lines.truncate(area.height as usize);
 
-    let para = Paragraph::new(lines).style(Style::default().bg(BG));
+    let para = Paragraph::new(lines).style(Style::default().bg(t.bg_primary));
     f.render_widget(para, area);
 }
 
-fn render_bottom_right(f: &mut Frame, area: Rect, data: &WelcomeData) {
+fn render_bottom_right(f: &mut Frame, area: Rect, data: &WelcomeData, t: &theme::Theme) {
+    let green_dim = Color::Rgb(45, 94, 58);
+
     let mut lines = vec![
-        Line::from(Span::styled(
-            "  ENTITY HEALTH",
-            Style::default().fg(GREEN_DIM),
-        )),
+        Line::from(Span::styled("  ENTITY HEALTH", Style::default().fg(green_dim))),
         Line::from(vec![
-            Span::styled("  V(Ψ) ", Style::default().fg(DIMMER_TEXT)),
-            Span::styled(format!("{:+.2}", data.lyapunov), Style::default().fg(GREEN)),
-            Span::styled("  stable", Style::default().fg(LYAP_SUB)),
+            Span::styled("  V(Ψ) ", Style::default().fg(t.fg_muted)),
+            Span::styled(format!("{:+.2}", data.lyapunov), Style::default().fg(t.success)),
+            Span::styled("  stable", Style::default().fg(t.lyapunov_sub)),
         ]),
         Line::from(vec![
-            Span::styled("  Γ̂(Ψ) ", Style::default().fg(DIMMER_TEXT)),
-            Span::styled(format!("{:+.3}", data.growth_rate), Style::default().fg(GREEN)),
-            Span::styled("  growing", Style::default().fg(LYAP_SUB)),
+            Span::styled("  Γ̂(Ψ) ", Style::default().fg(t.fg_muted)),
+            Span::styled(format!("{:+.3}", data.growth_rate), Style::default().fg(t.success)),
+            Span::styled("  growing", Style::default().fg(t.lyapunov_sub)),
         ]),
         Line::from(vec![
-            Span::styled("  depth ", Style::default().fg(DIMMER_TEXT)),
-            Span::styled(
-                format_number(data.morphic_depth),
-                Style::default().fg(IDENTITY_VAL),
-            ),
-            Span::styled("  morphic events", Style::default().fg(IDENTITY_SUB)),
+            Span::styled("  depth ", Style::default().fg(t.fg_muted)),
+            Span::styled(format_number(data.morphic_depth), Style::default().fg(t.identity_val)),
+            Span::styled("  morphic events", Style::default().fg(t.identity_sub)),
         ]),
         Line::from(vec![
-            Span::styled("  genome ", Style::default().fg(DIMMER_TEXT)),
+            Span::styled("  genome ", Style::default().fg(t.fg_muted)),
             Span::styled(
                 format_number(data.genome_entries as u64),
-                Style::default().fg(IDENTITY_VAL),
+                Style::default().fg(t.identity_val),
             ),
-            Span::styled("  permanent entries", Style::default().fg(IDENTITY_SUB)),
+            Span::styled("  permanent entries", Style::default().fg(t.identity_sub)),
         ]),
     ];
     lines.truncate(area.height as usize);
 
-    let para = Paragraph::new(lines).style(Style::default().bg(BG));
+    let para = Paragraph::new(lines).style(Style::default().bg(t.bg_primary));
     f.render_widget(para, area);
 }
 
-fn render_input_row(f: &mut Frame, area: Rect) {
+fn render_input_row(f: &mut Frame, area: Rect, t: &theme::Theme) {
     let lines = vec![
         Line::from(vec![
-            Span::styled("  ◈  ", Style::default().fg(AMBER)),
-            Span::styled("what are we building today?", Style::default().fg(DIMMER_TEXT)),
-            Span::styled("█", Style::default().fg(AMBER)),
+            Span::styled("  ◈  ", Style::default().fg(t.accent)),
+            Span::styled("what are we building today?", Style::default().fg(t.fg_muted)),
+            Span::styled("█", Style::default().fg(t.accent)),
         ]),
         Line::from(Span::styled(
             "  Ctrl+V voice  ·  /dream  ·  /digest  ·  /help",
-            Style::default().fg(GHOST),
+            Style::default().fg(t.fg_ghost),
         )),
     ];
-    let para = Paragraph::new(lines).style(Style::default().bg(BG));
+    let para = Paragraph::new(lines).style(Style::default().bg(t.bg_primary));
     f.render_widget(para, area);
 }
 
 // Helpers
-fn kv_line(key: &str, value: &str, val_color: Color) -> Line<'static> {
+fn kv_line(key: &str, value: &str, val_color: Color, t: &theme::Theme) -> Line<'static> {
     Line::from(vec![
-        Span::styled(
-            format!("{key:<20}"),
-            Style::default().fg(Color::Rgb(74, 74, 74)),
-        ),
+        Span::styled(format!("{key:<20}"), Style::default().fg(t.fg_muted)),
         Span::styled(value.to_string(), Style::default().fg(val_color)),
     ])
 }

@@ -2,11 +2,13 @@
 //!
 //! Layout from spec:
 //! `◈ Hydra  session:42m  tasks:3  V=0.42      tokens:12k  ◑ Forging`
+//!
+//! Token display: count only. NEVER cost ($). Per spec.
 
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 
-use crate::constants;
+use crate::theme;
 use crate::verb::ThinkingVerbState;
 
 /// Data for the status line at the bottom of the cockpit.
@@ -39,7 +41,7 @@ impl StatusLine {
         }
     }
 
-    /// Format token count per spec: under 1k exact, else Nk.
+    /// Format token count per spec: under 1k exact, else Nk. Never cost.
     fn format_tokens(tokens: u64) -> String {
         if tokens < 1_000 {
             format!("{tokens}")
@@ -55,11 +57,9 @@ impl StatusLine {
 
     /// Format the status line as a ratatui Line for the bottom bar.
     pub fn format(&self) -> Line<'static> {
-        let (bg_r, bg_g, bg_b) = constants::STATUS_BAR_BG;
-        let (fg_r, fg_g, fg_b) = constants::STATUS_BAR_FG;
-
-        let bg = Color::Rgb(bg_r, bg_g, bg_b);
-        let fg = Color::Rgb(fg_r, fg_g, fg_b);
+        let t = theme::current();
+        let bg = t.status_bar_bg;
+        let fg = t.status_bar_fg;
         let base_style = Style::default().fg(fg).bg(bg);
 
         // Lyapunov color: > 0.3 green, > 0 yellow, <= 0 red.

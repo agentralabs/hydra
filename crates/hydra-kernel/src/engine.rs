@@ -4,6 +4,8 @@
 //! If reasoning resolves the input, zero LLM tokens are used.
 //! Middleware chain hooks at 5 points along the pipeline.
 
+use std::collections::HashMap;
+
 use hydra_genome::GenomeStore;
 
 use crate::loop_::{
@@ -17,6 +19,31 @@ use crate::loop_::{
     types::CycleResult,
 };
 
+/// Full output from a cognitive cycle — response + metadata + enrichments.
+/// Used by the TUI to surface kernel intelligence as visual elements.
+#[derive(Debug, Clone)]
+pub struct CycleOutput {
+    pub response: String,
+    pub enrichments: HashMap<String, String>,
+    pub tokens_used: usize,
+    pub duration_ms: u64,
+    pub path: String,
+    pub success: bool,
+}
+
+/// A prepared cycle ready for LLM call. Everything computed except the response.
+pub struct PreparedCycle {
+    pub session_id: String,
+    pub enrichments: HashMap<String, String>,
+    pub path_label: String,
+    pub needs_llm: bool,
+    pub resolved_text: Option<String>,
+    pub prompt: Option<crate::loop_::prompt::EnrichedPrompt>,
+    pub raw_input: String,
+    pub domain: String,
+    start: std::time::Instant,
+}
+
 /// The cognitive loop coordinator.
 pub struct CognitiveLoop {
     genome: GenomeStore,
@@ -26,6 +53,12 @@ pub struct CognitiveLoop {
     llm: LlmCaller,
     deliverer: Deliverer,
     middlewares: MiddlewareChain,
+    /// Last cycle's enrichments — retained for TUI surface access.
+    last_enrichments: HashMap<String, String>,
+    /// Last cycle's token count.
+    last_tokens: usize,
+    /// Last cycle's routing path.
+    last_path: String,
 }
 
 impl CognitiveLoop {
@@ -40,6 +73,9 @@ impl CognitiveLoop {
             llm: LlmCaller::from_env(),
             deliverer: Deliverer::new(),
             middlewares: middlewares::build_chain(),
+            last_enrichments: HashMap::new(),
+            last_tokens: 0,
+            last_path: String::new(),
         }
     }
 
@@ -133,7 +169,12 @@ impl CognitiveLoop {
             session_id: session_id.clone(),
             domain: domain.clone(),
             path: path.label().to_string(),
-            intent_summary: raw[..raw.len().min(80)].to_string(),
+            intent_summary: raw
+                .char_indices()
+                .take_while(|(i, _)| *i < 80)
+                .last()
+                .map(|(i, c)| raw[..i + c.len_utf8()].to_string())
+                .unwrap_or_else(|| raw.to_string()),
             response: response.clone(),
             tokens_used: tokens,
             duration_ms,
@@ -144,6 +185,11 @@ impl CognitiveLoop {
 
         // HOOK: post_deliver — middlewares finalize
         self.middlewares.run_post_deliver(&cycle);
+
+        // Retain enrichments for TUI surface access
+        self.last_enrichments = cycle.enrichments.clone();
+        self.last_tokens = cycle.tokens_used;
+        self.last_path = cycle.path.clone();
 
         // Print receipt footer to stderr
         eprintln!(
@@ -156,6 +202,124 @@ impl CognitiveLoop {
         );
 
         response
+    }
+
+    /// Process one input and return full output with enrichments.
+    /// Used by the TUI to surface kernel intelligence as visual elements.
+    pub async fn cycle_full(&mut self, raw: &str) -> CycleOutput {
+        let start = std::time::Instant::now();
+        let response = self.cycle(raw).await;
+        let duration_ms = start.elapsed().as_millis() as u64;
+        let success = !response.starts_with("[Hydra error");
+
+        CycleOutput {
+            response,
+            enrichments: self.last_enrichments.clone(),
+            tokens_used: self.last_tokens,
+            duration_ms,
+            path: self.last_path.clone(),
+            success,
+        }
+    }
+
+    /// Prepare a cycle: perceive, route, build prompt, collect enrichments.
+    /// Returns a PreparedCycle ready for LLM streaming. Does NOT call the LLM.
+    pub fn prepare_cycle(&mut self, raw: &str) -> PreparedCycle {
+        let start = std::time::Instant::now();
+        let session_id = uuid::Uuid::new_v4().to_string();
+        let raw = raw.trim();
+
+        let mut perceived = self.perceiver.perceive(raw, &self.genome);
+        self.middlewares.run_post_perceive(&mut perceived);
+
+        let (path, resolved) = self.router.route(&perceived, &self.genome);
+        self.middlewares.run_post_route(&perceived, path.label());
+
+        let mut mw_enrichments = self.middlewares.collect_enrichments(&perceived);
+        for (k, v) in &perceived.enrichments {
+            mw_enrichments.entry(k.clone()).or_insert_with(|| v.clone());
+        }
+
+        let (needs_llm, prompt) = if resolved.is_some() {
+            (false, None)
+        } else {
+            let p = self.prompt_builder.build_with_enrichments(
+                &perceived,
+                path.token_budget().max(8_000),
+                &mw_enrichments,
+            );
+            (true, Some(p))
+        };
+
+        let domain = perceived.comprehended.primary_domain.label().to_string();
+
+        PreparedCycle {
+            session_id,
+            enrichments: mw_enrichments,
+            path_label: path.label().to_string(),
+            needs_llm,
+            resolved_text: resolved,
+            prompt,
+            raw_input: raw.to_string(),
+            domain,
+            start,
+        }
+    }
+
+    /// Start streaming LLM response. Returns a channel receiver for chunks.
+    /// Call this after prepare_cycle(). Non-blocking after initial HTTP setup.
+    pub async fn start_streaming(
+        &self,
+        prepared: &PreparedCycle,
+    ) -> Result<tokio::sync::mpsc::Receiver<crate::loop_::llm_stream::StreamChunk>, String> {
+        let prompt = prepared.prompt.as_ref().ok_or("No prompt prepared")?;
+        self.llm
+            .call_streaming(prompt)
+            .await
+            .map_err(|e| format!("{e}"))
+    }
+
+    /// Finalize a cycle after streaming completes. Runs post_llm + deliver + post_deliver.
+    pub fn finalize_streaming(
+        &mut self,
+        prepared: PreparedCycle,
+        response: &str,
+        tokens_used: usize,
+    ) {
+        let duration_ms = prepared.start.elapsed().as_millis() as u64;
+        let success = !response.starts_with("[Hydra error");
+
+        self.prompt_builder
+            .record_exchange(&prepared.session_id, &prepared.domain);
+
+        let cycle = CycleResult {
+            session_id: prepared.session_id,
+            domain: prepared.domain,
+            path: prepared.path_label.clone(),
+            intent_summary: prepared
+                .raw_input
+                .char_indices()
+                .take_while(|(i, _)| *i < 80)
+                .last()
+                .map(|(i, c)| prepared.raw_input[..i + c.len_utf8()].to_string())
+                .unwrap_or_else(|| prepared.raw_input.clone()),
+            response: response.to_string(),
+            tokens_used,
+            duration_ms,
+            success,
+            enrichments: prepared.enrichments,
+        };
+        self.deliverer.deliver(&cycle);
+        self.middlewares.run_post_deliver(&cycle);
+
+        self.last_enrichments = cycle.enrichments.clone();
+        self.last_tokens = cycle.tokens_used;
+        self.last_path = cycle.path.clone();
+    }
+
+    /// Return the number of genome entries loaded.
+    pub fn genome_len(&self) -> usize {
+        self.genome.len()
     }
 
     pub fn status(&self) -> String {

@@ -144,11 +144,80 @@ fn tui_ready() -> Result<(), String> {
         }
     }
 
-    // Skill registry ready
+    // Skill registry — count skill directories
     let _registry = hydra_skills::SkillRegistry::new();
-    eprintln!("hydra: boot skills registry ready");
+    let skill_count = count_toml_dirs("skills");
+    eprintln!("hydra: boot skills: {} directories found", skill_count);
+
+    // Executor — load integrations and actions
+    let integration_count = count_toml_dirs("integrations");
+    let action_count = count_toml_dirs("actions");
+    eprintln!(
+        "hydra: boot executor: {} integrations, {} actions",
+        integration_count, action_count
+    );
+
+    // Device profile — detect physical capabilities of this system
+    let has_mic = hydra_voice::microphone::is_microphone_available();
+    let has_tts = hydra_voice::TtsEngine::detect().is_available();
+    let capabilities = hydra_reach::DeviceCapabilities {
+        has_microphone: has_mic,
+        has_speaker: has_tts,
+        has_display: true,
+        display_width: None,
+        display_height: None,
+        has_touch: false,
+        has_camera: false,
+        has_keyboard: true,
+        is_mobile: false,
+    };
+    let device = hydra_reach::DeviceProfile::new(
+        "hydra-local",
+        hostname(),
+        capabilities,
+        "local-session",
+    );
+    eprintln!(
+        "hydra: boot device: {} surface={:?} mic={} tts={}",
+        device.name, device.surface_class, has_mic, has_tts
+    );
+
+    // Subsystem validation
+    let _swarm = hydra_swarm::EmergenceStore::new();
+    // reach-extended now lives in ambient loop (persistent connectivity tracker)
+    let _transform = hydra_transform::TransformEngine::new();
+    let _protocol = hydra_protocol::ProtocolEngine::new();
+    let _horizon = hydra_horizon::Horizon::new();
+    let _persona = hydra_persona::PersonaRegistry::new();
+    eprintln!("hydra: boot subsystems: swarm, reach, transform, protocol, horizon, persona — ready");
 
     Ok(())
+}
+
+/// Get system hostname for device profile.
+fn hostname() -> String {
+    std::process::Command::new("hostname")
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| "unknown".into())
+}
+
+/// Count directories containing .toml files in a drop folder.
+fn count_toml_dirs(folder: &str) -> usize {
+    let dir = std::path::PathBuf::from(folder);
+    if !dir.exists() {
+        return 0;
+    }
+    std::fs::read_dir(&dir)
+        .map(|entries| {
+            entries
+                .flatten()
+                .filter(|e| e.path().is_dir())
+                .count()
+        })
+        .unwrap_or(0)
 }
 
 #[cfg(test)]

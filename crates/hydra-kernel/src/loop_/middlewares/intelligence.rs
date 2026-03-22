@@ -70,12 +70,7 @@ impl CycleMiddleware for IntelligenceMiddleware {
                     } else {
                         e.approach.steps.join(" → ")
                     };
-                    format!(
-                        "- {} ({:.0}% proven, {} observations)",
-                        text,
-                        e.effective_confidence() * 100.0,
-                        e.use_count.max(e.initial_confidence as u64 * 1000),
-                    )
+                    format!("- {} ({})", text, e.confidence_statement())
                 })
                 .collect();
             if !top_knowledge.is_empty() {
@@ -129,11 +124,12 @@ impl CycleMiddleware for IntelligenceMiddleware {
                     } else {
                         e.approach.steps.join(" → ")
                     };
+                    // CCA: use pre-computed confidence statement (not LLM-generated)
                     format!(
-                        "Proven approach (conf={:.0}%, obs={}): {}",
-                        e.effective_confidence() * 100.0,
-                        e.use_count,
-                        steps_text
+                        "Proven approach ({}): {}\n  CITE EXACTLY: {}",
+                        e.confidence_statement(),
+                        steps_text,
+                        e.confidence_statement(),
                     )
                 })
                 .collect();
@@ -273,6 +269,15 @@ impl CycleMiddleware for IntelligenceMiddleware {
             cycle.duration_ms as f64,
             &cycle.domain,
         );
+
+        // Record genome use — collect IDs first to avoid borrow conflict
+        if cycle.success && cycle.enrichments.contains_key("genome") {
+            let ids: Vec<String> = self.genome.query(&cycle.intent_summary)
+                .iter().take(3).map(|e| e.id.clone()).collect();
+            for id in &ids {
+                let _ = self.genome.record_use(id, true);
+            }
+        }
     }
 }
 

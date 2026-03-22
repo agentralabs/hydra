@@ -4,18 +4,28 @@
 //! The OutputPacer governs ALL output — nothing bypasses it.
 //! Thinking verb colors are PERMANENT — defined once in constants.
 
+pub mod alert;
 pub mod app;
 pub mod cockpit;
+pub mod commands;
+pub mod commands_companion;
+pub mod commands_extra;
+pub mod config;
 pub mod constants;
 pub mod dot;
+pub mod enrichment_bridge;
 pub mod errors;
 pub mod input;
+pub mod input_search;
+pub mod key_handler;
 pub mod pacer;
 pub mod status;
 pub mod stream;
 pub mod stream_types;
 pub mod render_cockpit;
+pub mod render_markdown;
 pub mod render_welcome;
+pub mod theme;
 pub mod verb;
 pub mod welcome;
 

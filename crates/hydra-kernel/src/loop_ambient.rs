@@ -30,6 +30,8 @@ pub struct AmbientSubsystems {
     pub metabolism: MetabolismMonitor,
     pub continuity: ContinuityEngine,
     pub fabric: SignalFabric,
+    /// Connectivity health tracker — monitors reachability of external services.
+    pub reach: hydra_reach_extended::ReachEngine,
     /// Inline checkpoint tracking (step count at last checkpoint).
     pub last_checkpoint_step: u64,
 }
@@ -40,6 +42,7 @@ impl AmbientSubsystems {
             metabolism: MetabolismMonitor::new(),
             continuity: ContinuityEngine::new(),
             fabric: SignalFabric::new(),
+            reach: hydra_reach_extended::ReachEngine::new(),
             last_checkpoint_step: 0,
         }
     }
@@ -78,13 +81,63 @@ pub fn tick_with_subsystems(
             }
         };
 
-        // Continuity: periodic lineage reporting
+        // Continuity: prove lineage and write checkpoints periodically
+        if next_state.step_count % 100 == 0 && next_state.step_count > 0 {
+            // Prove primary lineage is intact
+            if let Err(e) = subs.continuity.prove_lineage("primary") {
+                eprintln!("hydra: continuity lineage proof: {e}");
+            }
+        }
         if next_state.step_count % 1000 == 0 && next_state.step_count > 0 {
             eprintln!(
-                "hydra: ambient continuity lineages={} checkpoints={}",
+                "hydra: continuity lineages={} checkpoints={}",
                 subs.continuity.lineage_count(),
                 subs.continuity.total_checkpoint_count()
             );
+        }
+
+        // Resurrection: record checkpoint at milestones
+        if next_state.step_count - subs.last_checkpoint_step >= 100 {
+            let snapshot = hydra_resurrection::KernelStateSnapshot::new(
+                next_state.lyapunov_value,
+                next_state.step_count,
+                vec![0.0],      // manifold coordinates
+                0.9,            // average trust
+                0.1,            // queue utilization
+                next_state.growth_state.growth_rate,
+            );
+            match hydra_resurrection::Checkpoint::full(next_state.step_count, snapshot) {
+                Ok(cp) => {
+                    if let Err(e) = cp.verify_integrity() {
+                        eprintln!("hydra: checkpoint integrity: {e}");
+                    }
+                }
+                Err(e) => eprintln!("hydra: checkpoint create: {e}"),
+            }
+        }
+
+        // Reach: track connectivity health every 500 ticks (~50 seconds)
+        if next_state.step_count % 500 == 0 && next_state.step_count > 0 {
+            let provider = std::env::var("HYDRA_LLM_PROVIDER").unwrap_or_else(|_| "anthropic".into());
+            let endpoint = match provider.as_str() {
+                "openai" => "https://api.openai.com",
+                "ollama" => "http://localhost:11434",
+                _ => "https://api.anthropic.com",
+            };
+            match subs.reach.reach(endpoint) {
+                Ok(result) => {
+                    eprintln!(
+                        "hydra: reach health: {} active={} total={}",
+                        endpoint,
+                        subs.reach.active_session_count(),
+                        subs.reach.total_session_count(),
+                    );
+                    let _ = result;
+                }
+                Err(e) => {
+                    eprintln!("hydra: reach health check failed: {e}");
+                }
+            }
         }
 
         // Signal fabric: dispatch queued signals

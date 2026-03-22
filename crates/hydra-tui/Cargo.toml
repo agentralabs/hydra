@@ -11,8 +11,11 @@ hydra-constitution = { path = "../hydra-constitution" }
 hydra-kernel       = { path = "../hydra-kernel" }
 hydra-genome       = { path = "../hydra-genome" }
 hydra-audit        = { path = "../hydra-audit" }
+hydra-succession   = { path = "../hydra-succession" }
 hydra-voice        = { path = "../hydra-voice" }
-# hydra-companion depends on hydra-tui (cycle) — wired through its own crate
+# Companion communicates via hydra-signals channel — no circular dep
+hydra-signals      = { path = "../hydra-signals" }
+hydra-companion    = { path = "../hydra-companion" }
 
 ratatui        = "0.29"
 crossterm      = { version = "0.28", features = ["event-stream"] }
@@ -24,6 +27,8 @@ chrono.workspace = true
 tokio.workspace = true
 dirs.workspace = true
 libc = "0.2"
+terminal-light = "1"
+toml = "0.8"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }

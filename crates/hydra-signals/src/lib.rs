@@ -16,6 +16,7 @@
 //! Orphan signals (incomplete causal chains) are rejected at the gate.
 
 pub mod audit;
+pub mod companion_channel;
 pub mod constants;
 pub mod dispatch;
 pub mod errors;
@@ -37,3 +38,7 @@ pub use receipt::{DeliveryOutcome, DeliveryReceipt, DeliveryReceiptId, DeliveryR
 pub use router::{fabric_route, signal_topic, FabricRoute};
 pub use subscription::{SubscriberId, Subscription, SubscriptionRegistry};
 pub use weight::compute_signal_weight;
+pub use companion_channel::{
+    CompanionChannel, CompanionCommand, CompanionEndpoint, CompanionOutput,
+    SignalClass as CompanionSignalClass, create_channel as create_companion_channel,
+};

@@ -154,26 +154,31 @@ impl HydraMemoryBridge {
             )?;
         }
 
-        // Persist to disk after every write
-        self.persist_to_disk();
+        // Persist to disk after every write — propagate error so caller knows
+        if let Err(e) = self.persist_to_disk() {
+            eprintln!("hydra: memory persist failed: {e}");
+            return Err(e);
+        }
 
         Ok(())
     }
 
     /// Persist the current graph to the .amem file.
-    fn persist_to_disk(&self) {
+    /// Returns error if disk write fails so the caller knows persistence state.
+    fn persist_to_disk(&self) -> Result<(), MemoryError> {
         if let Some(parent) = self.amem_path.parent() {
             if !parent.exists() {
-                if let Err(e) = std::fs::create_dir_all(parent) {
-                    eprintln!("hydra: memory mkdir failed: {e}");
-                    return;
-                }
+                std::fs::create_dir_all(parent).map_err(|e| MemoryError::WriteError {
+                    reason: format!("mkdir failed: {e}"),
+                })?;
             }
         }
         let writer = AmemWriter::new(EMBEDDING_DIMENSION);
-        if let Err(e) = writer.write_to_file(&self.graph, &self.amem_path) {
-            eprintln!("hydra: memory persist failed: {e}");
-        }
+        writer
+            .write_to_file(&self.graph, &self.amem_path)
+            .map_err(|e| MemoryError::WriteError {
+                reason: format!("persist to disk failed: {e}"),
+            })
     }
 
     /// Query: most recent N memories.

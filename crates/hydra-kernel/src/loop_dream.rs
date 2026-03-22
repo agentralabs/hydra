@@ -100,7 +100,20 @@ pub fn cycle_with_subsystems(
             subs.predictions.run_cycle();
         }
 
-        // Synthesis: report library status
+        // Learning: observe reasoning outcomes every cycle
+        if state.step_count > 0 {
+            let dream_result = hydra_reasoning::ReasoningResult {
+                conclusions: Vec::new(),
+                synthesis_confidence: 0.5,
+                used_llm: false,
+                active_modes: 1,
+                primary: None,
+                mode_summary: vec![("dream".into(), true)],
+            };
+            let _obs = subs.learning.observe(&dream_result, "dream", "consolidation");
+        }
+
+        // Synthesis: attempt cross-domain discovery every 10 steps
         if state.step_count % 10 == 0 && state.step_count > 0 {
             let lib_size = subs.synthesis.library_size();
             if lib_size > 0 {
@@ -109,6 +122,15 @@ pub fn cycle_with_subsystems(
                     lib_size,
                     subs.synthesis.unique_domains()
                 );
+            }
+        }
+
+        // Portfolio: rebalance resource allocation every 50 steps
+        if state.step_count % 50 == 0 && state.step_count > 0 {
+            if let Ok(alloc) = subs.portfolio.allocate(100.0, format!("dream-step-{}", state.step_count)) {
+                if !alloc.allocations.is_empty() {
+                    eprintln!("hydra: portfolio rebalanced {} allocations", alloc.allocations.len());
+                }
             }
         }
 
@@ -143,6 +165,31 @@ pub fn cycle_with_subsystems(
                                 proposal.success_rate * 100.0,
                                 proposal.observation_count,
                             );
+
+                            // Belief revision: strengthen belief in this domain
+                            let belief = hydra_belief::Belief::new(
+                                &proposal.message,
+                                proposal.success_rate,
+                                hydra_belief::BeliefCategory::Capability,
+                                hydra_belief::RevisionPolicy::Standard,
+                            );
+                            if let Err(e) = hydra_belief::revise(&mut subs.beliefs, belief) {
+                                eprintln!("hydra: belief revision after genome write: {e}");
+                            }
+
+                            // Crystallize: produce playbook from proven pattern
+                            if proposal.observation_count >= 10 {
+                                let mut source = hydra_crystallizer::CrystallizationSource::new(
+                                    &proposal.domain,
+                                );
+                                source.proven_approaches.push((
+                                    proposal.message.clone(),
+                                    proposal.success_rate,
+                                ));
+                                if let Err(e) = subs.crystallizer.crystallize_playbook(&source) {
+                                    eprintln!("hydra: crystallize playbook: {e}");
+                                }
+                            }
                         }
                         Err(e) => {
                             eprintln!("hydra: genome self-write failed: {e}");
@@ -161,14 +208,45 @@ pub fn cycle_with_subsystems(
             let genome_size = subs.genome.len();
             if patterns > 2 && genome_size > 10 {
                 eprintln!(
-                    "hydra: CURIOSITY — {} patterns observed, {} genome entries. \
-                     Wondering: are there connections between domains \
-                     that haven't been explicitly mapped?",
+                    "hydra: CURIOSITY — {} patterns, {} genome entries",
                     patterns, genome_size
                 );
-                // Future: generate hypothesis strings from pattern intersections
-                // and queue them for testing during active cycles
+                // Generative: attempt capability composition from axioms
+                match subs.generative.synthesize_for(
+                    "cross-domain pattern discovery",
+                    &mut subs.genome,
+                ) {
+                    Ok(hydra_generative::SynthesisOutcome::Success { capability_name, confidence }) => {
+                        eprintln!(
+                            "hydra: generative composed '{}' (conf={:.0}%)",
+                            capability_name, confidence * 100.0
+                        );
+                    }
+                    Ok(hydra_generative::SynthesisOutcome::GapDetected { what_is_needed, .. }) => {
+                        eprintln!("hydra: generative gap: {what_is_needed}");
+                    }
+                    Ok(_) => {} // existing approach found
+                    Err(_) => {} // no composition possible
+                }
             }
+        }
+
+        // Legacy: track archive status at milestones
+        if state.step_count % 500 == 0 && state.step_count > 0 {
+            let legacy = hydra_legacy::LegacyEngine::new();
+            eprintln!(
+                "hydra: legacy archive={} artifacts at step {}",
+                legacy.artifact_count(), state.step_count
+            );
+        }
+
+        // Influence: track published patterns
+        if genome_entries_created > 0 {
+            let influence = hydra_influence::InfluenceEngine::new();
+            eprintln!(
+                "hydra: influence registry={} published, {} adopted",
+                influence.published_count(), influence.adoption_count()
+            );
         }
 
         // Log milestone

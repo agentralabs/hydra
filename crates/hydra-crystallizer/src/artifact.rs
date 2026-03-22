@@ -57,10 +57,14 @@ impl CrystallizedArtifact {
         let now = chrono::Utc::now();
         let content = content.into();
         let content = if content.len() > crate::constants::MAX_ARTIFACT_CONTENT_CHARS {
-            format!(
-                "{}...[truncated]",
-                &content[..crate::constants::MAX_ARTIFACT_CONTENT_CHARS - 14]
-            )
+            let max_bytes = crate::constants::MAX_ARTIFACT_CONTENT_CHARS - 14;
+            let safe_end = content
+                .char_indices()
+                .take_while(|(i, _)| *i <= max_bytes)
+                .last()
+                .map(|(i, c)| i + c.len_utf8())
+                .unwrap_or(max_bytes.min(content.len()));
+            format!("{}...[truncated]", &content[..safe_end])
         } else {
             content
         };

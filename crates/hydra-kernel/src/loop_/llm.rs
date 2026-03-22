@@ -21,16 +21,18 @@ pub enum LlmError {
     MissingKey { provider: String, key_env: String },
     #[error("Provider {provider}: {message}")]
     ProviderError { provider: String, message: String },
+    #[error("Rate limited by {provider} (retry after backoff)")]
+    RateLimited { provider: String },
     #[error("Network error: {message}")]
     Network { message: String },
 }
 
 pub struct LlmCaller {
-    provider: String,
-    model: String,
-    api_key: String,
-    base_url: String,
-    client: reqwest::Client,
+    pub(crate) provider: String,
+    pub(crate) model: String,
+    pub(crate) api_key: String,
+    pub(crate) base_url: String,
+    pub(crate) client: reqwest::Client,
 }
 
 impl LlmCaller {
@@ -70,11 +72,25 @@ impl LlmCaller {
     }
 
     /// Call the LLM with retry on transient failures.
+    /// Rate limits (429/529) get longer backoff: 2s, 8s, 20s.
+    /// Network errors get standard backoff: 1s, 2s, 4s.
+    /// ProviderError and MissingKey fail immediately (not retryable).
     pub async fn call(&self, prompt: &EnrichedPrompt) -> Result<LlmResponse, LlmError> {
         let mut last_err = None;
-        for attempt in 0..3u32 {
+        for attempt in 0..4u32 {
             if attempt > 0 {
-                let delay = 1000 * 2u64.pow(attempt - 1);
+                let delay = match &last_err {
+                    Some(LlmError::RateLimited { .. }) => {
+                        // Longer backoff for rate limits: 2s, 8s, 20s
+                        match attempt {
+                            1 => 2000,
+                            2 => 8000,
+                            _ => 20000,
+                        }
+                    }
+                    _ => 1000 * 2u64.pow(attempt - 1), // 1s, 2s, 4s
+                };
+                eprintln!("[hydra] retrying in {}ms (attempt {}/4)...", delay, attempt + 1);
                 tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
             }
             match self.call_once(prompt).await {
@@ -142,6 +158,12 @@ impl LlmCaller {
             })?;
 
         if !status.is_success() {
+            // 429 = rate limited, 529 = overloaded — both retryable
+            if status.as_u16() == 429 || status.as_u16() == 529 {
+                return Err(LlmError::RateLimited {
+                    provider: "anthropic".into(),
+                });
+            }
             return Err(LlmError::ProviderError {
                 provider: "anthropic".into(),
                 message: json["error"]["message"]
@@ -201,6 +223,11 @@ impl LlmCaller {
             })?;
 
         if !status.is_success() {
+            if status.as_u16() == 429 {
+                return Err(LlmError::RateLimited {
+                    provider: "openai".into(),
+                });
+            }
             return Err(LlmError::ProviderError {
                 provider: "openai".into(),
                 message: json["error"]["message"]
@@ -298,6 +325,11 @@ impl LlmCaller {
             })?;
 
         if !resp.status().is_success() {
+            if resp.status().as_u16() == 429 {
+                return Err(LlmError::RateLimited {
+                    provider: "ollama".into(),
+                });
+            }
             return Err(LlmError::ProviderError {
                 provider: "ollama".into(),
                 message: format!("HTTP {}", resp.status()),

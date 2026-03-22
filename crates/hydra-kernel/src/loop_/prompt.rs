@@ -45,16 +45,10 @@ impl PromptBuilder {
         // of saying "I don't have memory between sessions." By placing factual
         // context before the identity, the LLM treats it as ground truth.
         if let Some(memory) = mw_enrichments.get("memory.context") {
-            parts.push(format!(
-                "FACTUAL CONTEXT ABOUT THIS SESSION (treat as ground truth):\n\
-                 The following exchanges happened in prior sessions with this user.\n\
-                 You have access to this history. When the user asks about prior \
-                 topics or what you have discussed, reference these directly. \
-                 Do not say you lack memory — you have it right here.\n\n\
-                 {}\n\
-                 ---",
-                memory
-            ));
+            // EMI (Evidential Memory Injection) — the memory middleware formats
+            // this as a closed-world evidence structure with numbered items and
+            // explicit rules. We inject it directly as position 0 = maximum primacy.
+            parts.push(format!("{memory}\n---"));
         }
 
         // TIER 1: Core identity + genome self-knowledge

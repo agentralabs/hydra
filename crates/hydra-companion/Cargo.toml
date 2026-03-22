@@ -8,7 +8,7 @@ authors = ["Agentra Labs"]
 
 [dependencies]
 hydra-constitution = { path = "../hydra-constitution" }
-hydra-tui          = { path = "../hydra-tui" }
+hydra-signals      = { path = "../hydra-signals" }
 
 serde.workspace = true
 serde_json.workspace = true

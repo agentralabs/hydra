@@ -3,6 +3,13 @@
 //! Tests every crate, every capability, every layer.
 //! Writes hourly reports. Attempts automated fixes.
 //! Does not stop on failure.
+//!
+//! NOTE: This crate is TEST INFRASTRUCTURE — it is NOT wired into any
+//! production runtime path. It provides the harness and harness_v2 binaries
+//! used for structural (47/47) and behavioral (V2) testing.
+//! DO NOT import hydra-harness from the kernel, TUI, or any production crate.
+//! It is intentionally standalone. If test utilities are needed in production,
+//! create them in the relevant crate, not here.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

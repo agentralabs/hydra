@@ -84,8 +84,9 @@ pub fn compute_weight(inputs: &WeightInputs) -> Result<SignalWeight, AnimusError
 
     // Normalize causal depth: deeper chains = higher weight (more context)
     // Use logarithmic scaling: depth 1 = low, depth 10+ = near 1.0
+    // Guard: depth=0 treated as depth=1 to avoid ln(0) = -infinity → NaN
     let depth_factor = {
-        let depth = inputs.causal_chain_depth as f64;
+        let depth = inputs.causal_chain_depth.max(1) as f64;
         (depth.ln() + 1.0) / (depth.ln() + 2.0)
     };
 

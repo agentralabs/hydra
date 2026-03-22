@@ -42,13 +42,26 @@ impl CycleMiddleware for MemoryMiddleware {
                     .collect();
 
                 if !summaries.is_empty() {
+                    // Evidential Memory Injection (EMI) — closed-world format
+                    let total = summaries.len();
+                    let mut evidence = format!(
+                        "MEMORY EVIDENCE (closed world — no facts exist beyond this list):\n\
+                         TOTAL EVIDENCE ITEMS: {total}\nEVIDENCE:\n"
+                    );
+                    for (i, summary) in summaries.iter().enumerate() {
+                        evidence.push_str(&format!("  [{}] {}\n", i + 1, summary));
+                    }
+                    evidence.push_str("END OF EVIDENCE.\n");
+                    evidence.push_str("RULES:\n");
+                    evidence.push_str(&format!(
+                        "  - You may reference items [1]-[{total}] by number.\n\
+                         - You may NOT reference any item not listed above.\n\
+                         - If asked about a topic not in [1]-[{total}], say \"I don't have that in memory.\"\n\
+                         - The number {total} is the TOTAL. Not more. Exactly {total}."
+                    ));
                     perceived.enrichments.insert(
                         "memory.context".into(),
-                        format!(
-                            "{} exchanges in persistent memory. Relevant prior context:\n{}",
-                            node_count / 2,
-                            summaries.join("\n")
-                        ),
+                        evidence,
                     );
                 }
             }

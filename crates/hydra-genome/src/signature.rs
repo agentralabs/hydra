@@ -95,6 +95,60 @@ fn stem(word: &str) -> String {
     w
 }
 
+// ---------------------------------------------------------------------------
+// Dual-Space Embedding Alignment (DSEA)
+// Axiom vector: [Risk, Understanding, Dependency, Volume]
+// Cosine similarity on axiom vectors captures meaning even when words differ.
+// ---------------------------------------------------------------------------
+
+/// The 4 axiom dimensions for semantic matching.
+const RISK_TERMS: &[&str] = &[
+    "fail", "error", "crash", "break", "risk", "secur", "threat", "vulner",
+    "attack", "breach", "danger", "prevent", "protect", "guard", "block",
+    "cascad", "outag", "down", "degrad", "timeout", "retry", "circuit",
+];
+const UNDERSTANDING_TERMS: &[&str] = &[
+    "explain", "understand", "what", "how", "why", "mean", "defin", "concept",
+    "pattern", "design", "architectur", "principl", "approach", "method",
+    "strateg", "best", "practic", "learn", "teach",
+];
+const DEPENDENCY_TERMS: &[&str] = &[
+    "depend", "coupl", "connect", "integrat", "servic", "api", "system",
+    "distribut", "microservic", "monolit", "network", "commun", "messag",
+    "event", "queue", "bus", "orchestrat", "coordinat",
+];
+const VOLUME_TERMS: &[&str] = &[
+    "scal", "perform", "latenc", "throughput", "load", "traffic", "concurr",
+    "parallel", "batch", "stream", "buffer", "cache", "optim", "fast",
+    "slow", "bottleneck", "profil", "measur", "benchmark",
+];
+
+/// Compute a 4-dimensional axiom vector for a set of stemmed keywords.
+pub fn axiom_vector(keywords: &BTreeSet<String>) -> [f64; 4] {
+    let risk = keywords.iter().filter(|k| RISK_TERMS.iter().any(|t| k.contains(t))).count();
+    let understanding = keywords.iter().filter(|k| UNDERSTANDING_TERMS.iter().any(|t| k.contains(t))).count();
+    let dependency = keywords.iter().filter(|k| DEPENDENCY_TERMS.iter().any(|t| k.contains(t))).count();
+    let volume = keywords.iter().filter(|k| VOLUME_TERMS.iter().any(|t| k.contains(t))).count();
+    let total = (risk + understanding + dependency + volume).max(1) as f64;
+    [
+        risk as f64 / total,
+        understanding as f64 / total,
+        dependency as f64 / total,
+        volume as f64 / total,
+    ]
+}
+
+/// Cosine similarity between two axiom vectors.
+pub fn axiom_cosine(a: &[f64; 4], b: &[f64; 4]) -> f64 {
+    let dot: f64 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
+    let mag_a: f64 = a.iter().map(|x| x * x).sum::<f64>().sqrt();
+    let mag_b: f64 = b.iter().map(|x| x * x).sum::<f64>().sqrt();
+    if mag_a < 1e-10 || mag_b < 1e-10 {
+        return 0.0;
+    }
+    dot / (mag_a * mag_b)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -18,6 +18,8 @@ serde_json.workspace = true
 thiserror.workspace = true
 uuid.workspace = true
 chrono.workspace = true
+dirs.workspace = true
+cpal = "0.15"
 
 # Optional: local STT via whisper.cpp bindings (requires system libs).
 whisper-rs = { version = "0.13", optional = true }

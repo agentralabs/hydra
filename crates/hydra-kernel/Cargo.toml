@@ -35,6 +35,16 @@ hydra-adversary     = { path = "../hydra-adversary" }
 hydra-memory        = { path = "../hydra-memory" }
 hydra-signals       = { path = "../hydra-signals" }
 hydra-metabolism    = { path = "../hydra-metabolism" }
+hydra-resurrection  = { path = "../hydra-resurrection" }
+hydra-legacy        = { path = "../hydra-legacy" }
+hydra-influence     = { path = "../hydra-influence" }
+hydra-swarm         = { path = "../hydra-swarm" }
+hydra-reach          = { path = "../hydra-reach" }
+hydra-reach-extended = { path = "../hydra-reach-extended" }
+hydra-voice          = { path = "../hydra-voice" }
+hydra-transform     = { path = "../hydra-transform" }
+hydra-protocol      = { path = "../hydra-protocol" }
+hydra-horizon       = { path = "../hydra-horizon" }
 
 # Wave 3: Intelligence
 hydra-oracle        = { path = "../hydra-oracle" }
@@ -87,6 +97,7 @@ tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 reqwest.workspace = true
+futures-util = "0.3"
 rusqlite.workspace = true
 dirs.workspace = true
 
