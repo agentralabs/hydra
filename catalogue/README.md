@@ -53,6 +53,8 @@ Each document describes a capability in plain language — what it does, why it 
 | [20 — The Action Drop](20-THE-ACTION-DROP.md) | Deploy, backup, monitor, post — any command, any schedule, any trigger |
 | [21 — The Vault](21-THE-VAULT.md) | One folder for every key, every login — you and Hydra both see everything |
 | [22 — The Heartbeat](22-THE-HEARTBEAT.md) | Always-on daemon + self-writing genome — Hydra teaches itself |
+| [23 — Web Omniscience](23-WEB-OMNISCIENCE.md) | Three-layer knowledge: genome → index → search. The internet internalized. |
+| [24 — The Living Entity](24-THE-LIVING-ENTITY.md) | Self-knowledge, self-repair, surprise, introspection — everything alive |
 
 ---
 
