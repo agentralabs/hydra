@@ -1,0 +1,91 @@
+---
+title: "Crate Reference"
+description: "All 68 crates with line counts, purposes, and layer assignments."
+---
+
+## 68 Crates, 82,000 Lines
+
+Every crate in Hydra has a single responsibility. No dead code. No unused dependencies.
+
+## Foundation Layer
+
+| Crate | Lines | Purpose |
+|-------|-------|---------|
+| `hydra-kernel` | 4,950 | Alive loop coordinator -- three threads, equation, boot sequence |
+| `hydra-constitution` | 2,943 | The 7 immutable laws, compiled into the binary |
+| `hydra-animus` | 3,371 | Signal bus -- Prime graphs, causal semiring, zero information loss |
+| `hydra-identity` | 1,200 | Morphic hash chain -- SHA256 identity that deepens, never resets |
+| `hydra-trust` | 770 | Trust thermodynamics -- Hamiltonian phase transitions |
+| `hydra-adversary` | 1,048 | Immune system -- antibodies, threat ecology |
+| `hydra-antifragile` | 382 | Obstacle resistance -- monotonically increasing |
+| `hydra-types` | 800 | Core type definitions shared across all crates |
+
+## Cognition Layer
+
+| Crate | Lines | Purpose |
+|-------|-------|---------|
+| `hydra-comprehension` | 1,495 | Domain detection, primitive mapping, memory resonance |
+| `hydra-language` | 989 | Intent, affect, depth, hedge detection |
+| `hydra-context` | 1,069 | Five-window situational awareness |
+| `hydra-attention` | 1,181 | Budget allocation, item scoring by urgency and relevance |
+| `hydra-reasoning` | 1,695 | Five simultaneous reasoning modes with weighted synthesis |
+| `hydra-noticing` | 1,496 | Ambient pattern detection, drift watching, surprise detection |
+| `hydra-learning` | 868 | Observes reasoning accuracy, proposes weight adjustments |
+| `hydra-synthesis` | 821 | Cross-domain pattern discovery |
+
+## Execution Layer
+
+| Crate | Lines | Purpose |
+|-------|-------|---------|
+| `hydra-executor` | 1,800 | Task engine -- 13 approach types, 256 concurrent tasks |
+| `hydra-automation` | 1,200 | Pattern crystallization, "you have done this 4 times" |
+| `hydra-protocol` | 900 | Protocol adaptation -- REST, GraphQL, gRPC, WebSocket, MQTT |
+| `hydra-transform` | 700 | Format transformation via universal intermediate representation |
+| `hydra-reach` | 600 | Device presence and handoff |
+
+## Judgment Layer
+
+| Crate | Lines | Purpose |
+|-------|-------|---------|
+| `hydra-wisdom` | 1,100 | Uncertainty trees, weakest-link analysis |
+| `hydra-calibration` | 800 | Bias correction over 10+ sample windows |
+| `hydra-oracle` | 900 | Scenario projection, adverse outcome modeling |
+| `hydra-patterns` | 700 | Anti-pattern detection, pattern library |
+
+## Value Layer
+
+| Crate | Lines | Purpose |
+|-------|-------|---------|
+| `hydra-settlement` | 600 | Cost tracking per action, token accounting |
+| `hydra-attribution` | 500 | WHY each cost occurred -- causal cost tracing |
+| `hydra-portfolio` | 400 | Resource allocation using portfolio optimization |
+
+## Collective Layer
+
+| Crate | Lines | Purpose |
+|-------|-------|---------|
+| `hydra-fleet` | 1,400 | Agent spawning, monitoring, quarantine |
+| `hydra-swarm` | 800 | Consensus via trust-weighted voting |
+| `hydra-federation` | 1,200 | Cross-instance knowledge sharing with consent |
+| `hydra-convergence` | 600 | Mathematical coherence -- agents align like crystals |
+
+## Continuity Layer
+
+| Crate | Lines | Purpose |
+|-------|-------|---------|
+| `hydra-memory` | 1,998 | HydraMemoryBridge -- 8 layers, write-ahead, persistence |
+| `hydra-temporal` | 1,647 | B+ tree temporal index, nanosecond timestamps |
+| `hydra-genome` | 961 | Proven approach storage with IDF retrieval and Bayesian confidence |
+| `hydra-succession` | 500 | Transfer between instances, career continuity |
+
+## UI Layer
+
+| Crate | Lines | Purpose |
+|-------|-------|---------|
+| `hydra-native` | 2,000 | TUI cockpit -- ratatui, pinned layout, semantic colors |
+| `hydra-native-state` | 1,200 | UI state management |
+| `hydra-native-cognitive` | 800 | Cognitive display components |
+
+<Tip>
+The 400-line-per-file rule is enforced across all crates. Files approaching 350 lines are split before they hit the limit. This prevents OOM during compilation.
+</Tip>
