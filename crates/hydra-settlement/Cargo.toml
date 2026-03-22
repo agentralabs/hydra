@@ -1,0 +1,25 @@
+[package]
+name = "hydra-settlement"
+version = "0.1.0"
+edition = "2021"
+description = "Execution cost accounting — what did Hydra spend this on?"
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution = { path = "../hydra-constitution" }
+hydra-executor     = { path = "../hydra-executor" }
+hydra-soul         = { path = "../hydra-soul" }
+
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror  = "2"
+uuid       = { version = "1", features = ["v4"] }
+chrono     = { version = "0.4", features = ["serde"] }
+sha2       = "0.10"
+hex        = "0.4"
+rusqlite   = { workspace = true }
+dirs       = { workspace = true }
+
+[[bin]]
+name = "test_harness"
+path = "src/bin/test_harness.rs"

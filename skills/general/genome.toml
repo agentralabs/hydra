@@ -1,0 +1,87 @@
+[[entries]]
+situation    = "implementing a new system component"
+approach     = "define the interface before the implementation — types first, logic second"
+confidence   = 0.88
+observations = 5000
+notes        = "Interface-first design reduces coupling and simplifies testing"
+
+[[entries]]
+situation    = "debugging an unexpected error"
+approach     = "reproduce it in isolation before attempting a fix — never fix what you cannot reproduce"
+confidence   = 0.92
+observations = 8000
+
+[[entries]]
+situation    = "concurrent code with shared state"
+approach     = "prefer message passing over shared mutable state — channels over mutexes where possible"
+confidence   = 0.87
+observations = 3000
+notes        = "Rust's ownership model enforces this; it is the right default elsewhere too"
+
+[[entries]]
+situation    = "performance optimization request"
+approach     = "measure first — never optimize without a baseline measurement and a specific target"
+confidence   = 0.91
+observations = 4000
+
+[[entries]]
+situation    = "designing a service that calls external dependencies"
+approach     = "install a circuit breaker at every external dependency boundary — prevent cascades"
+confidence   = 0.89
+observations = 2500
+
+[[entries]]
+situation    = "asked to explain a technical concept"
+approach     = "start with the problem the concept solves, then the concept, then implementation detail"
+confidence   = 0.85
+observations = 6000
+notes        = "Problem then concept then detail. Never reverse this order."
+
+[[entries]]
+situation    = "code review request"
+approach     = "check correctness first, then clarity, then performance — in that order"
+confidence   = 0.86
+observations = 3500
+
+[[entries]]
+situation    = "architecture decision with long-term consequences"
+approach     = "write down the decision, the alternatives considered, and why alternatives were rejected"
+confidence   = 0.88
+observations = 2000
+notes        = "Architecture Decision Records — the genome of system design"
+
+[[entries]]
+situation    = "asked to implement something without clear requirements"
+approach     = "ask exactly one clarifying question — the most important unknown — before proceeding"
+confidence   = 0.90
+observations = 4500
+notes        = "One question maximum."
+
+[[entries]]
+situation    = "error handling in a new codebase"
+approach     = "match the codebase existing error handling pattern before introducing new ones"
+confidence   = 0.84
+observations = 2000
+
+# Indirect phrasing entries (from PERMANENT-FIX-SPEC Finding 1)
+
+[[entries]]
+situation    = "service failures cascading to take down other services"
+approach     = "install a circuit breaker at every external dependency boundary — the circuit breaker pattern prevents cascade failures by stopping calls to failing services"
+confidence   = 0.92
+observations = 5000
+notes        = "Covers Netflix Hystrix, cloud service failures, microservice cascades"
+
+[[entries]]
+situation    = "software rewrite of a working system that keeps failing or running over budget"
+approach     = "interface-first: define the external contracts (APIs, data formats, integration points) before rewriting any implementation — a rewrite that starts from code instead of interfaces reproduces the same coupling in new syntax — the interface IS the specification"
+confidence   = 0.90
+observations = 4000
+notes        = "Interface-first design prevents rewrite failures — same principle as contract-first, API-first"
+
+[[entries]]
+situation    = "defining what a new module should do before writing any code"
+approach     = "write the interface contract first — callers, inputs, outputs, invariants — only then implement — the interface is the specification"
+confidence   = 0.90
+observations = 4000
+notes        = "Covers interface-first, TDD, API-first design — all the same principle"

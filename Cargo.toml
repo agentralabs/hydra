@@ -1,0 +1,107 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/hydra-constitution",
+    "crates/hydra-animus",
+    "crates/hydra-kernel",
+    "crates/hydra-llm",
+    "crates/hydra-signals",
+    "crates/hydra-temporal",
+    "crates/hydra-memory",
+    "crates/hydra-axiom",
+    "crates/hydra-belief",
+    "crates/hydra-prediction",
+    "crates/hydra-trust",
+    "crates/hydra-adversary",
+    "crates/hydra-fleet",
+    "crates/hydra-swarm",
+    "crates/hydra-resurrection",
+    "crates/hydra-metabolism",
+    "crates/hydra-reflexive",
+    "crates/hydra-morphic",
+    "crates/hydra-persona",
+    "crates/hydra-genome",
+    "crates/hydra-cartography",
+    "crates/hydra-antifragile",
+    "crates/hydra-generative",
+    "crates/hydra-plastic",
+    "crates/hydra-tui",
+    "crates/hydra-companion",
+    "crates/hydra-voice",
+    "crates/hydra-horizon",
+    "crates/hydra-skills",
+    "crates/hydra-reach",
+    "crates/hydra-soul",
+    "crates/hydra-comprehension",
+    "crates/hydra-context",
+    "crates/hydra-language",
+    "crates/hydra-attention",
+    "crates/hydra-reasoning",
+    "crates/hydra-learning",
+    "crates/hydra-synthesis",
+    "crates/hydra-noticing",
+    "crates/hydra-executor",
+    "crates/hydra-transform",
+    "crates/hydra-environment",
+    "crates/hydra-protocol",
+    "crates/hydra-scheduler",
+    "crates/hydra-reach-extended",
+    "crates/hydra-automation",
+    "crates/hydra-audit",
+    "crates/hydra-omniscience",
+    "crates/hydra-pattern",
+    "crates/hydra-redteam",
+    "crates/hydra-calibration",
+    "crates/hydra-oracle",
+    "crates/hydra-wisdom",
+    "crates/hydra-settlement",
+    "crates/hydra-attribution",
+    "crates/hydra-portfolio",
+    "crates/hydra-crystallizer",
+    "crates/hydra-exchange",
+    "crates/hydra-federation",
+    "crates/hydra-consensus",
+    "crates/hydra-consent",
+    "crates/hydra-collective",
+    "crates/hydra-diplomat",
+    "crates/hydra-succession",
+    "crates/hydra-legacy",
+    "crates/hydra-continuity",
+    "crates/hydra-influence",
+    "crates/hydra-harness",
+]
+
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/agentralabs/agentralabs-tech"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+reqwest = { version = "0.12", features = ["json"] }
+async-trait = "0.1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+dirs = "5"
+toml = "0.8"
+
+[profile.dev]
+codegen-units = 16
+debug = 1
+split-debuginfo = "unpacked"
+incremental = true
+
+[profile.test]
+codegen-units = 16
+debug = 1
+split-debuginfo = "unpacked"
+incremental = true

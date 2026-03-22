@@ -1,0 +1,22 @@
+[package]
+name = "hydra-collective"
+version = "0.1.0"
+edition = "2021"
+description = "Distributed pattern intelligence — the federation reasons together."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution  = { path = "../hydra-constitution" }
+hydra-federation    = { path = "../hydra-federation" }
+hydra-consensus     = { path = "../hydra-consensus" }
+hydra-consent       = { path = "../hydra-consent" }
+
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror  = "1"
+uuid       = { version = "1", features = ["v4"] }
+chrono     = { version = "0.4", features = ["serde"] }
+
+[[bin]]
+name = "test_harness"
+path = "src/bin/test_harness.rs"

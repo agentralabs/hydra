@@ -1,0 +1,41 @@
+# EXAMPLE INTEGRATION — Weather API
+# Copy this folder, rename it, and edit for your own API.
+#
+# To create a new integration:
+#   1. mkdir integrations/your-service
+#   2. Copy this file to integrations/your-service/api.toml
+#   3. Edit the values below
+#   4. Create credentials.toml with your API keys (gitignored)
+#   5. Restart Hydra — it loads automatically
+
+[integration]
+name        = "weather"
+description = "OpenWeatherMap API — current weather and forecasts"
+protocol    = "REST"
+base_url    = "https://api.openweathermap.org/data/2.5"
+auth_type   = "query_param"
+auth_header = "appid"                  # the query parameter name for API key
+docs_url    = "https://openweathermap.org/api"
+
+# READ capabilities — things Hydra can look up (no approval needed)
+[[capabilities.read]]
+name        = "current-weather"
+endpoint    = "/weather?q={city}&units=metric"
+method      = "GET"
+description = "Get current weather for a city"
+
+[[capabilities.read]]
+name        = "forecast"
+endpoint    = "/forecast?q={city}&units=metric&cnt=5"
+method      = "GET"
+description = "Get 5-day weather forecast"
+
+# WRITE capabilities — things Hydra can do (approval required)
+# (Weather API has no write endpoints, but this shows the format)
+# [[capabilities.write]]
+# name              = "set-alert"
+# endpoint          = "/alerts"
+# method            = "POST"
+# description       = "Create a weather alert"
+# requires_approval = true
+# body_template     = '{"city": "{city}", "threshold": "{temp}"}'

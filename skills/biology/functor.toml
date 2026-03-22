@@ -1,0 +1,52 @@
+[[mappings]]
+domain_concept  = "DNA"
+axiom_primitive = "Dependency"
+weight          = 0.85
+notes           = "DNA is the dependency chain for all biological function"
+
+[[mappings]]
+domain_concept  = "mutation"
+axiom_primitive = "Risk"
+weight          = 0.80
+
+[[mappings]]
+domain_concept  = "evolution"
+axiom_primitive = "Understanding"
+weight          = 0.85
+
+[[mappings]]
+domain_concept  = "cell"
+axiom_primitive = "Understanding"
+weight          = 0.70
+
+[[mappings]]
+domain_concept  = "disease"
+axiom_primitive = "Risk"
+weight          = 0.90
+
+[[mappings]]
+domain_concept  = "ecosystem"
+axiom_primitive = "Dependency"
+weight          = 0.80
+
+[[mappings]]
+domain_concept  = "protein"
+axiom_primitive = "Dependency"
+weight          = 0.75
+
+[[mappings]]
+domain_concept  = "vaccine"
+axiom_primitive = "Risk"
+weight          = 0.75
+notes           = "Risk reduction through immunological preparation"
+
+[[mappings]]
+domain_concept  = "antibiotic"
+axiom_primitive = "Risk"
+weight          = 0.80
+notes           = "Resistance risk from misuse"
+
+[[mappings]]
+domain_concept  = "biodiversity"
+axiom_primitive = "Volume"
+weight          = 0.70

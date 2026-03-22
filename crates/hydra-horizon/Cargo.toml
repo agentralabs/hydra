@@ -1,0 +1,19 @@
+[package]
+name = "hydra-horizon"
+version = "0.1.0"
+edition = "2021"
+description = "Perception and action horizon — Hydra's expanding awareness boundary."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution = { path = "../hydra-constitution" }
+hydra-genome       = { path = "../hydra-genome" }
+hydra-reflexive    = { path = "../hydra-reflexive" }
+
+serde       = { version = "1", features = ["derive"] }
+thiserror   = "2"
+chrono      = { version = "0.4", features = ["serde"] }
+
+[[bin]]
+name = "horizon_test_harness"
+path = "src/bin/test_harness.rs"

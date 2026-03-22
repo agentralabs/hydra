@@ -1,0 +1,106 @@
+[package]
+name = "hydra-kernel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The alive loop. Hydra's phenomenological core."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution = { path = "../hydra-constitution" }
+hydra-animus       = { path = "../hydra-animus" }
+
+# Layer 2
+hydra-comprehension = { path = "../hydra-comprehension" }
+hydra-context       = { path = "../hydra-context" }
+hydra-language      = { path = "../hydra-language" }
+hydra-attention     = { path = "../hydra-attention" }
+hydra-reasoning     = { path = "../hydra-reasoning" }
+hydra-noticing      = { path = "../hydra-noticing" }
+# Layer 1
+hydra-genome        = { path = "../hydra-genome" }
+hydra-soul          = { path = "../hydra-soul" }
+# Layer 3 (executor used transitively via audit/settlement, not directly imported)
+hydra-audit         = { path = "../hydra-audit" }
+# Layer 4
+hydra-pattern       = { path = "../hydra-pattern" }
+hydra-wisdom        = { path = "../hydra-wisdom" }
+hydra-calibration   = { path = "../hydra-calibration" }
+# Layer 5
+hydra-settlement    = { path = "../hydra-settlement" }
+
+# Wave 2: Foundation
+hydra-trust         = { path = "../hydra-trust" }
+hydra-adversary     = { path = "../hydra-adversary" }
+hydra-memory        = { path = "../hydra-memory" }
+hydra-signals       = { path = "../hydra-signals" }
+hydra-metabolism    = { path = "../hydra-metabolism" }
+
+# Wave 3: Intelligence
+hydra-oracle        = { path = "../hydra-oracle" }
+hydra-omniscience   = { path = "../hydra-omniscience" }
+hydra-redteam       = { path = "../hydra-redteam" }
+hydra-reflexive     = { path = "../hydra-reflexive" }
+
+# Wave 4: Growth (dream + post-deliver)
+hydra-belief        = { path = "../hydra-belief" }
+hydra-prediction    = { path = "../hydra-prediction" }
+hydra-learning      = { path = "../hydra-learning" }
+hydra-synthesis     = { path = "../hydra-synthesis" }
+hydra-generative    = { path = "../hydra-generative" }
+hydra-automation    = { path = "../hydra-automation" }
+hydra-cartography   = { path = "../hydra-cartography" }
+hydra-antifragile   = { path = "../hydra-antifragile" }
+hydra-plastic       = { path = "../hydra-plastic" }
+
+# Wave 5: Execution infrastructure
+hydra-environment   = { path = "../hydra-environment" }
+hydra-skills        = { path = "../hydra-skills" }
+hydra-scheduler     = { path = "../hydra-scheduler" }
+
+# Wave 6: Self-model
+hydra-morphic       = { path = "../hydra-morphic" }
+hydra-persona       = { path = "../hydra-persona" }
+hydra-continuity    = { path = "../hydra-continuity" }
+
+# Wave 7: Settlement intelligence
+hydra-attribution   = { path = "../hydra-attribution" }
+hydra-portfolio     = { path = "../hydra-portfolio" }
+hydra-crystallizer  = { path = "../hydra-crystallizer" }
+hydra-exchange      = { path = "../hydra-exchange" }
+
+# Wave 8: Federation
+hydra-fleet         = { path = "../hydra-fleet" }
+hydra-federation    = { path = "../hydra-federation" }
+hydra-consensus     = { path = "../hydra-consensus" }
+hydra-consent       = { path = "../hydra-consent" }
+hydra-collective    = { path = "../hydra-collective" }
+hydra-diplomat      = { path = "../hydra-diplomat" }
+
+
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+reqwest.workspace = true
+rusqlite.workspace = true
+dirs.workspace = true
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+
+[[bin]]
+name = "test_harness"
+path = "src/bin/test_harness.rs"
+
+[[bin]]
+name = "hydra"
+path = "src/bin/hydra.rs"
+
+[[bin]]
+name = "hydra_fed"
+path = "src/bin/hydra_fed.rs"

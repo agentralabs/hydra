@@ -1,0 +1,22 @@
+[package]
+name = "hydra-skills"
+version = "0.1.0"
+edition = "2021"
+description = "Hot-loadable skill substrate — constitutional skill management for Hydra."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution = { path = "../hydra-constitution" }
+hydra-horizon      = { path = "../hydra-horizon" }
+hydra-genome       = { path = "../hydra-genome" }
+hydra-reflexive    = { path = "../hydra-reflexive" }
+hydra-persona      = { path = "../hydra-persona" }
+
+serde       = { version = "1", features = ["derive"] }
+thiserror   = "2"
+uuid        = { version = "1", features = ["v4"] }
+chrono      = { version = "0.4", features = ["serde"] }
+
+[[bin]]
+name = "skills_test_harness"
+path = "src/bin/test_harness.rs"

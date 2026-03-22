@@ -1,0 +1,27 @@
+[skill]
+name        = "general"
+version     = "0.1.0"
+description = "General knowledge, engineering, and code — the baseline domain."
+author      = "Agentra Labs"
+domains     = ["engineering", "general", "code", "explanation"]
+tier        = "observer"
+
+[requires]
+layers = [1, 2, 3]
+layer_1_crates = ["hydra-genome", "hydra-axiom"]
+layer_2_crates = ["hydra-comprehension", "hydra-language", "hydra-reasoning"]
+layer_3_crates = ["hydra-executor"]
+
+[provides]
+capabilities = [
+    "general.answer",
+    "general.explain",
+    "general.implement",
+    "general.debug",
+    "general.review",
+]
+
+[load]
+priority    = 10
+hot_reload  = true
+auto_unload = false

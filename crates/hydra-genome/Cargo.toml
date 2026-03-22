@@ -1,0 +1,22 @@
+[package]
+name = "hydra-genome"
+version = "0.1.0"
+edition = "2021"
+description = "Capability genetics — situation/approach matching with confidence tracking."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution = { path = "../hydra-constitution" }
+
+serde       = { version = "1", features = ["derive"] }
+serde_json  = "1"
+thiserror   = "2"
+uuid        = { version = "1", features = ["v4"] }
+chrono      = { version = "0.4", features = ["serde"] }
+rusqlite    = { workspace = true }
+dirs        = { workspace = true }
+toml        = { workspace = true }
+
+[[bin]]
+name = "genome_test_harness"
+path = "src/bin/test_harness.rs"

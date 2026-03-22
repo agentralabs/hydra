@@ -1,0 +1,25 @@
+[package]
+name = "hydra-companion"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Signal stream and task executor — Hydra's companion system."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution = { path = "../hydra-constitution" }
+hydra-tui          = { path = "../hydra-tui" }
+
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+
+[[bin]]
+name = "companion_test_harness"
+path = "src/bin/test_harness.rs"

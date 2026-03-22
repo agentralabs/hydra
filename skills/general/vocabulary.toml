@@ -1,0 +1,164 @@
+[domain]
+name        = "engineering"
+description = "Software engineering, code, systems design, and technical explanation."
+
+[[keywords]]
+word   = "implement"
+weight = 1.0
+
+[[keywords]]
+word   = "explain"
+weight = 0.8
+
+[[keywords]]
+word   = "what is"
+weight = 0.6
+
+[[keywords]]
+word   = "how does"
+weight = 0.7
+
+[[keywords]]
+word   = "code"
+weight = 0.9
+
+[[keywords]]
+word   = "rust"
+weight = 0.9
+
+[[keywords]]
+word   = "function"
+weight = 0.9
+
+[[keywords]]
+word   = "debug"
+weight = 1.0
+
+[[keywords]]
+word   = "error"
+weight = 0.8
+
+[[keywords]]
+word   = "build"
+weight = 0.8
+
+[[keywords]]
+word   = "write"
+weight = 0.7
+
+[[keywords]]
+word   = "fix"
+weight = 0.9
+
+[[keywords]]
+word   = "refactor"
+weight = 1.0
+
+[[keywords]]
+word   = "test"
+weight = 0.8
+
+[[keywords]]
+word   = "algorithm"
+weight = 1.0
+
+[[keywords]]
+word   = "pattern"
+weight = 0.8
+
+[[keywords]]
+word   = "architecture"
+weight = 1.0
+
+[[keywords]]
+word   = "system"
+weight = 0.7
+
+[[keywords]]
+word   = "database"
+weight = 0.9
+
+[[keywords]]
+word   = "api"
+weight = 0.9
+
+[[keywords]]
+word   = "async"
+weight = 1.0
+
+[[keywords]]
+word   = "concurrent"
+weight = 1.0
+
+[[keywords]]
+word   = "memory"
+weight = 0.7
+
+[[keywords]]
+word   = "performance"
+weight = 0.8
+
+[[phrases]]
+phrase      = "implement a"
+maps_to     = "general.implement"
+confidence  = 0.92
+
+[[phrases]]
+phrase      = "write a"
+maps_to     = "general.implement"
+confidence  = 0.88
+
+[[phrases]]
+phrase      = "build a"
+maps_to     = "general.implement"
+confidence  = 0.88
+
+[[phrases]]
+phrase      = "explain the"
+maps_to     = "general.explain"
+confidence  = 0.90
+
+[[phrases]]
+phrase      = "what is"
+maps_to     = "general.answer"
+confidence  = 0.85
+
+[[phrases]]
+phrase      = "how does"
+maps_to     = "general.explain"
+confidence  = 0.88
+
+[[phrases]]
+phrase      = "why does"
+maps_to     = "general.explain"
+confidence  = 0.85
+
+[[phrases]]
+phrase      = "debug this"
+maps_to     = "general.debug"
+confidence  = 0.95
+
+[[phrases]]
+phrase      = "fix the"
+maps_to     = "general.debug"
+confidence  = 0.90
+
+[[phrases]]
+phrase      = "review this"
+maps_to     = "general.review"
+confidence  = 0.88
+
+[[phrases]]
+phrase      = "what are"
+maps_to     = "general.answer"
+confidence  = 0.80
+
+[[phrases]]
+phrase      = "how to"
+maps_to     = "general.explain"
+confidence  = 0.85
+
+[[phrases]]
+phrase      = "difference between"
+maps_to     = "general.answer"
+confidence  = 0.88

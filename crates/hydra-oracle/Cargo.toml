@@ -1,0 +1,22 @@
+[package]
+name = "hydra-oracle"
+version = "0.1.0"
+edition = "2021"
+description = "Probabilistic future modeling — scenario projection from axiom primitives."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution = { path = "../hydra-constitution" }
+hydra-calibration  = { path = "../hydra-calibration" }
+hydra-pattern      = { path = "../hydra-pattern" }
+hydra-genome       = { path = "../hydra-genome" }
+hydra-axiom        = { path = "../hydra-axiom" }
+
+serde      = { version = "1", features = ["derive"] }
+thiserror  = "1"
+uuid       = { version = "1", features = ["v4", "serde"] }
+chrono     = { version = "0.4", features = ["serde"] }
+
+[[bin]]
+name = "oracle_test_harness"
+path = "src/bin/test_harness.rs"

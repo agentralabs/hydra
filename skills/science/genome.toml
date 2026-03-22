@@ -1,0 +1,29 @@
+[[entries]]
+situation    = "designing an experiment to test a hypothesis"
+approach     = "control group is mandatory — change only one variable at a time — sample size matters more than precision of measurement — pre-register the hypothesis before collecting data to prevent p-hacking"
+confidence   = 0.95
+observations = 100000
+
+[[entries]]
+situation    = "interpreting statistical results with p-value"
+approach     = "p < 0.05 does not mean the result is true — it means the result is unlikely under the null hypothesis — report effect size alongside p-value — a statistically significant result with tiny effect size is practically meaningless"
+confidence   = 0.93
+observations = 80000
+
+[[entries]]
+situation    = "choosing between correlation and causation claims"
+approach     = "correlation never implies causation — to establish causation you need: temporal precedence, covariation, and elimination of alternative explanations — randomized controlled trials are the gold standard — observational data can suggest but never prove causation"
+confidence   = 0.97
+observations = 200000
+
+[[entries]]
+situation    = "data shows an unexpected pattern or outlier"
+approach     = "verify the data collection process first — 90% of surprising results are measurement errors — if the data is correct, the outlier is the most interesting finding — never delete outliers without documented justification"
+confidence   = 0.91
+observations = 50000
+
+[[entries]]
+situation    = "need to choose a machine learning model for a problem"
+approach     = "start with the simplest model that could work (logistic regression, decision tree) — complex models overfit small datasets — always have a baseline (random, majority class) — if the simple model works, the complex one is not needed"
+confidence   = 0.89
+observations = 30000

@@ -1,0 +1,29 @@
+[[entries]]
+situation    = "data shows a trend but sample size is small"
+approach     = "report the trend with explicit confidence interval — never extrapolate from small samples — collect more data before making decisions — the cost of wrong action on bad data is always higher than the cost of waiting for good data"
+confidence   = 0.92
+observations = 30000
+
+[[entries]]
+situation    = "need to clean messy real-world data"
+approach     = "understand the data generation process before cleaning — missing data is information, not noise — document every transformation — keep raw data immutable, clean into a new dataset — 80% of data science is data cleaning, plan for it"
+confidence   = 0.93
+observations = 50000
+
+[[entries]]
+situation    = "model performs well on training data but poorly in production"
+approach     = "overfitting or data drift — check if training data represents production reality — add regularization — cross-validate, do not just train/test split — monitor model performance continuously in production — retrain on a schedule"
+confidence   = 0.90
+observations = 20000
+
+[[entries]]
+situation    = "stakeholders want a dashboard but do not know what metrics matter"
+approach     = "start with one metric that directly measures business value — vanity metrics (page views, signups) are noise — the metric should change when you take action — if the dashboard has more than 7 numbers, nobody will read it"
+confidence   = 0.88
+observations = 15000
+
+[[entries]]
+situation    = "A/B test results are inconclusive"
+approach     = "run the test longer, do not peek — most A/B tests fail because they are stopped too early — calculate required sample size BEFORE starting — if the effect is real, it will show with enough data — if it requires millions of samples to detect, the effect is too small to matter"
+confidence   = 0.91
+observations = 25000

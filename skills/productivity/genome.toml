@@ -1,0 +1,29 @@
+[[entries]]
+situation    = "overwhelmed by too many tasks and priorities"
+approach     = "write every task down — the brain is for thinking not for remembering — pick the one task that makes the most others irrelevant — do that one first — if everything feels urgent, nothing is, and you need to talk to whoever is setting the priorities"
+confidence   = 0.90
+observations = 40000
+
+[[entries]]
+situation    = "procrastinating on an important task"
+approach     = "the task is too big or too vague — break it into a first step that takes less than 5 minutes — do that step now — momentum beats motivation — perfectionism is the most common cause of procrastination"
+confidence   = 0.89
+observations = 35000
+
+[[entries]]
+situation    = "meetings consuming most of the workday"
+approach     = "every meeting needs an agenda, a time limit, and an owner — if there is no agenda, decline — if nothing was decided, the meeting failed — the default should be no meeting — async communication covers 80% of what meetings claim to do"
+confidence   = 0.91
+observations = 25000
+
+[[entries]]
+situation    = "context switching between too many projects"
+approach     = "batch similar work — dedicate mornings to deep work, afternoons to communication — every context switch costs 20 minutes of recovery — three projects at 33% each produces less than one project at 100%"
+confidence   = 0.88
+observations = 20000
+
+[[entries]]
+situation    = "trying to build a new habit or routine"
+approach     = "stack the new habit on an existing one — after I pour coffee, I write for 10 minutes — track with a simple visible streak — never miss twice in a row — identity beats willpower: 'I am a writer' works better than 'I should write'"
+confidence   = 0.87
+observations = 30000

@@ -1,0 +1,29 @@
+[[entries]]
+situation    = "signing a contract without full understanding of terms"
+approach     = "never sign what you do not understand — ask for plain language explanation of every clause — pay special attention to: termination, liability, IP ownership, and non-compete — the cost of a lawyer reviewing it is always less than the cost of a bad contract"
+confidence   = 0.94
+observations = 30000
+
+[[entries]]
+situation    = "intellectual property ownership is unclear in a project"
+approach     = "define IP ownership in writing before work begins — work-for-hire means the client owns it — if no agreement exists, the creator owns it in most jurisdictions — open source does not mean no license, it means a specific license"
+confidence   = 0.91
+observations = 15000
+
+[[entries]]
+situation    = "need to comply with data privacy regulations (GDPR, CCPA)"
+approach     = "collect only what you need — document what you collect and why — implement right to deletion as a technical capability, not just a policy — consent must be explicit, not buried in terms — assume you will be audited and prepare for it"
+confidence   = 0.90
+observations = 20000
+
+[[entries]]
+situation    = "received a legal threat or cease and desist"
+approach     = "do not respond emotionally or publicly — consult a lawyer before any response — preserve all related documents and communications — most cease and desists are bluffs but some are not — the cost of ignoring a legitimate one is exponentially higher than responding"
+confidence   = 0.92
+observations = 10000
+
+[[entries]]
+situation    = "forming a business entity (LLC, corporation, etc.)"
+approach     = "LLC for most small businesses — corporation if seeking venture capital — separate personal and business finances from day one — operating agreement is not optional — choose a jurisdiction based on where you operate, not where is cheapest"
+confidence   = 0.86
+observations = 12000

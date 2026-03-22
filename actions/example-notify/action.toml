@@ -1,0 +1,34 @@
+# EXAMPLE ACTION — Send a desktop notification
+# Copy this folder, rename it, and edit for your own action.
+#
+# To create a new action:
+#   1. mkdir actions/your-action
+#   2. Copy this file to actions/your-action/action.toml
+#   3. Edit the values below
+#   4. Restart Hydra — it loads automatically
+#
+# Trigger types:
+#   manual      — user asks Hydra to do it
+#   scheduled   — runs on a schedule (set schedule field)
+#   conditional — runs when a condition is met
+#
+# Approval modes:
+#   required — Hydra asks "Approve?" before executing
+#   auto     — executes without asking (use for safe read-only actions)
+#   notify   — executes automatically but tells you it did
+
+[action]
+name        = "notify"
+description = "Send a desktop notification (macOS)"
+trigger     = "manual"
+approval    = "auto"
+
+[action.execute]
+type            = "shell"
+command         = 'osascript -e "display notification \"{message}\" with title \"Hydra\""'
+timeout_seconds = 10
+
+[[action.parameters]]
+name     = "message"
+type     = "string"
+required = true

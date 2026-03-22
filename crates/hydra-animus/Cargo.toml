@@ -1,0 +1,29 @@
+[package]
+name = "hydra-animus"
+version = "0.1.0"
+edition = "2021"
+description = "Animus Prime runtime — Hydra's internal semantic communication layer."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution = { path = "../hydra-constitution" }
+
+serde          = { version = "1", features = ["derive"] }
+serde_json     = "1"
+thiserror      = "1"
+uuid           = { version = "1", features = ["v4"] }
+chrono         = { version = "0.4", features = ["serde"] }
+sha2           = "0.10"
+ed25519-dalek  = { version = "2", features = ["rand_core"] }
+rand           = "0.8"
+hex            = "0.4"
+bytes          = "1"
+tokio          = { version = "1", features = ["sync", "rt"] }
+
+[dev-dependencies]
+proptest       = "1"
+tokio          = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[[bin]]
+name = "test_harness"
+path = "src/bin/test_harness.rs"

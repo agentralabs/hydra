@@ -1,0 +1,24 @@
+[package]
+name = "hydra-noticing"
+version = "0.1.0"
+edition = "2021"
+description = "Ambient observation — Hydra notices without being asked."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution  = { path = "../hydra-constitution" }
+hydra-comprehension = { path = "../hydra-comprehension" }
+hydra-context       = { path = "../hydra-context" }
+hydra-synthesis     = { path = "../hydra-synthesis" }
+hydra-genome        = { path = "../hydra-genome" }
+hydra-soul          = { path = "../hydra-soul" }
+
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror  = "1"
+uuid       = { version = "1", features = ["v4"] }
+chrono     = { version = "0.4", features = ["serde"] }
+
+[[bin]]
+name = "test_harness"
+path = "src/bin/test_harness.rs"

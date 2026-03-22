@@ -1,0 +1,49 @@
+[[mappings]]
+domain_concept  = "injection"
+axiom_primitive = "Risk"
+weight          = 0.98
+
+[[mappings]]
+domain_concept  = "authentication"
+axiom_primitive = "Risk"
+weight          = 0.90
+
+[[mappings]]
+domain_concept  = "authorization"
+axiom_primitive = "Risk"
+weight          = 0.85
+
+[[mappings]]
+domain_concept  = "encryption"
+axiom_primitive = "Risk"
+weight          = 0.80
+
+[[mappings]]
+domain_concept  = "vulnerability"
+axiom_primitive = "Risk"
+weight          = 0.95
+
+[[mappings]]
+domain_concept  = "CVE"
+axiom_primitive = "Risk"
+weight          = 0.90
+
+[[mappings]]
+domain_concept  = "password"
+axiom_primitive = "Risk"
+weight          = 0.85
+
+[[mappings]]
+domain_concept  = "token"
+axiom_primitive = "Risk"
+weight          = 0.80
+
+[[mappings]]
+domain_concept  = "CORS"
+axiom_primitive = "Risk"
+weight          = 0.75
+
+[[mappings]]
+domain_concept  = "XSS"
+axiom_primitive = "Risk"
+weight          = 0.95

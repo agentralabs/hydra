@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.agentra.hydra</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/omoshola/Documents/agentralabs-tech/hydra/target/release/hydra</string>
+        <string>--daemon</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/omoshola/Documents/agentralabs-tech/hydra</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/omoshola/.hydra/logs/hydra.stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/omoshola/.hydra/logs/hydra.stderr.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HYDRA_MODE</key>
+        <string>daemon</string>
+        <key>HYDRA_LOG</key>
+        <string>info</string>
+    </dict>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>LowPriorityIO</key>
+    <true/>
+
+    <key>Nice</key>
+    <integer>10</integer>
+</dict>
+</plist>

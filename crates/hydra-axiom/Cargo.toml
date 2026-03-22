@@ -1,0 +1,19 @@
+[package]
+name = "hydra-axiom"
+version = "0.1.0"
+edition = "2021"
+description = "Universal reasoning primitives — the domain-free axiom category C_axiom."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution = { path = "../hydra-constitution" }
+hydra-animus       = { path = "../hydra-animus" }
+
+serde          = { version = "1", features = ["derive"] }
+serde_json     = "1"
+thiserror      = "2"
+uuid           = { version = "1", features = ["v4"] }
+
+[[bin]]
+name = "test_harness"
+path = "src/bin/test_harness.rs"

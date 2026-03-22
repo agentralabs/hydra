@@ -1,0 +1,92 @@
+[[mappings]]
+domain_concept  = "investment"
+axiom_primitive = "Risk"
+weight          = 0.85
+
+[[mappings]]
+domain_concept  = "portfolio"
+axiom_primitive = "Risk"
+weight          = 0.80
+
+[[mappings]]
+domain_concept  = "volatility"
+axiom_primitive = "Risk"
+weight          = 0.90
+
+[[mappings]]
+domain_concept  = "leverage"
+axiom_primitive = "Risk"
+weight          = 0.95
+notes           = "Leverage amplifies both gains and losses — maximum risk signal"
+
+[[mappings]]
+domain_concept  = "dividend"
+axiom_primitive = "Volume"
+weight          = 0.65
+
+[[mappings]]
+domain_concept  = "interest"
+axiom_primitive = "Dependency"
+weight          = 0.75
+notes           = "Interest rates create dependency chains across all asset classes"
+
+[[mappings]]
+domain_concept  = "inflation"
+axiom_primitive = "Risk"
+weight          = 0.80
+
+[[mappings]]
+domain_concept  = "recession"
+axiom_primitive = "Risk"
+weight          = 0.90
+
+[[mappings]]
+domain_concept  = "valuation"
+axiom_primitive = "Understanding"
+weight          = 0.80
+
+[[mappings]]
+domain_concept  = "hedge"
+axiom_primitive = "Risk"
+weight          = 0.85
+
+[[mappings]]
+domain_concept  = "liquidity"
+axiom_primitive = "Risk"
+weight          = 0.75
+
+[[mappings]]
+domain_concept  = "compound"
+axiom_primitive = "Volume"
+weight          = 0.80
+notes           = "Compound growth is the most powerful force in finance"
+
+[[mappings]]
+domain_concept  = "bubble"
+axiom_primitive = "Risk"
+weight          = 0.95
+
+[[mappings]]
+domain_concept  = "mortgage"
+axiom_primitive = "Dependency"
+weight          = 0.80
+
+[[mappings]]
+domain_concept  = "tax"
+axiom_primitive = "Understanding"
+weight          = 0.70
+
+[[mappings]]
+domain_concept  = "credit"
+axiom_primitive = "Risk"
+weight          = 0.75
+
+[[mappings]]
+domain_concept  = "currency"
+axiom_primitive = "Risk"
+weight          = 0.80
+
+[[mappings]]
+domain_concept  = "crypto"
+axiom_primitive = "Risk"
+weight          = 0.90

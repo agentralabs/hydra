@@ -1,0 +1,59 @@
+[[entries]]
+situation    = "need to understand how a biological system works"
+approach     = "structure determines function at every scale — proteins fold into shapes that determine what they do — cells organize into tissues that determine organ function — organs form systems that determine organism capability — if you understand the structure, you can predict the function — if the function is broken, look at the structure"
+confidence   = 0.94
+observations = 150000
+
+[[entries]]
+situation    = "designing a biological experiment"
+approach     = "control group is sacred — change only one variable — biological systems have enormous variation, so sample size must be large enough to detect the signal above the noise — randomize assignment to groups — blind the experimenter if possible — biological replicates are not the same as technical replicates"
+confidence   = 0.95
+observations = 100000
+
+[[entries]]
+situation    = "understanding genetics and inheritance"
+approach     = "DNA is the blueprint, RNA is the messenger, protein is the product — one gene can produce multiple proteins (alternative splicing) — most traits are polygenic (many genes) not monogenic (one gene) — environment modulates gene expression (epigenetics) — 'gene for X' is almost always an oversimplification — Mendel's laws are the starting point but real genetics is much more complex"
+confidence   = 0.92
+observations = 80000
+
+[[entries]]
+situation    = "analyzing evolutionary relationships or adaptation"
+approach     = "natural selection acts on variation — variation comes from mutation and recombination — selection favors traits that increase reproductive success, not 'improvement' — evolution has no direction or goal — convergent evolution means similar problems produce similar solutions independently — the fossil record is incomplete but molecular phylogenetics fills the gaps"
+confidence   = 0.93
+observations = 100000
+
+[[entries]]
+situation    = "understanding how the immune system works"
+approach     = "innate immunity is fast but non-specific (first responders) — adaptive immunity is slow but specific (specialists) — antibodies recognize specific antigens — T cells kill infected cells, B cells make antibodies — vaccines train the adaptive system without causing disease — autoimmune diseases are the immune system attacking self — immunodeficiency means the system is not working at all"
+confidence   = 0.91
+observations = 60000
+
+[[entries]]
+situation    = "ecology and ecosystem analysis"
+approach     = "energy flows one way (sun → producers → consumers → decomposers) — nutrients cycle (carbon, nitrogen, phosphorus, water) — removing one species affects the entire food web — keystone species have disproportionate impact — biodiversity increases ecosystem resilience — carrying capacity limits population growth — humans are currently exceeding multiple planetary boundaries"
+confidence   = 0.90
+observations = 50000
+
+[[entries]]
+situation    = "understanding cellular processes"
+approach     = "all cells come from existing cells — the cell membrane controls what enters and exits — ATP is the energy currency — mitochondria produce ATP via cellular respiration — photosynthesis converts light to chemical energy — cell division (mitosis) copies, sexual reproduction (meiosis) shuffles — cancer is uncontrolled cell division caused by accumulated mutations"
+confidence   = 0.93
+observations = 120000
+
+[[entries]]
+situation    = "bioethics decision in research or medicine"
+approach     = "informed consent is non-negotiable — do no harm is the baseline but sometimes harm is unavoidable (surgery, chemotherapy) — animal research requires justification that the knowledge cannot be obtained any other way — genetic modification raises questions about consent from future generations — the precautionary principle says: if the consequences are severe and irreversible, the burden of proof is on those proposing the action"
+confidence   = 0.88
+observations = 40000
+
+[[entries]]
+situation    = "interpreting medical or health-related biological data"
+approach     = "correlation in health data almost never implies causation — controlled clinical trials are the gold standard — case reports are anecdotes, not evidence — relative risk is misleading without base rate (50% increase of a 1-in-a-million risk is still 1.5-in-a-million) — always ask: compared to what? over what time period? in what population?"
+confidence   = 0.92
+observations = 80000
+
+[[entries]]
+situation    = "understanding microbiology and infectious disease"
+approach     = "bacteria, viruses, fungi, and parasites are fundamentally different — antibiotics kill bacteria, not viruses — antibiotic resistance is evolution in real time — transmission routes matter: airborne, droplet, contact, fecal-oral, vector-borne — Koch's postulates establish causation between microbe and disease — sterilization, pasteurization, and vaccination are the three greatest public health interventions in history"
+confidence   = 0.94
+observations = 100000

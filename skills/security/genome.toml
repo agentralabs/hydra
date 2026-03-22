@@ -1,0 +1,59 @@
+[[entries]]
+situation    = "SQL injection vulnerability discovered in application"
+approach     = "parameterized queries everywhere — no string concatenation for SQL ever — use ORM or query builder — audit every raw SQL call in the codebase — this is not a fix, it is a permanent standard"
+confidence   = 0.97
+observations = 50000
+
+[[entries]]
+situation    = "user authentication system needs to be designed"
+approach     = "never build your own auth — use battle-tested libraries (bcrypt/argon2 for hashing, JWT with short expiry for tokens) — implement rate limiting on login attempts — add MFA from day one not as an afterthought"
+confidence   = 0.95
+observations = 10000
+
+[[entries]]
+situation    = "API endpoint exposed without authentication"
+approach     = "add authentication immediately before investigating scope — assume it was discovered and exploited — audit access logs for the exposure period — add API gateway with auth requirement as default deny"
+confidence   = 0.96
+observations = 8000
+
+[[entries]]
+situation    = "third-party dependency has a known CVE"
+approach     = "update the dependency first, assess impact second — if update is not possible, evaluate the exploit path — most CVEs are theoretical, but the ones that are not are catastrophic — err on the side of updating"
+confidence   = 0.88
+observations = 15000
+
+[[entries]]
+situation    = "need to implement role-based access control"
+approach     = "principle of least privilege — start with no access and add permissions, never start with full access and restrict — roles should be hierarchical — audit who has what access quarterly"
+confidence   = 0.92
+observations = 5000
+
+[[entries]]
+situation    = "sensitive data needs to be stored in a database"
+approach     = "encrypt at rest and in transit — column-level encryption for PII — never store passwords (store hashes) — never store credit card numbers (use tokenization) — assume the database will be breached and design for that"
+confidence   = 0.94
+observations = 20000
+
+[[entries]]
+situation    = "cross-site scripting XSS vulnerability found"
+approach     = "output encoding at the template level — never trust user input in HTML context — Content-Security-Policy header — use frameworks that auto-escape by default (React, Angular) — audit every dangerouslySetInnerHTML or v-html"
+confidence   = 0.95
+observations = 30000
+
+[[entries]]
+situation    = "need to secure communication between microservices"
+approach     = "mutual TLS between all services — service mesh if more than 5 services — never rely on network segmentation alone — assume the internal network is compromised and design for zero trust"
+confidence   = 0.90
+observations = 3000
+
+[[entries]]
+situation    = "logging contains sensitive user data"
+approach     = "redact PII from logs at the logging framework level — never log passwords, tokens, or credit card numbers — structured logging with field-level redaction rules — audit log output monthly"
+confidence   = 0.93
+observations = 7000
+
+[[entries]]
+situation    = "CORS configuration allowing all origins"
+approach     = "whitelist specific allowed origins — never use wildcard (*) with credentials — restrict methods and headers to what is actually needed — test CORS from a different origin to verify"
+confidence   = 0.91
+observations = 6000

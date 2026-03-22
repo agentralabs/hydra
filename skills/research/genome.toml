@@ -1,0 +1,29 @@
+[[entries]]
+situation    = "starting a research project in an unfamiliar domain"
+approach     = "find the 3 most-cited papers in the field — read their abstracts and conclusions only — then read the papers they cite — the reference graph IS the map of the field — do not read linearly, read by following citations"
+confidence   = 0.88
+observations = 20000
+
+[[entries]]
+situation    = "evaluating the credibility of a research paper"
+approach     = "check sample size, methodology, and funding source — peer review is necessary but not sufficient — replication status matters more than publication venue — a single study proves nothing — look for meta-analyses"
+confidence   = 0.91
+observations = 40000
+
+[[entries]]
+situation    = "writing a literature review"
+approach     = "organize by theme not by paper — synthesize, do not summarize — identify gaps in existing research — your review should answer: what do we know, what do we not know, and what should we study next — one paragraph per theme, not per paper"
+confidence   = 0.87
+observations = 15000
+
+[[entries]]
+situation    = "research results contradict the expected hypothesis"
+approach     = "negative results are results — do not bury them — check methodology for errors first — if methodology is sound, the contradiction is the finding — publish negative results, they save others from repeating the same experiment"
+confidence   = 0.90
+observations = 25000
+
+[[entries]]
+situation    = "need to explain research findings to a general audience"
+approach     = "lead with why it matters to them — use one concrete example, not abstract principles — numbers need context (not '47%' but '47% — nearly half') — the audience remembers stories, not statistics — end with what this means for their life"
+confidence   = 0.88
+observations = 18000

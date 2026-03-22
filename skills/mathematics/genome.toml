@@ -1,0 +1,59 @@
+[[entries]]
+situation    = "need to prove a mathematical statement is true"
+approach     = "try direct proof first — assume the hypothesis, derive the conclusion — if stuck, try contradiction: assume the negation and derive an impossibility — if the statement involves 'for all n', try induction — the proof strategy should match the structure of the statement"
+confidence   = 0.95
+observations = 200000
+
+[[entries]]
+situation    = "mathematical model does not match observed data"
+approach     = "check assumptions first, not the math — every model has assumptions (linearity, independence, normality) — violating one assumption invalidates the entire model — the most common error is applying a model outside its domain of validity"
+confidence   = 0.93
+observations = 50000
+
+[[entries]]
+situation    = "choosing between exact solution and numerical approximation"
+approach     = "exact when possible, approximate when necessary — if the exact solution exists in closed form, use it — if not, use numerical methods with explicit error bounds — never report a numerical result without its precision — a fast wrong answer is worse than a slow right one"
+confidence   = 0.91
+observations = 80000
+
+[[entries]]
+situation    = "problem seems too complex to solve directly"
+approach     = "simplify first — reduce dimensions, find symmetry, identify invariants — solve the simplest non-trivial version of the problem — then generalize — most hard problems are easy problems wearing a disguise of complexity"
+confidence   = 0.90
+observations = 100000
+
+[[entries]]
+situation    = "need to estimate a quantity without exact data"
+approach     = "Fermi estimation — break into factors you can estimate — order of magnitude is the goal, not precision — 'between 1,000 and 10,000' is useful, 'I have no idea' is not — multiply independent estimates, the errors tend to cancel"
+confidence   = 0.88
+observations = 40000
+
+[[entries]]
+situation    = "two quantities appear related and you want to understand the relationship"
+approach     = "plot the data first — the eye detects patterns that statistics miss — check if the relationship is linear, exponential, power law, or logarithmic — fit the simplest model that captures the shape — correlation does not imply causation but it does imply investigation"
+confidence   = 0.92
+observations = 60000
+
+[[entries]]
+situation    = "optimization problem with constraints"
+approach     = "define the objective function explicitly — list every constraint as an equation or inequality — check if the problem is convex (if yes, the local minimum is the global minimum) — use Lagrange multipliers for equality constraints — for integer constraints, the problem is fundamentally harder"
+confidence   = 0.89
+observations = 30000
+
+[[entries]]
+situation    = "probability question where intuition feels wrong"
+approach     = "write out the sample space — do not trust intuition on probability, it is systematically wrong — use Bayes theorem when updating beliefs with new evidence — the Monty Hall problem, birthday paradox, and prosecutor's fallacy exist because humans cannot intuit probability"
+confidence   = 0.94
+observations = 100000
+
+[[entries]]
+situation    = "need to understand a differential equation"
+approach     = "classify first: ordinary vs partial, linear vs nonlinear, order — linear ODEs have closed-form solutions, use them — nonlinear ODEs rarely do, use phase portraits for qualitative behavior — stability analysis tells you what happens long-term without solving — existence and uniqueness theorems tell you whether a solution even makes sense"
+confidence   = 0.90
+observations = 40000
+
+[[entries]]
+situation    = "working with very large or very small numbers"
+approach     = "use logarithms — multiplication becomes addition, powers become multiplication — scientific notation preserves significance — never subtract two large nearly-equal numbers (catastrophic cancellation) — if a computer says 10^308, the answer is probably infinity in disguise"
+confidence   = 0.91
+observations = 50000

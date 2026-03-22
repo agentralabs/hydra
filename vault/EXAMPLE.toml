@@ -1,0 +1,31 @@
+# EXAMPLE CREDENTIAL FILE
+# Copy this, rename to the service name, fill in your values.
+# This file is gitignored and never leaves your machine.
+
+[service]
+name        = "example-service"
+url         = "https://example.com"
+created_by  = "user"               # "user" or "hydra"
+created_at  = "2026-03-21"
+notes       = "Free tier account for testing"
+
+[credentials]
+api_key     = "your-api-key-here"
+api_secret  = "your-api-secret-here"
+
+# Optional fields — use what the service needs:
+# username    = ""
+# password    = ""
+# token       = ""
+# oauth_token = ""
+# webhook_url = ""
+# client_id   = ""
+# client_secret = ""
+
+[access]
+# What Hydra is allowed to do with this credential
+read        = true                  # Can Hydra read data? (default: true)
+write       = false                 # Can Hydra write/modify? (default: false)
+delete      = false                 # Can Hydra delete? (default: false, rarely true)
+spend       = false                 # Can Hydra spend money? (default: false)
+max_spend   = 0.0                   # If spend=true, max per day in USD

@@ -1,0 +1,59 @@
+[[entries]]
+situation    = "need to analyze a physical system"
+approach     = "draw the free body diagram first — identify every force acting on every object — choose a coordinate system that simplifies the math — Newton's laws are the starting point for everything mechanical — if it is moving, ask about energy; if it is in equilibrium, sum the forces to zero"
+confidence   = 0.94
+observations = 150000
+
+[[entries]]
+situation    = "estimating whether a physical effect matters"
+approach     = "dimensional analysis first — if the units do not match, the equation is wrong — order-of-magnitude estimation tells you whether an effect is 1% or 100% — compare the energy/force/timescale of the effect to the system scale — if it is less than 1% of the dominant term, ignore it"
+confidence   = 0.93
+observations = 100000
+
+[[entries]]
+situation    = "energy analysis of a system"
+approach     = "conservation of energy is the most powerful tool in physics — identify all forms: kinetic, potential, thermal, electrical, chemical — energy is never created or destroyed, only converted — if the calculation shows energy appearing from nowhere, there is an error — work is force times distance, power is energy per time"
+confidence   = 0.96
+observations = 200000
+
+[[entries]]
+situation    = "understanding wave phenomena (sound, light, water)"
+approach     = "all waves share the same mathematics: v = fλ — interference (constructive and destructive) explains most wave behavior — diffraction happens when waves encounter obstacles near their wavelength — standing waves form in bounded systems — the wave equation is universal, the medium determines the speed"
+confidence   = 0.92
+observations = 80000
+
+[[entries]]
+situation    = "analyzing electrical circuits"
+approach     = "Kirchhoff's laws: current in = current out at every node, voltage around every loop = zero — Ohm's law V=IR for resistors — capacitors store energy in electric fields, inductors in magnetic fields — for AC circuits, use impedance (complex resistance) — ground is a reference, not a physical thing"
+confidence   = 0.93
+observations = 100000
+
+[[entries]]
+situation    = "understanding thermodynamic processes"
+approach     = "three laws: energy is conserved, entropy always increases, absolute zero is unreachable — entropy is not disorder, it is the number of microstates — the second law explains why heat flows from hot to cold, why engines have maximum efficiency, and why time has a direction — if someone claims a perpetual motion machine, they are violating the second law"
+confidence   = 0.95
+observations = 120000
+
+[[entries]]
+situation    = "motion under gravity or projectile motion"
+approach     = "separate horizontal and vertical components — horizontal: constant velocity (no force) — vertical: constant acceleration (gravity) — time connects the two — air resistance matters only at high speeds or for light objects — on Earth, g = 9.8 m/s² is exact enough for most calculations"
+confidence   = 0.94
+observations = 150000
+
+[[entries]]
+situation    = "quantum mechanics concepts needed for application"
+approach     = "particles have wave-like properties, waves have particle-like properties — measurement changes the system (not mysticism, physics) — the Schrödinger equation governs everything at small scales — energy levels are quantized (discrete, not continuous) — tunneling, superposition, and entanglement are real physical effects, not metaphors"
+confidence   = 0.88
+observations = 40000
+
+[[entries]]
+situation    = "relativistic effects may be relevant"
+approach     = "if speeds are below 10% of light speed, classical mechanics is fine — special relativity: time dilates, length contracts, mass increases with velocity — general relativity: mass curves spacetime, gravity is geometry — E=mc² means mass and energy are interchangeable — GPS satellites must correct for relativistic time dilation"
+confidence   = 0.90
+observations = 30000
+
+[[entries]]
+situation    = "physical measurement and uncertainty"
+approach     = "every measurement has uncertainty — report as value ± uncertainty — propagate uncertainty through calculations using quadrature (square root of sum of squares) — significant figures reflect actual precision — systematic errors do not average out, random errors do — calibrate instruments against known standards"
+confidence   = 0.93
+observations = 80000

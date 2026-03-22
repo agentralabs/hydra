@@ -1,0 +1,59 @@
+[[entries]]
+situation    = "choosing between microservices and monolith for a new project"
+approach     = "start with a monolith — extract services only when you have clear domain boundaries and team boundaries that match — premature microservices is the number one architecture mistake in startups"
+confidence   = 0.91
+observations = 5000
+
+[[entries]]
+situation    = "system needs to handle 10x traffic growth"
+approach     = "horizontal scaling first — stateless services behind a load balancer — move state to dedicated stores (Redis, database) — vertical scaling is a dead end, horizontal scaling is indefinite"
+confidence   = 0.93
+observations = 8000
+
+[[entries]]
+situation    = "two teams need to work on the same codebase without blocking each other"
+approach     = "API boundaries between team domains — each team owns their API contract — changes to contracts require both teams to agree — internal implementation is each team's business"
+confidence   = 0.89
+observations = 3000
+
+[[entries]]
+situation    = "need to decide between SQL and NoSQL database"
+approach     = "if you have relationships between data, use SQL — if you have documents or key-value pairs, use NoSQL — if you are not sure, use SQL — the flexibility of NoSQL is rarely worth the loss of joins and transactions"
+confidence   = 0.87
+observations = 10000
+
+[[entries]]
+situation    = "legacy system needs to be replaced gradually"
+approach     = "strangler fig pattern — build new functionality alongside the old system — route traffic progressively from old to new — never do a big bang replacement — the old system runs until the new system is proven"
+confidence   = 0.90
+observations = 2000
+
+[[entries]]
+situation    = "API design for a new service"
+approach     = "design the API before writing any code — the API is the product, the implementation is a detail — use OpenAPI spec — version from day one — make breaking changes impossible by designing for evolution"
+confidence   = 0.92
+observations = 7000
+
+[[entries]]
+situation    = "system experiencing cascading failures across services"
+approach     = "circuit breakers at every external dependency — bulkhead isolation between critical and non-critical paths — graceful degradation: return cached or default data when a dependency is down — never let one failure take down everything"
+confidence   = 0.94
+observations = 5000
+
+[[entries]]
+situation    = "need to implement event-driven architecture"
+approach     = "start with a message broker (Kafka, RabbitMQ) — events should be immutable facts, not commands — consumers must be idempotent — dead letter queues for failed processing — monitor consumer lag as a health metric"
+confidence   = 0.88
+observations = 4000
+
+[[entries]]
+situation    = "caching strategy needed for high-traffic application"
+approach     = "cache at the edge first (CDN), then application cache (Redis), then query cache — cache invalidation is the hard part — use TTL-based expiry, not event-based invalidation, unless you have strong consistency requirements"
+confidence   = 0.89
+observations = 6000
+
+[[entries]]
+situation    = "need to ensure data consistency across distributed services"
+approach     = "prefer eventual consistency with saga pattern — distributed transactions (2PC) do not scale — design each service to be independently consistent — use outbox pattern for reliable event publishing"
+confidence   = 0.87
+observations = 3000

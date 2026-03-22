@@ -1,0 +1,8 @@
+[runtime]
+# General skill needs nothing external.
+# No API keys. No network endpoints. No binaries.
+
+[constraints]
+max_concurrent_actions = 10
+retry_budget           = 3
+timeout_ms             = 60000

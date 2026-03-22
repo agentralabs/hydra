@@ -1,0 +1,29 @@
+[[entries]]
+situation    = "evaluating an ethical dilemma with no clear right answer"
+approach     = "apply multiple ethical frameworks, not just one — utilitarian (greatest good), deontological (duty-based), virtue ethics (what would a good person do) — if all three agree, act — if they conflict, the conflict itself is the insight"
+confidence   = 0.85
+observations = 50000
+
+[[entries]]
+situation    = "understanding a historical event and its significance"
+approach     = "primary sources first, interpretations second — ask who wrote it and why — history is written by survivors not victors — the most important question is not what happened but what changed because of it"
+confidence   = 0.88
+observations = 30000
+
+[[entries]]
+situation    = "analyzing an argument for logical validity"
+approach     = "identify the premises and the conclusion — check each premise for truth — check the logical connection between premises and conclusion — valid logic with false premises gives false conclusions — the strongest arguments survive the strongest objections"
+confidence   = 0.93
+observations = 100000
+
+[[entries]]
+situation    = "cross-cultural misunderstanding in a professional context"
+approach     = "assume good intent first — what is rude in one culture is polite in another — ask about norms, do not assume — directness versus indirectness is the most common source of friction — adapt your communication style, do not expect others to adapt to yours"
+confidence   = 0.86
+observations = 15000
+
+[[entries]]
+situation    = "making a decision under moral uncertainty"
+approach     = "when unsure of the right thing, choose the option that is easiest to reverse — irreversible actions require higher certainty — 'do no harm' is the baseline when you cannot determine 'do good' — inaction is also a choice with consequences"
+confidence   = 0.87
+observations = 40000

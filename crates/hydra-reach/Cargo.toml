@@ -1,0 +1,23 @@
+[package]
+name = "hydra-reach"
+version = "0.1.0"
+edition = "2021"
+description = "Universal device connectivity — multi-device session management for Hydra."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution  = { path = "../hydra-constitution" }
+hydra-skills        = { path = "../hydra-skills" }
+hydra-cartography   = { path = "../hydra-cartography" }
+hydra-plastic       = { path = "../hydra-plastic" }
+hydra-horizon       = { path = "../hydra-horizon" }
+hydra-genome        = { path = "../hydra-genome" }
+
+serde       = { version = "1", features = ["derive"] }
+thiserror   = "2"
+uuid        = { version = "1", features = ["v4"] }
+chrono      = { version = "0.4", features = ["serde"] }
+
+[[bin]]
+name = "reach_test_harness"
+path = "src/bin/test_harness.rs"

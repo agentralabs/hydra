@@ -1,0 +1,24 @@
+# ALERT OWNER — Fired automatically by the surprise detector
+# when something important happens and the user is not looking.
+# This is how Hydra taps you on the shoulder.
+
+[action]
+name        = "alert-owner"
+description = "Send a desktop notification when Hydra detects something critical"
+trigger     = "conditional"
+approval    = "auto"
+
+[action.execute]
+type            = "shell"
+command         = 'osascript -e "display notification \"{message}\" with title \"Hydra\" subtitle \"{severity}\""'
+timeout_seconds = 5
+
+[[action.parameters]]
+name     = "message"
+type     = "string"
+required = true
+
+[[action.parameters]]
+name     = "severity"
+type     = "string"
+default  = "Notice"

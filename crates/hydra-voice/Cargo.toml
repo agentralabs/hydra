@@ -1,0 +1,31 @@
+[package]
+name = "hydra-voice"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The Pulse system — voice I/O for Hydra."
+authors = ["Agentra Labs"]
+
+[features]
+default = []
+whisper = ["dep:whisper-rs"]
+
+[dependencies]
+hydra-constitution = { path = "../hydra-constitution" }
+
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+
+# Optional: local STT via whisper.cpp bindings (requires system libs).
+whisper-rs = { version = "0.13", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+
+# Test harness commented out to break cycle: voice → tui → companion → voice
+# [[bin]]
+# name = "voice_test_harness"
+# path = "src/bin/test_harness.rs"

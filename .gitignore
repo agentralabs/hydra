@@ -1,0 +1,30 @@
+/target
+.env
+*.lock
+!Cargo.lock
+.DS_Store
+*.swp
+*.swo
+nohup.out
+
+# Specs — internal build instructions, not for distribution
+specs/
+
+# Harness reports and logs — generated output
+harness-reports/
+harness-*.log
+*.log
+
+# Hydra runtime data
+~/.hydra/
+
+# Integration credentials — never commit API keys
+integrations/*/credentials.toml
+
+# Vault — all credentials, never commit
+vault/*.toml
+vault/hydra-created/*.toml
+!vault/EXAMPLE.toml
+
+# Disabled test harnesses
+*.rs.disabled

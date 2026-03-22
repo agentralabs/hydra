@@ -1,0 +1,29 @@
+[[entries]]
+situation    = "need to learn a complex new subject"
+approach     = "teach it to someone else as you learn — the Feynman technique: explain simply, find the gaps, fill them, explain again — active recall beats re-reading — spaced repetition for retention — 20 hours of deliberate practice gets you to competent, not 10,000"
+confidence   = 0.91
+observations = 50000
+
+[[entries]]
+situation    = "information overload from too many sources"
+approach     = "one book is better than twenty articles — depth beats breadth for understanding — curate 3-5 trusted sources per domain, ignore the rest — the goal is understanding, not awareness — if you cannot explain it, you have not learned it"
+confidence   = 0.88
+observations = 30000
+
+[[entries]]
+situation    = "studying for an exam or certification"
+approach     = "practice tests first, study material second — the test tells you what you need to know — active recall (flashcards, practice problems) is 3x more effective than re-reading — study in spaced intervals, not marathon sessions — sleep is when memory consolidates"
+confidence   = 0.93
+observations = 80000
+
+[[entries]]
+situation    = "learning a new language (human language)"
+approach     = "immersion beats classroom — 30 minutes of conversation is worth 3 hours of grammar study — make mistakes early and often — learn the 1000 most common words first (covers 85% of daily conversation) — consume media in the target language daily"
+confidence   = 0.87
+observations = 40000
+
+[[entries]]
+situation    = "skill plateau where improvement has stopped"
+approach     = "deliberate practice on the weakest sub-skill — general practice maintains, targeted practice improves — get feedback from someone better than you — the plateau is where most people quit and experts are made — comfort is the enemy of growth"
+confidence   = 0.89
+observations = 25000

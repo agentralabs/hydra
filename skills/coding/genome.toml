@@ -1,0 +1,47 @@
+[[entries]]
+situation    = "starting a new codebase from scratch"
+approach     = "write the README first — if you cannot explain it in one paragraph, you do not understand it yet — set up CI before writing features — linter and formatter on first commit, not after 10,000 lines"
+confidence   = 0.90
+observations = 15000
+
+[[entries]]
+situation    = "code review reveals fundamental design problem"
+approach     = "address the design before the code — no amount of code polish fixes a wrong abstraction — if the reviewer is right, thank them and redesign — if you disagree, explain the trade-off, do not defend the implementation"
+confidence   = 0.88
+observations = 20000
+
+[[entries]]
+situation    = "choosing a programming language for a new project"
+approach     = "pick the language the team knows best — language performance differences matter less than developer productivity — the best language is the one where you ship fastest and maintain easiest — exotic languages create hiring problems"
+confidence   = 0.86
+observations = 10000
+
+[[entries]]
+situation    = "codebase has no tests and needs them"
+approach     = "do not try to reach 100% coverage — write tests for the code you are about to change — test behavior not implementation — integration tests catch more real bugs than unit tests — a test that never fails is a test that tests nothing"
+confidence   = 0.91
+observations = 25000
+
+[[entries]]
+situation    = "function or class has grown too large"
+approach     = "extract when you have a reason, not when you reach a line count — the right time to split is when you cannot name what the function does in one phrase — extract by responsibility, not by arbitrary size — three short functions that do not make sense alone are worse than one long function that does"
+confidence   = 0.87
+observations = 18000
+
+[[entries]]
+situation    = "need to handle errors in an application"
+approach     = "fail fast at system boundaries — validate input at the edge, trust data internally — use typed errors not strings — every error should answer: what happened, where, and what to do about it — never swallow errors silently"
+confidence   = 0.92
+observations = 30000
+
+[[entries]]
+situation    = "git history is messy with unclear commits"
+approach     = "commit messages should explain WHY not WHAT — the diff shows what changed, the message explains the reasoning — one logical change per commit — squash work-in-progress commits before merging — the git log is documentation"
+confidence   = 0.89
+observations = 15000
+
+[[entries]]
+situation    = "need to learn a new technology or framework quickly"
+approach     = "build something small with it before reading documentation — tutorials teach you how, building teaches you why — make every mistake once in a throwaway project — then read the docs with context"
+confidence   = 0.87
+observations = 20000

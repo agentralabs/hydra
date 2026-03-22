@@ -1,0 +1,96 @@
+[package]
+name    = "hydra-harness"
+version = "0.1.0"
+edition = "2021"
+description = "Autonomous 20-hour capability test harness — tests everything, fixes what it can"
+
+[dependencies]
+# Layer 1
+hydra-constitution  = { path = "../hydra-constitution" }
+hydra-kernel        = { path = "../hydra-kernel" }
+hydra-genome        = { path = "../hydra-genome" }
+hydra-trust         = { path = "../hydra-trust" }
+hydra-belief        = { path = "../hydra-belief" }
+hydra-temporal      = { path = "../hydra-temporal" }
+hydra-soul          = { path = "../hydra-soul" }
+hydra-morphic       = { path = "../hydra-morphic" }
+hydra-axiom         = { path = "../hydra-axiom" }
+hydra-antifragile   = { path = "../hydra-antifragile" }
+hydra-plastic       = { path = "../hydra-plastic" }
+hydra-cartography   = { path = "../hydra-cartography" }
+hydra-generative    = { path = "../hydra-generative" }
+hydra-reach         = { path = "../hydra-reach" }
+hydra-prediction    = { path = "../hydra-prediction" }
+hydra-reflexive     = { path = "../hydra-reflexive" }
+hydra-persona       = { path = "../hydra-persona" }
+hydra-fleet         = { path = "../hydra-fleet" }
+hydra-metabolism    = { path = "../hydra-metabolism" }
+hydra-skills        = { path = "../hydra-skills" }
+hydra-companion     = { path = "../hydra-companion" }
+hydra-signals       = { path = "../hydra-signals" }
+hydra-animus        = { path = "../hydra-animus" }
+hydra-adversary     = { path = "../hydra-adversary" }
+
+# Layer 2
+hydra-comprehension = { path = "../hydra-comprehension" }
+hydra-context       = { path = "../hydra-context" }
+hydra-language      = { path = "../hydra-language" }
+hydra-attention     = { path = "../hydra-attention" }
+hydra-reasoning     = { path = "../hydra-reasoning" }
+hydra-learning      = { path = "../hydra-learning" }
+hydra-synthesis     = { path = "../hydra-synthesis" }
+hydra-noticing      = { path = "../hydra-noticing" }
+
+# Layer 3
+hydra-executor      = { path = "../hydra-executor" }
+hydra-transform     = { path = "../hydra-transform" }
+hydra-environment   = { path = "../hydra-environment" }
+hydra-protocol      = { path = "../hydra-protocol" }
+hydra-scheduler     = { path = "../hydra-scheduler" }
+hydra-reach-extended = { path = "../hydra-reach-extended" }
+hydra-automation    = { path = "../hydra-automation" }
+hydra-audit         = { path = "../hydra-audit" }
+
+# Layer 4
+hydra-omniscience   = { path = "../hydra-omniscience" }
+hydra-pattern       = { path = "../hydra-pattern" }
+hydra-redteam       = { path = "../hydra-redteam" }
+hydra-calibration   = { path = "../hydra-calibration" }
+hydra-oracle        = { path = "../hydra-oracle" }
+hydra-wisdom        = { path = "../hydra-wisdom" }
+
+# Layer 5
+hydra-settlement    = { path = "../hydra-settlement" }
+hydra-attribution   = { path = "../hydra-attribution" }
+hydra-portfolio     = { path = "../hydra-portfolio" }
+hydra-crystallizer  = { path = "../hydra-crystallizer" }
+hydra-exchange      = { path = "../hydra-exchange" }
+
+# Layer 6
+hydra-federation    = { path = "../hydra-federation" }
+hydra-consensus     = { path = "../hydra-consensus" }
+hydra-consent       = { path = "../hydra-consent" }
+hydra-collective    = { path = "../hydra-collective" }
+hydra-diplomat      = { path = "../hydra-diplomat" }
+
+# Layer 7
+hydra-succession    = { path = "../hydra-succession" }
+hydra-legacy        = { path = "../hydra-legacy" }
+hydra-influence     = { path = "../hydra-influence" }
+hydra-continuity    = { path = "../hydra-continuity" }
+
+tokio      = { version = "1", features = ["full"] }
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono     = { version = "0.4", features = ["serde"] }
+rusqlite   = { workspace = true }
+dirs       = { workspace = true }
+reqwest    = { workspace = true }
+
+[[bin]]
+name = "harness"
+path = "src/bin/harness.rs"
+
+[[bin]]
+name = "harness_v2"
+path = "src/bin/harness_v2.rs"

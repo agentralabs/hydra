@@ -1,0 +1,16 @@
+# EXAMPLE SCHEDULED ACTION — Check disk space every hour
+# This shows how to create a recurring task.
+
+[action]
+name        = "check-disk"
+description = "Check disk space usage and alert if above 80%"
+trigger     = "scheduled"
+schedule    = "every 60 minutes"
+approval    = "notify"
+
+[action.execute]
+type            = "shell"
+command         = 'df -h / | tail -1 | awk "{print $5}" | tr -d "%"'
+timeout_seconds = 10
+
+# No parameters needed — this runs automatically

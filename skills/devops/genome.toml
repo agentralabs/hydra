@@ -1,0 +1,59 @@
+[[entries]]
+situation    = "Kubernetes pod keeps crashing with OOMKilled"
+approach     = "check resource requests vs limits — requests should be 80% of limits — set memory limit to 2x the actual peak usage from monitoring — never guess, measure"
+confidence   = 0.91
+observations = 3200
+
+[[entries]]
+situation    = "CI pipeline takes more than 30 minutes"
+approach     = "parallelize test suites first — split by module not by file — cache dependencies between runs — do not optimize individual test speed until parallel execution is maxed"
+confidence   = 0.88
+observations = 1500
+
+[[entries]]
+situation    = "database migration fails in production but works in staging"
+approach     = "check for data-dependent migrations — staging has clean data, production has years of edge cases — run migration against a production data snapshot before deploying"
+confidence   = 0.93
+observations = 800
+
+[[entries]]
+situation    = "deployment rollback needed after production issues detected"
+approach     = "never rollback manually — automate rollback with health check gates — canary deployment with automatic rollback if error rate exceeds threshold within first 15 minutes"
+confidence   = 0.90
+observations = 2000
+
+[[entries]]
+situation    = "service keeps running out of database connections"
+approach     = "connection pooling with bounded pool size — set max connections to 80% of database limit divided by number of service instances — monitor pool exhaustion as a metric"
+confidence   = 0.89
+observations = 1200
+
+[[entries]]
+situation    = "monitoring alerts firing too frequently causing alert fatigue"
+approach     = "alert on symptoms not causes — page on user-facing error rate not on CPU usage — every alert must have a runbook — if an alert fires more than 3 times without action, delete it"
+confidence   = 0.92
+observations = 4000
+
+[[entries]]
+situation    = "need to migrate from one cloud provider to another"
+approach     = "abstract the provider layer first — do not migrate infrastructure, migrate the abstraction — terraform modules with provider-agnostic interfaces — migrate one service at a time with traffic splitting"
+confidence   = 0.85
+observations = 400
+
+[[entries]]
+situation    = "docker container image size is too large slowing deployments"
+approach     = "multi-stage build with scratch or distroless final image — separate build dependencies from runtime dependencies — cache layers that change less frequently first"
+confidence   = 0.91
+observations = 2500
+
+[[entries]]
+situation    = "need to implement zero-downtime deployment"
+approach     = "rolling deployment with readiness probes — old pods serve traffic until new pods are ready — never terminate a pod with active connections — use preStop hooks for graceful drain"
+confidence   = 0.93
+observations = 3000
+
+[[entries]]
+situation    = "secrets exposed in git history or environment variables"
+approach     = "rotate all exposed secrets immediately before investigating how — use a secrets manager not environment variables — add pre-commit hooks to detect secrets — treat the exposure as an incident even if nothing was exploited"
+confidence   = 0.97
+observations = 5000

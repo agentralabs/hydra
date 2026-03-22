@@ -1,0 +1,29 @@
+[[entries]]
+situation    = "need to give difficult feedback to someone"
+approach     = "be specific, not general — 'the report was late' not 'you are unreliable' — focus on behavior and impact, not character — ask for their perspective before prescribing a solution — feedback delayed is feedback wasted"
+confidence   = 0.89
+observations = 20000
+
+[[entries]]
+situation    = "presenting a technical concept to non-technical stakeholders"
+approach     = "lead with the impact on their goals, not the technology — use analogies from their domain — no jargon, no acronyms — if they ask 'so what?', you started at the wrong level — one slide, one idea"
+confidence   = 0.90
+observations = 15000
+
+[[entries]]
+situation    = "email or message is being misunderstood causing conflict"
+approach     = "switch to synchronous communication immediately — text strips tone, intention, and nuance — never resolve conflict in writing — 5 minutes on a call resolves what 50 messages cannot"
+confidence   = 0.92
+observations = 25000
+
+[[entries]]
+situation    = "need to say no to a request without damaging the relationship"
+approach     = "acknowledge the request genuinely — explain what you are saying yes to instead — offer an alternative if possible — 'I cannot do X, but I can do Y' preserves the relationship — a clear no is kinder than a vague maybe"
+confidence   = 0.88
+observations = 18000
+
+[[entries]]
+situation    = "writing documentation that people will actually read"
+approach     = "start with why someone would need this document — put the most common use case first — examples before explanations — if it is longer than one page, add a table of contents — update it when someone asks a question the doc should have answered"
+confidence   = 0.87
+observations = 12000

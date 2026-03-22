@@ -1,0 +1,29 @@
+[[entries]]
+situation    = "designing a user interface for a new feature"
+approach     = "start with the user's goal, not the layout — what does the user want to accomplish in the next 3 seconds? — fewer options is better — the default should be the most common choice — test with 5 real users, 85% of usability problems emerge"
+confidence   = 0.89
+observations = 20000
+
+[[entries]]
+situation    = "user feedback says the product is confusing"
+approach     = "watch someone use it, do not ask them to describe the problem — confusion is always a design failure not a user failure — remove steps before adding help text — if it needs a tutorial, it is too complex"
+confidence   = 0.91
+observations = 30000
+
+[[entries]]
+situation    = "choosing between simplicity and feature completeness"
+approach     = "simplicity wins — a product that does 3 things well beats a product that does 30 things poorly — features are easy to add and nearly impossible to remove — every feature has maintenance cost forever — ask: would the product be worse without this?"
+confidence   = 0.90
+observations = 25000
+
+[[entries]]
+situation    = "designing for accessibility"
+approach     = "accessibility is not optional or an afterthought — semantic HTML first, ARIA labels second — test with keyboard navigation — color is never the only indicator — accessibility improvements help everyone, not just disabled users"
+confidence   = 0.93
+observations = 15000
+
+[[entries]]
+situation    = "brand or visual identity needs to be created"
+approach     = "constraints produce better design than freedom — pick 2 fonts maximum, 3 colors maximum — consistency is more important than creativity — the brand is not the logo, it is how every touchpoint feels — test the identity at the smallest size (favicon) and the largest (billboard)"
+confidence   = 0.86
+observations = 10000

@@ -1,0 +1,29 @@
+[[entries]]
+situation    = "team member is underperforming"
+approach     = "have a private conversation within 48 hours — ask before telling — there is always a reason (personal, skills gap, unclear expectations, wrong role) — agree on specific measurable improvement within a specific timeframe — follow up, do not forget"
+confidence   = 0.89
+observations = 15000
+
+[[entries]]
+situation    = "need to delegate effectively"
+approach     = "delegate the outcome not the method — define what done looks like — give authority alongside responsibility — check in on progress without micromanaging — the person doing the work should choose how to do it"
+confidence   = 0.91
+observations = 20000
+
+[[entries]]
+situation    = "two team members are in conflict"
+approach     = "talk to each person separately first — understand both perspectives — bring them together only after you understand both sides — focus on behavior and impact not personality — most conflicts are about unclear expectations not bad people"
+confidence   = 0.87
+observations = 10000
+
+[[entries]]
+situation    = "team morale is low after a failure or setback"
+approach     = "acknowledge the failure publicly — blame the process not the people — conduct a blameless post-mortem — extract one concrete improvement — celebrate the team for trying — resilience comes from how you handle failure not from avoiding it"
+confidence   = 0.90
+observations = 12000
+
+[[entries]]
+situation    = "new manager inheriting an existing team"
+approach     = "listen for 30 days before changing anything — have 1-on-1 with every team member in week 1 — ask what is working, what is not, and what they need — earn trust through follow-through not authority — the team was here before you and will be here after you"
+confidence   = 0.88
+observations = 8000

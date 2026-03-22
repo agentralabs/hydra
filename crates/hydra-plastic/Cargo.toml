@@ -1,0 +1,23 @@
+[package]
+name = "hydra-plastic"
+version = "0.1.0"
+edition = "2021"
+description = "Execution environment adaptation — plasticity for multi-modal execution."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution  = { path = "../hydra-constitution" }
+hydra-cartography   = { path = "../hydra-cartography" }
+hydra-genome        = { path = "../hydra-genome" }
+hydra-antifragile   = { path = "../hydra-antifragile" }
+hydra-generative    = { path = "../hydra-generative" }
+
+serde       = { version = "1", features = ["derive"] }
+serde_json  = "1"
+thiserror   = "2"
+uuid        = { version = "1", features = ["v4"] }
+chrono      = { version = "0.4", features = ["serde"] }
+
+[[bin]]
+name = "plastic_test_harness"
+path = "src/bin/test_harness.rs"

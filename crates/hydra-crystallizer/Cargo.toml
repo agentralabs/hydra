@@ -1,0 +1,23 @@
+[package]
+name = "hydra-crystallizer"
+version = "0.1.0"
+edition = "2021"
+description = "Wisdom into artifacts — playbooks, specs, standards from operational history."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution  = { path = "../hydra-constitution" }
+hydra-settlement    = { path = "../hydra-settlement" }
+hydra-attribution   = { path = "../hydra-attribution" }
+hydra-audit         = { path = "../hydra-audit" }
+hydra-portfolio     = { path = "../hydra-portfolio" }
+
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror  = "2"
+uuid       = { version = "1", features = ["v4"] }
+chrono     = { version = "0.4", features = ["serde"] }
+
+[[bin]]
+name = "test_harness"
+path = "src/bin/test_harness.rs"

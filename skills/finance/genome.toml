@@ -1,0 +1,175 @@
+## FOUNDATIONAL — What Every Analyst Knows on Day 1
+
+[[entries]]
+situation    = "evaluating whether to invest in a stock or asset"
+approach     = "never invest money you cannot afford to lose — diversify across uncorrelated assets — index funds outperform 90% of active managers over 10 years — past performance does not predict future returns but consistent underperformance does predict consistent underperformance"
+confidence   = 0.92
+observations = 50000
+
+[[entries]]
+situation    = "personal budget is out of control"
+approach     = "track every expense for 30 days before making any changes — 50/30/20 rule: 50% needs, 30% wants, 20% savings — automate savings on payday — cut subscriptions first, they compound silently — the latte factor is real: $5/day = $91,250 in 20 years at 7%"
+confidence   = 0.90
+observations = 20000
+
+[[entries]]
+situation    = "company needs to raise funding or manage runway"
+approach     = "know burn rate to the dollar — 18 months runway minimum — raise when you do not need money — revenue is better than funding — the best fundraising leverage is not needing the money"
+confidence   = 0.88
+observations = 5000
+
+[[entries]]
+situation    = "deciding between debt repayment and investing"
+approach     = "pay off high-interest debt first (above 7%) — invest while paying minimum on low-interest debt — emergency fund of 3-6 months expenses before either — the guaranteed return of paying off 18% credit card debt beats any market return"
+confidence   = 0.91
+observations = 30000
+
+[[entries]]
+situation    = "pricing a product or service"
+approach     = "price based on value delivered not cost of production — test three price points with real customers — the price that loses 20% of prospects is usually correct — anchor high and offer tiers, people choose the middle"
+confidence   = 0.86
+observations = 8000
+
+## MARKET STRUCTURE — How the Machine Works
+
+[[entries]]
+situation    = "understanding how stock prices actually move"
+approach     = "price is set by the marginal buyer and seller, not by fundamental value — short term: supply and demand of shares — long term: earnings determine price — the market can stay irrational longer than you can stay solvent (Keynes) — volume confirms price moves, divergence warns of reversal"
+confidence   = 0.91
+observations = 100000
+
+[[entries]]
+situation    = "market is in a bubble or euphoric phase"
+approach     = "bubbles: assets priced on narrative not cash flow, leverage increasing, new inexperienced participants flooding in, 'this time is different' — you cannot time the top but reduce exposure when all four signs present — sell into strength not panic — Buffett: be fearful when others are greedy"
+confidence   = 0.88
+observations = 20000
+
+[[entries]]
+situation    = "market is crashing or in a panic"
+approach     = "do not sell into panic unless you need money within 12 months — every crash has recovered (S&P average recovery: 2 years) — dollar-cost average in, do not catch the bottom — cash is a position not a failure — Rothschild: buy when there is blood in the streets even if it is your own"
+confidence   = 0.89
+observations = 30000
+
+## VALUATION — What Buffett Actually Does
+
+[[entries]]
+situation    = "need to determine if a stock is overvalued or undervalued"
+approach     = "intrinsic value = present value of all future cash flows — discount rate reflects risk (higher risk = higher discount = lower present value) — compare P/E, P/B, P/FCF to industry peers and historical averages — a cheap stock with declining earnings is a trap not a bargain"
+confidence   = 0.90
+observations = 50000
+
+[[entries]]
+situation    = "evaluating a company's financial health"
+approach     = "three statements: income (profitability), balance sheet (solvency), cash flow (liquidity) — profit is an opinion, cash flow is a fact — debt-to-equity below 1 for most industries — interest coverage EBIT/interest above 3x — read the footnotes, that is where they hide the bad news"
+confidence   = 0.92
+observations = 80000
+
+[[entries]]
+situation    = "understanding competitive advantage (moat)"
+approach     = "Buffett's moat framework: brand (Coca-Cola), switching costs (Microsoft), network effects (Visa), cost advantage (Walmart), regulatory (utilities) — no moat = commodity = race to lowest price — test: could a well-funded competitor replicate this in 5 years? if yes, no moat"
+confidence   = 0.91
+observations = 40000
+
+## RISK MANAGEMENT — What Keeps Traders Alive
+
+[[entries]]
+situation    = "managing risk in a portfolio or position"
+approach     = "never risk more than 1-2% of total capital on a single trade — position sizing matters more than entry timing — Kelly criterion: f = (bp-q)/b — use half-Kelly in practice because you never know true probabilities — the goal is to survive, not to win big"
+confidence   = 0.93
+observations = 100000
+
+[[entries]]
+situation    = "a position is moving against you"
+approach     = "set stop-losses BEFORE entering — never move a stop further from entry — the first loss is the best loss — averaging down into a losing position is how accounts are destroyed — ask: if I did not own this, would I buy it today at this price? if no, sell"
+confidence   = 0.94
+observations = 80000
+
+[[entries]]
+situation    = "constructing a diversified portfolio"
+approach     = "Markowitz: optimal portfolio is on the efficient frontier — correlations between assets matter more than individual returns — add negatively correlated assets to reduce risk without reducing return — rebalance when allocation drifts above 5% — 60/40 stock/bond is a starting point not a destination"
+confidence   = 0.90
+observations = 60000
+
+[[entries]]
+situation    = "hedging a portfolio or specific risk"
+approach     = "hedging has a cost — buy puts for downside protection, covered calls for income — perfect hedges eliminate profit along with risk — hedge the risk you cannot tolerate, accept the risk you can — Soros: it is not whether you are right or wrong, it is how much you make when right and lose when wrong"
+confidence   = 0.89
+observations = 40000
+
+## BEHAVIORAL FINANCE — What the Brain Gets Wrong
+
+[[entries]]
+situation    = "emotional decision-making about money"
+approach     = "loss aversion: losing $100 feels 2.5x worse than gaining $100 — this makes people hold losers and sell winners (disposition effect) — confirmation bias: you seek information confirming your position — recency bias: you overweight recent events — the antidote is a written thesis before buying and mechanical rules for selling"
+confidence   = 0.91
+observations = 50000
+
+[[entries]]
+situation    = "everyone around you is making money on a hot investment"
+approach     = "FOMO is the most expensive emotion in finance — by the time your neighbor tells you, smart money is selling — greater fool theory works until you are the greatest fool — if the investment cannot be explained in one sentence, you do not understand it — Munger: the big money is in the waiting"
+confidence   = 0.90
+observations = 30000
+
+## MACROECONOMICS — How the World Economy Works
+
+[[entries]]
+situation    = "understanding how interest rates affect investments"
+approach     = "rates rise: bonds fall, growth stocks fall, banks profit, real estate cools, dollar strengthens — rates fall: the opposite — the Fed raises to cool inflation, lowers to stimulate growth — do not fight the Fed — the yield curve inverting (short rates above long rates) has predicted every recession since 1955"
+confidence   = 0.92
+observations = 100000
+
+[[entries]]
+situation    = "inflation is rising and eroding purchasing power"
+approach     = "TIPS for risk-free inflation hedge — commodities and real estate outperform during inflation — cash is the worst asset during inflation — stocks with pricing power outperform — the real return is nominal minus inflation, that is the only number that matters — Friedman: inflation is always a monetary phenomenon"
+confidence   = 0.90
+observations = 40000
+
+[[entries]]
+situation    = "evaluating currency risk in international investments"
+approach     = "currency moves can erase investment gains — hedge currency for bonds (low return, high sensitivity), do not hedge for equities (high return, washes out over time) — emerging market currencies carry higher risk but also higher return — the dollar smile: USD strengthens in both risk-on and risk-off, weakens in between"
+confidence   = 0.87
+observations = 20000
+
+## ALTERNATIVE INVESTMENTS
+
+[[entries]]
+situation    = "considering real estate as an investment"
+approach     = "location is 80% of value — 1% rule: monthly rent should be 1% of purchase price for cash-flow positive — leverage amplifies both ways — cap rate (NOI/price) is the true yield — never fall in love with a property, fall in love with the numbers"
+confidence   = 0.88
+observations = 30000
+
+[[entries]]
+situation    = "evaluating cryptocurrency as an investment"
+approach     = "crypto is speculative, not investment — no cash flow means no DCF valuation — price is narrative-driven — never invest more than you can afford to lose completely — Bitcoin survived 14 years, most altcoins survive less than 2 — the technology has value, individual tokens may not"
+confidence   = 0.82
+observations = 15000
+
+## BANKING & CREDIT
+
+[[entries]]
+situation    = "understanding how banks make money"
+approach     = "banks borrow short (deposits, low interest) lend long (mortgages, high interest) — the spread is profit — fractional reserve means most deposits are lent out — bank runs happen when withdrawals exceed liquid assets — FDIC prevents runs on insured deposits — the central bank is the lender of last resort"
+confidence   = 0.93
+observations = 50000
+
+[[entries]]
+situation    = "building or repairing credit score"
+approach     = "payment history 35%, utilization 30% (keep below 30%), length 15% (do not close old accounts), mix 10%, inquiries 10% — fastest improvement: pay on time, pay down balances, keep old cards open — credit repair companies rarely do anything you cannot do for free"
+confidence   = 0.91
+observations = 40000
+
+## TAX STRATEGY
+
+[[entries]]
+situation    = "minimizing tax burden legally"
+approach     = "tax-advantaged accounts first: 401k/IRA/ISA before taxable — harvest losses to offset gains — hold over 1 year for long-term capital gains rate — donate appreciated stock to avoid capital gains — Roth conversion in low-income years — the goal is deferral and rate arbitrage, not evasion"
+confidence   = 0.89
+observations = 30000
+
+## THE META-LESSON
+
+[[entries]]
+situation    = "the single most important principle in finance"
+approach     = "compound interest is the eighth wonder of the world — $10,000 at 7%: 10yr=$19,672, 20yr=$38,697, 30yr=$76,123, 40yr=$149,745 — the difference between starting at 25 vs 35 is the final doubling — time in the market beats timing the market — the boring strategy wins"
+confidence   = 0.95
+observations = 500000

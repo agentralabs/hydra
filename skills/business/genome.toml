@@ -1,0 +1,41 @@
+[[entries]]
+situation    = "startup trying to find product-market fit"
+approach     = "talk to 50 potential customers before writing a line of code — if they will not pay for it today, they will not pay for it after you build it — the market pulls the product, the product does not push the market"
+confidence   = 0.89
+observations = 10000
+
+[[entries]]
+situation    = "need to make a hiring decision"
+approach     = "hire for character and capability, train for skill — a brilliant person with bad values will destroy more than they create — structured interviews with the same questions for every candidate — reference checks are non-negotiable"
+confidence   = 0.90
+observations = 15000
+
+[[entries]]
+situation    = "team is not meeting deadlines consistently"
+approach     = "the problem is scope, not effort — cut scope ruthlessly — if everything is priority 1, nothing is — ship the smallest thing that delivers value, then iterate — never extend deadlines without cutting scope"
+confidence   = 0.91
+observations = 20000
+
+[[entries]]
+situation    = "deciding whether to build or buy a solution"
+approach     = "buy if it is not your core competency — build only what differentiates you — the total cost of building includes maintenance forever — buying looks expensive quarterly but building looks expensive over 5 years"
+confidence   = 0.87
+observations = 8000
+
+[[entries]]
+situation    = "need to communicate bad news to stakeholders"
+approach     = "lead with the impact, not the excuse — present what happened, why, and what you are doing about it — do not hide bad news hoping it resolves itself — the cover-up is always worse than the problem"
+confidence   = 0.93
+observations = 12000
+
+[[entries]]
+situation    = "customer churn rate is increasing"
+approach     = "talk to churned customers directly, not through surveys — the reason they tell the cancellation form is not the real reason — the real reason is usually: they stopped getting value, not that they found something cheaper"
+confidence   = 0.88
+observations = 7000
+
+[[entries]]
+situation    = "need to scale a business from 10 to 100 people"
+approach     = "document every process before scaling — what works with 10 people breaks at 50 — hire managers who have managed at your target scale before — culture is set by who you promote not by what you write on the wall"
+confidence   = 0.86
+observations = 3000

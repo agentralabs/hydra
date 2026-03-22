@@ -1,0 +1,22 @@
+[package]
+name = "hydra-soul"
+version = "0.1.0"
+edition = "2021"
+description = "The orientation layer — Hydra knows what the work is for."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution = { path = "../hydra-constitution" }
+hydra-morphic      = { path = "../hydra-morphic" }
+
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror  = "1"
+uuid       = { version = "1", features = ["v4"] }
+chrono     = { version = "0.4", features = ["serde"] }
+sha2       = "0.10"
+hex        = "0.4"
+
+[[bin]]
+name = "test_harness"
+path = "src/bin/test_harness.rs"

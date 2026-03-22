@@ -1,0 +1,25 @@
+[package]
+name = "hydra-signals"
+version = "0.1.0"
+edition = "2021"
+description = "The live signal fabric — zero-loss routing between Hydra modules."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution = { path = "../hydra-constitution" }
+hydra-animus       = { path = "../hydra-animus" }
+
+serde          = { version = "1", features = ["derive"] }
+serde_json     = "1"
+thiserror      = "1"
+uuid           = { version = "1", features = ["v4"] }
+chrono         = { version = "0.4", features = ["serde"] }
+tokio          = { version = "1", features = ["full"] }
+tracing        = "0.1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[[bin]]
+name = "test_harness"
+path = "src/bin/test_harness.rs"

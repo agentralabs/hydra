@@ -1,0 +1,37 @@
+[package]
+name = "hydra-tui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The cockpit — Hydra's primary interface."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution = { path = "../hydra-constitution" }
+hydra-kernel       = { path = "../hydra-kernel" }
+hydra-genome       = { path = "../hydra-genome" }
+hydra-audit        = { path = "../hydra-audit" }
+hydra-voice        = { path = "../hydra-voice" }
+# hydra-companion depends on hydra-tui (cycle) — wired through its own crate
+
+ratatui        = "0.29"
+crossterm      = { version = "0.28", features = ["event-stream"] }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+dirs.workspace = true
+libc = "0.2"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+
+[[bin]]
+name = "tui_test_harness"
+path = "src/bin/test_harness.rs"
+
+[[bin]]
+name = "hydra_tui"
+path = "src/bin/hydra_tui.rs"

@@ -1,0 +1,29 @@
+[[entries]]
+situation    = "feeling burned out from work"
+approach     = "burnout is not solved by vacation — it is solved by removing the cause — identify the specific drain: is it volume, lack of control, lack of meaning, or toxic environment — address the cause, not the symptom — rest without change just delays the next burnout"
+confidence   = 0.88
+observations = 30000
+
+[[entries]]
+situation    = "trying to build a consistent exercise habit"
+approach     = "start so small it is impossible to fail — 5 minutes counts — consistency beats intensity — the best exercise is the one you will actually do — attach it to an existing habit (after coffee, before shower) — track streaks not performance"
+confidence   = 0.90
+observations = 50000
+
+[[entries]]
+situation    = "sleep quality is poor affecting daily performance"
+approach     = "consistent wake time is more important than consistent bedtime — no screens 1 hour before bed — room temperature 65-68°F — caffeine has a 6-hour half-life, none after 2 PM — sleep is not a luxury, it is the foundation everything else depends on"
+confidence   = 0.92
+observations = 40000
+
+[[entries]]
+situation    = "sitting at a desk all day causing back and neck pain"
+approach     = "move every 30 minutes — standing desk alternation is better than standing all day — monitor at eye level — the best posture is the next posture — strength training for posterior chain prevents most desk-related pain"
+confidence   = 0.87
+observations = 20000
+
+[[entries]]
+situation    = "overwhelming anxiety about a decision or situation"
+approach     = "write down the worst case — most anxiety is fear of the unnamed — once named, the worst case is usually survivable — ask: will this matter in 5 years? — if yes, it deserves careful thought — if no, decide now and move on"
+confidence   = 0.85
+observations = 25000

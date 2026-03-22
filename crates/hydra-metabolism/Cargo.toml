@@ -1,0 +1,21 @@
+[package]
+name = "hydra-metabolism"
+version = "0.1.0"
+edition = "2021"
+description = "Lyapunov stability enforcement — the long-term health guardian."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution  = { path = "../hydra-constitution" }
+# hydra-resurrection moved to dev-deps (only used in test harness binary)
+
+serde          = { version = "1", features = ["derive"] }
+serde_json     = "1"
+thiserror      = "1"
+chrono         = { version = "0.4", features = ["serde"] }
+tracing        = "0.1"
+
+# Test harness moved to hydra-harness to avoid cyclic dep with hydra-kernel
+# [[bin]]
+# name = "metabolism_test_harness"
+# path = "src/bin/test_harness.rs"

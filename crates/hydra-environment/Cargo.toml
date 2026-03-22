@@ -1,0 +1,21 @@
+[package]
+name = "hydra-environment"
+version = "0.1.0"
+edition = "2021"
+description = "Any environment. Constraints declared. Execution adapts."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution  = { path = "../hydra-constitution" }
+hydra-plastic       = { path = "../hydra-plastic" }
+hydra-cartography   = { path = "../hydra-cartography" }
+
+serde       = { version = "1", features = ["derive"] }
+serde_json  = "1"
+thiserror   = "2"
+uuid        = { version = "1", features = ["v4"] }
+chrono      = { version = "0.4", features = ["serde"] }
+
+[[bin]]
+name = "test_harness"
+path = "src/bin/test_harness.rs"

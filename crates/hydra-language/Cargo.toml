@@ -1,0 +1,20 @@
+[package]
+name = "hydra-language"
+version = "0.1.0"
+edition = "2021"
+description = "Semantic intent, affect, and depth analysis for Hydra."
+authors = ["Agentra Labs"]
+
+[dependencies]
+hydra-constitution  = { path = "../hydra-constitution" }
+hydra-comprehension = { path = "../hydra-comprehension" }
+
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror  = "2"
+uuid       = { version = "1", features = ["v4"] }
+chrono     = { version = "0.4", features = ["serde"] }
+
+[[bin]]
+name = "language_test_harness"
+path = "src/bin/test_harness.rs"

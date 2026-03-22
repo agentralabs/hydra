@@ -1,0 +1,59 @@
+[[entries]]
+situation    = "need to predict whether a chemical reaction will occur"
+approach     = "check thermodynamics first: is ΔG negative? (spontaneous) — then check kinetics: is the activation energy achievable at this temperature? — a reaction can be thermodynamically favorable but kinetically impossible — catalysts lower activation energy without changing thermodynamics — Le Chatelier's principle: if you disturb equilibrium, the system shifts to oppose the disturbance"
+confidence   = 0.93
+observations = 100000
+
+[[entries]]
+situation    = "balancing a chemical equation"
+approach     = "atoms in = atoms out, charge in = charge out — balance metals first, then nonmetals, then hydrogen, then oxygen — for redox reactions, separate into half-reactions and balance electrons — if the equation does not balance, the reaction as written is wrong — conservation of mass is not negotiable"
+confidence   = 0.96
+observations = 200000
+
+[[entries]]
+situation    = "understanding why a substance behaves the way it does"
+approach     = "structure determines properties — electronegativity determines bond polarity — bond polarity determines molecular polarity — molecular polarity determines solubility, boiling point, and reactivity — 'like dissolves like' is the most useful rule in chemistry — if you do not know the structure, you cannot predict the behavior"
+confidence   = 0.92
+observations = 80000
+
+[[entries]]
+situation    = "acid-base chemistry problem"
+approach     = "identify the proton donor (acid) and proton acceptor (base) — strong acids and bases dissociate completely, weak ones do not — pH = -log[H+] — buffer systems resist pH change — the Henderson-Hasselbalch equation: pH = pKa + log([A-]/[HA]) — biological systems operate in narrow pH ranges because enzymes denature outside them"
+confidence   = 0.94
+observations = 120000
+
+[[entries]]
+situation    = "analyzing chemical bonding in a molecule"
+approach     = "draw the Lewis structure first — count valence electrons — assign formal charges — check octet rule (exceptions: B, P, S can exceed) — VSEPR theory predicts molecular geometry from electron pairs — geometry determines polarity — hybridization explains bond angles — if the Lewis structure has resonance, the actual structure is an average"
+confidence   = 0.93
+observations = 100000
+
+[[entries]]
+situation    = "understanding reaction rates and kinetics"
+approach     = "rate depends on concentration and temperature — rate law must be determined experimentally, not from the balanced equation — Arrhenius equation: k = A·e^(-Ea/RT) — doubling temperature roughly doubles reaction rate (for Ea ~50 kJ/mol) — the rate-determining step is the slowest step in the mechanism — catalysts provide an alternative pathway with lower activation energy"
+confidence   = 0.91
+observations = 60000
+
+[[entries]]
+situation    = "working with solutions and concentrations"
+approach     = "molarity (mol/L) is the standard concentration unit — dilution: M1V1 = M2V2 — for stoichiometry in solution, convert to moles first — solubility depends on temperature (gases: less soluble when hot; solids: usually more) — supersaturated solutions are metastable — always specify temperature when reporting solubility"
+confidence   = 0.92
+observations = 80000
+
+[[entries]]
+situation    = "organic chemistry reaction prediction"
+approach     = "think about electron flow: nucleophiles have electrons to donate, electrophiles accept them — like charges repel, opposite attract — steric effects matter (bulky groups block reaction sites) — the most stable product usually forms (thermodynamic control) unless the reaction is fast (kinetic control) — functional group transformations follow patterns that can be learned as a vocabulary"
+confidence   = 0.89
+observations = 70000
+
+[[entries]]
+situation    = "electrochemistry and redox reactions"
+approach     = "oxidation is loss of electrons, reduction is gain (OIL RIG) — the more positive the reduction potential, the stronger the oxidizing agent — cell voltage = cathode potential - anode potential — Nernst equation adjusts for non-standard conditions — batteries, corrosion, and electrolysis are all electrochemistry — if the cell voltage is positive, the reaction is spontaneous"
+confidence   = 0.91
+observations = 50000
+
+[[entries]]
+situation    = "safety in handling chemicals"
+approach     = "read the SDS (Safety Data Sheet) before handling any chemical — assume every chemical is hazardous until proven otherwise — PPE (gloves, goggles, lab coat) is non-negotiable — know the location of eyewash, shower, and fire extinguisher — never smell, taste, or touch unknown chemicals — chemical waste has specific disposal procedures, never pour down the drain"
+confidence   = 0.97
+observations = 300000

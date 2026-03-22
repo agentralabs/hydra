@@ -1,0 +1,39 @@
+[[actions]]
+id             = "general.answer"
+description    = "Answer a factual or conceptual question."
+approach_type  = "Query"
+reversible     = true
+receipted      = true
+trust_required = 0.0
+
+[[actions]]
+id             = "general.explain"
+description    = "Explain a concept, system, or pattern in depth."
+approach_type  = "Query"
+reversible     = true
+receipted      = true
+trust_required = 0.0
+
+[[actions]]
+id             = "general.implement"
+description    = "Write or generate code for a specified task."
+approach_type  = "DirectExecution"
+reversible     = true
+receipted      = true
+trust_required = 0.0
+
+[[actions]]
+id             = "general.debug"
+description    = "Identify and fix issues in existing code or systems."
+approach_type  = "DirectExecution"
+reversible     = true
+receipted      = true
+trust_required = 0.0
+
+[[actions]]
+id             = "general.review"
+description    = "Review code, designs, or documents for quality and correctness."
+approach_type  = "Query"
+reversible     = true
+receipted      = true
+trust_required = 0.0

@@ -1,0 +1,29 @@
+[[entries]]
+situation    = "student is struggling but not asking for help"
+approach     = "create opportunities for private conversation — struggling students rarely raise their hand in class — ask what they understand, not what they do not understand — 'walk me through your thinking' reveals the gap without shaming"
+confidence   = 0.89
+observations = 30000
+
+[[entries]]
+situation    = "need to explain a concept that students find abstract"
+approach     = "concrete before abstract — show an example, then explain the rule — never start with the formula, start with the problem the formula solves — use analogies from the student's own experience — understanding means they can teach it to someone else"
+confidence   = 0.92
+observations = 50000
+
+[[entries]]
+situation    = "class engagement is low during lecture"
+approach     = "break every 10 minutes — ask a question, run a poll, do a think-pair-share — attention drops after 10 minutes regardless of the speaker — the worst lecture is the one where nobody talks except the lecturer"
+confidence   = 0.90
+observations = 40000
+
+[[entries]]
+situation    = "assessing whether a student truly understands"
+approach     = "ask them to apply the concept to a new situation they have never seen — recognition is not understanding — if they can only repeat what they were taught, they memorized, not learned — the transfer test is the real test"
+confidence   = 0.91
+observations = 35000
+
+[[entries]]
+situation    = "designing a curriculum or course"
+approach     = "start from the end: what should they be able to DO after this course? — work backwards from outcomes to activities — assessments should match the outcomes, not test memorization — less content at deeper understanding beats more content at surface level"
+confidence   = 0.88
+observations = 20000
