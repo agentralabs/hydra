@@ -1,0 +1,61 @@
+## COBOL MIGRATION — Legacy System Transformation, Soul Extraction, Enterprise Modernization
+
+[[entries]]
+situation    = "assessing a COBOL codebase for migration readiness"
+approach     = "inventory first: count programs, copybooks, JCL jobs, CICS transactions, DB2 tables — classify each program: batch (JCL), online (CICS), database (DB2/VSAM) — identify: dead code (unreachable programs), hot code (runs daily), cold code (runs monthly/yearly) — measure: total LOC, average program size, max cyclomatic complexity — migration readiness score = (hot programs with tests) / (total hot programs)"
+confidence   = 0.90
+observations = 5000
+
+[[entries]]
+situation    = "extracting business intent from COBOL source code"
+approach     = "COBOL encodes business rules in PROCEDURE DIVISION paragraphs — read top-down: IDENTIFICATION tells you what, ENVIRONMENT tells you where, DATA tells you with-what, PROCEDURE tells you how — map each PERFORM to a business action — map each IF/EVALUATE to a business rule — map each MOVE/COMPUTE to a data transformation — output: business intent graph (not code graph) — the soul is the intent, not the syntax"
+confidence   = 0.92
+observations = 8000
+
+[[entries]]
+situation    = "handling COBOL data structures (COPYBOOKS and WORKING-STORAGE)"
+approach     = "COBOL data is hierarchical (01-49 levels) not object-oriented — PIC 9(5)V99 means 5-digit number with 2 decimals — PIC X(30) means 30-character string — REDEFINES means union type — OCCURS means array — INDEXED BY means the array has named indices — map to modern types: PIC 9→decimal, PIC X→string, 88-level→enum/boolean — never lose precision in numeric conversion (COBOL finance code uses exact decimal, not floating point)"
+confidence   = 0.94
+observations = 10000
+
+[[entries]]
+situation    = "migrating COBOL batch jobs (JCL) to modern equivalents"
+approach     = "each JCL JOB is a workflow — each STEP is a task in the workflow — DD statements are I/O declarations (files, databases) — COND/IF controls flow between steps — map JOB→orchestrator (Airflow, Step Functions), STEP→function/container, DD→data source config — preserve: execution order, restart points (RESTART=step), error handling (COND CODE) — test: run both old and new in parallel for 30 days"
+confidence   = 0.88
+observations = 4000
+
+[[entries]]
+situation    = "migrating CICS online transactions to web services"
+approach     = "each CICS transaction is a stateful user interaction — COMMAREA is the session state passed between screens — BMS maps define the screen layout — map: transaction→API endpoint, COMMAREA→request/response DTO, BMS→frontend form — preserve: transaction boundaries (SYNCPOINT = commit), error handling (ABEND codes), security (RACF → OAuth/RBAC) — the screen flow IS the API contract"
+confidence   = 0.89
+observations = 3000
+
+[[entries]]
+situation    = "validating migration correctness before production cutover"
+approach     = "dual-run: route 10% of traffic to new system, compare outputs byte-for-byte — reconciliation report: every field that differs is a potential bug — financial data: must match to the penny (no floating point rounding differences) — date handling: test all edge cases (leap year, month-end, year-end, century boundary) — run dual for minimum 30 days including month-end processing — zero-diff for 7 consecutive days before cutover"
+confidence   = 0.93
+observations = 2000
+
+[[entries]]
+situation    = "handling COBOL's unique date and time formats"
+approach     = "COBOL dates are often: YYMMDD (6 digits), YYYYMMDD (8 digits), Julian (YYDDD or YYYYDDD) — century window: if YY > 50 then 19YY, else 20YY (Y2K logic still lives) — packed decimal dates: COMP-3 format, 4 bytes for 7 digits — never assume format, always check the COPYBOOK definition — test: 2028-02-29 (leap year), 2030-12-31 (year-end), 2000-01-01 (century boundary) — modern target: ISO 8601 (YYYY-MM-DD) with timezone"
+confidence   = 0.91
+observations = 6000
+
+[[entries]]
+situation    = "estimating effort and risk for a COBOL migration project"
+approach     = "size: count unique programs × average complexity hours — complexity tiers: simple batch (4h), complex batch (16h), online transaction (24h), database heavy (40h) — risk multipliers: no tests (2x), no documentation (1.5x), regulatory (1.5x), real-time (2x) — timeline: size × risk / team_size — budget: timeline × rate + 30% contingency — the 70% failure rate in enterprise migrations is because they underestimate data complexity and overestimate team COBOL knowledge"
+confidence   = 0.86
+observations = 3000
+
+[[entries]]
+situation    = "preserving COBOL's exact decimal arithmetic in modern languages"
+approach     = "COBOL uses fixed-point BCD arithmetic — PIC 9(13)V99 gives exact 15-digit numbers with 2 decimal places — NEVER use float or double for financial calculations — in Rust: use rust_decimal crate — in Java: BigDecimal — in Python: decimal.Decimal — in Go: shopspring/decimal — test: compute (1/3 × 3) — if result != 1.00, your precision is wrong — regulatory requirement: financial systems must reproduce COBOL arithmetic exactly"
+confidence   = 0.95
+observations = 7000
+
+[[entries]]
+situation    = "training a team that has never seen COBOL before"
+approach     = "COBOL reads like English — that is both its strength and its trap — teach: data division first (understand the data shapes), then procedure division (understand the logic) — ignore IDENTIFICATION and ENVIRONMENT divisions (boilerplate) — key concepts: PERFORM (function call), MOVE (assignment), IF/EVALUATE (branching), READ/WRITE (I/O) — give them a real program to modify on day 1 — they will be productive in 2 weeks, proficient in 2 months — the hardest part is not the language, it is understanding the business domain the code encodes"
+confidence   = 0.88
+observations = 4000

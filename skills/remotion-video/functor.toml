@@ -1,0 +1,36 @@
+## Remotion Video axiom primitive mappings
+
+[[mappings]]
+domain_concept = "video-ad-creation"
+axiom_primitive = "Understanding"
+weight = 0.85
+
+[[mappings]]
+domain_concept = "carousel-design"
+axiom_primitive = "Volume"
+weight = 0.80
+
+[[mappings]]
+domain_concept = "platform-format"
+axiom_primitive = "Dependency"
+weight = 0.90
+
+[[mappings]]
+domain_concept = "remotion-rendering"
+axiom_primitive = "Dependency"
+weight = 0.85
+
+[[mappings]]
+domain_concept = "video-editing"
+axiom_primitive = "Understanding"
+weight = 0.85
+
+[[mappings]]
+domain_concept = "content-pipeline"
+axiom_primitive = "Volume"
+weight = 0.90
+
+[[mappings]]
+domain_concept = "thumbnail-design"
+axiom_primitive = "Risk"
+weight = 0.75

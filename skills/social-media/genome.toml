@@ -1,0 +1,61 @@
+## SOCIAL MEDIA — Posting, Engagement, Community Management
+
+[[entries]]
+situation    = "composing a tweet or short-form social post"
+approach     = "lead with the insight not the context — first line must hook — use plain language not jargon — end with a question or call to action — keep under 280 chars for Twitter — no hashtag spam, 1-2 max — if sharing a link, the post must stand alone without clicking"
+confidence   = 0.90
+observations = 50000
+
+[[entries]]
+situation    = "responding to a client question on social media"
+approach     = "respond within 2 hours — acknowledge their specific question — give a direct answer not a redirect — if complex, offer to continue in DM — never say 'reach out to support' publicly — sign off warmly"
+confidence   = 0.88
+observations = 30000
+
+[[entries]]
+situation    = "handling negative feedback or complaint publicly"
+approach     = "acknowledge first, never dismiss — apologize for the experience not the product — move to DM for details — never argue publicly — follow up within 24 hours — if resolved, ask if they want to update their post"
+confidence   = 0.91
+observations = 25000
+
+[[entries]]
+situation    = "deciding the best time to post for maximum engagement"
+approach     = "weekdays 8-10am and 12-1pm local time for B2B — evenings 7-9pm for B2C — Tuesday-Thursday outperform Monday and Friday — never post weekends for business content unless your audience is global — test and measure your specific audience, these are starting points"
+confidence   = 0.82
+observations = 100000
+
+[[entries]]
+situation    = "building a content calendar for consistent posting"
+approach     = "3-5 posts per week minimum — mix: 40% value (teach something), 30% story (personal/behind scenes), 20% engagement (questions/polls), 10% promotion — batch create on one day, schedule for the week — repurpose long content into multiple posts"
+confidence   = 0.87
+observations = 40000
+
+[[entries]]
+situation    = "growing followers organically without paid promotion"
+approach     = "comment genuinely on 10 accounts in your niche daily — share other people's content with your take added — use platform-native formats (threads on Twitter, carousels on LinkedIn, reels on Instagram) — consistency beats virality — reply to every comment on your posts for first 30 days"
+confidence   = 0.84
+observations = 60000
+
+[[entries]]
+situation    = "writing a LinkedIn post for professional audience"
+approach     = "open with a bold statement or surprising fact — use line breaks every 1-2 sentences — tell a story with a lesson — end with a question that invites comment — 1300 chars is the sweet spot before 'see more' — no emojis in first line — tag relevant people only if genuinely relevant"
+confidence   = 0.89
+observations = 35000
+
+[[entries]]
+situation    = "engaging with a viral post or trending topic"
+approach     = "only engage if genuinely relevant to your expertise — add value not noise — share a unique perspective not a 'me too' — be early (first 2 hours) or don't bother — never hijack tragedy or controversy for engagement"
+confidence   = 0.86
+observations = 20000
+
+[[entries]]
+situation    = "cross-posting content across multiple platforms"
+approach     = "adapt format per platform, never copy-paste — Twitter: concise insight — LinkedIn: story with lesson — Instagram: visual with caption — Facebook: conversational — each platform has different audience expectations — same core message, different delivery"
+confidence   = 0.88
+observations = 30000
+
+[[entries]]
+situation    = "measuring social media performance and adjusting strategy"
+approach     = "track: impressions, engagement rate, click-through, follower growth — engagement rate > 3% is good — review weekly, adjust monthly — double down on what works, cut what doesn't — vanity metrics (likes) matter less than conversion metrics (clicks, DMs, leads)"
+confidence   = 0.85
+observations = 45000

@@ -1,0 +1,61 @@
+## VOICE PERSONA — Writing Style, Tone, Identity Projection
+
+[[entries]]
+situation    = "adapting writing style to match a specific person's voice"
+approach     = "analyze 50+ samples of their writing — identify: sentence length distribution, vocabulary tier (simple/technical/mixed), punctuation habits, paragraph structure, opening patterns, closing patterns, emoji usage, capitalization style — build a style fingerprint — test by generating 5 samples and comparing blind against originals — iterate until indistinguishable"
+confidence   = 0.88
+observations = 15000
+
+[[entries]]
+situation    = "maintaining consistent voice across different platforms"
+approach     = "core voice stays constant (values, vocabulary, rhythm) — surface adapts per platform: Twitter (punchy, no preamble), LinkedIn (structured, insight-first), email (warm, direct), blog (thorough, narrative) — the person should be recognizable on any platform without seeing the name"
+confidence   = 0.90
+observations = 20000
+
+[[entries]]
+situation    = "writing as someone who is direct and no-nonsense"
+approach     = "short sentences — no hedging ('I think maybe possibly') — state the point first, explain second — use active voice exclusively — cut every word that doesn't earn its place — never use 'just', 'really', 'very', 'actually' — end with action not summary"
+confidence   = 0.92
+observations = 30000
+
+[[entries]]
+situation    = "writing as someone who is warm and relationship-focused"
+approach     = "use their name in first line — reference shared history or context — ask about them before talking about business — use inclusive language ('we', 'together', 'our') — close with genuine interest in their wellbeing — remember and reference previous interactions"
+confidence   = 0.89
+observations = 25000
+
+[[entries]]
+situation    = "writing as someone who is technical and precise"
+approach     = "lead with data or specific examples — cite sources when available — use domain terminology correctly (never approximate) — structure with headers and bullet points — qualify claims with confidence levels — distinguish between fact, inference, and opinion explicitly"
+confidence   = 0.91
+observations = 20000
+
+[[entries]]
+situation    = "writing as someone who is visionary and inspiring"
+approach     = "paint the future state before explaining the present — use metaphors that land (test for clarity) — alternate between big picture and concrete specifics — use rhythm (short-long-short sentence patterns) — end with a call to possibility not a call to action — never be vague, vision must be actionable"
+confidence   = 0.87
+observations = 15000
+
+[[entries]]
+situation    = "extracting a person's writing style from limited samples"
+approach     = "minimum 20 samples across different contexts (formal, informal, short, long) — tag each: audience, purpose, emotional tone, formality level — extract: average sentence length, top 50 vocabulary words, opening patterns, transition phrases, sign-off style, emoji/punctuation fingerprint — weight recent samples 2x over old ones — style evolves, capture the current voice"
+confidence   = 0.85
+observations = 10000
+
+[[entries]]
+situation    = "avoiding robotic or AI-detectable writing patterns"
+approach     = "vary sentence length deliberately (mix 5-word and 25-word) — use contractions naturally — include occasional imperfections (starting with 'And' or 'But') — reference specific real things (places, tools, people) — have opinions, not just information — use humor if the person does, skip it if they don't — never list more than 3 items without commentary between them"
+confidence   = 0.90
+observations = 40000
+
+[[entries]]
+situation    = "switching between personas within the same system"
+approach     = "each persona is a complete profile: vocabulary, rhythm, values, topics they care about, topics they avoid — switching is instant but never mid-conversation — announce switch context to the LLM clearly — carry conversation memory across persona switches but adapt expression — the human should feel they are talking to a different person, not a different mode"
+confidence   = 0.86
+observations = 12000
+
+[[entries]]
+situation    = "calibrating formality level for an audience"
+approach     = "mirror the audience: if they say 'Hey' you say 'Hey', if they say 'Dear Sir' you say 'Dear' — read their last 3 messages for calibration — executive audience: concise, structured, bottom-line-first — peer audience: conversational, collaborative — public audience: clear, accessible, no assumptions — never be more formal than the context requires"
+confidence   = 0.91
+observations = 35000

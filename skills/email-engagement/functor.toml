@@ -1,0 +1,36 @@
+## Email Engagement axiom primitive mappings
+
+[[mappings]]
+domain_concept = "cold-outreach"
+axiom_primitive = "Risk"
+weight = 0.85
+
+[[mappings]]
+domain_concept = "follow-up-strategy"
+axiom_primitive = "Volume"
+weight = 0.80
+
+[[mappings]]
+domain_concept = "client-response"
+axiom_primitive = "Risk"
+weight = 0.90
+
+[[mappings]]
+domain_concept = "inbox-management"
+axiom_primitive = "Volume"
+weight = 0.85
+
+[[mappings]]
+domain_concept = "decision-email"
+axiom_primitive = "Understanding"
+weight = 0.90
+
+[[mappings]]
+domain_concept = "professional-decline"
+axiom_primitive = "Risk"
+weight = 0.85
+
+[[mappings]]
+domain_concept = "meeting-request"
+axiom_primitive = "Dependency"
+weight = 0.80

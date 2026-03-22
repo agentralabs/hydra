@@ -1,0 +1,31 @@
+## Voice Persona axiom primitive mappings
+
+[[mappings]]
+domain_concept = "style-extraction"
+axiom_primitive = "Understanding"
+weight = 0.95
+
+[[mappings]]
+domain_concept = "tone-matching"
+axiom_primitive = "Understanding"
+weight = 0.90
+
+[[mappings]]
+domain_concept = "platform-adaptation"
+axiom_primitive = "Dependency"
+weight = 0.85
+
+[[mappings]]
+domain_concept = "persona-switching"
+axiom_primitive = "Risk"
+weight = 0.80
+
+[[mappings]]
+domain_concept = "formality-calibration"
+axiom_primitive = "Understanding"
+weight = 0.85
+
+[[mappings]]
+domain_concept = "ai-detection-avoidance"
+axiom_primitive = "Risk"
+weight = 0.90

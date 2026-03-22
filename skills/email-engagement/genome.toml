@@ -1,0 +1,61 @@
+## EMAIL ENGAGEMENT — Reading, Composing, Following Up, Managing Inbox
+
+[[entries]]
+situation    = "composing a cold outreach email to a potential client"
+approach     = "subject line: specific benefit, under 6 words, no clickbait — first line: reference something specific about THEM (recent post, product, funding) — second line: one sentence about what you do — third line: specific value proposition for THEM — CTA: one clear ask (15-min call, reply with thoughts) — total under 150 words — no attachments on first contact — send Tuesday-Thursday 9-11am their timezone"
+confidence   = 0.87
+observations = 80000
+
+[[entries]]
+situation    = "following up after no response to an email"
+approach     = "wait 3 business days minimum — first follow-up: reply to same thread, add new value (article, insight, case study) — do not say 'just following up' or 'bumping this' — second follow-up (day 7): shorter, direct ask — third follow-up (day 14): break-up email ('should I close this out?') — max 3 follow-ups, then archive — each follow-up must justify its own existence"
+confidence   = 0.89
+observations = 60000
+
+[[entries]]
+situation    = "responding to a client who is unhappy or frustrated"
+approach     = "respond within 4 hours — acknowledge the frustration explicitly — do not explain or justify in first email — ask one clarifying question to understand the full picture — propose a concrete next step with a timeline — follow up the next day whether they respond or not — escalate internally if unresolved after 48 hours"
+confidence   = 0.92
+observations = 40000
+
+[[entries]]
+situation    = "writing a professional email that requires a decision"
+approach     = "subject line includes the decision needed — first paragraph: context in 2 sentences max — second paragraph: the options (max 3, with trade-offs) — third paragraph: your recommendation and why — CTA: 'If Option B works, I will proceed by Friday' — give them a default action so silence equals approval — bold the key deadline"
+confidence   = 0.90
+observations = 50000
+
+[[entries]]
+situation    = "managing email inbox efficiently without missing important messages"
+approach     = "process inbox twice daily (10am, 4pm) not continuously — 2-minute rule: if it takes less than 2 minutes, do it now — categorize: respond today, respond this week, delegate, archive — never use inbox as a to-do list — unsubscribe from anything not read in 30 days — create filters for newsletters and notifications — flag client emails for priority"
+confidence   = 0.88
+observations = 100000
+
+[[entries]]
+situation    = "introducing two people via email"
+approach     = "ask both parties permission BEFORE the intro — subject: 'Intro: [Name A] <> [Name B]' — first line: why this introduction matters to EACH person — one paragraph per person: who they are and why the other should care — put the person who benefits more in the BCC line (they move to TO when they reply) — end with suggested next step"
+confidence   = 0.91
+observations = 25000
+
+[[entries]]
+situation    = "writing an email newsletter that people actually read"
+approach     = "one topic per newsletter, not five — subject line promises a specific takeaway — first sentence delivers on the promise — personal story or specific example in the middle — actionable advice, not abstract principles — under 500 words — consistent send day and time — reply-to should be a real person not noreply — include one question that invites response"
+confidence   = 0.86
+observations = 35000
+
+[[entries]]
+situation    = "declining a request or opportunity professionally"
+approach     = "respond within 24 hours — thank them specifically for what they offered — decline clearly in one sentence (no ambiguity) — give honest reason if appropriate, brief reason if not — offer an alternative if you have one — wish them well genuinely — do not over-explain or apologize excessively — 'I am not the right fit for this' is a complete reason"
+confidence   = 0.90
+observations = 30000
+
+[[entries]]
+situation    = "writing an email to request a meeting or call"
+approach     = "subject: specific topic, not 'Quick chat' — state why you want to meet in one sentence — propose 3 specific times (include timezone) — state how long (default: 30 min) — include what you want to discuss (agenda) — offer alternative: 'If a call doesn't work, happy to do this over email' — make it easy to say yes with one click"
+confidence   = 0.89
+observations = 45000
+
+[[entries]]
+situation    = "writing a thank-you or appreciation email after a meeting"
+approach     = "send within 2 hours of the meeting — reference one specific thing they said that was valuable — confirm any action items with deadlines — attach anything you promised to send — keep it under 100 words — no generic 'great meeting' — make them feel their time was well spent"
+confidence   = 0.92
+observations = 20000

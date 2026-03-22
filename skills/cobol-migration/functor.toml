@@ -1,0 +1,46 @@
+## COBOL Migration axiom primitive mappings
+
+[[mappings]]
+domain_concept = "codebase-assessment"
+axiom_primitive = "Understanding"
+weight = 0.95
+
+[[mappings]]
+domain_concept = "soul-extraction"
+axiom_primitive = "Understanding"
+weight = 0.95
+
+[[mappings]]
+domain_concept = "data-structures"
+axiom_primitive = "Dependency"
+weight = 0.90
+
+[[mappings]]
+domain_concept = "batch-migration"
+axiom_primitive = "Dependency"
+weight = 0.85
+
+[[mappings]]
+domain_concept = "online-migration"
+axiom_primitive = "Dependency"
+weight = 0.90
+
+[[mappings]]
+domain_concept = "validation"
+axiom_primitive = "Risk"
+weight = 0.95
+
+[[mappings]]
+domain_concept = "decimal-arithmetic"
+axiom_primitive = "Risk"
+weight = 0.95
+
+[[mappings]]
+domain_concept = "effort-estimation"
+axiom_primitive = "Volume"
+weight = 0.85
+
+[[mappings]]
+domain_concept = "date-handling"
+axiom_primitive = "Risk"
+weight = 0.90

@@ -1,0 +1,36 @@
+## Social Media axiom primitive mappings
+
+[[mappings]]
+domain_concept = "posting-strategy"
+axiom_primitive = "Understanding"
+weight = 0.85
+
+[[mappings]]
+domain_concept = "engagement-response"
+axiom_primitive = "Risk"
+weight = 0.80
+
+[[mappings]]
+domain_concept = "content-calendar"
+axiom_primitive = "Volume"
+weight = 0.85
+
+[[mappings]]
+domain_concept = "audience-growth"
+axiom_primitive = "Volume"
+weight = 0.90
+
+[[mappings]]
+domain_concept = "negative-feedback"
+axiom_primitive = "Risk"
+weight = 0.95
+
+[[mappings]]
+domain_concept = "cross-platform"
+axiom_primitive = "Dependency"
+weight = 0.80
+
+[[mappings]]
+domain_concept = "performance-metrics"
+axiom_primitive = "Understanding"
+weight = 0.85
