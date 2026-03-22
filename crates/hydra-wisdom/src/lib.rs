@@ -11,6 +11,7 @@
 //! That is what this crate produces.
 
 pub mod constants;
+pub mod distillation;
 pub mod engine;
 pub mod errors;
 pub mod input;
@@ -19,6 +20,7 @@ pub mod persistence;
 pub mod statement;
 pub mod uncertainty;
 
+pub use distillation::{Archetype, MetaPattern, WisdomDistiller};
 pub use engine::WisdomEngine;
 pub use uncertainty::{UncertaintyNode, UncertaintyTree};
 pub use errors::WisdomError;
