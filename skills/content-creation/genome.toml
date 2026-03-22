@@ -1,0 +1,252 @@
+## CAROUSEL — The Format That Dominates LinkedIn and Instagram
+
+[[entries]]
+situation    = "creating a LinkedIn or Instagram carousel"
+approach     = "10 slides maximum — slide 1: bold hook that creates curiosity gap — slide 2: the problem (make them feel it) — slides 3-8: the solution (one idea per slide, large text, minimal words) — slide 9: summary — slide 10: call to action — consistent brand colors throughout — each slide must stand alone if screenshotted"
+confidence   = 0.91
+observations = 80000
+
+[[entries]]
+situation    = "writing carousel text that gets engagement"
+approach     = "max 30 words per slide — one sentence per idea — use contrast (before/after, wrong/right, myth/truth) — numbers outperform words ('5 mistakes' beats 'common mistakes') — the hook slide determines if anyone swipes — end every carousel with a question to drive comments"
+confidence   = 0.89
+observations = 60000
+
+[[entries]]
+situation    = "designing carousel slides for visual impact"
+approach     = "dark background with white text converts best on LinkedIn — bold sans-serif font 40pt minimum — one accent color for emphasis — icons over photos for professional content — headshot on last slide only — consistent margins and spacing — gradient backgrounds look premium with minimal effort"
+confidence   = 0.87
+observations = 40000
+
+## SOCIAL MEDIA POSTS — Platform-Specific Mastery
+
+[[entries]]
+situation    = "writing a LinkedIn post that goes viral"
+approach     = "first line IS the post — if the first line does not create curiosity, nothing else matters — personal story + universal lesson is the most viral format — short paragraphs (1-2 lines) with white space between — controversial take + evidence outperforms generic advice — end with a question, not a statement — optimal length: 1,200-1,500 characters"
+confidence   = 0.88
+observations = 100000
+
+[[entries]]
+situation    = "writing a Twitter/X thread"
+approach     = "tweet 1: standalone hook that makes people want more — every tweet should work if someone only reads that one — number the tweets ('1/12') so people know the length — use line breaks within tweets for readability — end with a summary tweet that links back to tweet 1 — optimal thread length: 7-12 tweets"
+confidence   = 0.87
+observations = 70000
+
+[[entries]]
+situation    = "writing Instagram captions"
+approach     = "first line appears above 'more' — make it count — storytelling format outperforms tips format on Instagram — emoji as bullet points, not decoration — hashtags: 5-10 relevant ones, not 30 random ones — call to action: 'save this for later' drives algorithm better than 'like this' — optimal length: 150-300 words"
+confidence   = 0.86
+observations = 50000
+
+[[entries]]
+situation    = "creating TikTok or Reels content strategy"
+approach     = "pattern interrupt in first 1 second — the content must justify someone stopping their scroll — text on screen is mandatory (most watch muted) — trending audio + original content beats original audio — post 3-5 times per day for growth, 1 per day for maintenance — the algorithm tests your video on 200 people first, watch time determines if it goes further"
+confidence   = 0.85
+observations = 60000
+
+## BLOG AND LONG-FORM — Content That Ranks and Converts
+
+[[entries]]
+situation    = "writing a blog post that ranks on Google"
+approach     = "keyword research first — write for the search intent, not the keyword — H1 with primary keyword — H2s for subtopics — answer the question in the first paragraph (featured snippet targeting) — 1,500-2,500 words for ranking — internal links to related content — one clear call to action — update annually"
+confidence   = 0.88
+observations = 50000
+
+[[entries]]
+situation    = "writing a newsletter that people actually read"
+approach     = "subject line determines open rate — personalize the subject line — one topic per newsletter, not five — conversational tone, not corporate — the P.S. line has the highest read rate after the subject line — send at the same time every week, consistency builds habit — optimal length: 500-800 words"
+confidence   = 0.87
+observations = 30000
+
+## PRESENTATION AND PITCH — Slides That Convince
+
+[[entries]]
+situation    = "creating a pitch deck or presentation"
+approach     = "10-20-30 rule (Guy Kawasaki): 10 slides, 20 minutes, 30pt font minimum — slide 1: what you do in one sentence — problem → solution → market → business model → traction → team → ask — no wall of text slides — one chart per slide maximum — the deck must tell the story without a presenter — send as PDF never as PowerPoint"
+confidence   = 0.90
+observations = 40000
+
+[[entries]]
+situation    = "designing slides for maximum visual impact"
+approach     = "one idea per slide — full-bleed images with text overlay — dark slides with white text for stage presentations — never read slides aloud — animations: reveal, not decorate — data: one number per slide, large, with context — consistent template throughout — the audience remembers the story, not the slides"
+confidence   = 0.88
+observations = 35000
+
+## CONTENT STRATEGY — The System Behind the Content
+
+[[entries]]
+situation    = "building a content strategy from zero"
+approach     = "pick one platform, master it, then expand — the content pillars framework: 3-5 topics you own — 80% value content, 20% promotional — repurpose everything: blog → carousel → thread → video → newsletter — batch create: one day of production = one week of content — consistency beats quality: a good post every day beats a perfect post every month"
+confidence   = 0.89
+observations = 50000
+
+[[entries]]
+situation    = "repurposing one piece of content across platforms"
+approach     = "start with the longest format (blog or video) — extract 5-10 key insights — each insight becomes: one carousel slide, one tweet, one LinkedIn post — the video becomes 3-5 shorts — the blog becomes a newsletter — the data becomes an infographic — one hour of creation becomes 20+ pieces of content"
+confidence   = 0.90
+observations = 40000
+
+[[entries]]
+situation    = "creating content that builds authority in a niche"
+approach     = "teach what you know, document what you learn — original research and data outperform opinion — case studies with real numbers build trust — contrarian takes with evidence create discourse — consistency of voice matters more than consistency of topic — the creator who publishes 100 pieces is always more trusted than the one who publishes 5 perfect ones"
+confidence   = 0.87
+observations = 30000
+
+## COPYWRITING — Words That Convert
+
+[[entries]]
+situation    = "writing copy that converts readers to customers"
+approach     = "AIDA framework: Attention (headline) → Interest (problem) → Desire (solution + proof) → Action (CTA) — benefit-driven not feature-driven: 'save 10 hours/week' not 'automated workflow engine' — social proof: numbers, testimonials, logos — urgency must be real, fake urgency destroys trust — one call to action, not five"
+confidence   = 0.90
+observations = 100000
+
+[[entries]]
+situation    = "writing headlines that get clicks"
+approach     = "curiosity gap: 'The one thing every developer gets wrong about...' — numbers: '7 ways to...' — how-to: 'How to X without Y' — negative: 'Stop doing X' outperforms 'Start doing Y' — test 5 headlines, pick the one that makes YOU want to click — the headline is 80% of the content's success"
+confidence   = 0.89
+observations = 80000
+
+## OUTPUT FORMATS — What Hydra Actually Produces
+
+[[entries]]
+situation    = "generating carousel as HTML for rendering"
+approach     = "output each slide as an HTML div with inline CSS — consistent dimensions (1080x1080 for Instagram, 1080x1350 for LinkedIn) — use Puppeteer or Playwright to screenshot each div as PNG — combine PNGs into a PDF for multi-slide carousel — this produces pixel-perfect output without any design tool"
+confidence   = 0.88
+observations = 10000
+
+[[entries]]
+situation    = "generating content in multiple formats from one source"
+approach     = "structure the content as JSON with sections, key points, and metadata — from the JSON: generate HTML (carousel), Markdown (blog), plain text (social post), SVG (infographic template), Remotion props (video) — one input, five outputs — the format is the last step, the thinking is the first"
+confidence   = 0.86
+observations = 5000
+## ADVANCED VIDEO PRODUCTION — What Makes Content World-Class
+
+[[entries]]
+situation    = "creating a cinematic intro sequence"
+approach     = "3-second rule: logo reveal in 3 seconds or less — motion blur + scale animation for premium feel — dark to light transition signals 'beginning' — custom sound design (whoosh + bass hit) at the reveal moment — never use stock intro templates, they signal amateur — match the energy of your content: calm intro for educational, dramatic for storytelling"
+confidence   = 0.88
+observations = 30000
+
+[[entries]]
+situation    = "creating smooth transitions between scenes"
+approach     = "match cut: end frame of scene A matches start frame of scene B (shape, color, or motion) — J-cut: audio from scene B starts before the visual cuts — L-cut: audio from scene A continues into scene B — whip pan for energy, dissolve for passage of time, hard cut for impact — the best transitions are invisible"
+confidence   = 0.90
+observations = 40000
+
+[[entries]]
+situation    = "recording high-quality talking head video"
+approach     = "eye level camera — one key light at 45 degrees (soft, large source) — fill light opposite at 50% intensity — separate background light — 3 feet of distance between you and background — f/2.8 or wider for background blur — look at the lens, not the screen — teleprompter or memorize, never read from notes on screen"
+confidence   = 0.89
+observations = 35000
+
+[[entries]]
+situation    = "creating B-roll that elevates the video"
+approach     = "B-roll every 5-8 seconds of talking head keeps attention — match the b-roll to what is being said (say 'code' show code) — slow motion for emphasis, time-lapse for process — screen recordings: zoom into the relevant area, highlight the cursor — stock B-roll from Pexels or Artgrid as last resort"
+confidence   = 0.87
+observations = 25000
+
+[[entries]]
+situation    = "sound design and audio mixing for professional output"
+approach     = "record voice in a treated room (blankets, foam, closet if nothing else) — voice: -6dB peak, -12dB to -16dB average — music: -18dB to -24dB under voice — sound effects at -12dB — de-noise in post (Audacity, Adobe Podcast) — the $100 mic with good technique beats the $1000 mic with bad technique — always monitor with headphones while recording"
+confidence   = 0.90
+observations = 40000
+
+[[entries]]
+situation    = "motion graphics and text animation"
+approach     = "text should animate IN (appear) not animate constantly — overshoot + settle (bounce) feels organic — 24fps for cinematic, 30fps for online, 60fps for smooth motion — lower thirds: name + title, 3-5 seconds, bottom-left — kinetic typography for emphasis (key word enlarges as spoken) — After Effects or Remotion, never PowerPoint animations"
+confidence   = 0.88
+observations = 30000
+
+[[entries]]
+situation    = "color grading for mood and consistency"
+approach     = "shoot flat/log profile for maximum grading flexibility — step 1: correct (white balance, exposure) — step 2: normalize (match all clips) — step 3: grade (apply creative look) — orange and teal is the most popular YouTube look — desaturated warm tones for serious content — bright and saturated for lifestyle — LUTs are starting points not finished grades"
+confidence   = 0.86
+observations = 20000
+
+## PLATFORM-SPECIFIC VIDEO — What Works WHERE
+
+[[entries]]
+situation    = "creating YouTube videos that the algorithm promotes"
+approach     = "CTR (click-through rate) × AVD (average view duration) = algorithmic success — thumbnail + title determine CTR — content quality determines AVD — first 30 seconds must hook (pattern interrupt, question, bold claim) — mid-roll retention dip at 30% mark, re-hook there — end screen at 85% mark, not 95% — 8-15 minutes optimal for ad revenue, 2-5 minutes for virality"
+confidence   = 0.89
+observations = 100000
+
+[[entries]]
+situation    = "creating TikTok videos that reach millions"
+approach     = "hook in 0.5 seconds (text on screen, unexpected visual, or direct address) — 15-30 seconds optimal for virality, 60 seconds for depth — trending sounds with 10K-100K uses (not 1M, too saturated) — green screen with source material builds authority — stitch and duet existing viral content for discovery — post 3-7 times per day during growth phase"
+confidence   = 0.86
+observations = 80000
+
+[[entries]]
+situation    = "creating Instagram Reels that drive followers"
+approach     = "Reels reach non-followers, feed posts reach followers — use Reels for growth, feed for nurture — 7-15 seconds for maximum completion rate — text on screen in the first frame (thumbnail) — Instagram favors native content over TikTok reposts (watermark = suppressed) — carousel Reels (multi-clip) outperform single-clip for educational content"
+confidence   = 0.85
+observations = 50000
+
+[[entries]]
+situation    = "creating YouTube Shorts that convert to subscribers"
+approach     = "Shorts viewers are different from long-form viewers — the goal is to funnel Shorts viewers to your channel — end every Short with 'full video on my channel' — vertical 9:16, 60 seconds max — fast pacing: new visual every 2 seconds — subscribe CTA as text overlay in last 3 seconds — Shorts algorithm favors consistency: daily posting"
+confidence   = 0.84
+observations = 40000
+
+## THUMBNAIL AND VISUAL HOOKS — The First Impression
+
+[[entries]]
+situation    = "designing thumbnails that get clicked"
+approach     = "face + emotion + big text = highest CTR formula — 3 elements maximum per thumbnail — contrast with YouTube's white/red UI (use blue, green, yellow) — text: max 5 words, readable at mobile size (50px on 1280x720) — A/B test with TubeBuddy or VidIQ — the thumbnail is a promise, the video must deliver on it — clickbait that does not deliver kills the channel"
+confidence   = 0.90
+observations = 60000
+
+[[entries]]
+situation    = "creating visual hooks for the first frame of social video"
+approach     = "first frame IS the thumbnail on most platforms — text overlay with the key question or promise — bright colors against dark background — face showing emotion (surprise, excitement, concern) — never start with a logo or intro — the first frame must answer: 'why should I stop scrolling?'"
+confidence   = 0.88
+observations = 45000
+
+## STORYTELLING IN VIDEO — What Separates Good From Great
+
+[[entries]]
+situation    = "structuring a story for maximum emotional impact"
+approach     = "the hero's journey works for everything: ordinary world → call to adventure → challenge → transformation → return — for short content: situation → complication → resolution — for educational: problem → wrong approach → right approach → proof — tension comes from uncertainty, not action — every great video has a moment where the audience does not know what happens next"
+confidence   = 0.91
+observations = 50000
+
+[[entries]]
+situation    = "using pacing to control audience emotion"
+approach     = "fast cuts = energy, excitement, urgency — slow shots = weight, importance, emotion — silence after a key statement gives it power — music builds and drops should match content beats — the pause before the reveal is more powerful than the reveal itself — rhythm: short-short-short-long creates a pattern the brain follows"
+confidence   = 0.88
+observations = 30000
+
+[[entries]]
+situation    = "making educational content entertaining"
+approach     = "the Veritasium method: start with a misconception, let the audience believe it, then reveal the truth — the Mark Rober method: build to a spectacular demo that proves the concept — the 3Blue1Brown method: animate the math so you SEE the concept — do not explain then show, show then explain — the visual must carry the concept, the voice must carry the story"
+confidence   = 0.89
+observations = 40000
+
+## POST-PRODUCTION WORKFLOW — Efficiency at Scale
+
+[[entries]]
+situation    = "editing a video efficiently without perfectionism"
+approach     = "rough cut first: lay all clips in timeline, trim obvious bad takes — fine cut second: tighten pacing, remove ums and dead air — polish third: add b-roll, graphics, music, color — the 80/20 rule applies: 80% of impact comes from the rough cut — export a draft version for review before polishing — never show an unfinished video for feedback, show a rough cut"
+confidence   = 0.88
+observations = 30000
+
+[[entries]]
+situation    = "building a video production system that scales"
+approach     = "template everything: intro, lower thirds, end screen, thumbnail layout — keyboard shortcuts: learn 20 shortcuts in your editor, you are 3x faster — proxy editing: edit with low-res copies, export from originals — asset library: organize music, sound effects, b-roll by category — SOP document: write down your editing process so anyone can follow it — the system produces consistent quality, not the individual"
+confidence   = 0.87
+observations = 20000
+
+## MONETIZATION — Turning Content Into Revenue
+
+[[entries]]
+situation    = "monetizing content creation"
+approach     = "ad revenue is the floor, not the ceiling — sponsorships pay 10-100x more than ads at the same view count — digital products (courses, templates, ebooks) pay indefinitely — consulting: your content is the proof, your time is the product — build the audience first, monetize second — never let sponsorships compromise content quality, one bad sponsorship loses more followers than the money is worth"
+confidence   = 0.88
+observations = 50000
+
+[[entries]]
+situation    = "pricing sponsored content or brand deals"
+approach     = "CPM benchmark: $20-50 per 1,000 views for YouTube sponsorships — Instagram: $100 per 10K followers as starting point — negotiate based on engagement rate not follower count — always disclose sponsorships (legal requirement and trust builder) — never accept a sponsorship for a product you would not use — three tiers: mention ($X), dedicated segment (3X), full video (10X)"
+confidence   = 0.85
+observations = 20000
