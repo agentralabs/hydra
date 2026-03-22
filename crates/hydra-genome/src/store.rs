@@ -168,6 +168,11 @@ impl GenomeStore {
         self.entries.is_empty()
     }
 
+    /// Return a reference to all entries (for distillation/analysis).
+    pub fn all_entries(&self) -> &[GenomeEntry] {
+        &self.entries
+    }
+
     pub fn load_from_skills(&mut self) -> usize {
         let skill_genomes = crate::skill_loader::load_all_skill_genomes();
         let mut loaded = 0;

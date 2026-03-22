@@ -231,6 +231,32 @@ pub fn cycle_with_subsystems(
             }
         }
 
+        // Wisdom Distillation: discover transferable principles across domains
+        if state.step_count % 200 == 0 && state.step_count > 0 && subs.genome.len() > 20 {
+            let mut entries_by_domain: std::collections::HashMap<String, Vec<(String, String)>> =
+                std::collections::HashMap::new();
+            for entry in subs.genome.all_entries() {
+                let domain = entry.approach.approach_type.clone();
+                let situation = entry.situation.keywords.iter().cloned().collect::<Vec<_>>().join(" ");
+                let approach = entry.approach.steps.join(" → ");
+                entries_by_domain
+                    .entry(domain)
+                    .or_default()
+                    .push((situation, approach));
+            }
+            let mut distiller = hydra_wisdom::WisdomDistiller::new();
+            let patterns = distiller.distill(&entries_by_domain);
+            if !patterns.is_empty() {
+                eprintln!(
+                    "hydra: WISDOM DISTILLATION — {} transferable principles discovered",
+                    patterns.len()
+                );
+                for p in patterns.iter().take(3) {
+                    eprintln!("  {:?} (spans {} domains)", p.archetype, p.domain_count);
+                }
+            }
+        }
+
         // Legacy: track archive status at milestones
         if state.step_count % 500 == 0 && state.step_count > 0 {
             let legacy = hydra_legacy::LegacyEngine::new();
