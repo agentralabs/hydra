@@ -16,10 +16,12 @@ pub mod task;
 
 pub mod action_loader;
 pub mod integration;
+pub mod runtime;
 
 pub use action_loader::{Action, ActionRegistry as ExternalActionRegistry};
 pub use engine::{ExecutionEngine, ExecutionRequest};
 pub use integration::{Integration, IntegrationRegistry};
+pub use runtime::{ExecutionResult, execute_shell, execute_api_sync};
 pub use errors::ExecutorError;
 pub use receipt::{ExecutionReceipt, ReceiptLedger, ReceiptOutcome};
 pub use registry::{ActionRegistry, ExecutorType, RegisteredAction};

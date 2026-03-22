@@ -1,0 +1,34 @@
+[[mappings]]
+domain_concept  = "microservices"
+axiom_primitive = "Dependency"
+weight          = 0.85
+
+[[mappings]]
+domain_concept  = "monolith"
+axiom_primitive = "Volume"
+weight          = 0.70
+
+[[mappings]]
+domain_concept  = "scaling"
+axiom_primitive = "Volume"
+weight          = 0.90
+
+[[mappings]]
+domain_concept  = "distributed"
+axiom_primitive = "Risk"
+weight          = 0.80
+
+[[mappings]]
+domain_concept  = "coupling"
+axiom_primitive = "Dependency"
+weight          = 0.90
+
+[[mappings]]
+domain_concept  = "latency"
+axiom_primitive = "Risk"
+weight          = 0.75
+
+[[mappings]]
+domain_concept  = "resilience"
+axiom_primitive = "Understanding"
+weight          = 0.80

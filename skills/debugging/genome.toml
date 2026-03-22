@@ -1,0 +1,47 @@
+[[entries]]
+approach    = "binary-search"
+description = "Bisect the problem space to isolate the faulty component"
+complexity  = "low"
+when        = "Large codebase, unclear where the bug originates"
+
+[[entries]]
+approach    = "reproduce-first"
+description = "Create a minimal reproducible case before attempting any fix"
+complexity  = "medium"
+when        = "Bug is intermittent or environment-dependent"
+
+[[entries]]
+approach    = "rubber-duck"
+description = "Explain the problem step by step to expose faulty assumptions"
+complexity  = "low"
+when        = "Stuck for more than 15 minutes with no progress"
+
+[[entries]]
+approach    = "log-instrumentation"
+description = "Add structured logging at key decision points to trace execution flow"
+complexity  = "low"
+when        = "Cannot attach a debugger or need production visibility"
+
+[[entries]]
+approach    = "diff-analysis"
+description = "Compare working vs broken state using git diff or config diff"
+complexity  = "low"
+when        = "Bug appeared after a known change or deployment"
+
+[[entries]]
+approach    = "assumption-inversion"
+description = "List every assumption about the bug and systematically test each one"
+complexity  = "medium"
+when        = "Initial diagnosis was wrong and you need a fresh angle"
+
+[[entries]]
+approach    = "dependency-isolation"
+description = "Remove or mock external dependencies to determine if the bug is internal"
+complexity  = "medium"
+when        = "Bug may originate in a third-party library or service"
+
+[[entries]]
+approach    = "state-inspection"
+description = "Snapshot and examine all relevant state at the moment of failure"
+complexity  = "high"
+when        = "Bug involves corrupted or unexpected state that accumulates over time"
