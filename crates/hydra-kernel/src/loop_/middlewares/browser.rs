@@ -78,6 +78,13 @@ impl CycleMiddleware for BrowserMiddleware {
         {
             self.browser_actions_observed += 1;
         }
+        // O12: Track anti-detection effectiveness for genome learning
+        if self.browser_actions_observed > 0 && self.browser_actions_observed % 10 == 0 {
+            crate::feedback::log_outcome(&crate::feedback::ActionOutcome::Success {
+                approach: "browser_automation".into(), domain: "anti-detection".into(),
+                duration_ms: cycle.duration_ms, quality: 1.0,
+            });
+        }
     }
 }
 

@@ -142,6 +142,23 @@ pub fn surface_enrichments(enrichments: &HashMap<String, String>) -> Vec<StreamI
         });
     }
 
+    // O11: Social intelligence signals
+    if let Some(social) = enrichments.get("social.context") {
+        items.push(tool_dot("Social", DotKind::Narration, &truncate(social, 40)));
+    }
+    if let Some(timing) = enrichments.get("social.timing") {
+        items.push(StreamItem::SystemNotification {
+            id: uuid::Uuid::new_v4(),
+            content: format!("  ⏰ {}", truncate(timing, 50)),
+            timestamp: chrono::Utc::now(),
+        });
+    }
+
+    // O12: Anti-detection status
+    if let Some(warmup) = enrichments.get("browser.warmup") {
+        items.push(tool_dot("Anti-detect", DotKind::Active, &truncate(warmup, 35)));
+    }
+
     // Zero-token resolution (compiled pattern)
     if let Some(compiled) = enrichments.get("zero_token") {
         items.push(StreamItem::SystemNotification {

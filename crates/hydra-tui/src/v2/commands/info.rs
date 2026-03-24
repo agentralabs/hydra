@@ -118,6 +118,22 @@ pub fn commands() -> Vec<Command> {
             handler: cmd_fleet,
         },
         Command {
+            name: "like",
+            aliases: &[],
+            description: "Record positive taste feedback for last output",
+            args_help: "[domain]",
+            category: CommandCategory::Info,
+            handler: cmd_like,
+        },
+        Command {
+            name: "dislike",
+            aliases: &[],
+            description: "Record negative taste feedback for last output",
+            args_help: "[domain]",
+            category: CommandCategory::Info,
+            handler: cmd_dislike,
+        },
+        Command {
             name: "obstacles",
             aliases: &["resistance"],
             description: "Obstacles overcome and resistance built",
@@ -331,6 +347,20 @@ fn cmd_obstacles(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
     let mut items = vec![sys(&format!("Antifragile: {total} encounters across {classes} obstacle classes"))];
     if total == 0 { items.push(sys("  No obstacles yet. Hydra grows stronger from failure.")); }
     items
+}
+
+fn cmd_like(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
+    let domain = if args.trim().is_empty() { "general" } else { args.trim() };
+    let mut genome = hydra_genome::GenomeStore::open();
+    hydra_kernel::feedback::record_taste_feedback(domain, true, &mut genome);
+    vec![sys(&format!("Taste recorded: positive for '{domain}'. I'll remember this preference."))]
+}
+
+fn cmd_dislike(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
+    let domain = if args.trim().is_empty() { "general" } else { args.trim() };
+    let mut genome = hydra_genome::GenomeStore::open();
+    hydra_kernel::feedback::record_taste_feedback(domain, false, &mut genome);
+    vec![sys(&format!("Taste recorded: negative for '{domain}'. I'll adjust next time."))]
 }
 
 #[cfg(test)]
