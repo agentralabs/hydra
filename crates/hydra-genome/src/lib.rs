@@ -10,6 +10,7 @@ pub mod errors;
 pub mod persistence;
 pub mod signature;
 pub mod skill_loader;
+pub mod social_genome;
 pub mod store;
 
 pub use entry::GenomeEntry;

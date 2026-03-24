@@ -47,6 +47,7 @@ pub mod task_engine;
 pub mod vault_crypto;
 pub mod vision_bridge;
 pub mod web_knowledge;
+pub mod social;
 pub mod worker;
 pub mod workspace;
 pub mod zero_defect;

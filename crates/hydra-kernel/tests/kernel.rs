@@ -244,3 +244,25 @@ fn workspace_snapshot_save_load_resume() {
     let items = workspace::briefing_items(&loaded);
     assert!(items.iter().any(|i| i.contains("pending")));
 }
+
+#[test]
+fn social_intelligence_end_to_end() {
+    use hydra_kernel::social;
+    // Sentiment analysis
+    assert!(social::estimate_sentiment("Thanks for the great work, really appreciate it") > 0.0);
+    assert!(social::estimate_sentiment("This is terrible and broken") < 0.0);
+    assert!(social::estimate_sentiment("oh great, another deployment failed") < 0.0); // sarcasm EC-11.1
+    // Full context analysis
+    let genome = hydra_genome::GenomeStore::open();
+    let ctx = social::analyze_social_context("Hey @alice, the deadline is tomorrow", &genome);
+    assert_eq!(ctx.relational_states.len(), 1);
+    assert_eq!(ctx.relational_states[0].person, "alice");
+    // Prompt enrichment
+    let lines = social::enrich_prompt_with_social(&ctx);
+    assert!(lines.iter().any(|l| l.contains("alice")));
+    // Save interaction feeds genome
+    let mut genome = hydra_genome::GenomeStore::open();
+    social::save_interaction("alice", 0.8, &mut genome);
+    let state = social::load_relational_state("alice", &genome);
+    assert!(state.interaction_count >= 1 || !state.sentiment_history.is_empty());
+}

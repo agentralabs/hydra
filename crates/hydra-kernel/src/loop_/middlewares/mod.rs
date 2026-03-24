@@ -24,6 +24,8 @@ pub fn build_chain() -> MiddlewareChain {
         Box::new(security::SecurityMiddleware::new()),
         Box::new(memory::MemoryMiddleware::new()),
         Box::new(signals::SignalsMiddleware::new()),
+        // Wave 2.5: Social Intelligence (O11 — relational context before LLM)
+        Box::new(crate::social::SocialMiddleware::new()),
         // Wave 3: Intelligence
         Box::new(intelligence::IntelligenceMiddleware::new()),
         Box::new(selfmodel::SelfModelMiddleware::new()),
@@ -51,7 +53,7 @@ mod tests {
     #[test]
     fn build_chain_creates_all_middlewares() {
         let chain = build_chain();
-        assert_eq!(chain.len(), 11);
+        assert_eq!(chain.len(), 12);
     }
 
     #[test]
