@@ -69,6 +69,14 @@ pub fn commands() -> Vec<Command> {
             category: CommandCategory::Info,
             handler: cmd_analytics,
         },
+        Command {
+            name: "integrity",
+            aliases: &["health-check"],
+            description: "Check data integrity and auto-recover if needed",
+            args_help: "",
+            category: CommandCategory::System,
+            handler: cmd_integrity,
+        },
     ]
 }
 
@@ -133,6 +141,44 @@ fn cmd_collab(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
     }
 }
 
+fn cmd_integrity(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
+    let mut monitor = hydra_kernel::integrity::IntegrityMonitor::new();
+    let report = monitor.check();
+    let mut items = vec![sys("Self-Preservation Integrity Check:")];
+    if report.is_healthy() {
+        items.push(sys("  All data stores healthy"));
+    } else {
+        for issue in &report.issues {
+            items.push(sys(&format!("  {issue}")));
+        }
+    }
+    if report.genome_recovered {
+        items.push(sys("  Genome: auto-recovered from backup"));
+    }
+    if report.memory_recovered {
+        items.push(sys("  Memory: auto-recovered from backup"));
+    }
+    match &report.genome {
+        Some(hydra_kernel::integrity::Health::Ok(size)) => {
+            items.push(sys(&format!("  genome.db: OK ({}KB)", size / 1024)));
+        }
+        Some(hydra_kernel::integrity::Health::Missing) => {
+            items.push(sys("  genome.db: MISSING"));
+        }
+        _ => {}
+    }
+    match &report.memory {
+        Some(hydra_kernel::integrity::Health::Ok(size)) => {
+            items.push(sys(&format!("  hydra.amem: OK ({}KB)", size / 1024)));
+        }
+        Some(hydra_kernel::integrity::Health::Missing) => {
+            items.push(sys("  hydra.amem: MISSING"));
+        }
+        _ => {}
+    }
+    items
+}
+
 fn cmd_analytics(_args: &str, ctx: &CommandContext) -> Vec<StreamItem> {
     let genome = hydra_genome::GenomeStore::open();
     let ledger = hydra_settlement::SettlementLedger::open();
@@ -158,6 +204,6 @@ mod tests {
 
     #[test]
     fn commands_count() {
-        assert_eq!(commands().len(), 8);
+        assert_eq!(commands().len(), 9);
     }
 }

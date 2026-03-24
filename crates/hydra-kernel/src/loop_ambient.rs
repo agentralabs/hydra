@@ -34,6 +34,8 @@ pub struct AmbientSubsystems {
     pub reach: hydra_reach_extended::ReachEngine,
     /// Inline checkpoint tracking (step count at last checkpoint).
     pub last_checkpoint_step: u64,
+    /// Self-preservation: periodic data integrity verification (O23).
+    pub integrity: crate::integrity::IntegrityMonitor,
 }
 
 impl AmbientSubsystems {
@@ -44,6 +46,7 @@ impl AmbientSubsystems {
             fabric: SignalFabric::new(),
             reach: hydra_reach_extended::ReachEngine::new(),
             last_checkpoint_step: 0,
+            integrity: crate::integrity::IntegrityMonitor::new(),
         }
     }
 }
@@ -137,6 +140,14 @@ pub fn tick_with_subsystems(
                 Err(e) => {
                     eprintln!("hydra: reach health check failed: {e}");
                 }
+            }
+        }
+
+        // Self-preservation (O23): integrity check every 30 minutes
+        if subs.integrity.should_check() {
+            let report = subs.integrity.check();
+            if !report.is_healthy() {
+                eprintln!("hydra: integrity issues detected: {}", report.summary());
             }
         }
 

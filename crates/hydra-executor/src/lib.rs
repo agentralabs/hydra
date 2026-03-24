@@ -16,6 +16,8 @@ pub mod task;
 
 pub mod action_loader;
 pub mod bridge;
+pub mod machines;
+pub mod remote;
 pub mod bridge_config;
 pub mod bridge_process;
 pub mod file_ops;
@@ -37,3 +39,5 @@ pub use bridge_config::BridgeConfig;
 pub use bridge_process::{BridgeProcess, BridgeSignal, BridgeState};
 pub use local_config::LocalConfig;
 pub use local_executor::LocalExecutor;
+pub use machines::{Machine, MachineRegistry};
+pub use remote::{ExecutionTarget, RemoteAuth, RemoteResult, execute_remote};

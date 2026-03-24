@@ -27,6 +27,8 @@ pub enum StepType {
     ApiCall { method: String, url: String, body: Option<String> },
     Wait { condition: WaitCondition },
     Verify { method: VerifyMethod },
+    /// Execute a command on a remote machine via SSH (Session 24).
+    Remote { machine: String, command: String },
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

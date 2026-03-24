@@ -53,6 +53,20 @@ pub fn generate_briefing(genome_count: usize) -> Vec<StreamItem> {
             push_brief_item(&mut items, "●", &line, w, BriefingPriority::High);
         }
     }
+    // Self-preservation (O23): integrity report
+    let mut integrity_monitor = hydra_kernel::integrity::IntegrityMonitor::new();
+    let integrity_report = integrity_monitor.check();
+    if !integrity_report.is_healthy() {
+        for issue in &integrity_report.issues {
+            push_brief_item(&mut items, "▲", issue, w, BriefingPriority::Urgent);
+        }
+    }
+    if integrity_report.genome_recovered {
+        push_brief_item(&mut items, "●", "Genome auto-recovered from backup", w, BriefingPriority::High);
+    }
+    if integrity_report.memory_recovered {
+        push_brief_item(&mut items, "●", "Memory auto-recovered from backup", w, BriefingPriority::High);
+    }
     push_brief_item(&mut items, "○", "All systems nominal · laws verified", w, BriefingPriority::Low);
 
     // │                                               │

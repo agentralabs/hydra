@@ -12,6 +12,8 @@
 //! Constitutional invariants are checked on every ambient tick.
 
 pub mod backup;
+pub mod backup_cloud;
+pub mod backup_merge;
 pub mod boot;
 pub mod assumptions;
 pub mod coder;
@@ -52,6 +54,7 @@ pub mod vault_crypto;
 pub mod vision_bridge;
 pub mod web_knowledge;
 pub mod immersion;
+pub mod integrity;
 pub mod social;
 pub mod worker;
 pub mod workspace;

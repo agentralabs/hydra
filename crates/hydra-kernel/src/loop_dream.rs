@@ -287,6 +287,17 @@ pub fn cycle_with_subsystems(
             }
         }
 
+        // Self-preservation (O23): auto-backup every 2000 dream steps (~6 hours)
+        if state.step_count % 2000 == 0 && state.step_count > 0 {
+            match crate::backup::create_backup() {
+                Ok(r) => {
+                    eprintln!("hydra: auto-backup {} files ({}KB)", r.files_copied, r.total_bytes / 1024);
+                    crate::backup::prune_old_backups(30);
+                }
+                Err(e) => eprintln!("hydra: auto-backup failed: {e}"),
+            }
+        }
+
         // Log milestone
         if state.step_count % 100 == 0 && state.step_count > 0 {
             eprintln!(
