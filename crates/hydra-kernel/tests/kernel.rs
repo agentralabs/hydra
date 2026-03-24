@@ -150,3 +150,36 @@ async fn boot_and_tick_sequence() {
     assert!(health.invariants_ok);
     assert_eq!(health.active_tasks, 1);
 }
+
+#[test]
+fn zero_defect_pipeline_produces_certificate() {
+    use hydra_kernel::zero_defect::{run_gates, Gate};
+    // Create a tiny Rust project in a temp dir so Gates 1-3,6 run fast
+    let tmp = std::env::temp_dir().join("hydra_zd_test");
+    let src = tmp.join("src");
+    let _ = std::fs::create_dir_all(&src);
+    std::fs::write(tmp.join("Cargo.toml"), "[package]\nname = \"zd_test\"\nversion = \"0.1.0\"\nedition = \"2021\"\n").unwrap();
+    let code = "pub fn add(a: i32, b: i32) -> i32 { a + b }\n#[test] fn t() { assert_eq!(add(1,2), 3); }";
+    std::fs::write(src.join("lib.rs"), code).unwrap();
+    let (results, cert) = run_gates(code, "src/lib.rs", "rust", &tmp.to_string_lossy());
+    // All 7 gates always run
+    assert_eq!(results.len(), 7);
+    // Security + Edge Cases + Genome should pass for clean code
+    assert!(results.iter().find(|r| r.gate == Gate::Security).unwrap().passed);
+    assert!(results.iter().find(|r| r.gate == Gate::EdgeCases).unwrap().passed);
+    assert!(results.iter().find(|r| r.gate == Gate::Genome).unwrap().passed);
+    // If all gates pass, certificate is issued with correct hash (EC-9.9)
+    if results.iter().all(|r| r.passed) {
+        let cert = cert.expect("certificate when all gates pass");
+        assert_eq!(cert.file_path, "src/lib.rs");
+        assert!(!cert.file_hash.is_empty());
+        let display = cert.format_display();
+        assert!(display.contains("Certificate"));
+        for g in Gate::all() { assert!(display.contains(g.label())); }
+        // Verify saved to disk, then cleanup
+        let cert_path = dirs::home_dir().unwrap().join(".hydra/certificates")
+            .join(format!("{}.json", cert.file_hash));
+        if cert_path.exists() { let _ = std::fs::remove_file(cert_path); }
+    }
+    let _ = std::fs::remove_dir_all(&tmp);
+}

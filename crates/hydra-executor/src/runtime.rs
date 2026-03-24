@@ -116,10 +116,14 @@ pub fn execute_shell(
 
     eprintln!("hydra: executing action '{}': shell command", action.name);
 
-    let result = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(&command)
-        .output();
+    let mut cmd = std::process::Command::new("sh");
+    cmd.arg("-c").arg(&command);
+    #[cfg(unix)]
+    unsafe {
+        use std::os::unix::process::CommandExt;
+        cmd.pre_exec(|| { libc::setpgid(0, 0); Ok(()) });
+    }
+    let result = cmd.output();
 
     let duration_ms = start.elapsed().as_millis() as u64;
 

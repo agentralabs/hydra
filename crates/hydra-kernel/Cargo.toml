@@ -63,6 +63,11 @@ hydra-cartography   = { path = "../hydra-cartography" }
 hydra-antifragile   = { path = "../hydra-antifragile" }
 hydra-plastic       = { path = "../hydra-plastic" }
 
+# Computer use + web
+hydra-browser       = { path = "../hydra-browser" }
+hydra-desktop       = { path = "../hydra-desktop" }
+hydra-web           = { path = "../hydra-web" }
+
 # Wave 5: Execution infrastructure
 hydra-environment   = { path = "../hydra-environment" }
 hydra-skills        = { path = "../hydra-skills" }
@@ -100,6 +105,16 @@ reqwest.workspace = true
 futures-util = "0.3"
 rusqlite.workspace = true
 dirs.workspace = true
+libc = "0.2"
+sha2 = "0.10"
+hex = "0.4"
+aes-gcm = "0.10"
+rand.workspace = true
+async-trait.workspace = true
+base64.workspace = true
+axum.workspace = true
+tower-http.workspace = true
+toml.workspace = true
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
