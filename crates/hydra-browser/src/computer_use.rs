@@ -53,6 +53,23 @@ impl ComputerUseAgent {
         let mut steps = Vec::new();
         let mut completed = false;
 
+        // O12: Warmup for social platforms before main task (EC-12.3/4/5)
+        let domain = Self::extract_domain(goal);
+        if let Some(ref d) = domain {
+            match crate::warmup::warmup(engine, d).await {
+                Ok(crate::warmup::WarmupStatus::SessionExpired) =>
+                    return Err(BrowserError::SessionError { domain: d.clone(), reason: "expired during warmup".into() }),
+                Ok(crate::warmup::WarmupStatus::IpBlocked) =>
+                    return Err(BrowserError::ActionFailed { action: "warmup".into(), reason: format!("IP blocked on {d}") }),
+                Ok(crate::warmup::WarmupStatus::CaptchaDetected(ct)) => {
+                    steps.push(ComputerUseStep { step_number: 0, action_taken: format!("captcha:{ct}"),
+                        observation: "CAPTCHA during warmup — user intervention needed".into(), is_complete: false });
+                }
+                Ok(_) => {} // Ready or Skipped
+                Err(e) => eprintln!("hydra-warmup: error during warmup: {e}"),
+            }
+        }
+
         eprintln!("hydra-browser: computer-use starting task: {goal}");
 
         for step_num in 1..=self.max_steps {
@@ -135,6 +152,27 @@ impl ComputerUseAgent {
             steps,
             final_observation,
         })
+    }
+
+    /// Extract domain from a goal string (looks for URLs or known platform names).
+    fn extract_domain(goal: &str) -> Option<String> {
+        // Try to find URL with domain
+        if let Some(start) = goal.find("http") {
+            let rest = &goal[start..];
+            let end = rest.find(|c: char| c.is_whitespace()).unwrap_or(rest.len());
+            let url = &rest[..end];
+            // Extract host from https://host/...
+            if let Some(after_scheme) = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://")) {
+                let host_end = after_scheme.find('/').unwrap_or(after_scheme.len());
+                return Some(after_scheme[..host_end].to_string());
+            }
+        }
+        // Check for known platform mentions
+        let lower = goal.to_lowercase();
+        for domain in &["linkedin", "twitter", "x.com", "instagram", "facebook"] {
+            if lower.contains(domain) { return Some(format!("{domain}.com")); }
+        }
+        None
     }
 
     /// Execute a single step: screenshot → vision analysis → decide action → execute.

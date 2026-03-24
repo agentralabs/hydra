@@ -19,16 +19,15 @@ pub struct BrowserEngine {
     page: Option<Arc<Mutex<Page>>>,
     session_mgr: SessionManager,
     human: HumanBehavior,
+    pub limiter: crate::limiter::RateLimiter,
     launched: bool,
 }
 
 impl BrowserEngine {
     pub fn new() -> Self {
         Self {
-            browser: None,
-            page: None,
-            session_mgr: SessionManager::new(),
-            human: HumanBehavior::new(),
+            browser: None, page: None, session_mgr: SessionManager::new(),
+            human: HumanBehavior::new(), limiter: crate::limiter::RateLimiter::new(),
             launched: false,
         }
     }
@@ -42,7 +41,8 @@ impl BrowserEngine {
         let mut config = BrowserConfig::builder()
             .no_sandbox()
             .window_size(DEFAULT_VIEWPORT_WIDTH, DEFAULT_VIEWPORT_HEIGHT);
-
+        // O12: Apply anti-detection stealth args (EC-12.1)
+        for arg in crate::fingerprint::stealth_args() { config = config.arg(arg); }
         if let Ok(path) = std::env::var("HYDRA_CHROME_PATH") {
             config = config.chrome_executable(path);
         }
@@ -129,8 +129,11 @@ impl BrowserEngine {
         let start = std::time::Instant::now();
         let label = action.label();
 
-        // Human-like delay before mutations
+        // O12: Rate limiter check before mutations (EC-12.2)
         if action.is_mutation() {
+            if let crate::limiter::RateLimitStatus::BackedOff { remaining_ms } = self.limiter.check("_current", 30) {
+                return ActionResult::err(label, format!("RATE_LIMITED:{}ms", remaining_ms), 0);
+            }
             self.human.delay().await;
         }
 
