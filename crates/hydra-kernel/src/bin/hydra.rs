@@ -10,6 +10,7 @@ use hydra_kernel::loop_ambient::{AmbientSubsystems, tick_with_subsystems};
 use hydra_kernel::loop_dream::{DreamSubsystems, cycle_with_subsystems};
 use hydra_kernel::persistence;
 use hydra_kernel::state::HydraState;
+use hydra_kernel::{task_engine, workspace};
 use std::io::{self, BufRead, Write};
 
 #[tokio::main]
@@ -25,6 +26,12 @@ async fn main() {
     struct LockGuard;
     impl Drop for LockGuard {
         fn drop(&mut self) {
+            // O7: Save workspace snapshot on exit
+            let engine = task_engine::TaskEngine::new();
+            let snap = workspace::capture(&engine);
+            if let Err(e) = workspace::save_snapshot(&snap) {
+                eprintln!("hydra: workspace save failed: {e}");
+            }
             persistence::release_boot_lock();
         }
     }
