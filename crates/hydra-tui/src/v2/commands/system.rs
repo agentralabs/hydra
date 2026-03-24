@@ -61,6 +61,30 @@ pub fn commands() -> Vec<Command> {
             category: CommandCategory::System,
             handler: cmd_spawn,
         },
+        Command {
+            name: "immerse",
+            aliases: &["domain", "mastery"],
+            description: "Domain mastery status and immersion control",
+            args_help: "<domain> [status|start|test]",
+            category: CommandCategory::System,
+            handler: cmd_immerse,
+        },
+        Command {
+            name: "remote",
+            aliases: &[],
+            description: "Remote access URL, PIN, and connected clients",
+            args_help: "",
+            category: CommandCategory::System,
+            handler: cmd_remote,
+        },
+        Command {
+            name: "monitors",
+            aliases: &["mon"],
+            description: "List active monitors and alerts",
+            args_help: "",
+            category: CommandCategory::System,
+            handler: cmd_monitors,
+        },
     ]
 }
 
@@ -261,12 +285,111 @@ fn cmd_spawn(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
     }
 }
 
+fn cmd_immerse(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
+    let parts: Vec<&str> = args.split_whitespace().collect();
+    let domain = parts.first().copied().unwrap_or("").trim();
+    let action = parts.get(1).copied().unwrap_or("status");
+
+    if domain.is_empty() {
+        let domains = hydra_kernel::immersion::list_immersion_domains();
+        if domains.is_empty() {
+            return vec![sys("No domain immersions active. Use /immerse <domain> start")];
+        }
+        let mut items = vec![sys("Active immersions:")];
+        for d in domains.iter().take(10) {
+            if let Some(mastery) = hydra_kernel::immersion::get_mastery_status(d) {
+                items.push(sys(&format!("  {}", hydra_kernel::immersion::mastery_summary(&mastery))));
+            } else {
+                items.push(sys(&format!("  {d} (no data)")));
+            }
+        }
+        return items;
+    }
+
+    match action {
+        "start" => {
+            let mastery = hydra_kernel::immersion::start_immersion(domain);
+            let queries = hydra_kernel::immersion::survey_queries(domain);
+            let mut items = vec![
+                sys(&format!("Immersion started for '{domain}'")),
+                sys(&format!("  Phase: {}", mastery.phase.label())),
+                sys("  Survey queries to explore:"),
+            ];
+            for q in &queries { items.push(sys(&format!("    {q}"))); }
+            items.push(sys("Ask me about this domain to build expertise."));
+            items
+        }
+        "test" => {
+            match hydra_kernel::immersion::get_mastery_status(domain) {
+                Some(mastery) => {
+                    let prompt = hydra_kernel::immersion::generate_test_prompt(domain, &mastery);
+                    let diff = hydra_kernel::immersion::evaluate_test_difficulty(&mastery.self_test_scores);
+                    vec![
+                        sys(&format!("Self-test for '{domain}' (difficulty: {diff:.0}/10)")),
+                        sys(&format!("  {prompt}")),
+                    ]
+                }
+                None => vec![sys(&format!("No immersion for '{domain}'. Use /immerse {domain} start"))],
+            }
+        }
+        _ => {
+            match hydra_kernel::immersion::get_mastery_status(domain) {
+                Some(mastery) => {
+                    let conf = hydra_kernel::immersion::mastery_confidence(&mastery);
+                    let stale = hydra_kernel::immersion::is_stale(
+                        &mastery, &hydra_kernel::immersion::ImmersionConfig::default());
+                    let mut items = vec![
+                        sys(&format!("Domain: {domain}")),
+                        sys(&format!("  Phase: {}", mastery.phase.label())),
+                        sys(&format!("  Confidence: {:.0}%", conf * 100.0)),
+                        sys(&format!("  Sources: {}", mastery.sources.len())),
+                        sys(&format!("  Genome entries: {}", mastery.genome_entry_ids.len())),
+                        sys(&format!("  Self-tests: {}", mastery.self_test_scores.len())),
+                    ];
+                    let unresolved = mastery.contradictions.iter().filter(|c| !c.resolved).count();
+                    if unresolved > 0 {
+                        items.push(sys(&format!("  Contradictions: {} unresolved", unresolved)));
+                    }
+                    if stale {
+                        items.push(sys(&format!("  Warning: knowledge may be stale (updated {})",
+                            mastery.last_updated.format("%Y-%m-%d"))));
+                    }
+                    items
+                }
+                None => vec![sys(&format!("No immersion for '{domain}'. Use /immerse {domain} start"))],
+            }
+        }
+    }
+}
+
+fn cmd_remote(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
+    let server = hydra_kernel::remote::RemoteServer::new(hydra_kernel::remote::REMOTE_PORT);
+    vec![
+        sys("Remote Access (O18):"),
+        sys(&format!("  URL: {}", server.url())),
+        sys(&format!("  PIN: {}", server.pin())),
+        sys(&format!("  Port: {}", server.port())),
+        sys("  Open the URL on your phone to connect."),
+        sys("  Voice: tap the mic button in the web interface."),
+    ]
+}
+
+fn cmd_monitors(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
+    let hub = hydra_kernel::monitor::MonitorHub::new();
+    vec![
+        sys(&format!("Monitors: {} active, {} alerts", hub.monitor_count(), hub.alert_count())),
+        sys("  Use /monitor add <url> to add HTTP endpoint monitor"),
+        sys("  Pollers check external services at intervals"),
+        sys("  Watchers observe local processes, ports, resources"),
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn commands_count() {
-        assert_eq!(commands().len(), 7);
+        assert_eq!(commands().len(), 10);
     }
 }

@@ -27,3 +27,22 @@ pub const MAX_PREDICTIONS: usize = 32;
 
 /// Duration tracking granularity (ms).
 pub const DURATION_GRANULARITY_MS: u64 = 200;
+
+// ── Voice Presence (O17) ──
+
+/// Wake word detection confidence threshold (EC-17.1: adjustable).
+pub const WAKE_WORD_THRESHOLD: f64 = 0.85;
+/// Cooldown after wake word trigger (ms) — prevents rapid re-trigger.
+pub const WAKE_WORD_COOLDOWN_MS: u64 = 2000;
+/// Default wake word.
+pub const WAKE_WORD_DEFAULT: &str = "hydra";
+/// Seconds of silence before returning to dormant.
+pub const SESSION_TIMEOUT_SECS: u64 = 3;
+/// Max words for voice responses (shorter than text).
+pub const VOICE_MAX_RESPONSE_WORDS: usize = 100;
+/// Rolling window size for adaptive noise floor (EC-17.2).
+pub const NOISE_FLOOR_WINDOW: usize = 50;
+/// Energy must exceed noise floor by this multiplier (EC-17.2).
+pub const NOISE_FLOOR_MULTIPLIER: f32 = 3.0;
+/// Max queued interrupted messages (EC-17.3).
+pub const INTERRUPTED_MSG_MAX: usize = 5;

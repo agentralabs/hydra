@@ -25,10 +25,32 @@ pub fn poll_voice(voice_loop: &mut hydra_voice::VoiceLoop) -> Vec<Action> {
             hydra_voice::voice_loop::VoiceUiEvent::DoneSpeaking => {
                 actions.push(Action::Voice(VoiceAction::SpeakingDone));
             }
+            hydra_voice::voice_loop::VoiceUiEvent::WakeWordDetected => {
+                actions.push(Action::Voice(VoiceAction::WakeWordDetected));
+            }
+            hydra_voice::voice_loop::VoiceUiEvent::SessionTimeout => {
+                actions.push(Action::Voice(VoiceAction::SessionTimeout));
+            }
             hydra_voice::voice_loop::VoiceUiEvent::Stopped => {}
             hydra_voice::voice_loop::VoiceUiEvent::Error(e) => {
                 actions.push(Action::Voice(VoiceAction::Error(e)));
             }
+        }
+    }
+
+    // O17: Also poll presence state machine for always-listening mode
+    for event in voice_loop.poll_presence() {
+        match event {
+            hydra_voice::voice_loop::VoiceUiEvent::WakeWordDetected => {
+                actions.push(Action::Voice(VoiceAction::WakeWordDetected));
+            }
+            hydra_voice::voice_loop::VoiceUiEvent::SessionTimeout => {
+                actions.push(Action::Voice(VoiceAction::SessionTimeout));
+            }
+            hydra_voice::voice_loop::VoiceUiEvent::Error(e) => {
+                actions.push(Action::Voice(VoiceAction::Error(e)));
+            }
+            _ => {}
         }
     }
 

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Hydra Remote</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,system-ui,sans-serif;background:#1a1a2e;color:#e0e0e0;height:100vh;display:flex;flex-direction:column}
+#header{padding:12px 16px;background:#16213e;border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center}
+#header h1{font-size:16px;color:#c8a96e}
+#status{font-size:12px;color:#666}
+#messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px}
+.msg{padding:8px 12px;border-radius:8px;max-width:85%;word-wrap:break-word;font-size:14px;line-height:1.4}
+.msg.user{background:#0f3460;align-self:flex-end;color:#fff}
+.msg.hydra{background:#1a1a2e;border:1px solid #333;align-self:flex-start}
+.msg.system{background:transparent;color:#666;font-size:12px;text-align:center;align-self:center}
+.msg .time{font-size:10px;color:#555;margin-top:4px}
+#input-area{padding:12px;background:#16213e;border-top:1px solid #333;display:flex;gap:8px}
+#input{flex:1;padding:10px;border-radius:8px;border:1px solid #333;background:#1a1a2e;color:#e0e0e0;font-size:14px;outline:none}
+#input:focus{border-color:#c8a96e}
+button{padding:10px 16px;border-radius:8px;border:none;cursor:pointer;font-size:14px}
+#send{background:#c8a96e;color:#1a1a2e;font-weight:bold}
+#voice{background:#333;color:#e0e0e0}
+#voice.active{background:#e74c3c;color:#fff}
+#auth-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10}
+#auth-box{background:#16213e;padding:32px;border-radius:12px;text-align:center;width:280px}
+#auth-box h2{color:#c8a96e;margin-bottom:16px}
+#pin-input{width:120px;font-size:24px;text-align:center;padding:8px;border-radius:8px;border:1px solid #333;background:#1a1a2e;color:#e0e0e0;letter-spacing:8px}
+#auth-error{color:#e74c3c;margin-top:8px;font-size:12px;min-height:16px}
+#auth-btn{margin-top:16px;width:100%}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="auth-overlay">
+<div id="auth-box">
+<h2>Hydra Remote</h2>
+<p style="color:#888;margin-bottom:16px;font-size:13px">Enter the PIN shown on your Hydra TUI</p>
+<input id="pin-input" type="tel" maxlength="4" placeholder="0000" autocomplete="off">
+<div id="auth-error"></div>
+<button id="auth-btn" class="btn" onclick="authenticate()">Connect</button>
+</div>
+</div>
+<div id="header"><h1>Hydra Remote</h1><span id="status">Connecting...</span></div>
+<div id="messages"></div>
+<div id="input-area">
+<input id="input" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendMsg()">
+<button id="voice" onclick="toggleVoice()">Mic</button>
+<button id="send" onclick="sendMsg()">Send</button>
+</div>
+<script>
+let ws,authed=false,recognition=null,voiceActive=false;
+const RECONNECT_BASE=1000;let reconnectDelay=RECONNECT_BASE;
+
+function connect(){
+  const proto=location.protocol==='https:'?'wss':'ws';
+  ws=new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onopen=()=>{document.getElementById('status').textContent='Connected';reconnectDelay=RECONNECT_BASE};
+  ws.onclose=()=>{document.getElementById('status').textContent='Disconnected';setTimeout(connect,reconnectDelay);reconnectDelay=Math.min(reconnectDelay*2,30000)};
+  ws.onmessage=(e)=>{
+    try{const msg=JSON.parse(e.data);handleServer(msg)}catch(err){console.error('Parse error',err)}
+  };
+}
+
+function handleServer(msg){
+  switch(msg.type){
+    case'auth_result':
+      if(msg.success){authed=true;document.getElementById('auth-overlay').classList.add('hidden');addMsg('system','Connected to Hydra')}
+      else{document.getElementById('auth-error').textContent=msg.reason||'Wrong PIN'}
+      break;
+    case'chat':addMsg('hydra',msg.text,msg.timestamp);break;
+    case'event':addMsg('system',`[${msg.priority}] ${msg.content}`);break;
+    case'error':addMsg('system','Error: '+msg.message);break;
+  }
+}
+
+function authenticate(){
+  const pin=document.getElementById('pin-input').value;
+  if(pin.length!==4){document.getElementById('auth-error').textContent='Enter 4-digit PIN';return}
+  ws.send(JSON.stringify({type:'auth',pin}));
+}
+
+function sendMsg(){
+  if(!authed)return;
+  const input=document.getElementById('input');
+  const text=input.value.trim();
+  if(!text)return;
+  if(text.startsWith('/')){ws.send(JSON.stringify({type:'command',cmd:text.slice(1)}))}
+  else{ws.send(JSON.stringify({type:'chat',text}))}
+  addMsg('user',text);
+  input.value='';
+}
+
+function addMsg(cls,text,time){
+  const el=document.createElement('div');
+  el.className='msg '+cls;
+  el.textContent=text;
+  if(time){const t=document.createElement('div');t.className='time';t.textContent=time;el.appendChild(t)}
+  const msgs=document.getElementById('messages');
+  msgs.appendChild(el);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function toggleVoice(){
+  const btn=document.getElementById('voice');
+  if(!('webkitSpeechRecognition'in window||'SpeechRecognition'in window)){addMsg('system','Voice not supported in this browser');return}
+  if(voiceActive){recognition.stop();btn.classList.remove('active');voiceActive=false;return}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recognition=new SR();recognition.continuous=false;recognition.interimResults=false;
+  recognition.onresult=(e)=>{const t=e.results[0][0].transcript;document.getElementById('input').value=t;sendMsg()};
+  recognition.onend=()=>{btn.classList.remove('active');voiceActive=false};
+  recognition.start();btn.classList.add('active');voiceActive=true;
+}
+
+document.getElementById('pin-input').addEventListener('keydown',(e)=>{if(e.key==='Enter')authenticate()});
+connect();
+</script>
+</body>
+</html>

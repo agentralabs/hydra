@@ -104,7 +104,7 @@ image = "0.25"
 totp-rs = { version = "5", features = ["otpauth"] }
 base64 = "0.22"
 rand = "0.8"
-axum = "0.7"
+axum = { version = "0.7", features = ["ws"] }
 tower-http = { version = "0.5", features = ["cors"] }
 
 [profile.dev]

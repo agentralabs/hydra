@@ -95,6 +95,10 @@ pub enum VoiceAction {
     Speaking(String),
     SpeakingDone,
     Error(String),
+    /// O17: Wake word detected — transitioning to active listening.
+    WakeWordDetected,
+    /// O17: Session timed out — back to dormant.
+    SessionTimeout,
 }
 
 /// Companion/bridge actions.

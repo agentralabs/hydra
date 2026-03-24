@@ -1,11 +1,11 @@
-//! HTTP API — REST server for remote access to Hydra.
-//! Runs on port 3141 in daemon mode.
-//! Bearer token authentication from vault/hydra-api.toml.
-//! Rate limited at 60 requests per minute per token.
+//! HTTP API — REST + Remote Presence server for Hydra.
+//! Port 3141: REST API (daemon mode). Port 7476: Remote Presence (O18).
+//! Bearer token auth for API, PIN auth for remote WebSocket.
 
 use axum::extract::State;
+use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::http::StatusCode;
-use axum::response::Json;
+use axum::response::{Html, IntoResponse, Json};
 use axum::routing::{get, post};
 use axum::Router;
 use serde::{Deserialize, Serialize};
@@ -20,6 +20,8 @@ pub struct ApiState {
     pub api_token: String,
     pub request_count: Arc<Mutex<u64>>,
     pub boot_time: chrono::DateTime<chrono::Utc>,
+    /// O18: Remote presence server (PIN auth, client pool, WebSocket).
+    pub remote: Arc<crate::remote::RemoteServer>,
 }
 
 /// Request body for /api/cycle.
@@ -58,9 +60,12 @@ pub fn build_router(state: ApiState) -> Router {
     Router::new()
         // Unauthenticated
         .route("/api/health", get(health_handler))
-        // Authenticated endpoints
+        // Authenticated REST endpoints
         .route("/api/status", get(status_handler))
         .route("/api/cycle", post(cycle_handler))
+        // O18: Remote presence
+        .route("/remote", get(remote_page_handler))
+        .route("/ws", get(ws_upgrade_handler))
         .with_state(state)
 }
 
@@ -138,6 +143,86 @@ async fn cycle_handler(
     }))
 }
 
+// ── O18 Remote Presence Handlers ──
+
+/// GET /remote — serve the web chat interface.
+async fn remote_page_handler() -> Html<&'static str> {
+    Html(crate::remote::remote_page_html())
+}
+
+/// GET /ws — WebSocket upgrade for remote clients.
+async fn ws_upgrade_handler(
+    ws: WebSocketUpgrade,
+    State(state): State<ApiState>,
+) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| handle_ws_connection(socket, state.remote))
+}
+
+/// Handle a single WebSocket connection lifecycle.
+async fn handle_ws_connection(mut socket: WebSocket, remote: Arc<crate::remote::RemoteServer>) {
+    let client_id = uuid::Uuid::new_v4().to_string()[..8].to_string();
+    let client_ip = "unknown".to_string(); // Axum doesn't expose IP easily without ConnectInfo
+    let mut authenticated = false;
+
+    while let Some(Ok(msg)) = socket.recv().await {
+        let text = match msg {
+            Message::Text(t) => t,
+            Message::Close(_) => break,
+            _ => continue,
+        };
+
+        let client_msg: crate::remote::ClientMessage = match serde_json::from_str(&text) {
+            Ok(m) => m,
+            Err(_) => {
+                let err = crate::remote::ServerMessage::Error { message: "Invalid message format".into() };
+                let _ = socket.send(Message::Text(err.to_json().into())).await;
+                continue;
+            }
+        };
+
+        // Auth gate: first message must be Auth
+        if !authenticated {
+            if let crate::remote::ClientMessage::Auth { ref pin } = client_msg {
+                match remote.verify_pin(pin, &client_ip) {
+                    Ok(()) => {
+                        authenticated = true;
+                        let added = remote.add_client(crate::remote::RemoteClient {
+                            id: client_id.clone(),
+                            ip: client_ip.clone(),
+                            connected_at: chrono::Utc::now(),
+                            authenticated: true,
+                        });
+                        let resp = if added {
+                            crate::remote::ServerMessage::AuthResult { success: true, reason: None }
+                        } else {
+                            crate::remote::ServerMessage::AuthResult {
+                                success: false,
+                                reason: Some("Server at capacity".into()),
+                            }
+                        };
+                        let _ = socket.send(Message::Text(resp.to_json().into())).await;
+                        if !added { break; }
+                    }
+                    Err(reason) => {
+                        let resp = crate::remote::ServerMessage::AuthResult { success: false, reason: Some(reason) };
+                        let _ = socket.send(Message::Text(resp.to_json().into())).await;
+                    }
+                }
+            } else {
+                let resp = crate::remote::ServerMessage::Error { message: "Authenticate first".into() };
+                let _ = socket.send(Message::Text(resp.to_json().into())).await;
+            }
+            continue;
+        }
+
+        // Authenticated — handle message
+        let response = remote.handle_message(&client_msg, &client_ip);
+        let _ = socket.send(Message::Text(response.to_json().into())).await;
+    }
+
+    remote.remove_client(&client_id);
+}
+
 /// Load API token from vault/hydra-api.toml.
 pub fn load_api_token() -> Option<String> {
     let vault_path = std::path::Path::new("vault").join("hydra-api.toml");
@@ -163,10 +248,14 @@ pub async fn start_server(port: u16) -> Result<(), String> {
         String::new()
     });
 
+    let remote = Arc::new(crate::remote::RemoteServer::new(port));
+    eprintln!("hydra-remote: PIN {} — access at {}", remote.pin(), remote.url());
+
     let state = ApiState {
         api_token: token,
         request_count: Arc::new(Mutex::new(0)),
         boot_time: chrono::Utc::now(),
+        remote,
     };
 
     let app = build_router(state);

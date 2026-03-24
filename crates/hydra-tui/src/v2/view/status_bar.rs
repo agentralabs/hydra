@@ -53,6 +53,32 @@ pub fn render(frame: &mut Frame, area: Rect, state: &RenderState) {
         left.push(Span::styled(format!("vision:{remaining}"), Style::default().fg(color)));
     }
 
+    // O16: Monitor indicators
+    if state.monitor_count > 0 {
+        left.push(sep.clone());
+        left.push(Span::styled(format!("monitors:{}", state.monitor_count), dim));
+        if state.alert_count > 0 {
+            left.push(sep.clone());
+            left.push(Span::styled(
+                format!("alerts:{}", state.alert_count),
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            ));
+        }
+    }
+
+    // O17: Voice presence state indicator
+    if let Some(ref voice_state) = state.voice_state {
+        left.push(sep.clone());
+        let (color, label) = match voice_state.as_str() {
+            "dormant" => (Color::DarkGray, "MIC"),
+            "listening" => (Color::Green, "LISTENING"),
+            "processing" => (Color::Yellow, "VOICE"),
+            "speaking" => (Color::Cyan, "SPEAKING"),
+            _ => (Color::DarkGray, "MIC"),
+        };
+        left.push(Span::styled(label, Style::default().fg(color).add_modifier(Modifier::BOLD)));
+    }
+
     // ── RIGHT SECTION: current operation ──
     let mut right = vec![];
 

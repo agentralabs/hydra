@@ -15,6 +15,7 @@ pub mod input;
 pub mod ocr;
 pub mod orchestrator;
 pub mod screen;
+pub mod observer;
 pub mod visual_analysis;
 
 // ── Re-exports ──

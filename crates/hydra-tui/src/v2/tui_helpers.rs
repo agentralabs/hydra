@@ -59,6 +59,9 @@ pub fn build_render_state_full(s: &AppState, lyapunov: f64, cu: &ComputerUseStat
         shell_mode: cu.shell_mode,
         agent_active: cu.agent_active,
         theme: crate::theme::current(),
+        voice_state: None,
+        monitor_count: 0,
+        alert_count: 0,
     }
 }
 

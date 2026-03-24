@@ -108,6 +108,12 @@ pub struct RenderState {
 
     // Theme
     pub theme: crate::theme::Theme,
+
+    // Voice presence (O17)
+    pub voice_state: Option<String>,
+    // Omniscient Monitor (O16)
+    pub monitor_count: usize,
+    pub alert_count: usize,
 }
 
 impl Default for RenderState {
@@ -148,6 +154,9 @@ impl Default for RenderState {
             shell_mode: false,
             agent_active: false,
             theme: crate::theme::Theme::dark(),
+            voice_state: None,
+            monitor_count: 0,
+            alert_count: 0,
         }
     }
 }

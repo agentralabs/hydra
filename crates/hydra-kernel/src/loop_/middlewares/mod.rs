@@ -26,11 +26,15 @@ pub fn build_chain() -> MiddlewareChain {
         Box::new(signals::SignalsMiddleware::new()),
         // Wave 2.5: Social Intelligence (O11 — relational context before LLM)
         Box::new(crate::social::SocialMiddleware::new()),
+        // Wave 2.75: Domain Mastery (O14 — domain expertise before general intelligence)
+        Box::new(crate::immersion::ImmersionMiddleware::new()),
         // Wave 3: Intelligence
         Box::new(intelligence::IntelligenceMiddleware::new()),
         Box::new(selfmodel::SelfModelMiddleware::new()),
         // Wave 4: Growth
         Box::new(growth::GrowthMiddleware::new()),
+        // Wave 4.5: Omniscient Monitor (O16 — event stream before execution)
+        Box::new(crate::monitor::MonitorMiddleware::new()),
         // Wave 5: Execution
         Box::new(scheduler::SchedulerMiddleware::new()),
         // Wave 6: Browser/IO awareness
@@ -53,7 +57,7 @@ mod tests {
     #[test]
     fn build_chain_creates_all_middlewares() {
         let chain = build_chain();
-        assert_eq!(chain.len(), 12);
+        assert_eq!(chain.len(), 14);
     }
 
     #[test]
