@@ -72,7 +72,10 @@ pub fn route_and_execute(step: &Step, ctx: &TaskContext) -> StepResult {
                 }
                 hydra_wisdom::JudgmentDecision::Act { .. } => {
                     let mut app_ctx = crate::worker::AppContext::new();
-                    crate::worker::execute_interface_step(step, ctx, &mut app_ctx)
+                    let result = crate::worker::execute_interface_step(step, ctx, &mut app_ctx);
+                    let summary = app_ctx.interface_summary();
+                    if !summary.is_empty() { eprintln!("hydra-worker: {summary}"); }
+                    result
                 }
             }
         }

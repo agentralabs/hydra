@@ -111,6 +111,12 @@ fn init_animus() -> Result<(), String> {
 fn resume_memory() -> Result<(), String> {
     let bridge = hydra_memory::HydraMemoryBridge::new();
     eprintln!("hydra: boot memory session={}", bridge.session_id());
+    // O7: Resume workspace from last session
+    if let Some(snapshot) = crate::workspace::load_snapshot() {
+        let resume = crate::workspace::resume_workspace(&snapshot);
+        eprintln!("hydra: workspace resumed — {}", resume.summary);
+        for w in &resume.warnings { eprintln!("hydra: workspace warning — {w}"); }
+    }
     Ok(())
 }
 

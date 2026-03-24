@@ -47,6 +47,12 @@ pub fn generate_briefing(genome_count: usize) -> Vec<StreamItem> {
     if belief_count > 0 {
         push_brief_item(&mut items, "○", &format!("{belief_count} beliefs held · AGM revision active"), w, BriefingPriority::Low);
     }
+    // O7: Workspace state from last session
+    if let Some(ws) = hydra_kernel::workspace::load_snapshot() {
+        for line in hydra_kernel::workspace::briefing_items(&ws) {
+            push_brief_item(&mut items, "●", &line, w, BriefingPriority::High);
+        }
+    }
     push_brief_item(&mut items, "○", "All systems nominal · laws verified", w, BriefingPriority::Low);
 
     // │                                               │

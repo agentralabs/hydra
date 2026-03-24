@@ -23,13 +23,15 @@ pub struct AppContext {
     pub last_screenshot_hash: Option<u64>,
     /// Step outputs keyed by step_id for cross-step data flow.
     pub step_artifacts: std::collections::HashMap<usize, String>,
+    /// Interface effectiveness tracking: (interface, success) per step.
+    pub interface_outcomes: Vec<(Interface, bool)>,
 }
 
 impl AppContext {
     pub fn new() -> Self { Self::default() }
 
     /// Record that a step produced output. Stores in artifacts and auto-clips small outputs.
-    pub fn record_step_output(&mut self, step_id: usize, output: &str, interface: Interface) {
+    pub fn record_step_output(&mut self, step_id: usize, output: &str, interface: Interface, success: bool) {
         self.step_artifacts.insert(step_id, output.to_string());
         if !self.active_interfaces.contains(&interface) {
             self.active_interfaces.push(interface);
@@ -37,6 +39,17 @@ impl AppContext {
         if !output.is_empty() && output.len() < 4096 {
             self.clipboard = Some(output.to_string());
         }
+        // Track interface effectiveness per domain
+        self.interface_outcomes.push((interface, success));
+    }
+
+    /// Get interface success rate summary for genome feedback.
+    pub fn interface_summary(&self) -> String {
+        if self.interface_outcomes.is_empty() { return String::new(); }
+        let total = self.interface_outcomes.len();
+        let successes = self.interface_outcomes.iter().filter(|(_, s)| *s).count();
+        let interfaces: Vec<String> = self.active_interfaces.iter().map(|i| format!("{i:?}")).collect();
+        format!("interfaces={} success={}/{}", interfaces.join("+"), successes, total)
     }
 
     /// Check if UI state might be stale (EC-6.4).
@@ -190,7 +203,7 @@ pub fn execute_interface_step(
                 Ok(out) => {
                     let text = String::from_utf8_lossy(&out.stdout).to_string();
                     let success = out.status.success();
-                    app_ctx.record_step_output(step.id, &text, interface);
+                    app_ctx.record_step_output(step.id, &text, interface, success);
                     (success, format!("API {method} {url}: {}", &text[..text.len().min(500)]), vec![])
                 }
                 Err(e) => (false, format!("API call failed: {e}"), vec![]),
@@ -249,10 +262,10 @@ mod tests {
     #[test]
     fn app_context_cross_step_data() {
         let mut ctx = AppContext::new();
-        ctx.record_step_output(0, "spreadsheet data", Interface::Browser);
+        ctx.record_step_output(0, "spreadsheet data", Interface::Browser, true);
         assert_eq!(ctx.clipboard.as_deref(), Some("spreadsheet data"));
         assert_eq!(ctx.active_interfaces, vec![Interface::Browser]);
-        ctx.record_step_output(1, "processed", Interface::Shell);
+        ctx.record_step_output(1, "processed", Interface::Shell, true);
         assert_eq!(ctx.active_interfaces, vec![Interface::Browser, Interface::Shell]);
     }
 

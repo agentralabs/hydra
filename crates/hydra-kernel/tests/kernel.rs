@@ -214,3 +214,33 @@ fn worker_blast_radius_and_autonomy() {
     let steps = worker::expand_workflow("email sarah about the report").unwrap();
     assert_eq!(steps.len(), 2);
 }
+
+#[test]
+fn workspace_snapshot_save_load_resume() {
+    use hydra_kernel::workspace;
+    let snap = workspace::WorkspaceSnapshot {
+        timestamp: chrono::Utc::now() - chrono::Duration::hours(3),
+        working_directory: std::env::current_dir().unwrap().to_string_lossy().into(),
+        git_branch: Some("main".into()),
+        processes: vec![],
+        pending_tasks: vec![
+            workspace::TaskSummary { description: "finish report".into(), progress: 0.6, blocked_on: None },
+            workspace::TaskSummary { description: "deploy api".into(), progress: 0.0, blocked_on: Some("tests".into()) },
+        ],
+        goals: vec![workspace::GoalProgress {
+            description: "launch product".into(), progress: 0.65, steps_done: 13, steps_total: 20,
+        }],
+    };
+    // Save + load roundtrip
+    workspace::save_snapshot(&snap).expect("save should work");
+    let loaded = workspace::load_snapshot().expect("should load back");
+    assert_eq!(loaded.pending_tasks.len(), 2);
+    assert_eq!(loaded.goals.len(), 1);
+    // Resume
+    let resume = workspace::resume_workspace(&loaded);
+    assert_eq!(resume.tasks_restored, 2);
+    assert!(resume.summary.contains("2 tasks"));
+    // Briefing
+    let items = workspace::briefing_items(&loaded);
+    assert!(items.iter().any(|i| i.contains("pending")));
+}
