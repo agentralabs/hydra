@@ -11,7 +11,8 @@ use crate::conductor::*;
 // ── Step Router ──
 
 /// Execute a single step, routing to the appropriate executor.
-pub fn route_and_execute(step: &Step, ctx: &TaskContext) -> StepResult {
+/// AppContext carries cross-step state (clipboard, interface outcomes) for O6.
+pub fn route_and_execute(step: &Step, ctx: &TaskContext, app_ctx: &mut crate::worker::AppContext) -> StepResult {
     let start = Instant::now();
     let (success, output, artifacts) = match &step.step_type {
         StepType::Shell { command, .. } => execute_shell(command, ctx),
@@ -71,11 +72,25 @@ pub fn route_and_execute(step: &Step, ctx: &TaskContext) -> StepResult {
                     (true, format!("APPROVAL_NEEDED:{reason}"), vec![])
                 }
                 hydra_wisdom::JudgmentDecision::Act { .. } => {
-                    let mut app_ctx = crate::worker::AppContext::new();
-                    let result = crate::worker::execute_interface_step(step, ctx, &mut app_ctx);
-                    let summary = app_ctx.interface_summary();
-                    if !summary.is_empty() { eprintln!("hydra-worker: {summary}"); }
-                    result
+                    let (success, output, artifacts) = crate::worker::execute_interface_step(step, ctx, app_ctx);
+                    let iface = crate::worker::classify_interface(&step.step_type);
+                    app_ctx.record_step_output(step.id, &output, iface, success);
+                    // O6+O3: Record interface effectiveness to genome
+                    let mut genome = hydra_genome::GenomeStore::open();
+                    let iface_domain = format!("worker:{iface:?}");
+                    let iface_outcome = if success {
+                        crate::feedback::ActionOutcome::Success {
+                            approach: step.description.clone(), domain: iface_domain,
+                            duration_ms: 0, quality: 1.0,
+                        }
+                    } else {
+                        crate::feedback::ActionOutcome::Failure {
+                            approach: step.description.clone(), domain: iface_domain,
+                            obstacle: output.clone(), error: String::new(), rerouted: false,
+                        }
+                    };
+                    crate::feedback::record_simple(&iface_outcome, &mut genome);
+                    (success, output, artifacts)
                 }
             }
         }
@@ -180,6 +195,7 @@ fn execute_verify(method: &VerifyMethod, ctx: &TaskContext) -> (bool, String, Ve
 pub fn execute_dag(ctx: &mut TaskContext, genome: &hydra_genome::GenomeStore) -> ConductorResult {
     if let Err(e) = validate_dag(&ctx.steps) { return e; }
     let mut completed: HashSet<usize> = HashSet::new();
+    let mut app_ctx = crate::worker::AppContext::new(); // O6: persists across steps
     let total = ctx.steps.len();
     loop {
         if ctx.cancelled { return ConductorResult::Cancelled; }
@@ -194,7 +210,7 @@ pub fn execute_dag(ctx: &mut TaskContext, genome: &hydra_genome::GenomeStore) ->
         for step_id in ready {
             let step = ctx.steps[step_id].clone();
             eprintln!("hydra-conductor: step {}/{}: {}", step_id + 1, total, step.description);
-            let result = route_and_execute(&step, ctx);
+            let result = route_and_execute(&step, ctx, &mut app_ctx);
             eprintln!("hydra-conductor: step {} {}", step_id + 1, if result.success { "OK" } else { "FAILED" });
             // O3: Record feedback for genome learning
             let outcome = if result.success {
@@ -227,6 +243,9 @@ pub fn execute_dag(ctx: &mut TaskContext, genome: &hydra_genome::GenomeStore) ->
             crate::feedback::log_outcome(&outcome);
         }
     }
+    // O6: Log interface effectiveness summary after all steps
+    let summary = app_ctx.interface_summary();
+    if !summary.is_empty() { eprintln!("hydra-worker: task complete — {summary}"); }
     ConductorResult::Complete { results: ctx.results.clone() }
 }
 
@@ -322,7 +341,8 @@ mod tests {
         let ctx = test_ctx();
         let step = Step { id: 0, step_type: StepType::Shell { command: "echo hello".into(), long_running: false },
             description: "test".into(), depends_on: vec![], timeout_ms: 5000 };
-        let result = route_and_execute(&step, &ctx);
+        let mut app_ctx = crate::worker::AppContext::new();
+        let result = route_and_execute(&step, &ctx, &mut app_ctx);
         assert!(result.success);
         assert!(result.output.contains("hello"));
     }
@@ -364,10 +384,11 @@ mod tests {
     #[test]
     fn verify_file_contains() {
         let ctx = test_ctx();
+        let mut app_ctx = crate::worker::AppContext::new();
         let step = Step { id: 0, step_type: StepType::Verify {
             method: VerifyMethod::CommandSuccess { command: "echo pass".into() } },
             description: "verify".into(), depends_on: vec![], timeout_ms: 5000 };
-        let result = route_and_execute(&step, &ctx);
+        let result = route_and_execute(&step, &ctx, &mut app_ctx);
         assert!(result.success);
     }
 }

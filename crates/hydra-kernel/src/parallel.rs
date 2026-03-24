@@ -132,7 +132,8 @@ fn execute_level(step_ids: &[usize], ctx: &TaskContext, config: &ParallelConfig)
         // Single step — no threading overhead
         if let Some(&id) = step_ids.first() {
             let step = &ctx.steps[id];
-            return vec![route_and_execute(step, ctx)];
+            let mut app_ctx = crate::worker::AppContext::new();
+            return vec![route_and_execute(step, ctx, &mut app_ctx)];
         }
         return vec![];
     }
@@ -162,7 +163,8 @@ fn execute_level(step_ids: &[usize], ctx: &TaskContext, config: &ParallelConfig)
                     decomposition_depth: 0,
                     cancelled: false,
                 };
-                let result = route_and_execute(&step, &thread_ctx);
+                let mut app_ctx = crate::worker::AppContext::new();
+                let result = route_and_execute(&step, &thread_ctx, &mut app_ctx);
                 if let Ok(mut r) = results.lock() {
                     r.push(result);
                 }
