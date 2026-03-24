@@ -77,6 +77,22 @@ pub fn commands() -> Vec<Command> {
             category: CommandCategory::System,
             handler: cmd_integrity,
         },
+        Command {
+            name: "machines",
+            aliases: &["hosts"],
+            description: "List registered remote machines",
+            args_help: "",
+            category: CommandCategory::System,
+            handler: cmd_machines,
+        },
+        Command {
+            name: "ssh",
+            aliases: &[],
+            description: "Execute command on remote machine",
+            args_help: "<machine> <command>",
+            category: CommandCategory::System,
+            handler: cmd_ssh,
+        },
     ]
 }
 
@@ -179,6 +195,50 @@ fn cmd_integrity(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
     items
 }
 
+fn cmd_machines(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
+    let path = dirs::home_dir().unwrap_or_default().join(".hydra/machines.toml");
+    if !path.exists() {
+        return vec![
+            sys("No machines registered. Create ~/.hydra/machines.toml:"),
+            sys("  [[machine]]"),
+            sys("  name = \"production\""),
+            sys("  host = \"prod.example.com\""),
+            sys("  user = \"deploy\""),
+        ];
+    }
+    match std::fs::read_to_string(&path) {
+        Ok(content) => {
+            let count = content.matches("[[machine]]").count();
+            let mut items = vec![sys(&format!("Machines: {} registered ({})", count, path.display()))];
+            for line in content.lines().filter(|l| l.starts_with("name") || l.starts_with("host")) {
+                items.push(sys(&format!("  {}", line.trim())));
+            }
+            items
+        }
+        Err(e) => vec![sys(&format!("Failed to read machines.toml: {e}"))],
+    }
+}
+
+fn cmd_ssh(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
+    let parts: Vec<&str> = args.splitn(2, ' ').collect();
+    let machine_name = parts.first().copied().unwrap_or("").trim();
+    let command = parts.get(1).copied().unwrap_or("").trim();
+    if machine_name.is_empty() || command.is_empty() {
+        return vec![sys("Usage: /ssh <machine> <command>")];
+    }
+    match hydra_kernel::remote_exec::ssh_execute(machine_name, command) {
+        Ok((output, success)) => {
+            let status = if success { "OK" } else { "FAILED" };
+            let mut items = vec![sys(&format!("[{machine_name}] {status}"))];
+            for line in output.lines().take(20) {
+                items.push(sys(&format!("  {line}")));
+            }
+            items
+        }
+        Err(e) => vec![sys(&format!("SSH failed: {e}"))],
+    }
+}
+
 fn cmd_analytics(_args: &str, ctx: &CommandContext) -> Vec<StreamItem> {
     let genome = hydra_genome::GenomeStore::open();
     let ledger = hydra_settlement::SettlementLedger::open();
@@ -204,6 +264,6 @@ mod tests {
 
     #[test]
     fn commands_count() {
-        assert_eq!(commands().len(), 9);
+        assert_eq!(commands().len(), 11);
     }
 }

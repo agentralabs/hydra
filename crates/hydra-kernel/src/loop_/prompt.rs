@@ -72,6 +72,16 @@ impl PromptBuilder {
             ));
         }
 
+        // Language matching: respond in whatever language the user writes
+        if let Some(lang) = mw_enrichments.get("detected_language") {
+            if lang != "english" && lang != "en" {
+                parts.push(format!(
+                    "The user is writing in {lang}. You MUST respond in {lang}. \
+                     Match their language exactly. Do not switch to English unless they do."
+                ));
+            }
+        }
+
         // TIER 1: Core identity + genome self-knowledge
         let identity = if let Some(knowledge) = mw_enrichments.get("genome.identity") {
             format!(

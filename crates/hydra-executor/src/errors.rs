@@ -41,4 +41,7 @@ pub enum ExecutorError {
 
     #[error("Path traversal blocked: {path}")]
     PathTraversalBlocked { path: String },
+
+    #[error("Remote execution failed: {reason}")]
+    RemoteFailed { reason: String },
 }

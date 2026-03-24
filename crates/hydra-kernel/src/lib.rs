@@ -42,6 +42,7 @@ pub mod monitor;
 pub mod loop_active;
 pub mod parallel;
 pub mod remote;
+pub mod remote_exec;
 pub mod loop_ambient;
 pub mod loop_dream;
 pub mod persistence;

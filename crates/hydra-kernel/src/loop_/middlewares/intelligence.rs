@@ -56,6 +56,12 @@ impl CycleMiddleware for IntelligenceMiddleware {
         let domain = perceived.comprehended.primary_domain.label();
         let conf = perceived.comprehended.confidence;
 
+        // Language detection — respond in the user's language
+        let detected_lang = detect_language(&perceived.raw);
+        if detected_lang != "english" {
+            perceived.enrichments.insert("detected_language".into(), detected_lang);
+        }
+
         // GENOME AS IDENTITY: Top genome entries become self-knowledge.
         // Not "advice to follow" — knowledge Hydra HAS from experience.
         // These go into the identity tier of the prompt, always present.
@@ -331,6 +337,29 @@ impl CycleMiddleware for IntelligenceMiddleware {
             }
         }
     }
+}
+
+/// Simple language detection from Unicode script ranges + common words.
+fn detect_language(text: &str) -> String {
+    let chars: Vec<char> = text.chars().filter(|c| c.is_alphabetic()).collect();
+    if chars.is_empty() { return "english".into(); }
+    // CJK characters
+    if chars.iter().any(|c| ('\u{4E00}'..='\u{9FFF}').contains(c)) { return "chinese".into(); }
+    if chars.iter().any(|c| ('\u{3040}'..='\u{309F}').contains(c) || ('\u{30A0}'..='\u{30FF}').contains(c)) { return "japanese".into(); }
+    if chars.iter().any(|c| ('\u{AC00}'..='\u{D7AF}').contains(c)) { return "korean".into(); }
+    // Arabic script
+    if chars.iter().any(|c| ('\u{0600}'..='\u{06FF}').contains(c)) { return "arabic".into(); }
+    // Cyrillic
+    if chars.iter().any(|c| ('\u{0400}'..='\u{04FF}').contains(c)) { return "russian".into(); }
+    // Devanagari (Hindi)
+    if chars.iter().any(|c| ('\u{0900}'..='\u{097F}').contains(c)) { return "hindi".into(); }
+    // Latin-based: check common words
+    let lower = text.to_lowercase();
+    if lower.contains(" est ") || lower.contains(" les ") || lower.contains(" je ") { return "french".into(); }
+    if lower.contains(" ist ") || lower.contains(" das ") || lower.contains(" ich ") { return "german".into(); }
+    if lower.contains(" es ") || lower.contains(" los ") || lower.contains(" el ") { return "spanish".into(); }
+    if lower.contains(" é ") || lower.contains(" não ") || lower.contains(" os ") { return "portuguese".into(); }
+    "english".into()
 }
 
 #[cfg(test)]

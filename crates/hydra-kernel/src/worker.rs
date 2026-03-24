@@ -89,6 +89,7 @@ pub fn blast_radius_for_step(step: &Step) -> hydra_wisdom::BlastRadius {
             "DELETE" => BlastRadius::Irreversible,
             _ => BlastRadius::Visible,
         },
+        StepType::Remote { .. } => BlastRadius::Visible, // Remote commands are visible actions
     }
 }
 

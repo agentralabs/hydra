@@ -94,6 +94,14 @@ pub fn route_and_execute(step: &Step, ctx: &TaskContext, app_ctx: &mut crate::wo
                 }
             }
         }
+        // Session 24: Remote Hands — SSH execution on remote machines
+        StepType::Remote { machine, command } => {
+            // Load machine from ~/.hydra/machines.toml and execute via SSH
+            match crate::remote_exec::ssh_execute(machine, command) {
+                Ok((output, success)) => (success, output, vec![]),
+                Err(e) => (false, format!("Remote failed: {e}"), vec![]),
+            }
+        }
     };
     StepResult { step_id: step.id, success, output, artifacts, duration_ms: start.elapsed().as_millis() as u64 }
 }

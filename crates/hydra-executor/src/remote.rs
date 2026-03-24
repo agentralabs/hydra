@@ -48,7 +48,7 @@ pub fn execute_remote(
             let output = std::process::Command::new("ssh")
                 .args(&args)
                 .output()
-                .map_err(|e| ExecutorError::ShellError { reason: format!("SSH failed: {e}") })?;
+                .map_err(|e| ExecutorError::RemoteFailed { reason: format!("SSH failed: {e}") })?;
             let stdout = String::from_utf8_lossy(&output.stdout).to_string();
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
             let combined = if stderr.is_empty() { stdout } else { format!("{stdout}\n{stderr}") };
@@ -71,7 +71,7 @@ fn execute_local(command: &str) -> Result<RemoteResult, ExecutorError> {
     let output = std::process::Command::new("sh")
         .arg("-c").arg(command)
         .output()
-        .map_err(|e| ExecutorError::ShellError { reason: format!("{e}") })?;
+        .map_err(|e| ExecutorError::RemoteFailed { reason: format!("{e}") })?;
     Ok(RemoteResult {
         success: output.status.success(),
         output: String::from_utf8_lossy(&output.stdout).to_string(),
@@ -84,7 +84,7 @@ fn execute_local(command: &str) -> Result<RemoteResult, ExecutorError> {
 pub fn read_remote_file(target: &ExecutionTarget, path: &str) -> Result<String, ExecutorError> {
     let result = execute_remote(target, &format!("cat {path}"))?;
     if result.success { Ok(result.output) }
-    else { Err(ExecutorError::ShellError { reason: format!("Read failed: {}", result.output) }) }
+    else { Err(ExecutorError::RemoteFailed { reason: format!("Read failed: {}", result.output) }) }
 }
 
 /// Copy a local file to a remote machine.
@@ -98,11 +98,11 @@ pub fn scp_to(target: &ExecutionTarget, local: &str, remote_path: &str) -> Resul
         args.push(local.to_string());
         args.push(format!("{user}@{host}:{remote_path}"));
         let output = std::process::Command::new("scp").args(&args).output()
-            .map_err(|e| ExecutorError::ShellError { reason: format!("SCP failed: {e}") })?;
+            .map_err(|e| ExecutorError::RemoteFailed { reason: format!("SCP failed: {e}") })?;
         if output.status.success() { Ok(()) }
-        else { Err(ExecutorError::ShellError { reason: String::from_utf8_lossy(&output.stderr).to_string() }) }
+        else { Err(ExecutorError::RemoteFailed { reason: String::from_utf8_lossy(&output.stderr).to_string() }) }
     } else {
-        std::fs::copy(local, remote_path).map_err(|e| ExecutorError::ShellError { reason: format!("{e}") })?;
+        std::fs::copy(local, remote_path).map_err(|e| ExecutorError::RemoteFailed { reason: format!("{e}") })?;
         Ok(())
     }
 }
