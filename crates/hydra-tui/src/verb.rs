@@ -203,7 +203,7 @@ impl ThinkingVerbState {
         self.context
     }
 
-    /// Build the status display string: "Forging◑" (verb + spinner, same color).
+    /// Build the status display string: "Forging◑" (verb + spinner).
     pub fn status_display(&self) -> String {
         if !self.active {
             return String::new();
@@ -219,6 +219,29 @@ impl ThinkingVerbState {
             .copied()
             .unwrap_or("Thinking");
         format!("{verb}{spinner}")
+    }
+
+    /// Build the Go-style display: "✱ Verb◌ (Xs · ↓ tokens · $cost)"
+    pub fn go_style_display(&self, secs: u64, tokens: u64, cost: f64) -> String {
+        if !self.active {
+            return String::new();
+        }
+        let spinner = constants::SPINNER_FRAMES
+            .get(self.spinner_index)
+            .copied()
+            .unwrap_or("◌");
+        let verb = self
+            .context
+            .alternatives()
+            .get(self.alt_index)
+            .copied()
+            .unwrap_or("Thinking");
+        let tok = if tokens < 1_000 {
+            format!("{tokens}")
+        } else {
+            format!("{:.1}k", tokens as f64 / 1_000.0)
+        };
+        format!("✱ {verb}{spinner} ({secs}s · ↓ {tok} tokens · ${cost:.3})")
     }
 
     /// Build the completion line: "● Remembered for 0.1s" (with duration).

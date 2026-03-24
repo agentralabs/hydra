@@ -94,9 +94,40 @@ pub fn diagnose() -> Vec<Diagnosis> {
                     subsystem: "memory".into(),
                     problem: "hydra.amem is empty (0 bytes)".into(),
                     severity: Severity::Minor,
-                    repair: RepairAction::RecreateFile { path: amem },
+                    repair: RepairAction::RecreateFile { path: amem.clone() },
                 });
             }
+        }
+    }
+
+    // Check memory integrity via SHA256 hash
+    if amem.exists() {
+        let hash_file = dirs::home_dir()
+            .unwrap_or_default()
+            .join(".hydra/data/.amem.sha256");
+        if let Ok(content) = std::fs::read(&amem) {
+            let current_hash = {
+                use sha2::{Digest, Sha256};
+                let mut h = Sha256::new();
+                h.update(&content);
+                hex::encode(h.finalize())
+            };
+            if hash_file.exists() {
+                if let Ok(stored_hash) = std::fs::read_to_string(&hash_file) {
+                    if stored_hash.trim() != current_hash {
+                        problems.push(Diagnosis {
+                            subsystem: "memory".into(),
+                            problem: "hydra.amem SHA256 mismatch — possible tampering".into(),
+                            severity: Severity::Moderate,
+                            repair: RepairAction::NotifyUser {
+                                message: "Memory file integrity check failed. File may have been modified externally.".into(),
+                            },
+                        });
+                    }
+                }
+            }
+            // Update stored hash (whether it existed or not)
+            let _ = std::fs::write(&hash_file, &current_hash);
         }
     }
 

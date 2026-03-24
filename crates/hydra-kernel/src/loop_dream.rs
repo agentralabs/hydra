@@ -16,6 +16,7 @@ use hydra_portfolio::PortfolioEngine;
 use hydra_prediction::PredictionStager;
 use hydra_synthesis::SynthesisEngine;
 
+use crate::learning_loop::LearningLoop;
 use crate::state::HydraState;
 use serde::{Deserialize, Serialize};
 
@@ -40,6 +41,7 @@ pub struct DreamSubsystems {
     pub crystallizer: CrystallizerEngine,
     pub automation: AutomationEngine,
     pub genome: GenomeStore,
+    pub learning_loop: LearningLoop,
 }
 
 impl DreamSubsystems {
@@ -57,6 +59,7 @@ impl DreamSubsystems {
             crystallizer: CrystallizerEngine::new(),
             automation: AutomationEngine::new(),
             genome,
+            learning_loop: LearningLoop::new(),
         }
     }
 }
@@ -273,6 +276,15 @@ pub fn cycle_with_subsystems(
                 "hydra: influence registry={} published, {} adopted",
                 influence.published_count(), influence.adoption_count()
             );
+        }
+
+        // Autonomous Learning: harvest knowledge from curated web sources
+        if state.step_count % 100 == 0 && state.step_count > 0 {
+            let lr = subs.learning_loop.tick(&mut subs.genome);
+            genome_entries_created += lr.entries_added;
+            if lr.entries_added > 0 {
+                eprintln!("hydra: LEARNING — +{} entries from web sources", lr.entries_added);
+            }
         }
 
         // Log milestone

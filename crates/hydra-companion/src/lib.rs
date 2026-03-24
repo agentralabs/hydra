@@ -13,6 +13,7 @@ pub mod errors;
 pub mod service;
 pub mod signal;
 pub mod task;
+pub mod task_queue;
 
 // Re-exports for convenience.
 pub use companion::{Companion, CompanionCommand, RoutedSignal};
@@ -20,3 +21,4 @@ pub use errors::CompanionError;
 pub use service::CompanionService;
 pub use signal::{SignalBuffer, SignalClass, SignalClassifier, SignalItem, SignalRouting};
 pub use task::{AutonomyLevel, CompanionTask, TaskExecutor, TaskStatus};
+pub use task_queue::{BlockedReason, BlockedTask, Resolution, TaskQueue};

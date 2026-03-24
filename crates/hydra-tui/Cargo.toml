@@ -7,15 +7,26 @@ description = "The cockpit — Hydra's primary interface."
 authors = ["Agentra Labs"]
 
 [dependencies]
-hydra-constitution = { path = "../hydra-constitution" }
 hydra-kernel       = { path = "../hydra-kernel" }
 hydra-genome       = { path = "../hydra-genome" }
-hydra-audit        = { path = "../hydra-audit" }
-hydra-succession   = { path = "../hydra-succession" }
 hydra-voice        = { path = "../hydra-voice" }
 # Companion communicates via hydra-signals channel — no circular dep
 hydra-signals      = { path = "../hydra-signals" }
 hydra-companion    = { path = "../hydra-companion" }
+hydra-desktop      = { path = "../hydra-desktop" }
+hydra-browser      = { path = "../hydra-browser" }
+hydra-fleet        = { path = "../hydra-fleet" }
+hydra-trust        = { path = "../hydra-trust" }
+hydra-settlement   = { path = "../hydra-settlement" }
+hydra-audit        = { path = "../hydra-audit" }
+hydra-reflexive    = { path = "../hydra-reflexive" }
+hydra-metabolism   = { path = "../hydra-metabolism" }
+hydra-persona      = { path = "../hydra-persona" }
+hydra-antifragile  = { path = "../hydra-antifragile" }
+hydra-web          = { path = "../hydra-web" }
+hydra-semantic-nav = { path = "../hydra-semantic-nav" }
+hydra-swarm-browser = { path = "../hydra-swarm-browser" }
+hydra-belief       = { path = "../hydra-belief" }
 
 ratatui        = "0.29"
 crossterm      = { version = "0.28", features = ["event-stream"] }
@@ -29,14 +40,17 @@ dirs.workspace = true
 libc = "0.2"
 terminal-light = "1"
 toml = "0.8"
+reqwest = { version = "0.12", features = ["blocking", "json"] }
+async-trait.workspace = true
+whoami = "1"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 
 [[bin]]
-name = "tui_test_harness"
-path = "src/bin/test_harness.rs"
+name = "hydra_tui"
+path = "src/bin/hydra_tui_v2.rs"
 
 [[bin]]
-name = "hydra_tui"
-path = "src/bin/hydra_tui.rs"
+name = "smoke_test"
+path = "src/bin/smoke_test.rs"

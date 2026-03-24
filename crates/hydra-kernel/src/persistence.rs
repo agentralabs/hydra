@@ -86,15 +86,18 @@ pub fn release_boot_lock() {
 /// a 10s-old lock from a subprocess is always stale.
 pub fn is_process_alive(pid: u32) -> bool {
     let path = lock_path();
-    if let Ok(meta) = fs::metadata(&path) {
-        if let Ok(modified) = meta.modified() {
-            if let Ok(age) = std::time::SystemTime::now().duration_since(modified) {
-                if age.as_secs() >= 10 {
-                    return false; // stale
-                }
-            }
-        }
-    }
+    let meta = match fs::metadata(&path) {
+        Ok(m) => m,
+        Err(_) => return false, // no lock file = not alive
+    };
+    let modified = match meta.modified() {
+        Ok(m) => m,
+        Err(_) => return false, // can't read mtime = assume stale
+    };
+    let age = match std::time::SystemTime::now().duration_since(modified) {
+        Ok(a) => a,
+        Err(_) => return false, // clock skew = assume stale
+    };
     let _ = pid;
-    true
+    age.as_secs() < 10
 }

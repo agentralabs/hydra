@@ -11,24 +11,43 @@
 //! All state is immutable — each tick produces a new `HydraState`.
 //! Constitutional invariants are checked on every ambient tick.
 
+pub mod backup;
 pub mod boot;
+pub mod assumptions;
+pub mod coder;
+pub mod conductor;
+pub mod conductor_exec;
 pub mod constants;
+pub mod critic;
+pub mod conversation_store;
 pub mod engine;
+pub mod errors_display;
 pub mod equation;
 pub mod errors;
+pub mod feedback;
+pub mod first_run;
 pub mod health;
+pub mod http_api;
 pub mod intent;
+pub mod intent_classifier;
+pub mod learning_loop;
+pub mod learning_validator;
 pub mod invariants;
 pub mod loop_;
 pub mod loop_active;
+pub mod parallel;
 pub mod loop_ambient;
 pub mod loop_dream;
 pub mod persistence;
 pub mod self_knowledge;
 pub mod self_repair;
+pub mod self_test;
 pub mod state;
 pub mod task_engine;
+pub mod vault_crypto;
+pub mod vision_bridge;
 pub mod web_knowledge;
+pub mod zero_defect;
 
 // Re-exports for convenience
 pub use boot::{BootResult, run_boot_sequence};

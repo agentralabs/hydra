@@ -116,6 +116,9 @@ impl DeliveryReceiptLog {
 
     /// Record a delivery receipt.
     pub fn record(&mut self, receipt: DeliveryReceipt) {
+        if self.receipts.len() >= 10_000 {
+            self.receipts.drain(..5_000);
+        }
         self.receipts.push(receipt);
     }
 

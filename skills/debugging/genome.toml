@@ -1,47 +1,47 @@
 [[entries]]
-approach    = "binary-search"
-description = "Bisect the problem space to isolate the faulty component"
-complexity  = "low"
-when        = "Large codebase, unclear where the bug originates"
+situation    = "Large codebase, unclear where the bug originates"
+approach     = "Binary-search the problem space — bisect components, inputs, or commits to isolate the faulty element in O(log n) steps"
+confidence   = 0.94
+observations = 5000
 
 [[entries]]
-approach    = "reproduce-first"
-description = "Create a minimal reproducible case before attempting any fix"
-complexity  = "medium"
-when        = "Bug is intermittent or environment-dependent"
+situation    = "Bug is intermittent or environment-dependent"
+approach     = "Reproduce first — create a minimal reproducible case before attempting any fix. No repro, no fix. Capture exact versions, state, and timing"
+confidence   = 0.96
+observations = 8000
 
 [[entries]]
-approach    = "rubber-duck"
-description = "Explain the problem step by step to expose faulty assumptions"
-complexity  = "low"
-when        = "Stuck for more than 15 minutes with no progress"
+situation    = "Stuck for more than 15 minutes with no progress"
+approach     = "Rubber-duck debugging — explain the problem step by step out loud to expose faulty assumptions. If you cannot explain what the code does, that is where the bug is"
+confidence   = 0.88
+observations = 3000
 
 [[entries]]
-approach    = "log-instrumentation"
-description = "Add structured logging at key decision points to trace execution flow"
-complexity  = "low"
-when        = "Cannot attach a debugger or need production visibility"
+situation    = "Cannot attach a debugger or need production visibility"
+approach     = "Add structured logging at key decision points to trace execution flow. Log inputs, outputs, and branch decisions. Remove after fix"
+confidence   = 0.91
+observations = 6000
 
 [[entries]]
-approach    = "diff-analysis"
-description = "Compare working vs broken state using git diff or config diff"
-complexity  = "low"
-when        = "Bug appeared after a known change or deployment"
+situation    = "Bug appeared after a known change or deployment"
+approach     = "Diff analysis — compare working vs broken state using git diff, config diff, or dependency diff. The bug is in the delta"
+confidence   = 0.93
+observations = 7000
 
 [[entries]]
-approach    = "assumption-inversion"
-description = "List every assumption about the bug and systematically test each one"
-complexity  = "medium"
-when        = "Initial diagnosis was wrong and you need a fresh angle"
+situation    = "Initial diagnosis was wrong and you need a fresh angle"
+approach     = "Assumption inversion — list every assumption about the bug and systematically test each one. The bug hides behind the assumption you never questioned"
+confidence   = 0.87
+observations = 2500
 
 [[entries]]
-approach    = "dependency-isolation"
-description = "Remove or mock external dependencies to determine if the bug is internal"
-complexity  = "medium"
-when        = "Bug may originate in a third-party library or service"
+situation    = "Bug may originate in a third-party library or service"
+approach     = "Dependency isolation — remove or mock external dependencies to determine if the bug is internal. If it vanishes, the dependency is the root cause"
+confidence   = 0.89
+observations = 3500
 
 [[entries]]
-approach    = "state-inspection"
-description = "Snapshot and examine all relevant state at the moment of failure"
-complexity  = "high"
-when        = "Bug involves corrupted or unexpected state that accumulates over time"
+situation    = "Bug involves corrupted or unexpected state that accumulates over time"
+approach     = "State inspection — snapshot and examine all relevant state at the moment of failure. Compare against expected invariants. The corruption point is upstream of the first violated invariant"
+confidence   = 0.85
+observations = 2000

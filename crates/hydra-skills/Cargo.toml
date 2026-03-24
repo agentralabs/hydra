@@ -13,6 +13,9 @@ hydra-reflexive    = { path = "../hydra-reflexive" }
 hydra-persona      = { path = "../hydra-persona" }
 
 serde       = { version = "1", features = ["derive"] }
+serde_json  = "1"
+toml        = "0.8"
+dirs        = "6"
 thiserror   = "2"
 uuid        = { version = "1", features = ["v4"] }
 chrono      = { version = "0.4", features = ["serde"] }

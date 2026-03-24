@@ -2,6 +2,7 @@
 //! Write-ahead: receipt written BEFORE returning response.
 
 use hydra_audit::{AuditEngine, EventKind};
+use hydra_calibration::{CalibrationEngine, EpistemicClass, JudgmentType};
 use hydra_settlement::SettlementEngine;
 
 use crate::loop_::types::CycleResult;
@@ -9,6 +10,7 @@ use crate::loop_::types::CycleResult;
 pub struct Deliverer {
     audit: AuditEngine,
     settlement: SettlementEngine,
+    calibration: CalibrationEngine,
 }
 
 impl Deliverer {
@@ -16,6 +18,7 @@ impl Deliverer {
         Self {
             audit: AuditEngine::open(),
             settlement: SettlementEngine::open(),
+            calibration: CalibrationEngine::open(),
         }
     }
 
@@ -61,6 +64,18 @@ impl Deliverer {
         ) {
             tracing::debug!("settlement failed: {:?}", e);
         }
+
+        // 3. Calibration label — honest confidence assessment in receipt
+        let cal_label = if cycle.tokens_used == 0 { "zero-token".to_string() } else {
+            let profile = self.calibration.epistemic_profile(&cycle.domain, &JudgmentType::SuccessProbability);
+            match profile.epistemic_class {
+                EpistemicClass::WellCalibrated => format!("cal:high({:.0}%)", profile.calibrated_confidence * 100.0),
+                EpistemicClass::Uncertain => format!("cal:uncertain({}obs)", profile.observations),
+                EpistemicClass::Uncalibrated => "cal:uncalibrated".into(),
+                EpistemicClass::Irreducible => "cal:irreducible".into(),
+            }
+        };
+        eprintln!("[hydra] stream complete: {}tok {}ms {cal_label}", cycle.tokens_used, cycle.duration_ms);
     }
 
     pub fn audit_count(&self) -> usize {

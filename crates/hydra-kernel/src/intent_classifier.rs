@@ -1,0 +1,205 @@
+//! Intent classifier — LLM micro-call to classify user input into agent intents.
+//!
+//! Replaces hardcoded keyword matching with cheap LLM classification.
+//! Uses the cheapest available model (~50 tokens per call).
+
+use std::collections::HashMap;
+
+/// Classified intent for routing to the correct agent.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AgentIntent {
+    /// Multi-step browser task (navigate, fill forms, interact with pages).
+    BrowserAgent,
+    /// Simple URL fetch (just get the page content).
+    BrowserFetch,
+    /// Desktop GUI interaction (non-browser application control).
+    Desktop,
+    /// Shell command execution.
+    Shell,
+    /// File system operations (read, write, search).
+    File,
+    /// Web search for information.
+    Search,
+    /// Normal conversation — no agent needed.
+    Conversation,
+}
+
+impl AgentIntent {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::BrowserAgent => "browser_agent",
+            Self::BrowserFetch => "browser_fetch",
+            Self::Desktop => "desktop",
+            Self::Shell => "shell",
+            Self::File => "file",
+            Self::Search => "search",
+            Self::Conversation => "conversation",
+        }
+    }
+
+    fn from_str(s: &str) -> Self {
+        match s.trim().to_lowercase().as_str() {
+            "browser_agent" | "browser agent" => Self::BrowserAgent,
+            "browser_fetch" | "browser fetch" | "browser" => Self::BrowserFetch,
+            "desktop" => Self::Desktop,
+            "shell" => Self::Shell,
+            "file" | "filesystem" => Self::File,
+            "search" | "web_search" => Self::Search,
+            _ => Self::Conversation,
+        }
+    }
+}
+
+/// Classify user input into an agent intent using an LLM micro-call.
+/// Falls back to heuristic if LLM is unavailable.
+pub async fn classify(
+    input: &str,
+    api_key: Option<&str>,
+) -> AgentIntent {
+    // Try LLM classification first
+    if let Some(key) = api_key {
+        if let Some(intent) = classify_via_llm(input, key).await {
+            return intent;
+        }
+    }
+
+    // Fallback: basic heuristic (only for when LLM is unavailable)
+    classify_heuristic(input)
+}
+
+/// Inject intent classification results into enrichments.
+pub fn inject_enrichments(
+    intent: &AgentIntent,
+    enrichments: &mut HashMap<String, String>,
+) {
+    enrichments.insert("agent_intent".into(), intent.as_str().into());
+    match intent {
+        AgentIntent::BrowserAgent | AgentIntent::BrowserFetch => {
+            enrichments
+                .entry("browser_relevant".into())
+                .or_insert_with(|| "true".into());
+        }
+        _ => {}
+    }
+}
+
+async fn classify_via_llm(input: &str, api_key: &str) -> Option<AgentIntent> {
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": 20,
+        "messages": [{
+            "role": "user",
+            "content": format!(
+                "Classify this user input into exactly ONE category. \
+                 Reply with ONLY the category name, nothing else.\n\n\
+                 Categories:\n\
+                 - browser_agent: multi-step web interaction (post, fill form, login, submit)\n\
+                 - browser_fetch: just open/read a URL or website\n\
+                 - desktop: control a desktop app (Figma, VS Code, Finder, etc.)\n\
+                 - shell: run a terminal command\n\
+                 - file: read/write/search files\n\
+                 - search: look up information online\n\
+                 - conversation: normal chat, question, or discussion\n\n\
+                 Input: {input}"
+            )
+        }]
+    });
+
+    let resp = client
+        .post("https://api.anthropic.com/v1/messages")
+        .header("x-api-key", api_key)
+        .header("anthropic-version", "2023-06-01")
+        .header("content-type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .ok()?;
+
+    if !resp.status().is_success() {
+        eprintln!(
+            "hydra-kernel: intent classifier HTTP {}",
+            resp.status()
+        );
+        return None;
+    }
+
+    let text = resp.text().await.ok()?;
+    let parsed: serde_json::Value = serde_json::from_str(&text).ok()?;
+    let content = parsed
+        .get("content")
+        .and_then(|c| c.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|block| block.get("text"))
+        .and_then(|t| t.as_str())?;
+
+    eprintln!("hydra-kernel: intent classified as: {content}");
+    Some(AgentIntent::from_str(content))
+}
+
+/// Synchronous classification for use in middleware (non-async context).
+/// Uses heuristic only — the async `classify()` is preferred when possible.
+pub fn classify_heuristic_sync(input: &str, _api_key: Option<&str>) -> AgentIntent {
+    classify_heuristic(input)
+}
+
+/// Basic heuristic fallback when LLM is unavailable.
+/// This is intentionally simple — the LLM path is preferred.
+fn classify_heuristic(input: &str) -> AgentIntent {
+    let lower = input.to_lowercase();
+    let has_url = input.contains("http://") || input.contains("https://");
+    let has_domain = input.split_whitespace().any(|w| {
+        let w = w.trim_end_matches(|c: char| ".,;:!?)\"'".contains(c));
+        w.contains('.') && !w.starts_with('.') && w.len() > 3
+            && !w.ends_with(".rs") && !w.ends_with(".md") && !w.ends_with(".toml")
+    });
+
+    if has_url || has_domain {
+        // If it looks like a multi-step task, route to agent
+        if lower.contains("post") || lower.contains("fill") || lower.contains("submit")
+            || lower.contains("login") || lower.contains("sign in")
+        {
+            return AgentIntent::BrowserAgent;
+        }
+        return AgentIntent::BrowserFetch;
+    }
+
+    AgentIntent::Conversation
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn intent_from_str() {
+        assert_eq!(AgentIntent::from_str("browser_agent"), AgentIntent::BrowserAgent);
+        assert_eq!(AgentIntent::from_str("desktop"), AgentIntent::Desktop);
+        assert_eq!(AgentIntent::from_str("shell"), AgentIntent::Shell);
+        assert_eq!(AgentIntent::from_str("conversation"), AgentIntent::Conversation);
+        assert_eq!(AgentIntent::from_str("nonsense"), AgentIntent::Conversation);
+    }
+
+    #[test]
+    fn heuristic_url_detection() {
+        assert_eq!(classify_heuristic("open https://example.com"), AgentIntent::BrowserFetch);
+        assert_eq!(classify_heuristic("post hello on twitter.com"), AgentIntent::BrowserAgent);
+        assert_eq!(classify_heuristic("what is rust?"), AgentIntent::Conversation);
+    }
+
+    #[test]
+    fn inject_enrichments_browser() {
+        let mut enrichments = HashMap::new();
+        inject_enrichments(&AgentIntent::BrowserAgent, &mut enrichments);
+        assert_eq!(enrichments.get("agent_intent").unwrap(), "browser_agent");
+        assert_eq!(enrichments.get("browser_relevant").unwrap(), "true");
+    }
+
+    #[test]
+    fn inject_enrichments_conversation() {
+        let mut enrichments = HashMap::new();
+        inject_enrichments(&AgentIntent::Conversation, &mut enrichments);
+        assert_eq!(enrichments.get("agent_intent").unwrap(), "conversation");
+        assert!(enrichments.get("browser_relevant").is_none());
+    }
+}

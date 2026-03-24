@@ -66,13 +66,14 @@ pub fn run_hydra(input: &str, api_key: &str) -> HydraResponse {
         }
     };
 
-    for attempt in 0..3u32 {
+    for attempt in 0..5u32 {
         if attempt > 0 {
+            let wait = if attempt <= 2 { 5 } else { 15 };
             eprintln!(
-                "  [retry] boot lock collision, attempt {} (waiting 5s)",
-                attempt + 1
+                "  [retry] attempt {} (waiting {}s)",
+                attempt + 1, wait
             );
-            std::thread::sleep(Duration::from_secs(5));
+            std::thread::sleep(Duration::from_secs(wait));
         }
 
         let output = Command::new("cargo")
@@ -97,6 +98,16 @@ pub fn run_hydra(input: &str, api_key: &str) -> HydraResponse {
                     && stderr.contains("Another Hydra instance")
                 {
                     continue; // retry
+                }
+
+                // Rate limit or overload: empty stdout + rate/429/529 in stderr
+                if stdout.trim().is_empty()
+                    && (stderr.contains("rate")
+                        || stderr.contains("429")
+                        || stderr.contains("529")
+                        || stderr.contains("overloaded"))
+                {
+                    continue; // retry with backoff
                 }
 
                 // Parse receipt from stderr — last bracket-delimited line
@@ -150,6 +161,6 @@ pub fn run_hydra(input: &str, api_key: &str) -> HydraResponse {
         output:      String::new(),
         receipt:     None,
         duration_ms: start.elapsed().as_millis() as u64,
-        error:       Some("boot lock collision: all retries exhausted".into()),
+        error:       Some("all retries exhausted (lock collision or rate limit)".into()),
     }
 }

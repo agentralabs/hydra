@@ -45,12 +45,12 @@ EOF
 
 | Service | Type | Method | Status |
 |---------|------|--------|--------|
-| WhatsApp | Bridge | QR pairing via Baileys | Planned |
-| Telegram | Bridge | Bot API | Planned |
-| Discord | Bridge | WebSocket gateway | Planned |
-| Slack | Bridge | Bolt framework | Planned |
+| WhatsApp | Bridge | QR pairing via Baileys | ✅ Built (bridge.toml + bridge.js) |
+| Telegram | Bridge | Bot API | ✅ Built (bridge.toml + bridge.js) |
+| Discord | Bridge | WebSocket gateway | ✅ Built (bridge.toml + bridge.js) |
+| Slack | Bridge | Bolt framework | ✅ Built (bridge.toml + bridge.js) |
 | Signal | Bridge | signal-cli subprocess | Planned |
-| iMessage | Bridge | AppleScript (macOS) | Planned |
+| iMessage | Local | AppleScript (macOS) | ✅ Built (local.toml) |
 | Microsoft Teams | Bridge | Bot Framework | Planned |
 | Matrix | Bridge | matrix-sdk | Planned |
 | Nostr | Bridge | NIP-04 DMs | Planned |
@@ -76,7 +76,7 @@ EOF
 | Service | Type | Method | Status |
 |---------|------|--------|--------|
 | GitHub | API | REST API | ✅ Built |
-| Obsidian | Local | Vault directory | Planned |
+| Obsidian | Local | Vault directory | ✅ Built (local.toml) |
 | Notion | API | REST API | Planned |
 | Trello | API | REST API | Planned |
 | Apple Notes | Local | AppleScript | Planned |
@@ -96,7 +96,7 @@ EOF
 
 | Service | Type | Method | Status |
 |---------|------|--------|--------|
-| Philips Hue | Local | Bridge HTTP API | Planned |
+| Philips Hue | Local | Bridge HTTP API | ✅ Built (local.toml) |
 | Home Assistant | API | REST API | Planned |
 | 8Sleep | API | REST API | Planned |
 
@@ -104,7 +104,7 @@ EOF
 
 | Service | Type | Status |
 |---------|------|--------|
-| Browser | Built-in | Planned (hydra-browser) |
+| Browser | Built-in | ✅ Built (hydra-browser) |
 | Gmail | API | Planned |
 | Cron | Built-in | ✅ Built (hydra-scheduler) |
 | Webhooks | API | Planned |
@@ -118,7 +118,7 @@ EOF
 |---------|------|--------|
 | Image Gen | API | Planned (DALL-E/SD) |
 | GIF Search | API | Planned (Giphy) |
-| Screen Capture | Built-in | Planned (hydra-desktop) |
+| Screen Capture | Built-in | ✅ Built (hydra-desktop) |
 | Video (Remotion) | Built-in | Planned |
 
 ### Social
@@ -150,29 +150,35 @@ description = "Search repositories"
 [integration]
 name = "telegram"
 type = "bridge"
-description = "Telegram bot for two-way messaging"
+description = "Telegram messaging via Bot API"
 
 [bridge]
-runtime = "node"
-entry = "bridge.js"
-transport = "stdio"
-incoming_format = "json"
-outgoing_format = "json"
-
-[bridge.incoming]
-sender_field = "from"
-content_field = "text"
-
-[bridge.outgoing]
-recipient_field = "chat_id"
-content_field = "text"
-
-[bridge.lifecycle]
+runtime = "node"                         # node | python | binary | script
+entry = "bridge.js"                      # relative to this directory
+transport = "stdio"                      # stdio | websocket | unix_socket
 auto_start = true
 restart_on_crash = true
+health_check_interval_seconds = 30
+max_restart_attempts = 5
+
+[bridge.incoming]
+message_field = "text"
+sender_field = "from"
+timestamp_field = "timestamp"
+
+[bridge.outgoing]
+message_field = "text"
+recipient_field = "chat_id"
+
+[bridge.lifecycle]
+init_command = '{"type":"init"}'
+shutdown_command = '{"type":"shutdown"}'
+health_command = '{"type":"ping"}'
+health_response = '{"type":"pong"}'
 
 [credentials]
-vault_key = "telegram"
+vault_service = "telegram"
+env_vars = ["TELEGRAM_BOT_TOKEN"]        # injected as env vars into subprocess
 ```
 
 ### Local Connector (`local.toml`)
@@ -180,27 +186,35 @@ vault_key = "telegram"
 [integration]
 name = "obsidian"
 type = "local"
-description = "Read and write Obsidian vault"
+description = "Read and write Obsidian vault notes"
 
 [local]
-access_method = "filesystem"
-vault_path = "~/Documents/Obsidian"
-file_pattern = "**/*.md"
+access_method = "filesystem"             # filesystem | subprocess | http_local | applescript
+
+[local.filesystem]
+root_path = "~/Documents/Obsidian"
+file_pattern = "*.md"
+recursive = true
 
 [local.capabilities]
 read = true
 write = true
 create = true
-delete = false
+delete = false                           # safety: no note deletion
+
+[local.watch]
+enabled = true
+debounce_ms = 500
+events = ["create", "modify"]
 ```
 
 ## How It Works
 
 When Hydra boots, the executor loads all integration TOMLs from `integrations/`. For each:
 
-- **API**: Registers endpoints. Calls them when the cognitive loop needs external data.
-- **Bridge**: Launches subprocess. Maintains persistent connection. Routes incoming messages to the companion signal stream. Sends responses back through the bridge.
-- **Local**: Watches directories or connects to local APIs. Reads/writes on demand.
+- **API**: Registers endpoints from `api.toml`. Calls them when the cognitive loop needs external data. Auth resolved from `vault/` at runtime.
+- **Bridge**: Spawns subprocess from `bridge.toml`. Reads JSON lines from stdout (incoming messages). Writes JSON lines to stdin (outgoing replies). Routes incoming messages to companion signal stream. Auto-restarts on crash with exponential backoff.
+- **Local**: Dispatches operations from `local.toml`. Filesystem access with path traversal prevention. Local HTTP to smart home devices. AppleScript for macOS apps. Capability gating (read/write/create/delete permissions per connector).
 
 Credentials are resolved from `vault/` at runtime — never stored in integration definitions.
 

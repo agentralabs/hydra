@@ -209,6 +209,48 @@ impl GenomeStore {
         let entry = GenomeEntry::from_operation(description, approach, confidence);
         self.add(entry)
     }
+
+    /// Domain statistics — entries per skill/domain, with avg confidence.
+    pub fn domain_stats(&self) -> Vec<DomainStat> {
+        let mut domains: std::collections::HashMap<String, (usize, f64)> =
+            std::collections::HashMap::new();
+
+        for entry in &self.entries {
+            let domain = entry
+                .approach
+                .tools_used
+                .first()
+                .map(|t| t.trim_start_matches("skill:").to_string())
+                .unwrap_or_else(|| "unknown".into());
+            let stat = domains.entry(domain).or_insert((0, 0.0));
+            stat.0 += 1;
+            stat.1 += entry.effective_confidence();
+        }
+
+        let mut stats: Vec<DomainStat> = domains
+            .into_iter()
+            .map(|(domain, (count, total_conf))| DomainStat {
+                domain,
+                entry_count: count,
+                avg_confidence: if count > 0 {
+                    total_conf / count as f64
+                } else {
+                    0.0
+                },
+            })
+            .collect();
+
+        stats.sort_by(|a, b| b.entry_count.cmp(&a.entry_count));
+        stats
+    }
+}
+
+/// Statistics for one genome domain.
+#[derive(Debug, Clone)]
+pub struct DomainStat {
+    pub domain: String,
+    pub entry_count: usize,
+    pub avg_confidence: f64,
 }
 
 #[cfg(test)]

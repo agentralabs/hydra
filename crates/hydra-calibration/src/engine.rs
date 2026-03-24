@@ -2,16 +2,18 @@
 
 use crate::{
     adjuster::{AdjustedConfidence, ConfidenceAdjuster},
+    beta::{BetaTrackerStore, EpistemicProfile},
     bias::BiasProfiler,
     constants::*,
     errors::CalibrationError,
     record::{CalibrationRecord, JudgmentType},
 };
 
-/// The calibration engine.
+/// The calibration engine — now with HEFP (Hydra Epistemic Field Protocol).
 pub struct CalibrationEngine {
     records: Vec<CalibrationRecord>,
     profiler: BiasProfiler,
+    beta_store: BetaTrackerStore,
     db: Option<crate::persistence::CalibrationDb>,
 }
 
@@ -20,6 +22,7 @@ impl CalibrationEngine {
         Self {
             records: Vec::new(),
             profiler: BiasProfiler::new(),
+            beta_store: BetaTrackerStore::new(),
             db: None,
         }
     }
@@ -39,7 +42,14 @@ impl CalibrationEngine {
         };
         let mut profiler = BiasProfiler::new();
         profiler.update_from_records(&records);
-        Self { records, profiler, db }
+        let mut beta_store = BetaTrackerStore::new();
+        for r in &records {
+            if let Some(outcome) = &r.outcome {
+                let success = (outcome.accuracy - r.stated_confidence).abs() < 0.15;
+                beta_store.observe(&r.domain, &r.judgment_type, success);
+            }
+        }
+        Self { records, profiler, beta_store, db }
     }
 
     /// Record a new prediction before its outcome is known.
@@ -69,20 +79,18 @@ impl CalibrationEngine {
         record_id: &str,
         actual_accuracy: f64,
     ) -> Result<(), CalibrationError> {
-        let record = self
-            .records
-            .iter_mut()
-            .find(|r| r.id == record_id)
+        // Find index first to avoid double borrow
+        let idx = self.records.iter().position(|r| r.id == record_id)
             .ok_or_else(|| CalibrationError::InsufficientRecords {
-                domain: record_id.to_string(),
-                count: 0,
-                min: 1,
+                domain: record_id.to_string(), count: 0, min: 1,
             })?;
-
-        record.record_outcome(actual_accuracy)?;
-
-        // Rebuild bias profiles with updated data
+        let stated = self.records[idx].stated_confidence;
+        let domain = self.records[idx].domain.clone();
+        let jtype = self.records[idx].judgment_type.clone();
+        self.records[idx].record_outcome(actual_accuracy)?;
         self.profiler.update_from_records(&self.records);
+        let success = (actual_accuracy - stated).abs() < 0.15;
+        self.beta_store.observe(&domain, &jtype, success);
         Ok(())
     }
 
@@ -95,6 +103,11 @@ impl CalibrationEngine {
     ) -> AdjustedConfidence {
         let adjuster = ConfidenceAdjuster::new(&self.profiler);
         adjuster.adjust(raw_confidence, domain, judgment_type)
+    }
+
+    /// HEFP: Get full epistemic profile for a domain/judgment combination.
+    pub fn epistemic_profile(&self, domain: &str, judgment_type: &JudgmentType) -> EpistemicProfile {
+        self.beta_store.profile(domain, judgment_type)
     }
 
     /// Overall calibration health score (0.0-1.0).

@@ -69,7 +69,7 @@ async fn main() {
             let score    = grade_question(&response, q, &api_key, hour).await;
             println!("{:.1}/10 -- {}", score.score, score.finding);
             hour_scores.push(score);
-            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
         }
 
         // VARIANT 2: Variation bank
@@ -80,7 +80,7 @@ async fn main() {
             let score    = grade_variation(&response, v, &api_key).await;
             println!("{:.1}/10 -- {}", score.score, score.finding);
             hour_scores.push(score.clone());
-            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
         }
 
         let avg = hour_scores.iter().map(|s| s.score).sum::<f64>()

@@ -1,0 +1,23 @@
+[integration]
+name        = "obsidian"
+description = "Read and write Obsidian vault notes"
+type        = "local"
+
+[local]
+access_method = "filesystem"
+
+[local.filesystem]
+root_path    = "~/Documents/Obsidian"
+file_pattern = "*.md"
+recursive    = true
+
+[local.capabilities]
+read   = true
+write  = true
+create = true
+delete = false
+
+[local.watch]
+enabled     = true
+debounce_ms = 500
+events      = ["create", "modify"]

@@ -1,0 +1,37 @@
+[integration]
+name        = "whatsapp"
+description = "WhatsApp messaging via Baileys QR pairing"
+type        = "bridge"
+
+[bridge]
+runtime     = "node"
+entry       = "bridge.js"
+transport   = "stdio"
+auto_start  = true
+restart_on_crash = true
+health_check_interval_seconds = 60
+max_restart_attempts = 3
+startup_timeout_seconds = 30
+
+[bridge.incoming]
+message_field = "text"
+sender_field  = "from"
+timestamp_field = "timestamp"
+media_field   = "media"
+
+[bridge.outgoing]
+message_field = "text"
+recipient_field = "to"
+media_field   = "media"
+
+[bridge.lifecycle]
+init_command      = '{"type":"init"}'
+shutdown_command   = '{"type":"shutdown"}'
+health_command     = '{"type":"ping"}'
+health_response    = '{"type":"pong"}'
+
+[credentials]
+vault_service = "whatsapp"
+env_vars      = []
+session_persist = true
+session_path    = "~/.hydra/data/bridges/whatsapp/session"

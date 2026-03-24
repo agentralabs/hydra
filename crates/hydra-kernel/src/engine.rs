@@ -63,16 +63,29 @@ pub struct CognitiveLoop {
 
 impl CognitiveLoop {
     pub fn new() -> Self {
+        // GenomeStore loads from SQLite (fast), then augments from skills/ directory.
+        // DB cache ensures sub-millisecond startup; skill scan is O(skill_count).
+        let start = std::time::Instant::now();
         let mut genome = GenomeStore::open();
+        let db_ms = start.elapsed().as_millis();
+        let skill_start = std::time::Instant::now();
         genome.load_from_skills();
+        let skill_ms = skill_start.elapsed().as_millis();
+        eprintln!("hydra: genome init — db={db_ms}ms skills={skill_ms}ms total={}ms", start.elapsed().as_millis());
+
+        // Lazy pattern: LLM caller built from env once, shared for all cycles.
+        // Middleware chain built once at boot, not per-cycle.
+        let llm = LlmCaller::from_env();
+        let middlewares = middlewares::build_chain();
+
         Self {
             genome,
             perceiver: Perceiver::new(),
             router: Router::new(),
             prompt_builder: PromptBuilder::new(),
-            llm: LlmCaller::from_env(),
+            llm,
             deliverer: Deliverer::new(),
-            middlewares: middlewares::build_chain(),
+            middlewares,
             last_enrichments: HashMap::new(),
             last_tokens: 0,
             last_path: String::new(),
@@ -150,7 +163,10 @@ impl CognitiveLoop {
                     .build_with_enrichments(&perceived, 8_000, &mw_enrichments);
             match self.llm.call(&prompt).await {
                 Ok(r) => (r.content, r.tokens_used),
-                Err(e) => (format!("[Hydra error: {}]", e), 0),
+                Err(e) => {
+                    let user_msg = crate::errors_display::humanize_llm_error(&e);
+                    (format!("[Hydra] {}", user_msg), 0)
+                }
             }
         };
 
@@ -159,7 +175,7 @@ impl CognitiveLoop {
 
         let domain = perceived.comprehended.primary_domain.label().to_string();
         let duration_ms = start.elapsed().as_millis() as u64;
-        let success = !response.starts_with("[Hydra error");
+        let success = !response.starts_with("[Hydra]");
 
         // PHASE 4: Record exchange in soul
         self.prompt_builder.record_exchange(&session_id, &domain);
@@ -210,7 +226,7 @@ impl CognitiveLoop {
         let start = std::time::Instant::now();
         let response = self.cycle(raw).await;
         let duration_ms = start.elapsed().as_millis() as u64;
-        let success = !response.starts_with("[Hydra error");
+        let success = !response.starts_with("[Hydra]");
 
         CycleOutput {
             response,
@@ -240,7 +256,8 @@ impl CognitiveLoop {
             mw_enrichments.entry(k.clone()).or_insert_with(|| v.clone());
         }
 
-        let (needs_llm, prompt) = if resolved.is_some() {
+        let has_real_resolution = resolved.as_ref().map(|t| !t.trim().is_empty()).unwrap_or(false);
+        let (needs_llm, prompt) = if has_real_resolution {
             (false, None)
         } else {
             let p = self.prompt_builder.build_with_enrichments(
@@ -287,7 +304,7 @@ impl CognitiveLoop {
         tokens_used: usize,
     ) {
         let duration_ms = prepared.start.elapsed().as_millis() as u64;
-        let success = !response.starts_with("[Hydra error");
+        let success = !response.starts_with("[Hydra]");
 
         self.prompt_builder
             .record_exchange(&prepared.session_id, &prepared.domain);
@@ -320,6 +337,26 @@ impl CognitiveLoop {
     /// Return the number of genome entries loaded.
     pub fn genome_len(&self) -> usize {
         self.genome.len()
+    }
+
+    /// Return per-domain genome statistics.
+    pub fn genome_domain_stats(&self) -> Vec<hydra_genome::store::DomainStat> {
+        self.genome.domain_stats()
+    }
+
+    /// Return the LLM model name (e.g. "claude-sonnet-4-20250514").
+    pub fn llm_model(&self) -> &str {
+        &self.llm.model
+    }
+
+    /// Return the LLM provider name (e.g. "anthropic").
+    pub fn llm_provider(&self) -> &str {
+        &self.llm.provider
+    }
+
+    /// Return the number of active middlewares.
+    pub fn middleware_count(&self) -> usize {
+        self.middlewares.len()
     }
 
     pub fn status(&self) -> String {

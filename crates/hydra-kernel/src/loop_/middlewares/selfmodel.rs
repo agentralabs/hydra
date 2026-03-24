@@ -1,10 +1,10 @@
-//! Self-model middleware — hydra-reflexive + hydra-morphic + hydra-persona.
-//!
-//! Tracks capabilities, deepens identity hash chain, blends persona.
+//! Self-model middleware — reflexive + morphic + persona + recovery + transform.
 
 use hydra_morphic::{MorphicEventKind, MorphicIdentity};
 use hydra_persona::PersonaRegistry;
 use hydra_reflexive::SelfModel;
+use hydra_resurrection::KernelStateSnapshot;
+use hydra_transform::TransformEngine;
 
 use crate::loop_::middleware::CycleMiddleware;
 use crate::loop_::types::{CycleResult, PerceivedInput};
@@ -14,6 +14,8 @@ pub struct SelfModelMiddleware {
     identity: MorphicIdentity,
     #[allow(dead_code)]
     personas: PersonaRegistry,
+    last_snapshot: KernelStateSnapshot,
+    transform: TransformEngine,
     cycles_processed: u64,
 }
 
@@ -23,6 +25,8 @@ impl SelfModelMiddleware {
             model: SelfModel::bootstrap_layer1(),
             identity: MorphicIdentity::genesis(),
             personas: PersonaRegistry::new(),
+            last_snapshot: KernelStateSnapshot::initial(),
+            transform: TransformEngine::new(),
             cycles_processed: 0,
         }
     }

@@ -77,8 +77,10 @@ impl LlmAdapter for AnthropicAdapter {
                 reason: e.to_string(),
             })?;
 
-        let content = json["content"][0]["text"]
-            .as_str()
+        let content = json.get("content")
+            .and_then(|c| c.get(0))
+            .and_then(|v| v.get("text"))
+            .and_then(|t| t.as_str())
             .unwrap_or("")
             .to_string();
 
@@ -86,8 +88,8 @@ impl LlmAdapter for AnthropicAdapter {
             content,
             provider: "anthropic".into(),
             model: self.config.model.clone(),
-            input_tokens: json["usage"]["input_tokens"].as_u64().map(|v| v as u32),
-            output_tokens: json["usage"]["output_tokens"].as_u64().map(|v| v as u32),
+            input_tokens: json["usage"]["input_tokens"].as_u64().map(|v| v.min(u32::MAX as u64) as u32),
+            output_tokens: json["usage"]["output_tokens"].as_u64().map(|v| v.min(u32::MAX as u64) as u32),
         })
     }
 

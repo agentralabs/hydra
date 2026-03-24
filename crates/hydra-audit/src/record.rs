@@ -48,24 +48,40 @@ pub struct AuditRecord {
     pub receipt_ids: Vec<String>,
     /// SHA256 of all fields — tamper detection.
     pub integrity_hash: String,
+    /// Hash chain: SHA256(integrity_hash + previous_hash) — Merkle link.
+    pub chain_hash: String,
+    /// Hash of the previous record (None for genesis record).
+    pub previous_hash: Option<String>,
     /// When this record was created.
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
 impl AuditRecord {
     /// Create an audit record from a narrative and receipt IDs.
+    /// Pass previous_hash to chain records together (Merkle chain).
     pub fn from_narrative(
         narrative: &ExecutionNarrative,
         receipt_ids: Vec<String>,
     ) -> Self {
+        Self::from_narrative_chained(narrative, receipt_ids, None)
+    }
+
+    /// Create a chained audit record (with previous hash for Merkle link).
+    pub fn from_narrative_chained(
+        narrative: &ExecutionNarrative,
+        receipt_ids: Vec<String>,
+        previous_hash: Option<String>,
+    ) -> Self {
         let now = chrono::Utc::now();
-        let hash = Self::compute_hash(
+        let integrity_hash = Self::compute_hash(
             &narrative.task_id,
             &narrative.action_id,
             &narrative.outcome,
             &narrative.full,
             &now,
         );
+        let chain_hash =
+            Self::compute_chain_hash(&integrity_hash, previous_hash.as_deref());
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             task_id: narrative.task_id.clone(),
@@ -77,7 +93,9 @@ impl AuditRecord {
             obstacle_count: narrative.obstacle_count,
             duration_ms: narrative.duration_ms,
             receipt_ids,
-            integrity_hash: hash,
+            integrity_hash,
+            chain_hash,
+            previous_hash,
             created_at: now,
         }
     }
@@ -98,9 +116,31 @@ impl AuditRecord {
         hex::encode(h.finalize())
     }
 
+    /// Compute the chain hash: SHA256(integrity_hash + previous_hash).
+    fn compute_chain_hash(integrity_hash: &str, previous_hash: Option<&str>) -> String {
+        let mut h = Sha256::new();
+        h.update(integrity_hash.as_bytes());
+        if let Some(prev) = previous_hash {
+            h.update(prev.as_bytes());
+        }
+        hex::encode(h.finalize())
+    }
+
     /// Verify integrity hash — tamper detection.
     pub fn verify_integrity(&self) -> bool {
         !self.integrity_hash.is_empty() && self.integrity_hash.len() == 64
+    }
+
+    /// Verify chain hash links to the expected previous record.
+    pub fn verify_chain(&self, expected_previous: Option<&str>) -> bool {
+        if self.previous_hash.as_deref() != expected_previous {
+            return false;
+        }
+        let expected = Self::compute_chain_hash(
+            &self.integrity_hash,
+            self.previous_hash.as_deref(),
+        );
+        self.chain_hash == expected
     }
 
     /// Whether this record represents a successful execution.

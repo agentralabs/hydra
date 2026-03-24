@@ -23,6 +23,14 @@ pub enum ExecutorType {
         sister_name: String,
         tool_name: String,
     },
+    /// Browser automation action (serialized BrowserAction JSON).
+    Browser { action: String },
+    /// Desktop automation action (serialized DesktopAction JSON).
+    Desktop { action: String },
+    /// Bridge message send.
+    Bridge { bridge_name: String, message: String },
+    /// Local connector operation.
+    Local { connector_name: String, operation: String },
 }
 
 /// Input parameter for an action.

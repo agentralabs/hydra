@@ -6,6 +6,8 @@
 
 use ratatui::style::Color;
 
+use crate::constants;
+
 /// Which theme is active.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ThemeMode {
@@ -49,44 +51,70 @@ pub struct Theme {
     pub identity_val: Color,
     pub identity_sub: Color,
     pub lyapunov_sub: Color,
+    // Brand additions
+    pub model_name: Color,
+    pub git_branch: Color,
+    pub dim: Color,
 }
 
 impl Theme {
-    /// Dark theme — Catppuccin Mocha inspired, matches spec COLOR_BG (12, 12, 12).
+    /// Dark theme — Hydra brand palette from Go reference.
     pub fn dark() -> Self {
+        let (br, bg, bb) = constants::HYDRA_BLUE;
+        let blue = Color::Rgb(br, bg, bb);
+        let (cr, cg, cb) = constants::HYDRA_CYAN;
+        let cyan = Color::Rgb(cr, cg, cb);
+        let (gr, gg, gb) = constants::HYDRA_GREEN;
+        let green = Color::Rgb(gr, gg, gb);
+        let (rr, rg, rb) = constants::HYDRA_RED;
+        let (yr, yg, yb) = constants::HYDRA_YELLOW;
+        let (pr, pg, pb) = constants::HYDRA_PURPLE;
+        let (dr, dg, db) = constants::HYDRA_DIM;
         Self {
             mode: ThemeMode::Dark,
             bg_primary: Color::Rgb(12, 12, 12),
             bg_secondary: Color::Rgb(17, 17, 17),
             bg_elevated: Color::Rgb(30, 30, 46),
-            fg_primary: Color::Rgb(180, 180, 180),
+            fg_primary: Color::Rgb(220, 220, 220),
             fg_secondary: Color::Rgb(100, 100, 100),
-            fg_muted: Color::Rgb(68, 68, 68),
+            fg_muted: Color::Rgb(dr, dg, db),
             fg_ghost: Color::Rgb(46, 46, 46),
-            user_message: Color::Rgb(166, 227, 161),
-            assistant_text: Color::Rgb(205, 214, 244),
-            system_notification: Color::Rgb(249, 226, 175),
-            error: Color::Rgb(243, 139, 168),
-            success: Color::Rgb(166, 227, 161),
-            warning: Color::Rgb(249, 226, 175),
-            accent: Color::Rgb(200, 169, 110),
-            alive: Color::Rgb(61, 140, 94),
-            separator: Color::Rgb(34, 34, 34),
+            user_message: blue,
+            assistant_text: Color::Rgb(220, 220, 220),
+            system_notification: Color::Rgb(yr, yg, yb),
+            error: Color::Rgb(rr, rg, rb),
+            success: green,
+            warning: Color::Rgb(yr, yg, yb),
+            accent: blue,
+            alive: green,
+            separator: Color::Rgb(dr, dg, db),
             status_bar_bg: Color::Rgb(30, 30, 46),
             status_bar_fg: Color::Rgb(205, 214, 244),
-            label: Color::Rgb(68, 68, 68),
-            label_green: Color::Rgb(90, 122, 74),
-            greeting: Color::Rgb(224, 200, 138),
-            frame_top: Color::Rgb(122, 106, 74),
-            frame_bottom: Color::Rgb(37, 58, 37),
-            identity_val: Color::Rgb(106, 170, 212),
+            label: Color::Rgb(dr, dg, db),
+            label_green: green,
+            greeting: cyan,
+            frame_top: blue,
+            frame_bottom: blue,
+            identity_val: blue,
             identity_sub: Color::Rgb(58, 110, 140),
             lyapunov_sub: Color::Rgb(45, 110, 68),
+            model_name: Color::Rgb(pr, pg, pb),
+            git_branch: green,
+            dim: Color::Rgb(dr, dg, db),
         }
     }
 
-    /// Light theme — Catppuccin Latte inspired.
+    /// Light theme — inverted chrome, same brand colors.
     pub fn light() -> Self {
+        let (br, bg, bb) = constants::HYDRA_BLUE;
+        let blue = Color::Rgb(br, bg, bb);
+        let (cr, cg, cb) = constants::HYDRA_CYAN;
+        let (gr, gg, gb) = constants::HYDRA_GREEN;
+        let green = Color::Rgb(gr, gg, gb);
+        let (rr, rg, rb) = constants::HYDRA_RED;
+        let (yr, yg, yb) = constants::HYDRA_YELLOW;
+        let (pr, pg, pb) = constants::HYDRA_PURPLE;
+        let (dr, dg, db) = constants::HYDRA_DIM;
         Self {
             mode: ThemeMode::Light,
             bg_primary: Color::Rgb(239, 241, 245),
@@ -94,35 +122,68 @@ impl Theme {
             bg_elevated: Color::Rgb(220, 224, 232),
             fg_primary: Color::Rgb(76, 79, 105),
             fg_secondary: Color::Rgb(108, 111, 133),
-            fg_muted: Color::Rgb(156, 160, 176),
+            fg_muted: Color::Rgb(dr, dg, db),
             fg_ghost: Color::Rgb(188, 192, 204),
-            user_message: Color::Rgb(64, 160, 43),
-            assistant_text: Color::Rgb(76, 79, 105),
-            system_notification: Color::Rgb(223, 142, 29),
-            error: Color::Rgb(210, 15, 57),
-            success: Color::Rgb(64, 160, 43),
-            warning: Color::Rgb(223, 142, 29),
-            accent: Color::Rgb(200, 169, 110),
-            alive: Color::Rgb(61, 140, 94),
+            user_message: blue,
+            assistant_text: Color::Rgb(30, 30, 30),
+            system_notification: Color::Rgb(yr, yg, yb),
+            error: Color::Rgb(rr, rg, rb),
+            success: green,
+            warning: Color::Rgb(yr, yg, yb),
+            accent: blue,
+            alive: green,
             separator: Color::Rgb(204, 208, 218),
             status_bar_bg: Color::Rgb(220, 224, 232),
             status_bar_fg: Color::Rgb(76, 79, 105),
             label: Color::Rgb(140, 143, 161),
-            label_green: Color::Rgb(80, 120, 70),
-            greeting: Color::Rgb(142, 120, 68),
-            frame_top: Color::Rgb(142, 126, 94),
-            frame_bottom: Color::Rgb(57, 78, 57),
+            label_green: green,
+            greeting: Color::Rgb(cr, cg, cb),
+            frame_top: blue,
+            frame_bottom: blue,
             identity_val: Color::Rgb(30, 102, 245),
             identity_sub: Color::Rgb(80, 130, 180),
             lyapunov_sub: Color::Rgb(40, 100, 60),
+            model_name: Color::Rgb(pr, pg, pb),
+            git_branch: green,
+            dim: Color::Rgb(dr, dg, db),
+        }
+    }
+
+    /// Return a color based on confidence level (0.0-1.0).
+    pub fn confidence_color(confidence: f64) -> Color {
+        if confidence > 0.85 {
+            Color::Rgb(constants::HYDRA_GREEN.0, constants::HYDRA_GREEN.1, constants::HYDRA_GREEN.2)
+        } else if confidence >= 0.50 {
+            Color::Rgb(constants::HYDRA_YELLOW.0, constants::HYDRA_YELLOW.1, constants::HYDRA_YELLOW.2)
+        } else {
+            Color::Rgb(constants::HYDRA_RED.0, constants::HYDRA_RED.1, constants::HYDRA_RED.2)
+        }
+    }
+
+    /// Return a color based on health percentage (0.0-100.0).
+    pub fn health_color(pct: f64) -> Color {
+        if pct >= 80.0 {
+            Color::Rgb(constants::HYDRA_GREEN.0, constants::HYDRA_GREEN.1, constants::HYDRA_GREEN.2)
+        } else if pct >= 50.0 {
+            Color::Rgb(constants::HYDRA_YELLOW.0, constants::HYDRA_YELLOW.1, constants::HYDRA_YELLOW.2)
+        } else {
+            Color::Rgb(constants::HYDRA_RED.0, constants::HYDRA_RED.1, constants::HYDRA_RED.2)
+        }
+    }
+
+    /// Return a color for a thinking phase name.
+    pub fn phase_color(phase: &str) -> Color {
+        match phase {
+            "thinking" | "reasoning" => Color::Rgb(constants::HYDRA_PURPLE.0, constants::HYDRA_PURPLE.1, constants::HYDRA_PURPLE.2),
+            "searching" | "reading" => Color::Rgb(constants::HYDRA_CYAN.0, constants::HYDRA_CYAN.1, constants::HYDRA_CYAN.2),
+            "writing" | "generating" => Color::Rgb(constants::HYDRA_GREEN.0, constants::HYDRA_GREEN.1, constants::HYDRA_GREEN.2),
+            "error" | "failed" => Color::Rgb(constants::HYDRA_RED.0, constants::HYDRA_RED.1, constants::HYDRA_RED.2),
+            _ => Color::Rgb(constants::HYDRA_BLUE.0, constants::HYDRA_BLUE.1, constants::HYDRA_BLUE.2),
         }
     }
 
     /// Auto-detect theme from terminal background color.
-    /// Falls back to dark if detection fails.
     pub fn auto_detect() -> Self {
-        // terminal-light crate returns luma (0.0 = black, 1.0 = white)
-        // If luma > 0.6, the terminal has a light background
         match terminal_light::luma() {
             Ok(luma) if luma > 0.6 => Self::light(),
             _ => Self::dark(),
@@ -133,6 +194,7 @@ impl Theme {
     pub fn by_name(name: &str) -> Self {
         match name {
             "light" => Self::light(),
+            "auto" => Self::auto_detect(),
             _ => Self::dark(),
         }
     }
@@ -196,5 +258,14 @@ mod tests {
         assert_eq!(Theme::by_name("dark").mode, ThemeMode::Dark);
         assert_eq!(Theme::by_name("light").mode, ThemeMode::Light);
         assert_eq!(Theme::by_name("unknown").mode, ThemeMode::Dark);
+    }
+
+    #[test]
+    fn confidence_color_ranges() {
+        let high = Theme::confidence_color(0.9);
+        let mid = Theme::confidence_color(0.6);
+        let low = Theme::confidence_color(0.3);
+        assert_ne!(high, mid);
+        assert_ne!(mid, low);
     }
 }

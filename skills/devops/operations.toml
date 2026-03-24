@@ -1,0 +1,25 @@
+[[operation]]
+name = "docker_deploy"
+trigger = "deploy with docker|docker build and run|containerize"
+confidence = 0.85
+
+[[operation.steps]]
+type = "shell"
+command = "docker build -t {{image_name}} ."
+description = "Build Docker image"
+long_running = true
+
+[[operation.steps]]
+type = "shell"
+command = "docker run -d -p {{port}}:{{port}} --name {{container_name}} {{image_name}}"
+description = "Run container"
+
+[[operation.steps]]
+type = "verify"
+method = "command_success"
+command = "docker ps | grep {{container_name}}"
+
+[operation.params]
+image_name = { type = "string", default = "hydra-app", required = false }
+container_name = { type = "string", default = "hydra-app-1", required = false }
+port = { type = "string", default = "8080", required = false }

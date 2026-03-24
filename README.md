@@ -26,12 +26,16 @@ Hydra is not an assistant you talk to. It is an entity that lives alongside you 
 And it does all of this in 82,000 lines of Rust that you own, on your machine, with your data, under your control.
 
 ```
-68 crates. 303 genome entries across 29 skills. Self-writing genome.
-Three concurrent loops. Seven constitutional laws. Six security layers.
-IDF-scored memory. Bayesian confidence. Predictive threat detection.
+71 crates. 390+ genome entries across 34 skills. Self-writing genome.
+Three concurrent loops. Eleven middlewares. Seven constitutional laws.
+Beta-Binomial calibration. 5-mode reasoning (85% zero-token).
+Browser automation. Desktop control. MCP server. 17 sister integrations.
+62/62 structural tests. 8.7/10 behavioral score.
 
 Drop a TOML file — Hydra learns a new domain.
-No training. No fine-tuning. No code. No cloud.
+Drop a folder — Hydra connects to a new service.
+Type /teach — Hydra learns from you in real time.
+No training. No fine-tuning. No cloud required.
 ```
 
 ## It Never Forgets
@@ -66,6 +70,31 @@ FACTUAL CONTEXT (treat as ground truth):
 Every AI says "I don't have memory between sessions." Hydra says "Based on our prior conversations..."
 
 That is not a feature. That is a new relationship between human and machine.
+
+## It Gets Smarter Every Day
+
+Every AI you use today is exactly as smart as it was yesterday. It does not learn from your conversations. It does not remember what worked. It starts from zero every time.
+
+Hydra accumulates intelligence. Three systems work together:
+
+**The Genome** — Every successful interaction crystallizes into a situation-approach pair with a confidence score. After 30 days, Hydra has hundreds of proven approaches. After a year, thousands. These are retrieved in <1ms via BM25 scoring and injected into every response.
+
+**The Dream Loop** — Every 5 seconds, Hydra's background process consolidates beliefs, rehearses predictions, synthesizes cross-domain patterns, and writes new genome entries from experience. It learns while you sleep.
+
+**The Calibration Engine (HEFP)** — Beta-Binomial Bayesian tracking per domain. When Hydra says "85% confident," it is a mathematical statement from a Beta(42,8) posterior — not a guess. When it says "I don't know," it is because the calibration data proves this domain is outside its competence.
+
+The result is a trajectory:
+
+```
+Day 1:     LLM handles ~60% of questions          ($$$)
+Month 1:   LLM handles ~40% — genome resolves the rest  ($$)
+Year 1:    LLM handles ~20% — local models cover routine ($)
+Year 2:    LLM handles ~5%  — only novel situations      (cents)
+```
+
+Hydra does not replace the LLM. It makes the LLM a specialist consultant for the hard cases. Everything else runs on accumulated intelligence that costs nothing per query.
+
+See [catalogue/HYDRA-REASONING-THESIS.md](catalogue/HYDRA-REASONING-THESIS.md) for the full thesis.
 
 ## Your Machine. Your Data. Your Moat.
 
@@ -125,11 +154,23 @@ cargo run --release -p hydra-kernel --bin hydra -- --daemon
 
 ```bash
 git clone git@github.com:agentralabs/hydra.git && cd hydra
+
+# Quick install (builds from source, creates ~/.hydra)
+bash scripts/install.sh
+
+# Or manually:
 cp .env.example .env    # add your ANTHROPIC_API_KEY
-cargo run --release -p hydra-kernel --bin hydra -- "what is the circuit breaker pattern?"
+cargo run --release -p hydra-tui --bin hydra_tui    # TUI cockpit
+# or:
+cargo run --release -p hydra-kernel --bin hydra -- "your question"   # single-shot
+# or:
+cargo run --release -p hydra-kernel --bin hydra -- --daemon          # always-on daemon
+
+# Docker:
+docker compose up -d    # runs daemon on port 3141
 ```
 
-That is it. Hydra responds with genome-enriched knowledge from 278 proven approaches.
+That is it. Hydra responds with genome-enriched knowledge from 353 proven approaches.
 
 ## It Never Stops Learning
 
@@ -139,7 +180,7 @@ Three threads run from boot until shutdown — concurrently, always:
 
 | Thread | Frequency | What It Does |
 |--------|-----------|-------------|
-| **ACTIVE** | On demand | Responds to you through 8 middleware enrichments |
+| **ACTIVE** | On demand | Responds to you through 10+ middleware enrichments |
 | **AMBIENT** | Every 100ms | Checks 6 constitutional invariants, monitors stability |
 | **DREAM** | Every 500ms | Consolidates beliefs, discovers patterns, **writes its own genome** |
 
@@ -174,21 +215,24 @@ observations = 5000
 
 Restart Hydra. It loads the skill. Done. No compilation. No training. No API.
 
-**29 skills ship out of the box:**
+**34 skills ship out of the box:**
 
 | Domain | Entries | Highlights |
 |--------|---------|-----------|
 | Content Creation | 38 | Carousels, social media, video production, storytelling, monetization |
 | Developer | 30 | Git mastery, system design, debugging, production ops, career growth |
 | Finance | 26 | Valuation, risk management, behavioral finance, macro, tax strategy |
+| Social Media | 10 | Posting strategy, engagement, growth, cross-platform optimization |
+| Voice Persona | 10 | Style extraction, AI avoidance, persona switching, tone calibration |
+| Email Engagement | 10 | Cold outreach, follow-up sequences, inbox management, deliverability |
+| Remotion Video | 10 | Video ads, Remotion rendering, editing pipelines, motion graphics |
+| COBOL Migration | 10 | Soul extraction, validation, decimal arithmetic, mainframe patterns |
 | Architecture | 10 | Microservices, scaling, event-driven, caching, sagas |
 | Security | 10 | OWASP, auth, XSS, mTLS, zero trust |
 | Mathematics | 10 | Proofs, optimization, probability, differential equations |
-| Physics | 10 | Conservation laws, thermodynamics, quantum, relativity |
-| Chemistry | 10 | Reactions, bonding, kinetics, electrochemistry, safety |
-| Biology | 10 | Genetics, evolution, immunology, ecology, microbiology |
+| Sciences | 30 | Physics, chemistry, biology — conservation laws to microbiology |
 | DevOps | 10 | K8s, CI/CD, Docker, monitoring, secrets management |
-| + 18 more | 104 | Business, legal, health, communication, design, research... |
+| + 19 more | 139 | Business, legal, health, communication, design, research... |
 
 ## Four Drop Folders
 
@@ -197,7 +241,7 @@ Everything extends through text files. Each folder has a README with the complet
 | Folder | What It Does | Format | Guide |
 |--------|-------------|--------|-------|
 | [`skills/`](skills/) | What Hydra **KNOWS** — domain knowledge, proven approaches | `genome.toml` + `functor.toml` | [Skills README](skills/README.md) |
-| [`integrations/`](integrations/) | What Hydra **CONNECTS TO** — APIs, data sources, web services | `api.toml` | [Integrations README](integrations/README.md) |
+| [`integrations/`](integrations/) | What Hydra **CONNECTS TO** — APIs, bridges, local devices | `api.toml` / `bridge.toml` / `local.toml` | [Integrations README](integrations/README.md) |
 | [`actions/`](actions/) | What Hydra **DOES** — shell commands, API calls, scheduled jobs | `action.toml` | [Actions README](actions/README.md) |
 | [`vault/`](vault/) | What Hydra **HAS ACCESS TO** — credentials, API keys, tokens | `credentials.toml` | [Vault README](vault/README.md) |
 
@@ -233,7 +277,8 @@ Layer 4: Judgment      │ pattern library, red team, calibration, oracle, wisdo
 Layer 5: Value         │ settlement, attribution, portfolio, crystallizer, exchange
 Layer 6: Collective    │ federation, consensus, consent, collective, diplomat
 Layer 7: Continuity    │ succession, legacy, influence, continuity, morphic
-UI:      Cockpit       │ TUI with thinking verbs, voice stub, companion
+Hands:   Automation    │ browser (CDP), desktop (screen+input), MCP server+client
+UI:      Cockpit       │ TUI cockpit with two-way voice, streaming, 29 commands
 ```
 
 ### The Mathematics
@@ -250,6 +295,10 @@ Every decision in Hydra is mathematical:
 | Uncertainty trees | Not one confidence number — a tree showing exactly where the weakness is |
 | Surprise detection | Welford's z-score fires when reality violates the model |
 | Recursive introspection | Think → "what did I assume?" → challenge → think again → converge |
+| EMI (Evidential Memory) | Closed-world numbered evidence list — prevents memory fabrication |
+| DSEA (Dual-Space Embedding) | 4D axiom vectors + cosine similarity — "cascading failures" matches "circuit breaker" |
+| CCA (Calibrated Confidence) | Beta-Binomial credible intervals — `conf=91% [89%-93%] obs=25000 strength=STRONG` |
+| Judgment Gate | `confidence × blast_radius × trust → ACT/ASK/REFUSE` — catastrophic always asks |
 
 ### Self-Repair
 
@@ -296,12 +345,31 @@ cd docs && npm install && npm start
 
 Or read the [capabilities catalogue](catalogue/) — 25 documents, 25,000+ words covering every capability in plain language.
 
+## Two-Way Voice
+
+Hydra hears you. Hydra speaks back. No cloud transcription. No latency.
+
+```
+Ctrl+V → microphone captures audio (cpal: CoreAudio on macOS, ALSA on Linux)
+       → Whisper STT transcribes locally (auto-downloads 142MB model)
+       → cognitive cycle processes your words
+       → native TTS speaks the response (macOS `say`, Linux `espeak-ng`)
+       → Ctrl+C interrupts mid-speech (barge-in)
+
+Zero install on macOS. One `apt install` on Linux.
+Voice works through any bridge — WhatsApp, Telegram, Discord.
+```
+
 ## Testing
 
 ```bash
-# Structural test (68 crates, 47 integration tests)
+# Structural test (71 crates, 62 integration tests)
 cargo run -p hydra-harness --bin harness -- --hours 1
-# Expected: 47/47, 100% pass rate
+# Expected: 62/62, 100% pass rate
+
+# E2E integration test (21 checks)
+bash scripts/e2e-test.sh
+# Tests: boot, DSEA, CCA, EMI, federation, voice, file outputs, clippy
 
 # Behavioral test (requires ANTHROPIC_API_KEY)
 cargo run -p hydra-harness --bin harness_v2 -- --hours 10
@@ -328,11 +396,15 @@ the constitution is not an instruction. It is compiled Rust code.
 
 ## Built With
 
-- **Rust** 2024 edition — 68 crates, zero `unsafe` in library code
+- **Rust** 2024 edition — 74 crates, zero `unsafe` in library code
 - **SQLite** WAL mode — genome, audit, settlement persistence
 - **AgenticMemory** `.amem` format — 128-dimension feature vectors
-- **ratatui** — TUI cockpit with crossterm backend
-- **reqwest** — 4-provider LLM adapter (Anthropic, OpenAI, Gemini, Ollama)
+- **ratatui** 0.29 — TUI cockpit with themes, streaming, 29 commands, 30+ shortcuts
+- **chromiumoxide** 0.9 — headless Chrome browser automation via CDP
+- **axum** 0.7 — HTTP API server for remote access (port 3141)
+- **aes-gcm** 0.10 — vault encryption at rest (AES-256-GCM)
+- **cpal** 0.15 — cross-platform audio capture for two-way voice
+- **reqwest** — 4-provider streaming LLM adapter (Anthropic, OpenAI, Gemini, Ollama)
 
 ## License
 
@@ -341,7 +413,7 @@ MIT — [Agentra Labs](https://agentralabs.com)
 ---
 
 <p align="center">
-  <em>68 crates. 82,000 lines. 278 genome entries. One entity.</em><br/>
+  <em>74 crates. 100,000+ lines. 353 genome entries. 34 skills. 583+ tests. 13 integrations.</em><br/>
   <em>Permanently alive. Perpetually growing. Constitutionally governed.</em><br/><br/>
   <strong>◈&nbsp; H Y D R A</strong>
 </p>

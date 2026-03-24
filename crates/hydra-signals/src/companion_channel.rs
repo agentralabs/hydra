@@ -116,7 +116,9 @@ pub fn create_channel() -> (CompanionChannel, CompanionEndpoint) {
 impl CompanionChannel {
     /// Send a command to the companion (non-blocking).
     pub fn send_command(&self, cmd: CompanionCommand) {
-        let _ = self.command_tx.send(cmd);
+        if let Err(e) = self.command_tx.send(cmd) {
+            eprintln!("hydra: companion command send failed: {e}");
+        }
     }
 
     /// Poll for outputs from the companion (non-blocking).
@@ -133,7 +135,9 @@ impl CompanionEndpoint {
 
     /// Send an output to the TUI (non-blocking).
     pub fn send_output(&self, output: CompanionOutput) {
-        let _ = self.output_tx.send(output);
+        if let Err(e) = self.output_tx.send(output) {
+            eprintln!("hydra: companion output send failed: {e}");
+        }
     }
 }
 

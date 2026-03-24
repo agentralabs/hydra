@@ -7,6 +7,7 @@
 //! Every path attempt receipted.
 //! Cartography grows with every new system encountered.
 
+pub mod api_discovery;
 pub mod constants;
 pub mod engine;
 pub mod errors;

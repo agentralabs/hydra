@@ -6,6 +6,7 @@
 
 use hydra_calibration::{CalibrationEngine, JudgmentType};
 use hydra_genome::GenomeStore;
+use hydra_horizon::Horizon;
 use hydra_noticing::SurpriseDetector;
 use hydra_omniscience::{GapType, OmniscienceEngine};
 use hydra_oracle::OracleEngine;
@@ -23,6 +24,7 @@ pub struct IntelligenceMiddleware {
     redteam: RedTeamEngine,
     genome: GenomeStore,
     surprise: SurpriseDetector,
+    horizon: Horizon,
     exchange_count: u64,
 }
 
@@ -39,6 +41,7 @@ impl IntelligenceMiddleware {
             redteam: RedTeamEngine::new(),
             genome,
             surprise: SurpriseDetector::new(),
+            horizon: Horizon::new(),
             exchange_count: 0,
         }
     }
@@ -82,20 +85,42 @@ impl CycleMiddleware for IntelligenceMiddleware {
             let _ = all_entries; // query side-effect: warms IDF cache
         }
 
-        // Calibrate confidence
-        let adjusted = self.calibration.calibrate(
-            conf,
-            domain,
-            &JudgmentType::SuccessProbability,
-        );
-        if adjusted.changed_significantly() {
-            perceived.enrichments.insert(
-                "calibration".into(),
-                format!(
-                    "raw={:.2} calibrated={:.2} reliable={}",
-                    adjusted.raw, adjusted.calibrated, adjusted.is_reliable
-                ),
-            );
+        // HEFP: Epistemic calibration (always inject — no significance gate)
+        let profile = self.calibration.epistemic_profile(domain, &JudgmentType::SuccessProbability);
+        use hydra_calibration::EpistemicClass;
+        let hefp = match &profile.epistemic_class {
+            EpistemicClass::WellCalibrated => format!(
+                "Domain '{}': WELL-CALIBRATED at {:.0}% confidence. You are confident and familiar with this domain. \
+                 Express strong certainty. Say you are confident. CI90: {:.0}%-{:.0}% from {} observations. \
+                 Methodology: {}",
+                domain, profile.calibrated_confidence * 100.0,
+                profile.credible_interval.0 * 100.0, profile.credible_interval.1 * 100.0,
+                profile.observations, profile.methodology,
+            ),
+            EpistemicClass::Uncertain => format!(
+                "Domain '{}': LIMITED DATA ({} observations, meta-confidence {:.0}%). Express moderate confidence. Acknowledge uncertainty honestly.",
+                domain, profile.observations, profile.meta_confidence * 100.0,
+            ),
+            EpistemicClass::Uncalibrated => format!(
+                "Domain '{}': NO CALIBRATION DATA. Do not claim specific percentages. Hedge appropriately.",
+                domain,
+            ),
+            EpistemicClass::Irreducible => format!(
+                "Domain '{}': INHERENTLY STOCHASTIC. State explicitly that prediction is fundamentally limited here.",
+                domain,
+            ),
+        };
+        perceived.enrichments.insert("calibration.hefp".into(), hefp);
+
+        // Live web search for current-events queries
+        let lower = perceived.raw.to_lowercase();
+        if lower.contains("search") || lower.contains("latest") || lower.contains("current")
+            || lower.contains("today") || lower.contains("news") || lower.contains("recent") {
+            let mut web = hydra_web::SearchOrchestrator::new();
+            match web.search_blocking(&perceived.raw) {
+                Ok(results) => { perceived.enrichments.insert("web.results".into(), results); }
+                Err(e) => eprintln!("hydra: web search: {e}"),
+            }
         }
 
         // GENOME ENRICHMENT with functor-expanded query.
@@ -139,18 +164,21 @@ impl CycleMiddleware for IntelligenceMiddleware {
             );
         }
 
-        // Detect knowledge gaps
-        let gap_id = self.omniscience.detect_gap(
-            domain,
-            GapType::Contextual {
-                system: domain.to_string(),
-            },
-            0.5,
-        );
-        if !gap_id.is_empty() {
-            perceived
-                .enrichments
-                .insert("omniscience.gap".into(), gap_id);
+        // Detect knowledge gaps — only when genome has no match
+        // (casual inputs like "hey" don't need gap tracking)
+        if matches.is_empty() && perceived.raw.split_whitespace().count() > 2 {
+            let gap_id = self.omniscience.detect_gap(
+                domain,
+                GapType::Contextual {
+                    system: domain.to_string(),
+                },
+                0.5,
+            );
+            if !gap_id.is_empty() {
+                perceived
+                    .enrichments
+                    .insert("omniscience.gap".into(), domain.to_string());
+            }
         }
 
         // Oracle projection

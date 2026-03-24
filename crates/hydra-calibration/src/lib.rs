@@ -13,6 +13,7 @@
 //! With this: honest answers, the principal knows when to trust less.
 
 pub mod adjuster;
+pub mod beta;
 pub mod bias;
 pub mod constants;
 pub mod engine;
@@ -21,6 +22,7 @@ pub mod persistence;
 pub mod record;
 
 pub use adjuster::{AdjustedConfidence, ConfidenceAdjuster};
+pub use beta::{BetaTracker, BetaTrackerStore, EpistemicClass, EpistemicProfile};
 pub use bias::{BiasEntry, BiasKey, BiasProfiler};
 pub use engine::CalibrationEngine;
 pub use errors::CalibrationError;

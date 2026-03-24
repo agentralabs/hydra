@@ -25,7 +25,7 @@ impl Timestamp {
 
     /// Create a timestamp representing the current time.
     pub fn now() -> Self {
-        let nanos = Utc::now().timestamp_nanos_opt().unwrap_or(1) as u64;
+        let nanos = Utc::now().timestamp_nanos_opt().unwrap_or(1).max(1) as u64;
         // Safety: current time is never zero
         Self(if nanos == 0 { 1 } else { nanos })
     }

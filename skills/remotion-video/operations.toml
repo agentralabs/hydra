@@ -1,0 +1,37 @@
+[[operation]]
+name = "create_remotion_video"
+trigger = "create a remotion video|make a video|new video project"
+confidence = 0.85
+
+[[operation.steps]]
+type = "shell"
+command = "npx create-video@latest {{project_name}}"
+description = "Scaffold Remotion project"
+
+[[operation.steps]]
+type = "code_gen"
+description = "Create main composition component for: {{topic}}"
+target = "{{project_name}}/src/Composition.tsx"
+
+[[operation.steps]]
+type = "code_gen"
+description = "Create main scene about: {{topic}}"
+target = "{{project_name}}/src/Main.tsx"
+prompt = "Create a Remotion component about: {{topic}}"
+
+[[operation.steps]]
+type = "shell"
+command = "cd {{project_name}} && npx remotion preview"
+description = "Start Remotion preview server"
+long_running = true
+
+[[operation.steps]]
+type = "verify"
+method = "http_status"
+url = "http://localhost:3000"
+[operation.steps.expect]
+status = 200
+
+[operation.params]
+project_name = { type = "string", default = "my-video", required = false, prompt = "Project name?" }
+topic = { type = "string", required = true, prompt = "What should the video be about?" }

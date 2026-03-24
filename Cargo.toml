@@ -69,6 +69,12 @@ members = [
     "crates/hydra-continuity",
     "crates/hydra-influence",
     "crates/hydra-harness",
+    "crates/hydra-browser",
+    "crates/hydra-desktop",
+    "crates/hydra-mcp",
+    "crates/hydra-web",
+    "crates/hydra-semantic-nav",
+    "crates/hydra-swarm-browser",
 ]
 
 
@@ -93,6 +99,13 @@ async-trait = "0.1"
 rusqlite = { version = "0.31", features = ["bundled"] }
 dirs = "5"
 toml = "0.8"
+chromiumoxide = "0.9"
+image = "0.25"
+totp-rs = { version = "5", features = ["otpauth"] }
+base64 = "0.22"
+rand = "0.8"
+axum = "0.7"
+tower-http = { version = "0.5", features = ["cors"] }
 
 [profile.dev]
 codegen-units = 16

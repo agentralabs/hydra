@@ -31,6 +31,7 @@ pub mod query;
 pub mod session;
 pub mod temporal_bridge;
 pub mod verbatim;
+pub mod web_memory;
 
 pub use bridge::{HydraMemoryBridge, MemoryHealth};
 pub use errors::MemoryError;

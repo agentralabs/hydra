@@ -3,6 +3,34 @@
 //! Every UI color, timing, and layout value lives here.
 
 // ---------------------------------------------------------------------------
+// Brand palette — from Go reference template (palette.go)
+// ---------------------------------------------------------------------------
+
+/// Primary accent, borders, headers, user label, assistant text.
+pub const HYDRA_BLUE: (u8, u8, u8) = (100, 149, 237);
+
+/// Username, keywords, active tool.
+pub const HYDRA_CYAN: (u8, u8, u8) = (0, 210, 210);
+
+/// Success, connected, git branch.
+pub const HYDRA_GREEN: (u8, u8, u8) = (80, 200, 120);
+
+/// Error, offline, critical.
+pub const HYDRA_RED: (u8, u8, u8) = (220, 80, 80);
+
+/// Warning, uncertain.
+pub const HYDRA_YELLOW: (u8, u8, u8) = (240, 200, 80);
+
+/// Approval, action needed.
+pub const HYDRA_ORANGE: (u8, u8, u8) = (240, 160, 60);
+
+/// Model name, thinking phase.
+pub const HYDRA_PURPLE: (u8, u8, u8) = (160, 120, 220);
+
+/// Labels, paths, hints.
+pub const HYDRA_DIM: (u8, u8, u8) = (128, 128, 128);
+
+// ---------------------------------------------------------------------------
 // Output pacer timings (milliseconds) — from HYDRA-TUI-ARCHITECTURE spec
 // ---------------------------------------------------------------------------
 
@@ -121,26 +149,26 @@ pub const ALL_VERB_COLORS: [(u8, u8, u8); 12] = [
 // Dot colors — 7 kinds (R, G, B) — from TUI architecture spec
 // ---------------------------------------------------------------------------
 
-/// Yellow/Amber — Active / Working.
-pub const DOT_COLOR_ACTIVE: (u8, u8, u8) = (200, 169, 110);
+/// Dim — Active / Working.
+pub const DOT_COLOR_ACTIVE: (u8, u8, u8) = HYDRA_DIM;
 
 /// Green — Success / Complete.
-pub const DOT_COLOR_SUCCESS: (u8, u8, u8) = (74, 222, 128);
+pub const DOT_COLOR_SUCCESS: (u8, u8, u8) = HYDRA_GREEN;
 
 /// Red — Error / Failure / Alert.
-pub const DOT_COLOR_ERROR: (u8, u8, u8) = (200, 74, 74);
+pub const DOT_COLOR_ERROR: (u8, u8, u8) = HYDRA_RED;
 
-/// White/Default — Narration / Thinking.
-pub const DOT_COLOR_NARRATION: (u8, u8, u8) = (205, 214, 244);
+/// Yellow — Narration / Thinking.
+pub const DOT_COLOR_NARRATION: (u8, u8, u8) = HYDRA_YELLOW;
 
-/// Cyan/Blue — Read / Search / Query.
-pub const DOT_COLOR_READ: (u8, u8, u8) = (106, 184, 212);
+/// Cyan — Read / Search / Query.
+pub const DOT_COLOR_READ: (u8, u8, u8) = HYDRA_CYAN;
 
 /// Purple — Memory / Belief / Cognitive.
-pub const DOT_COLOR_COGNITIVE: (u8, u8, u8) = (138, 106, 191);
+pub const DOT_COLOR_COGNITIVE: (u8, u8, u8) = HYDRA_PURPLE;
 
 /// Orange — Companion / Background.
-pub const DOT_COLOR_COMPANION: (u8, u8, u8) = (200, 112, 74);
+pub const DOT_COLOR_COMPANION: (u8, u8, u8) = HYDRA_ORANGE;
 
 /// All 7 dot colors in order, for iteration.
 pub const ALL_DOT_COLORS: [(u8, u8, u8); 7] = [
@@ -164,25 +192,35 @@ pub const STATUS_BAR_BG: (u8, u8, u8) = (30, 30, 46);
 pub const STATUS_BAR_FG: (u8, u8, u8) = (205, 214, 244);
 
 /// Input box border color when focused.
-pub const INPUT_BORDER_FOCUSED: (u8, u8, u8) = (137, 180, 250);
+pub const INPUT_BORDER_FOCUSED: (u8, u8, u8) = HYDRA_BLUE;
 
 /// Input box border color when unfocused.
-pub const INPUT_BORDER_UNFOCUSED: (u8, u8, u8) = (88, 91, 112);
+pub const INPUT_BORDER_UNFOCUSED: (u8, u8, u8) = HYDRA_DIM;
 
 /// Welcome screen accent color.
-pub const WELCOME_ACCENT: (u8, u8, u8) = (203, 166, 247);
+pub const WELCOME_ACCENT: (u8, u8, u8) = HYDRA_CYAN;
 
 /// Stream area background color.
 pub const STREAM_BG: (u8, u8, u8) = (24, 24, 37);
 
 /// User message color.
-pub const USER_MESSAGE_COLOR: (u8, u8, u8) = (166, 227, 161);
+pub const USER_MESSAGE_COLOR: (u8, u8, u8) = HYDRA_BLUE;
 
 /// Assistant text color.
-pub const ASSISTANT_TEXT_COLOR: (u8, u8, u8) = (205, 214, 244);
+pub const ASSISTANT_TEXT_COLOR: (u8, u8, u8) = HYDRA_BLUE;
 
 /// System notification color.
-pub const SYSTEM_NOTIFICATION_COLOR: (u8, u8, u8) = (249, 226, 175);
+pub const SYSTEM_NOTIFICATION_COLOR: (u8, u8, u8) = HYDRA_YELLOW;
+
+/// 6 thinking cycling colors for Go-style spinner.
+pub const THINK_CYCLE_COLORS: [(u8, u8, u8); 6] = [
+    HYDRA_BLUE,
+    HYDRA_GREEN,
+    HYDRA_PURPLE,
+    HYDRA_ORANGE,
+    HYDRA_CYAN,
+    HYDRA_YELLOW,
+];
 
 // ---------------------------------------------------------------------------
 // Spinner frames — Hydra-themed (from HYDRA-THINKING-VERBS.md)

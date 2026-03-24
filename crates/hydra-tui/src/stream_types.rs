@@ -164,6 +164,28 @@ pub enum StreamItem {
         timestamp: DateTime<Utc>,
     },
 
+    /// Compact "Thought for Xs" pill shown after a response completes.
+    ThinkingPill {
+        /// How long the thinking took.
+        duration_secs: f64,
+    },
+
+    /// A step from a computer-use agent (browser or desktop).
+    AgentStep {
+        /// Unique ID for this item.
+        id: Uuid,
+        /// Step number in the task.
+        step_number: u32,
+        /// Action taken (e.g., "click: #submit-btn").
+        action: String,
+        /// Observation after the action.
+        observation: String,
+        /// Whether the overall task is done.
+        is_complete: bool,
+        /// When the step occurred.
+        timestamp: DateTime<Utc>,
+    },
+
     /// A blank line separator.
     Blank,
 }
@@ -181,8 +203,9 @@ impl StreamItem {
             | Self::CompanionTask { id, .. }
             | Self::BriefingItem { id, .. }
             | Self::DreamNotification { id, .. }
-            | Self::SystemNotification { id, .. } => Some(*id),
-            Self::Blank => None,
+            | Self::SystemNotification { id, .. }
+            | Self::AgentStep { id, .. } => Some(*id),
+            Self::ThinkingPill { .. } | Self::Blank => None,
         }
     }
 
@@ -199,6 +222,8 @@ impl StreamItem {
             Self::BriefingItem { .. } => "briefing",
             Self::DreamNotification { .. } => "dream",
             Self::SystemNotification { .. } => "system",
+            Self::AgentStep { .. } => "agent-step",
+            Self::ThinkingPill { .. } => "thinking-pill",
             Self::Blank => "blank",
         }
     }

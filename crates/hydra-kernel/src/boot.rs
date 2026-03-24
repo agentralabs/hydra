@@ -182,8 +182,8 @@ fn tui_ready() -> Result<(), String> {
         device.name, device.surface_class, has_mic, has_tts
     );
 
-    // Subsystem validation
-    let _swarm = hydra_swarm::EmergenceStore::new();
+    // Subsystem validation (swarm now wired into signals middleware)
+    let _swarm_check = hydra_swarm::Swarm::new(hydra_fleet::FleetRegistry::new());
     // reach-extended now lives in ambient loop (persistent connectivity tracker)
     let _transform = hydra_transform::TransformEngine::new();
     let _protocol = hydra_protocol::ProtocolEngine::new();

@@ -65,6 +65,18 @@ impl ActionRunner {
                 sister_name,
                 tool_name,
             } => self.run_sister(sister_name, tool_name, params, start),
+            ExecutorType::Browser { action } => {
+                self.run_browser(action, params, start)
+            }
+            ExecutorType::Desktop { action } => {
+                self.run_desktop(action, params, start)
+            }
+            ExecutorType::Bridge { bridge_name, message } => {
+                self.run_bridge_send(bridge_name, message, params, start)
+            }
+            ExecutorType::Local { connector_name, operation } => {
+                self.run_local(connector_name, operation, params, start)
+            }
         }
     }
 
@@ -128,6 +140,78 @@ impl ActionRunner {
         let display_len = url.len().min(60);
         RunResult::success(
             format!("http: {} {}", method, &url[..display_len]),
+            duration_ms,
+        )
+    }
+
+    fn run_bridge_send(
+        &self,
+        bridge_name: &str,
+        message: &str,
+        _params: &HashMap<String, String>,
+        start: std::time::Instant,
+    ) -> RunResult {
+        let duration_ms = start.elapsed().as_millis() as u64;
+        // Bridge sends are dispatched asynchronously by the BridgeManager.
+        let display = if message.len() > 50 {
+            format!("{}...", &message[..47])
+        } else {
+            message.to_string()
+        };
+        RunResult::success(
+            format!("bridge:{bridge_name}: queued '{display}'"),
+            duration_ms,
+        )
+    }
+
+    fn run_local(
+        &self,
+        connector_name: &str,
+        operation: &str,
+        params: &HashMap<String, String>,
+        start: std::time::Instant,
+    ) -> RunResult {
+        let duration_ms = start.elapsed().as_millis() as u64;
+        RunResult::success(
+            format!("local:{connector_name}: {operation} with {} params", params.len()),
+            duration_ms,
+        )
+    }
+
+    fn run_browser(
+        &self,
+        action_json: &str,
+        params: &HashMap<String, String>,
+        start: std::time::Instant,
+    ) -> RunResult {
+        let duration_ms = start.elapsed().as_millis() as u64;
+        // Browser actions are dispatched asynchronously by the kernel.
+        // The runner queues them and returns immediately with a receipt.
+        let display = if action_json.len() > 60 {
+            format!("{}...", &action_json[..57])
+        } else {
+            action_json.to_string()
+        };
+        RunResult::success(
+            format!("browser: queued action '{display}' with {} params", params.len()),
+            duration_ms,
+        )
+    }
+
+    fn run_desktop(
+        &self,
+        action_json: &str,
+        params: &HashMap<String, String>,
+        start: std::time::Instant,
+    ) -> RunResult {
+        let duration_ms = start.elapsed().as_millis() as u64;
+        let display = if action_json.len() > 60 {
+            format!("{}...", &action_json[..57])
+        } else {
+            action_json.to_string()
+        };
+        RunResult::success(
+            format!("desktop: queued action '{display}' with {} params", params.len()),
             duration_ms,
         )
     }

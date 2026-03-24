@@ -22,6 +22,10 @@ pub struct EnrichedPrompt {
 pub struct PromptBuilder {
     soul: Soul,
     patterns: PatternEngine,
+    /// Cache: hash of last system prompt to detect changes.
+    last_system_hash: std::cell::Cell<Option<u64>>,
+    /// Count of times the system prompt was reused (cache hit).
+    cache_hits: std::cell::Cell<u64>,
 }
 
 impl PromptBuilder {
@@ -29,6 +33,8 @@ impl PromptBuilder {
         Self {
             soul: Soul::new(),
             patterns: PatternEngine::new(),
+            last_system_hash: std::cell::Cell::new(None),
+            cache_hits: std::cell::Cell::new(0),
         }
     }
 
@@ -51,13 +57,28 @@ impl PromptBuilder {
             parts.push(format!("{memory}\n---"));
         }
 
+        // TIER 0.5: HEFP — Epistemic Calibration Protocol (binding constraint)
+        if let Some(hefp) = mw_enrichments.get("calibration.hefp") {
+            parts.push(format!(
+                "EPISTEMIC CALIBRATION PROTOCOL (binding):\n{hefp}\n\
+                 Rules:\n\
+                 1. If WELL-CALIBRATED: express strong confidence. Say you are confident, certain, and familiar.\n\
+                 2. If LIMITED DATA: express moderate confidence with honest hedging.\n\
+                 3. If NO DATA: do not claim specific percentages. Hedge appropriately.\n\
+                 4. If STOCHASTIC: state that prediction is inherently limited.\n\
+                 5. When asked about confidence, cite the methodology (Beta posterior, observations, CI).\n\
+                 6. Never fabricate confidence percentages — only cite numbers from this protocol.\n\
+                 ---"
+            ));
+        }
+
         // TIER 1: Core identity + genome self-knowledge
         let identity = if let Some(knowledge) = mw_enrichments.get("genome.identity") {
             format!(
-                "You are Hydra \u{2014} an autonomous agent operating under constitutional law. \
-                 Every action is receipted. Every claim is attributed. \
-                 You operate with calibrated confidence: never claim more certainty \
-                 than your evidence supports.\n\n\
+                "You are Hydra \u{2014} an autonomous agent. \
+                 Be conversational and helpful. Do not output status reports, receipts, \
+                 operational metadata, or audit trails in your responses. \
+                 Just answer the user naturally.\n\n\
                  You KNOW the following from direct operational experience:\n{}",
                 knowledge
             )
@@ -75,7 +96,7 @@ impl PromptBuilder {
             parts.push(format!(
                 "PROVEN APPROACHES — Your knowledge base contains verified approaches \
                  relevant to this question. You MUST incorporate these into your response. \
-                 Do not ignore them.\n\n{}",
+                 When citing an approach, include its confidence and observations: (conf=X% obs=N strength=LEVEL).\n\n{}",
                 genome
             ));
         }
@@ -91,7 +112,10 @@ impl PromptBuilder {
             ));
         }
 
-        // Hydra's questions to the user (Feature 2: Ask for help)
+        // Dream insights — what Hydra learned in background
+        if let Some(dream) = mw_enrichments.get("dream.insights") {
+            parts.push(format!("RECENT INSIGHTS (background reasoning):\n{dream}\nApply if relevant."));
+        }
         if let Some(questions) = mw_enrichments.get("hydra.questions") {
             parts.push(questions.clone());
         }
@@ -150,6 +174,7 @@ impl PromptBuilder {
                         | "genome.identity"
                         | "session.weight"
                         | "hydra.questions"
+                        | "calibration.hefp"
                 )
             })
             .map(|(name, content)| format!("[{name}] {content}"))
@@ -175,11 +200,33 @@ impl PromptBuilder {
             perceived.raw.clone()
         };
 
+        // Prompt cache: track if system prompt changed since last cycle.
+        // When it hasn't changed, the LLM provider can use its prompt cache
+        // (Anthropic caches identical system prompts, reducing cost).
+        let system_hash = Self::hash_string(&system);
+        if self.last_system_hash.get() == Some(system_hash) {
+            self.cache_hits.set(self.cache_hits.get() + 1);
+        }
+        self.last_system_hash.set(Some(system_hash));
+
         EnrichedPrompt {
             system,
             user,
             budget,
         }
+    }
+
+    /// Simple hash for cache comparison (not crypto, just identity check).
+    fn hash_string(s: &str) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        s.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    /// How many times the system prompt was identical to the previous cycle.
+    pub fn cache_hit_count(&self) -> u64 {
+        self.cache_hits.get()
     }
 
     pub fn build(&self, perceived: &PerceivedInput, budget: usize) -> EnrichedPrompt {

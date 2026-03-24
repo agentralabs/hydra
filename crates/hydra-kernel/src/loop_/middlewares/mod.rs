@@ -3,6 +3,9 @@
 //! Each middleware hooks into the 5-point pipeline:
 //! post_perceive -> post_route -> enrich_prompt -> post_llm -> post_deliver
 
+pub mod browser;
+pub mod consent;
+pub mod federation;
 pub mod growth;
 pub mod intelligence;
 pub mod memory;
@@ -28,8 +31,14 @@ pub fn build_chain() -> MiddlewareChain {
         Box::new(growth::GrowthMiddleware::new()),
         // Wave 5: Execution
         Box::new(scheduler::SchedulerMiddleware::new()),
+        // Wave 6: Browser/IO awareness
+        Box::new(browser::BrowserMiddleware::new()),
         // Wave 7: Settlement
         Box::new(settlement::SettlementMiddleware::new()),
+        // Wave 8: Federation
+        Box::new(federation::FederationMiddleware::new()),
+        // Wave 9: Consent
+        Box::new(consent::ConsentMiddleware::new()),
     ];
 
     MiddlewareChain::new(middlewares)
@@ -42,7 +51,7 @@ mod tests {
     #[test]
     fn build_chain_creates_all_middlewares() {
         let chain = build_chain();
-        assert_eq!(chain.len(), 8);
+        assert_eq!(chain.len(), 11);
     }
 
     #[test]

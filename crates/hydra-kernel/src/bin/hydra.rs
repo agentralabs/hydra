@@ -32,12 +32,36 @@ async fn main() {
 
     let args: Vec<String> = std::env::args().skip(1).collect();
 
+    // First-run wizard
+    if hydra_kernel::first_run::is_first_run() && !hydra_kernel::first_run::run_wizard() {
+        eprintln!("Setup cancelled.");
+        std::process::exit(0);
+    }
+
     eprintln!("Hydra — Agentra Labs");
     eprintln!(
         "Provider: {}",
         std::env::var("HYDRA_LLM_PROVIDER").unwrap_or_else(|_| "anthropic".into())
     );
     eprintln!("---");
+
+    // Update command
+    if args.first().map(|s| s.as_str()) == Some("--update") {
+        check_for_update();
+        return;
+    }
+
+    // Backup command
+    if args.first().map(|s| s.as_str()) == Some("--backup") {
+        match hydra_kernel::backup::create_backup() {
+            Ok(r) => {
+                println!("Backup created: {} ({} files)", r.path.display(), r.files_copied);
+                hydra_kernel::backup::prune_old_backups(30);
+            }
+            Err(e) => eprintln!("Backup failed: {e}"),
+        }
+        return;
+    }
 
     // Daemon mode — always on, runs all three loops
     if args.first().map(|s| s.as_str()) == Some("--daemon") {
@@ -125,6 +149,17 @@ async fn run_daemon() {
     eprintln!("hydra: daemon alive — ambient=100ms dream=500ms");
     eprintln!("hydra: genome={} entries, self-writing enabled", dream.genome.len());
 
+    // Start HTTP API server on background task
+    let api_port = std::env::var("HYDRA_API_PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(hydra_kernel::http_api::DEFAULT_PORT);
+    tokio::spawn(async move {
+        if let Err(e) = hydra_kernel::http_api::start_server(api_port).await {
+            eprintln!("hydra: HTTP API error: {e}");
+        }
+    });
+
     // The alive loop — runs until the process is killed
     loop {
         // Ambient tick
@@ -148,5 +183,56 @@ async fn run_daemon() {
         }
 
         tokio::time::sleep(ambient_interval).await;
+    }
+}
+
+/// Check GitHub for the latest release and offer to update.
+fn check_for_update() {
+    println!("Checking for updates...");
+
+    let client = match reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .user_agent("hydra-update/0.1")
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("HTTP client error: {e}");
+            return;
+        }
+    };
+
+    let url = "https://api.github.com/repos/agentralabs/hydra/releases/latest";
+    match client.get(url).send() {
+        Ok(resp) if resp.status().is_success() => {
+            if let Ok(body) = resp.text() {
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
+                    let tag = json
+                        .get("tag_name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown");
+                    let current = env!("CARGO_PKG_VERSION");
+                    println!("Current version: v{current}");
+                    println!("Latest release:  {tag}");
+
+                    if tag.trim_start_matches('v') == current {
+                        println!("You are up to date.");
+                    } else {
+                        println!("Update available!");
+                        println!(
+                            "Download: https://github.com/agentralabs/hydra/releases/tag/{tag}"
+                        );
+                        println!("Or run: bash scripts/install.sh");
+                    }
+                }
+            }
+        }
+        Ok(resp) => {
+            eprintln!("GitHub API returned: {}", resp.status());
+        }
+        Err(e) => {
+            eprintln!("Network error: {e}");
+            eprintln!("Check your internet connection.");
+        }
     }
 }

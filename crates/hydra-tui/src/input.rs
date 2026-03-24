@@ -1,7 +1,7 @@
 //! Input box — text entry with cursor, history, yank, and word movement.
 
-/// Maximum number of inputs stored in history.
 const MAX_HISTORY: usize = 100;
+const MAX_INPUT_LENGTH: usize = 10_000;
 
 use crate::input_search::SearchState;
 
@@ -55,6 +55,7 @@ impl InputBox {
 
     /// Insert a character at the cursor position.
     pub fn insert(&mut self, ch: char) {
+        if self.buffer.len() >= MAX_INPUT_LENGTH { return; }
         self.buffer.insert(self.cursor, ch);
         self.cursor += ch.len_utf8();
     }

@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  hydra:
+    build: .
+    ports:
+      - "3141:3141"
+    volumes:
+      - hydra-data:/root/.hydra
+      - ./skills:/opt/hydra/skills:ro
+      - ./vault:/opt/hydra/vault:ro
+      - ./integrations:/opt/hydra/integrations:ro
+    environment:
+      - HYDRA_LLM_PROVIDER=${HYDRA_LLM_PROVIDER:-ollama}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    restart: unless-stopped
+
+volumes:
+  hydra-data:

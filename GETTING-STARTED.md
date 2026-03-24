@@ -1,161 +1,166 @@
 # Getting Started with Hydra
 
-## 3 Minutes to First Response
+## First-Time Setup
+
+### Option 1: Install Script (recommended)
+```bash
+git clone git@github.com:agentralabs/hydra.git && cd hydra
+bash scripts/install.sh
+```
+
+### Option 2: Docker
+```bash
+git clone git@github.com:agentralabs/hydra.git && cd hydra
+cp .env.example .env   # add your API key
+docker compose up -d
+```
+
+### Option 3: Manual Build
+```bash
+git clone git@github.com:agentralabs/hydra.git && cd hydra
+cargo build --release -p hydra-kernel -p hydra-tui
+```
+
+## Choose Your LLM Provider
+
+| Provider | Env Variable | Model |
+|----------|-------------|-------|
+| Anthropic (default) | `ANTHROPIC_API_KEY` | claude-sonnet-4-20250514 |
+| OpenAI | `OPENAI_API_KEY` | gpt-4o |
+| Google Gemini | `GOOGLE_API_KEY` | gemini-pro |
+| Ollama (local) | None needed | llama3 (or any local model) |
+
+Set in `.env` or as environment variable:
+```bash
+export ANTHROPIC_API_KEY=sk-ant-your-key-here
+export HYDRA_LLM_PROVIDER=anthropic
+```
+
+Override per-session with `HYDRA_*` env vars:
+```bash
+HYDRA_LLM_PROVIDER=ollama HYDRA_THEME=light hydra-tui
+```
+
+## First Run
+
+On first boot with no `~/.hydra` directory, Hydra runs a setup wizard:
+```
+Welcome to Hydra.
+
+LLM provider [anthropic/openai/ollama/gemini] (default: anthropic):
+API key: sk-ant-...
+
+Setup complete!
+```
+
+## Three Ways to Run
+
+### TUI Cockpit (interactive)
+```bash
+hydra-tui
+```
+
+### Single-Shot (one question)
+```bash
+hydra "what is the circuit breaker pattern?"
+```
+
+### Daemon (always-on, background)
+```bash
+hydra --daemon
+```
+Daemon starts HTTP API on port 3141 and runs all three loops.
+
+## Key TUI Commands
+
+| Command | What It Does |
+|---------|-------------|
+| `/help` | Full command list |
+| `/genome domains` | Per-domain genome stats |
+| `/metrics` | System metrics dashboard |
+| `/backup` | Create backup |
+| `/backup list` | List backups |
+| `/skill install <url>` | Install skill from URL |
+| `/settings` | View/change settings |
+| `/voice setup` | Set up voice (downloads whisper) |
+
+**Multi-line input:** `Shift+Enter` or `Alt+Enter`
+
+## Add a Skill
 
 ```bash
-# 1. Clone
-git clone git@github.com:agentralabs/hydra.git
-cd hydra
-
-# 2. Set your LLM key
-cp .env.example .env
-# Edit .env and add your ANTHROPIC_API_KEY
-
-# 3. Build and run
-cargo build --release -p hydra-kernel --bin hydra
-cargo run --release -p hydra-kernel --bin hydra -- "what is the circuit breaker pattern?"
-```
-
-That is it. Hydra responds with genome-enriched knowledge from 278 proven approaches.
-
----
-
-## Interactive Mode
-
-```bash
-cargo run --release -p hydra-kernel --bin hydra -- --interactive
-```
-
-```
-you > what is the best approach to error handling?
-hydra > Based on my operational experience (conf=92%, 30000 observations):
-        match the codebase's existing error handling pattern...
-
-you > /status
-cognitive-loop: genome=278 soul=[ready] audit=[47 records] middlewares=8
-
-you > exit
-```
-
----
-
-## TUI Cockpit
-
-```bash
-cargo run --release -p hydra-tui --bin hydra_tui
-```
-
-Full terminal interface with welcome screen, conversation stream, thinking verb animation, and status bar. Ctrl+C to exit cleanly.
-
----
-
-## Always-On Daemon
-
-```bash
-# Install and start (detects macOS or Linux automatically)
-bash scripts/install-daemon-universal.sh
-
-# Check status
-bash scripts/install-daemon-universal.sh status
-
-# Hydra is now always running.
-# Open the TUI to connect to it anytime.
-```
-
----
-
-## Teach Hydra Your Domain
-
-Drop a folder in `skills/` with a `genome.toml`:
-
-```bash
-mkdir skills/your-domain
-
-cat > skills/your-domain/genome.toml << 'EOF'
+mkdir skills/my-domain
+cat > skills/my-domain/genome.toml << 'EOF'
 [[entries]]
-situation    = "describe when this approach applies"
-approach     = "describe the proven approach in detail"
+situation    = "customer asks about refund policy"
+approach     = "empathize first, explain 30-day window, offer store credit past 30 days"
 confidence   = 0.90
-observations = 1000
+observations = 500
 EOF
 ```
 
-Restart Hydra. It loads your skill automatically. No code. No compilation.
+Restart Hydra. Skill loaded.
 
-See `skills/SKILL-FORMAT.md` for the complete guide including design systems, operations manuals, and glossaries.
+## Connect a Service
 
----
+Three connector types — all just TOML files:
 
-## Connect Hydra to Any API
+| Type | File | Example |
+|------|------|---------|
+| API | `api.toml` | GitHub, Weather, YouTube |
+| Bridge | `bridge.toml` + `bridge.js` | Telegram, Discord, WhatsApp, Slack |
+| Local | `local.toml` | Obsidian, Philips Hue, iMessage |
 
-Drop a folder in `integrations/` with an `api.toml`:
+See [integrations/README.md](integrations/README.md) for formats.
+
+## Backup & Restore
 
 ```bash
-mkdir integrations/your-service
-
-cat > integrations/your-service/api.toml << 'EOF'
-[integration]
-name     = "your-service"
-base_url = "https://api.example.com/v1"
-auth_type = "bearer"
-
-[[capabilities.read]]
-name     = "status"
-endpoint = "/status"
-method   = "GET"
-EOF
+/backup                          # create backup (TUI)
+/backup list                     # list backups
+/backup restore 2026-03-22       # restore from date
+hydra --backup                   # create backup (CLI)
 ```
 
-Add credentials to `vault/your-service.toml`. Restart Hydra.
-
----
-
-## What Hydra Has Out of the Box
-
-```
-278 genome entries across 28 skills:
-  Engineering: architecture, devops, security, coding, debugging
-  Science: mathematics, physics, chemistry, biology
-  Business: finance (26 entries), business, management, legal
-  Content: content-creation (38 entries), video (10 entries)
-  Developer: git mastery, system design, production ops, career growth
-  Human: communication, productivity, learning, health
-
-83 indexed knowledge sources (Rust docs, AWS, Wikipedia, etc.)
-5 integrations ready (web search, GitHub, Wikipedia, YouTube, weather)
-8 actions (alerts, video, carousel, social posts, scheduled tasks)
+Enable encrypted backups:
+```bash
+export HYDRA_VAULT_PASSPHRASE=your-secret-passphrase
+/backup    # now encrypted with AES-256-GCM
 ```
 
----
+## Voice
 
-## Key Files
+```bash
+/voice setup    # downloads whisper model (~142MB)
+/voice test     # speak test phrase
+# Ctrl+V to speak, Ctrl+C to interrupt
+```
 
-| File | What It Is |
-|------|-----------|
-| `catalogue/README.md` | Complete capability documentation (25 documents) |
-| `skills/SKILL-FORMAT.md` | How to create skills for any domain |
-| `HYDRA-ASTRAL-MATHEMATICS.md` | The roadmap from 8.1 to 9.9 |
-| `vault/EXAMPLE.toml` | How to store credentials securely |
+## Update
 
----
+```bash
+hydra --update            # check for latest release
+bash scripts/install.sh   # rebuild from source
+```
 
-## Architecture at a Glance
+## Data Location
 
 ```
-68 crates. 82,000+ lines of Rust. 7 layers.
+~/.hydra/
+├── data/hydra.amem       # 20-year memory
+├── data/genome.db        # genome knowledge
+├── data/audit.db         # execution trail
+├── backups/              # automated backups
+├── config.toml           # settings
+└── .env                  # provider config
+```
 
-Three concurrent loops:
-  ACTIVE:  responds to your input
-  AMBIENT: checks health 10x/second
-  DREAM:   learns while idle, writes its own genome
+## For Developers
 
-Seven constitutional laws:
-  Every action receipted. Every claim attributed.
-  Memory sovereign. Identity unforgeable.
+See [CLAUDE.md](CLAUDE.md) for the 8 Implementation Laws and development rules.
 
-Self-repair on every boot.
-Self-knowledge from introspection.
-Self-writing genome from experience.
-
-The entity that never stops learning.
+```bash
+bash scripts/e2e-test.sh                               # 21 E2E tests
+cargo run -p hydra-harness --bin harness -- --hours 1  # 62 structural tests
+cargo clippy --workspace -- -D warnings                # zero warnings
 ```

@@ -24,9 +24,12 @@ impl Perceiver {
     /// Run full Layer 2 pipeline. Always returns a PerceivedInput.
     /// If any stage fails, it degrades gracefully.
     pub fn perceive(&mut self, raw: &str, genome: &GenomeStore) -> PerceivedInput {
+        // Stage 0: Input sanitization — strip control chars, log injection patterns
+        let sanitized = sanitize_input(raw);
+
         // Stage 1: Comprehension
         let engine = ComprehensionEngine::new();
-        let comprehended = match engine.comprehend(raw, InputSource::PrincipalText, genome) {
+        let comprehended = match engine.comprehend(&sanitized, InputSource::PrincipalText, genome) {
             Ok(c) => c,
             Err(e) => {
                 tracing::debug!("comprehension failed: {:?}", e);
@@ -117,4 +120,42 @@ impl Default for Perceiver {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Sanitize input: strip control characters (keep \n \t), log injection patterns.
+fn sanitize_input(raw: &str) -> String {
+    let mut removed = 0usize;
+    let sanitized: String = raw
+        .chars()
+        .filter(|c| {
+            if c.is_control() && *c != '\n' && *c != '\t' {
+                removed += 1;
+                false
+            } else {
+                true
+            }
+        })
+        .collect();
+
+    if removed > 0 {
+        eprintln!("hydra: sanitized input ({removed} control chars removed)");
+    }
+
+    // Log potential prompt injection patterns (don't block, just log)
+    let lower = sanitized.to_lowercase();
+    let injection_patterns = [
+        "ignore previous instructions",
+        "system prompt:",
+        "\n\nhuman:",
+        "\n\nassistant:",
+        "you are now",
+        "new instructions:",
+    ];
+    for pattern in &injection_patterns {
+        if lower.contains(pattern) {
+            eprintln!("hydra: potential prompt injection detected: '{pattern}'");
+        }
+    }
+
+    sanitized
 }

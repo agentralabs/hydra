@@ -1,0 +1,25 @@
+[package]
+name = "hydra-semantic-nav"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Semantic Affordance Navigation — DOM-based intent matching, zero vision tokens."
+
+[dependencies]
+hydra-browser      = { path = "../hydra-browser" }
+hydra-constitution = { path = "../hydra-constitution" }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+dirs = { workspace = true }
+
+[[bin]]
+name = "nav_test"
+path = "src/bin/nav_test.rs"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }

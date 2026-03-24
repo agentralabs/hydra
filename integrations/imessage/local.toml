@@ -1,0 +1,34 @@
+[integration]
+name        = "imessage"
+description = "Send iMessages via AppleScript (macOS only)"
+type        = "local"
+
+[local]
+access_method = "applescript"
+
+[local.applescript]
+app_name = "Messages"
+
+[local.applescript.scripts]
+send = '''
+tell application "Messages"
+    set targetService to 1st account whose service type = iMessage
+    set targetBuddy to participant "{recipient}" of targetService
+    send "{message}" to targetBuddy
+end tell
+'''
+list_chats = '''
+tell application "Messages"
+    set chatList to ""
+    repeat with c in chats
+        set chatList to chatList & name of c & linefeed
+    end repeat
+    return chatList
+end tell
+'''
+
+[local.capabilities]
+read   = true
+write  = true
+create = false
+delete = false

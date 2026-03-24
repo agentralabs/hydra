@@ -8,16 +8,20 @@ use std::collections::HashMap;
 use hydra_antifragile::{AntifragileStore, ObstacleClass};
 use hydra_automation::{AutomationEngine, ExecutionObservation};
 use hydra_cartography::{CartographyAtlas, SystemClass, SystemProfile};
+use hydra_environment::EnvironmentEngine;
 use hydra_plastic::{ExecutionMode, PlasticityTensor};
+use hydra_skills::SkillRegistry;
 
 use crate::loop_::middleware::CycleMiddleware;
-use crate::loop_::types::CycleResult;
+use crate::loop_::types::{CycleResult, PerceivedInput};
 
 pub struct GrowthMiddleware {
     automation: AutomationEngine,
     atlas: CartographyAtlas,
     antifragile: AntifragileStore,
     plasticity: PlasticityTensor,
+    environment: EnvironmentEngine,
+    skills: SkillRegistry,
 }
 
 impl GrowthMiddleware {
@@ -27,6 +31,8 @@ impl GrowthMiddleware {
             atlas: CartographyAtlas::new(),
             antifragile: AntifragileStore::new(),
             plasticity: PlasticityTensor::new(),
+            environment: EnvironmentEngine::new(),
+            skills: SkillRegistry::new(),
         }
     }
 }
@@ -34,6 +40,17 @@ impl GrowthMiddleware {
 impl CycleMiddleware for GrowthMiddleware {
     fn name(&self) -> &'static str {
         "growth"
+    }
+
+    fn enrich_prompt(&self, _perceived: &PerceivedInput) -> Vec<String> {
+        let mut enrichments = Vec::new();
+        let os = hydra_environment::OsType::detect();
+        enrichments.push(format!("Environment: {}", os.label()));
+        let skill_count = self.skills.loaded_count();
+        if skill_count > 0 {
+            enrichments.push(format!("Skills loaded: {skill_count}"));
+        }
+        enrichments
     }
 
     fn post_deliver(&mut self, cycle: &CycleResult) {

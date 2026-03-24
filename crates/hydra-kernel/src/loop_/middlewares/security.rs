@@ -4,6 +4,7 @@
 //! Non-blocking: errors are logged, never stop the pipeline.
 
 use hydra_adversary::{ImmuneSystem, ThreatClass, ThreatSignal};
+use hydra_redteam::RedTeamEngine;
 use hydra_trust::{HamiltonianState, TrustField, TrustPhase};
 
 use crate::loop_::middleware::CycleMiddleware;
@@ -12,6 +13,7 @@ use crate::loop_::types::{CycleResult, PerceivedInput};
 pub struct SecurityMiddleware {
     trust: TrustField,
     immune: ImmuneSystem,
+    redteam: RedTeamEngine,
     threats_blocked: usize,
 }
 
@@ -20,6 +22,7 @@ impl SecurityMiddleware {
         Self {
             trust: TrustField::new(),
             immune: ImmuneSystem::new(),
+            redteam: RedTeamEngine::new(),
             threats_blocked: 0,
         }
     }
@@ -57,18 +60,28 @@ impl CycleMiddleware for SecurityMiddleware {
                 eprintln!("hydra: security post_perceive: {e}");
             }
         }
+
+        // RedTeam pre-action threat assessment
+        if let Ok(scenario) = self.redteam.analyze(&perceived.raw, &perceived.comprehended.primitives) {
+            if scenario.go_no_go != hydra_redteam::GoNoGo::Go {
+                perceived.enrichments.insert(
+                    "security.redteam".into(),
+                    format!("{}: {} threats, {} surfaces", scenario.go_no_go.label(), scenario.threat_count(), scenario.surface_count()),
+                );
+            }
+        }
     }
 
-    fn enrich_prompt(&self, _perceived: &PerceivedInput) -> Vec<String> {
+    fn enrich_prompt(&self, perceived: &PerceivedInput) -> Vec<String> {
+        let mut items = Vec::new();
         let hamiltonian: HamiltonianState = self.trust.hamiltonian();
         if hamiltonian.phase != TrustPhase::Stable {
-            vec![format!(
+            items.push(format!(
                 "Trust status: {:?} (avg={:.2}, agents={})",
                 hamiltonian.phase, hamiltonian.average_trust, hamiltonian.agent_count
-            )]
-        } else {
-            Vec::new()
+            ));
         }
+        items
     }
 
     fn post_deliver(&mut self, _cycle: &CycleResult) {

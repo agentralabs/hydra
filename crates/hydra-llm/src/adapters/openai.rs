@@ -65,8 +65,11 @@ impl LlmAdapter for OpenAIAdapter {
                 reason: e.to_string(),
             })?;
 
-        let content = json["choices"][0]["message"]["content"]
-            .as_str()
+        let content = json.get("choices")
+            .and_then(|c| c.get(0))
+            .and_then(|v| v.get("message"))
+            .and_then(|m| m.get("content"))
+            .and_then(|t| t.as_str())
             .unwrap_or("")
             .to_string();
 
@@ -74,10 +77,8 @@ impl LlmAdapter for OpenAIAdapter {
             content,
             provider: "openai".into(),
             model: self.config.model.clone(),
-            input_tokens: json["usage"]["prompt_tokens"].as_u64().map(|v| v as u32),
-            output_tokens: json["usage"]["completion_tokens"]
-                .as_u64()
-                .map(|v| v as u32),
+            input_tokens: json["usage"]["prompt_tokens"].as_u64().map(|v| v.min(u32::MAX as u64) as u32),
+            output_tokens: json["usage"]["completion_tokens"].as_u64().map(|v| v.min(u32::MAX as u64) as u32),
         })
     }
 

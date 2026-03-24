@@ -1,0 +1,24 @@
+[package]
+name = "hydra-web"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "World-class web access engine. Multi-engine search, content extraction, learning cache."
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+reqwest = { version = "0.12", features = ["blocking", "json"] }
+chrono = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+dirs = { workspace = true }
+
+[[bin]]
+name = "web_test"
+path = "src/bin/web_test.rs"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }

@@ -20,7 +20,7 @@ pub struct HydraConfig {
 /// TUI appearance and behavior settings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TuiConfig {
-    /// Theme: "dark" or "light".
+    /// Theme: "dark", "light", or "auto" (detect terminal background).
     #[serde(default = "default_theme")]
     pub theme: String,
     /// Whether to render markdown in responses.
@@ -59,7 +59,7 @@ pub struct CompanionConfig {
     pub autonomy: String,
 }
 
-fn default_theme() -> String { "dark".into() }
+fn default_theme() -> String { "auto".into() }
 fn default_true() -> bool { true }
 fn default_speed() -> f64 { 1.0 }
 fn default_history() -> usize { 100 }
@@ -99,23 +99,56 @@ impl Default for CompanionConfig {
 }
 
 impl HydraConfig {
-    /// Load config from ~/.hydra/config.toml, or return defaults.
+    /// Load config from ~/.hydra/config.toml, then apply HYDRA_* env overrides.
+    /// Priority: ENV > config.toml > defaults.
     pub fn load() -> Self {
         let path = config_path();
-        if path.exists() {
+        let mut config = if path.exists() {
             match std::fs::read_to_string(&path) {
                 Ok(contents) => match toml::from_str(&contents) {
-                    Ok(config) => return config,
+                    Ok(config) => config,
                     Err(e) => {
                         eprintln!("hydra: config parse error (using defaults): {e}");
+                        Self::default()
                     }
                 },
                 Err(e) => {
                     eprintln!("hydra: config read error (using defaults): {e}");
+                    Self::default()
                 }
             }
+        } else {
+            Self::default()
+        };
+        config.apply_env_overrides();
+        config
+    }
+
+    /// Apply HYDRA_* environment variable overrides.
+    fn apply_env_overrides(&mut self) {
+        if let Ok(val) = std::env::var("HYDRA_THEME") {
+            self.tui.theme = val;
         }
-        Self::default()
+        if let Ok(val) = std::env::var("HYDRA_MARKDOWN") {
+            self.tui.markdown = val != "0" && val.to_lowercase() != "false";
+        }
+        if let Ok(val) = std::env::var("HYDRA_STREAMING") {
+            self.tui.streaming = val != "0" && val.to_lowercase() != "false";
+        }
+        if let Ok(val) = std::env::var("HYDRA_PACER_SPEED") {
+            if let Ok(speed) = val.parse::<f64>() {
+                self.tui.pacer_speed = speed;
+            }
+        }
+        if let Ok(val) = std::env::var("HYDRA_VOICE_MODE") {
+            self.voice.mode = val;
+        }
+        if let Ok(val) = std::env::var("HYDRA_VOICE_ENABLED") {
+            self.voice.enabled = val != "0" && val.to_lowercase() != "false";
+        }
+        if let Ok(val) = std::env::var("HYDRA_COMPANION_AUTONOMY") {
+            self.companion.autonomy = val;
+        }
     }
 
     /// Save config to ~/.hydra/config.toml.
@@ -137,11 +170,11 @@ impl HydraConfig {
         match key {
             "theme" => {
                 match value {
-                    "dark" | "light" => {
+                    "dark" | "light" | "auto" => {
                         self.tui.theme = value.to_string();
                         Ok(format!("theme set to: {value}"))
                     }
-                    _ => Err("theme must be 'dark' or 'light'".into()),
+                    _ => Err("theme must be 'dark', 'light', or 'auto'".into()),
                 }
             }
             "markdown" => {
@@ -210,7 +243,7 @@ mod tests {
     #[test]
     fn default_config_is_valid() {
         let config = HydraConfig::default();
-        assert_eq!(config.tui.theme, "dark");
+        assert_eq!(config.tui.theme, "auto");
         assert!(config.tui.markdown);
         assert!(config.tui.streaming);
         assert_eq!(config.tui.pacer_speed, 1.0);

@@ -1,0 +1,21 @@
+[integration]
+name        = "philips-hue"
+description = "Control Philips Hue smart lights via local bridge"
+type        = "local"
+
+[local]
+access_method = "http_local"
+
+[local.http_local]
+base_url  = "http://192.168.1.100/api"
+discovery = "upnp"
+
+[local.capabilities]
+read   = true
+write  = true
+create = false
+delete = false
+
+[credentials]
+vault_service = "hue"
+auth_method   = "api_key"

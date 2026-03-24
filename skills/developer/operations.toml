@@ -1,0 +1,31 @@
+[[operation]]
+name = "create_react_app"
+trigger = "create a react app|new react project|scaffold react"
+confidence = 0.88
+
+[[operation.steps]]
+type = "shell"
+command = "npx create-react-app {{project_name}}"
+description = "Scaffold React project"
+
+[[operation.steps]]
+type = "shell"
+command = "cd {{project_name}} && npm install"
+description = "Install dependencies"
+long_running = true
+
+[[operation.steps]]
+type = "shell"
+command = "cd {{project_name}} && npm start &"
+description = "Start dev server"
+long_running = true
+
+[[operation.steps]]
+type = "verify"
+method = "http_status"
+url = "http://localhost:3000"
+[operation.steps.expect]
+status = 200
+
+[operation.params]
+project_name = { type = "string", default = "my-app", required = false, prompt = "Project name?" }

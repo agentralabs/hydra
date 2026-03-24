@@ -2,11 +2,14 @@
 //! Constitutional gating on every skill.
 //! Knowledge persists in genome even after unload.
 
+pub mod assumptions;
 pub mod constants;
 pub mod errors;
 pub mod gate;
 pub mod loader;
+pub mod operations;
 pub mod registry;
+pub mod rubric;
 pub mod skill;
 
 pub use errors::SkillError;

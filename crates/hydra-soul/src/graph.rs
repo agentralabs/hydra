@@ -67,9 +67,10 @@ impl MeaningGraph {
     pub fn orientation_vector(&self) -> Vec<&MeaningNode> {
         let mut sorted: Vec<&MeaningNode> = self.nodes.values().collect();
         sorted.sort_by(|a, b| {
-            b.weight
-                .partial_cmp(&a.weight)
-                .unwrap_or(std::cmp::Ordering::Equal)
+            b.weight.partial_cmp(&a.weight).unwrap_or_else(|| {
+                // NaN handling: NaN sorts to the end
+                if a.weight.is_nan() { std::cmp::Ordering::Greater } else { std::cmp::Ordering::Less }
+            })
         });
         sorted.truncate(ORIENTATION_VECTOR_K);
         sorted

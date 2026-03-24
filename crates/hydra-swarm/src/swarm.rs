@@ -1,5 +1,7 @@
 //! Swarm coordinator — ties consensus, emergence, and health together.
 
+use std::sync::{Arc, Mutex};
+
 use crate::consensus::{detect_consensus, AgentAnswer, ConsensusSignal};
 use crate::emergence::{EmergenceEntry, EmergenceStore};
 use crate::errors::SwarmError;
@@ -7,10 +9,9 @@ use crate::health::SwarmHealth;
 use hydra_fleet::{FleetAgentState, FleetRegistry};
 
 /// The swarm coordinator.
-#[derive(Debug)]
 pub struct Swarm {
-    /// The fleet registry this swarm monitors.
-    registry: FleetRegistry,
+    /// Shared fleet registry — can be shared with other subsystems.
+    registry: Arc<Mutex<FleetRegistry>>,
     /// Emergence store for recording emergent behaviors.
     emergence: EmergenceStore,
     /// Current Lyapunov delta for stability tracking.
@@ -18,8 +19,8 @@ pub struct Swarm {
 }
 
 impl Swarm {
-    /// Create a new swarm wrapping a fleet registry.
-    pub fn new(registry: FleetRegistry) -> Self {
+    /// Create a new swarm wrapping a shared fleet registry.
+    pub fn shared(registry: Arc<Mutex<FleetRegistry>>) -> Self {
         Self {
             registry,
             emergence: EmergenceStore::new(),
@@ -27,14 +28,19 @@ impl Swarm {
         }
     }
 
-    /// Return a mutable reference to the underlying fleet registry.
-    pub fn registry_mut(&mut self) -> &mut FleetRegistry {
-        &mut self.registry
+    /// Create a new swarm with its own fleet registry.
+    pub fn new(registry: FleetRegistry) -> Self {
+        Self::shared(Arc::new(Mutex::new(registry)))
     }
 
-    /// Return a reference to the underlying fleet registry.
-    pub fn registry(&self) -> &FleetRegistry {
-        &self.registry
+    /// Return a clone of the shared registry handle.
+    pub fn shared_registry(&self) -> Arc<Mutex<FleetRegistry>> {
+        self.registry.clone()
+    }
+
+    /// Access fleet agent count.
+    pub fn agent_count(&self) -> usize {
+        self.registry.lock().map(|r| r.agent_count()).unwrap_or(0)
     }
 
     /// Evaluate consensus among a set of agent answers.
@@ -68,7 +74,9 @@ impl Swarm {
 
     /// Compute the current swarm health.
     pub fn health(&self) -> SwarmHealth {
-        let states: Vec<FleetAgentState> = self.registry.agents().iter().map(|a| a.state).collect();
+        let states: Vec<FleetAgentState> = self.registry.lock()
+            .map(|r| r.agents().iter().map(|a| a.state).collect())
+            .unwrap_or_default();
         SwarmHealth::compute(&states, self.lyapunov)
     }
 
@@ -77,5 +85,14 @@ impl Swarm {
         let health = self.health();
         self.lyapunov = health.lyapunov_delta;
         self.lyapunov
+    }
+}
+
+impl std::fmt::Debug for Swarm {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Swarm")
+            .field("emergence_count", &self.emergence.count())
+            .field("lyapunov", &self.lyapunov)
+            .finish()
     }
 }

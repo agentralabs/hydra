@@ -22,4 +22,23 @@ pub enum ExecutorError {
 
     #[error("Shadow execution failed: {reason}")]
     ShadowFailed { reason: String },
+
+    #[error("Bridge '{name}' is not running")]
+    BridgeNotRunning { name: String },
+
+    #[error("Bridge '{name}' failed to start: {reason}")]
+    BridgeStartFailed { name: String, reason: String },
+
+    #[error("Bridge '{name}' send failed: {reason}")]
+    BridgeSendFailed { name: String, reason: String },
+
+    #[error("Local connector '{name}' operation '{operation}' failed: {reason}")]
+    LocalOperationFailed {
+        name: String,
+        operation: String,
+        reason: String,
+    },
+
+    #[error("Path traversal blocked: {path}")]
+    PathTraversalBlocked { path: String },
 }

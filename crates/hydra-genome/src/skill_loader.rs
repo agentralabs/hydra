@@ -112,11 +112,14 @@ fn load_genome_toml(
     let parsed: GenomeToml = toml::from_str(&content)
         .map_err(|e| format!("TOML parse error: {}", e))?;
 
-    let entries = parsed
-        .entries
-        .into_iter()
-        .map(|raw| toml_entry_to_genome(raw, skill_name))
-        .collect();
+    let mut entries = Vec::new();
+    for (i, raw) in parsed.entries.into_iter().enumerate() {
+        if let Err(e) = validate_genome_entry(&raw, skill_name, i) {
+            eprintln!("hydra: skill '{skill_name}' entry {i}: {e} (skipped)");
+            continue;
+        }
+        entries.push(toml_entry_to_genome(raw, skill_name));
+    }
     Ok(entries)
 }
 
@@ -157,6 +160,108 @@ fn toml_entry_to_genome(raw: GenomeTomlEntry, skill_name: &str) -> GenomeEntry {
     }
 
     entry
+}
+
+/// Validate a genome entry before converting. Returns Err with reason if invalid.
+fn validate_genome_entry(entry: &GenomeTomlEntry, _skill: &str, _index: usize) -> Result<(), String> {
+    if entry.situation.trim().is_empty() {
+        return Err("situation field is empty".into());
+    }
+    if entry.approach.trim().is_empty() {
+        return Err("approach field is empty".into());
+    }
+    if !(0.0..=1.0).contains(&entry.confidence) {
+        return Err(format!(
+            "confidence {} out of range [0.0, 1.0]",
+            entry.confidence
+        ));
+    }
+    Ok(())
+}
+
+/// Install a skill from a URL. Downloads to skills/<name>/ directory.
+/// Validates the genome.toml before accepting.
+pub fn install_from_url(url: &str) -> Result<String, String> {
+    // Extract skill name from URL (last path segment or query param)
+    let name = url
+        .rsplit('/')
+        .next()
+        .unwrap_or("unknown-skill")
+        .trim_end_matches(".tar.gz")
+        .trim_end_matches(".zip")
+        .trim_end_matches(".toml")
+        .to_string();
+
+    let skills_dir = find_skills_dir().ok_or("Cannot find skills/ directory")?;
+    let skill_dir = skills_dir.join(&name);
+
+    if skill_dir.exists() {
+        return Err(format!("Skill '{name}' already exists"));
+    }
+
+    // If URL points to a genome.toml directly, download just that file
+    if url.ends_with(".toml") {
+        std::fs::create_dir_all(&skill_dir)
+            .map_err(|e| format!("Cannot create skill dir: {e}"))?;
+
+        let output = std::process::Command::new("curl")
+            .args(["-sL", "-o", &skill_dir.join("genome.toml").to_string_lossy(), url])
+            .output()
+            .map_err(|e| format!("Download failed: {e}"))?;
+
+        if !output.status.success() {
+            let _ = std::fs::remove_dir_all(&skill_dir);
+            return Err(format!("Download failed: {}", String::from_utf8_lossy(&output.stderr)));
+        }
+    } else {
+        // For archives, download and extract
+        let tmp = std::env::temp_dir().join(format!("hydra-skill-{}", uuid::Uuid::new_v4()));
+        let output = std::process::Command::new("curl")
+            .args(["-sL", "-o", &tmp.to_string_lossy(), url])
+            .output()
+            .map_err(|e| format!("Download failed: {e}"))?;
+
+        if !output.status.success() {
+            return Err("Download failed".into());
+        }
+
+        std::fs::create_dir_all(&skill_dir)
+            .map_err(|e| format!("Cannot create skill dir: {e}"))?;
+
+        // Try tar extraction
+        let extract = std::process::Command::new("tar")
+            .args(["-xzf", &tmp.to_string_lossy(), "-C", &skill_dir.to_string_lossy()])
+            .output();
+
+        let _ = std::fs::remove_file(&tmp);
+
+        if extract.as_ref().map(|o| !o.status.success()).unwrap_or(true) {
+            let _ = std::fs::remove_dir_all(&skill_dir);
+            return Err("Extraction failed (expected .tar.gz)".into());
+        }
+    }
+
+    // Validate the downloaded genome.toml
+    let genome_path = skill_dir.join("genome.toml");
+    if !genome_path.exists() {
+        let _ = std::fs::remove_dir_all(&skill_dir);
+        return Err("Downloaded skill has no genome.toml".into());
+    }
+
+    match load_genome_toml(&genome_path, &name) {
+        Ok(entries) if entries.is_empty() => {
+            let _ = std::fs::remove_dir_all(&skill_dir);
+            Err("Skill has no valid genome entries".into())
+        }
+        Ok(entries) => {
+            eprintln!("hydra: installed skill '{name}' ({} entries)", entries.len());
+            Ok(name)
+        }
+        Err(e) => {
+            let _ = std::fs::remove_dir_all(&skill_dir);
+            Err(format!("Skill validation failed: {e}"))
+        }
+    }
 }
 
 #[cfg(test)]

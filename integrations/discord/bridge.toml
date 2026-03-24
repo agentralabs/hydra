@@ -1,0 +1,26 @@
+[integration]
+name        = "discord"
+description = "Discord messaging via Bot gateway"
+type        = "bridge"
+
+[bridge]
+runtime     = "node"
+entry       = "bridge.js"
+transport   = "stdio"
+auto_start  = true
+restart_on_crash = true
+health_check_interval_seconds = 60
+max_restart_attempts = 3
+
+[bridge.incoming]
+message_field = "text"
+sender_field  = "from"
+timestamp_field = "timestamp"
+
+[bridge.outgoing]
+message_field = "text"
+recipient_field = "channel_id"
+
+[credentials]
+vault_service = "discord"
+env_vars      = ["DISCORD_BOT_TOKEN"]
