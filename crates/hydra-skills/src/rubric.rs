@@ -51,6 +51,8 @@ pub enum CheckMethod {
     FilePattern { pattern: String },
     SemanticCheck { expected: String },
     GenomeRule { rule: String },
+    /// O13: Aesthetic evaluation against design rules for a category.
+    AestheticCheck { category: String },
 }
 
 /// Parse a quality rubric from TOML.
@@ -95,6 +97,7 @@ struct RawCheck {
     pattern: Option<String>,
     expected: Option<String>,
     rule: Option<String>,
+    category: Option<String>,
 }
 
 #[cfg(test)]

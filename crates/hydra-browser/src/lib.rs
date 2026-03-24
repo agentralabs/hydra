@@ -17,6 +17,7 @@ pub mod login;
 pub mod page;
 pub mod pool;
 pub mod session;
+pub mod style_extract;
 pub mod vision;
 pub mod warmup;
 

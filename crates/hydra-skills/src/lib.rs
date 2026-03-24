@@ -2,6 +2,7 @@
 //! Constitutional gating on every skill.
 //! Knowledge persists in genome even after unload.
 
+pub mod aesthetic;
 pub mod assumptions;
 pub mod constants;
 pub mod errors;
