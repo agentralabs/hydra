@@ -36,6 +36,8 @@ pub struct AmbientSubsystems {
     pub last_checkpoint_step: u64,
     /// Self-preservation: periodic data integrity verification (O23).
     pub integrity: crate::integrity::IntegrityMonitor,
+    /// Self-evolution: detect gaps and generate new skills (Session 25).
+    pub evolution: crate::evolution::EvolutionEngine,
 }
 
 impl AmbientSubsystems {
@@ -47,6 +49,7 @@ impl AmbientSubsystems {
             reach: hydra_reach_extended::ReachEngine::new(),
             last_checkpoint_step: 0,
             integrity: crate::integrity::IntegrityMonitor::new(),
+            evolution: crate::evolution::EvolutionEngine::new(),
         }
     }
 }
@@ -148,6 +151,15 @@ pub fn tick_with_subsystems(
             let report = subs.integrity.check();
             if !report.is_healthy() {
                 eprintln!("hydra: integrity issues detected: {}", report.summary());
+            }
+        }
+
+        // Self-evolution (Session 25): detect gaps and generate skills
+        if next_state.step_count % 10000 == 0 && next_state.step_count > 0 {
+            let mut genome = hydra_genome::GenomeStore::open();
+            let result = subs.evolution.tick(&mut genome);
+            if let crate::evolution::EvolutionResult::NewCapability { ref name, .. } = result {
+                eprintln!("hydra: SELF-EVOLUTION — new capability: {name}");
             }
         }
 

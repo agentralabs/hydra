@@ -28,6 +28,7 @@ pub mod engine;
 pub mod errors_display;
 pub mod equation;
 pub mod errors;
+pub mod evolution;
 pub mod feedback;
 pub mod first_run;
 pub mod health;

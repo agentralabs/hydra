@@ -93,7 +93,32 @@ pub fn commands() -> Vec<Command> {
             category: CommandCategory::System,
             handler: cmd_ssh,
         },
+        Command {
+            name: "evolved",
+            aliases: &["self-evolved"],
+            description: "List self-generated capabilities",
+            args_help: "",
+            category: CommandCategory::Info,
+            handler: cmd_evolved,
+        },
     ]
+}
+
+fn cmd_evolved(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
+    let genome = hydra_genome::GenomeStore::open();
+    let evolved: Vec<_> = genome.all_entries().iter()
+        .filter(|e| e.approach.approach_type == "self-evolved")
+        .collect();
+    if evolved.is_empty() {
+        return vec![sys("No self-generated capabilities yet. Evolution runs in background.")];
+    }
+    let mut items = vec![sys(&format!("Self-evolved: {} capabilities", evolved.len()))];
+    for e in evolved.iter().take(10) {
+        let kw: Vec<&str> = e.situation.keywords.iter().map(|s| s.as_str()).take(5).collect();
+        items.push(sys(&format!("  {} (conf={:.0}%, uses={})",
+            kw.join(" "), e.effective_confidence() * 100.0, e.use_count)));
+    }
+    items
 }
 
 fn cmd_pause(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
@@ -264,6 +289,6 @@ mod tests {
 
     #[test]
     fn commands_count() {
-        assert_eq!(commands().len(), 11);
+        assert_eq!(commands().len(), 12);
     }
 }
