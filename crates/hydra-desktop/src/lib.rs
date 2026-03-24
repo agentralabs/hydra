@@ -25,4 +25,5 @@ pub use clipboard::{ClipboardContentType, ClipboardEvent, ClipboardMonitor};
 pub use errors::DesktopError;
 pub use input::InputSimulator;
 pub use orchestrator::{MonitoredWindow, TileLayout, WindowOrchestrator};
+pub use observer::FileObserver;
 pub use screen::{Rect, ScreenCapture, ScreenshotInfo};

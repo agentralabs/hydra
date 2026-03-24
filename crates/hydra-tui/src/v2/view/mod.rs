@@ -114,6 +114,8 @@ pub struct RenderState {
     // Omniscient Monitor (O16)
     pub monitor_count: usize,
     pub alert_count: usize,
+    // Alive signal (Session 22)
+    pub alive_message: Option<String>,
 }
 
 impl Default for RenderState {
@@ -157,6 +159,7 @@ impl Default for RenderState {
             voice_state: None,
             monitor_count: 0,
             alert_count: 0,
+            alive_message: None,
         }
     }
 }

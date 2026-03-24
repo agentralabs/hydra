@@ -39,12 +39,16 @@ pub fn build_chain() -> MiddlewareChain {
         Box::new(scheduler::SchedulerMiddleware::new()),
         // Wave 6: Browser/IO awareness
         Box::new(browser::BrowserMiddleware::new()),
+        // Wave 6.5: Real-Time Collaboration (O15 — file observer, pair programming)
+        Box::new(crate::collaboration::CollabMiddleware::new()),
         // Wave 7: Settlement
         Box::new(settlement::SettlementMiddleware::new()),
         // Wave 8: Federation
         Box::new(federation::FederationMiddleware::new()),
         // Wave 9: Consent
         Box::new(consent::ConsentMiddleware::new()),
+        // Wave 10: Capability Discovery (Session 22 — suggest unused features)
+        Box::new(crate::discovery::DiscoveryMiddleware::new()),
     ];
 
     MiddlewareChain::new(middlewares)
@@ -57,7 +61,7 @@ mod tests {
     #[test]
     fn build_chain_creates_all_middlewares() {
         let chain = build_chain();
-        assert_eq!(chain.len(), 14);
+        assert_eq!(chain.len(), 16);
     }
 
     #[test]

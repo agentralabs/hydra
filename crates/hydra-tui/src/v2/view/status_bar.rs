@@ -79,6 +79,12 @@ pub fn render(frame: &mut Frame, area: Rect, state: &RenderState) {
         left.push(Span::styled(label, Style::default().fg(color).add_modifier(Modifier::BOLD)));
     }
 
+    // Session 22: Alive signal
+    if let Some(ref msg) = state.alive_message {
+        left.push(sep.clone());
+        left.push(Span::styled(format!("◌ {msg}"), Style::default().fg(Color::DarkGray)));
+    }
+
     // ── RIGHT SECTION: current operation ──
     let mut right = vec![];
 
