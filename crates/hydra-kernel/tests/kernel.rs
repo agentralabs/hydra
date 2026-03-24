@@ -183,3 +183,34 @@ fn zero_defect_pipeline_produces_certificate() {
     }
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[test]
+fn worker_blast_radius_and_autonomy() {
+    use hydra_kernel::conductor::{Step, StepType};
+    use hydra_kernel::worker;
+
+    let step = |st: StepType, desc: &str| Step {
+        id: 0, step_type: st, description: desc.into(),
+        depends_on: vec![], timeout_ms: 5000,
+    };
+    // Dangerous browser action → Irreversible
+    assert_eq!(worker::blast_radius_for_step(
+        &step(StepType::BrowserInteract { goal: "delete all tweets".into() }, "delete tweets")),
+        hydra_wisdom::BlastRadius::Irreversible);
+    // Safe read → Contained
+    assert_eq!(worker::blast_radius_for_step(
+        &step(StepType::FileRead { path: "x".into() }, "read file")),
+        hydra_wisdom::BlastRadius::Contained);
+    // Deploy command → Catastrophic
+    assert_eq!(worker::blast_radius_for_step(
+        &step(StepType::Shell { command: "deploy to prod".into(), long_running: false }, "deploy")),
+        hydra_wisdom::BlastRadius::Catastrophic);
+    // Interface classification
+    assert_eq!(worker::classify_interface(&StepType::BrowserNavigate { url: "x".into() }),
+        worker::Interface::Browser);
+    assert_eq!(worker::classify_interface(&StepType::Shell { command: "ls".into(), long_running: false }),
+        worker::Interface::Shell);
+    // Workflow template
+    let steps = worker::expand_workflow("email sarah about the report").unwrap();
+    assert_eq!(steps.len(), 2);
+}

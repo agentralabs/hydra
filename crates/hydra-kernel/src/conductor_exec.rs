@@ -57,10 +57,25 @@ pub fn route_and_execute(step: &Step, ctx: &TaskContext) -> StepResult {
             if let Some(gi) = &gate_info { output.push_str(&format!("\nZero-Defect: {gi}")); }
             (success, output, vec![target_path.clone()])
         }
-        StepType::BrowserNavigate { url } => (true, format!("Navigate: {url}"), vec![]),
-        StepType::BrowserInteract { goal } => (true, format!("Interact: {goal}"), vec![]),
-        StepType::DesktopAction { goal } => (true, format!("Desktop: {goal}"), vec![]),
-        StepType::ApiCall { method, url, .. } => (true, format!("{method} {url}"), vec![]),
+        // O6: Universal Worker handles browser/desktop/API steps
+        StepType::BrowserNavigate { .. } | StepType::BrowserInteract { .. }
+        | StepType::DesktopAction { .. } | StepType::ApiCall { .. } => {
+            let genome = hydra_genome::GenomeStore::open();
+            let judgment = crate::worker::autonomy_check(step, &genome);
+            match judgment {
+                hydra_wisdom::JudgmentDecision::Refuse { reason, .. } => {
+                    (false, format!("REFUSED: {reason}"), vec![])
+                }
+                hydra_wisdom::JudgmentDecision::Ask { reason, .. } => {
+                    eprintln!("hydra-worker: approval needed — {reason}");
+                    (true, format!("APPROVAL_NEEDED:{reason}"), vec![])
+                }
+                hydra_wisdom::JudgmentDecision::Act { .. } => {
+                    let mut app_ctx = crate::worker::AppContext::new();
+                    crate::worker::execute_interface_step(step, ctx, &mut app_ctx)
+                }
+            }
+        }
     };
     StepResult { step_id: step.id, success, output, artifacts, duration_ms: start.elapsed().as_millis() as u64 }
 }

@@ -92,6 +92,11 @@ pub fn decompose(goal: &str, genome: &hydra_genome::GenomeStore) -> Vec<Step> {
             }
         }
     }
+    // O6: Check workflow templates (multi-app patterns)
+    if let Some(steps) = crate::worker::expand_workflow(goal) {
+        eprintln!("hydra-conductor: workflow template matched ({} steps)", steps.len());
+        return steps;
+    }
     // Genome approach (semantic similarity)
     let similar = genome.query(goal);
     if let Some(entry) = similar.first() {

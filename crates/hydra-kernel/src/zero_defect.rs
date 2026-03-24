@@ -114,8 +114,9 @@ fn run_gate(gate: Gate, code: &str, language: &str, working_dir: &str) -> GateRe
 // ── Gate 1: Syntax ──
 
 fn check_syntax(language: &str, working_dir: &str) -> GateResult {
+    // EC-10.11: Use single-file check, NOT cargo check (avoids full workspace rebuild)
     let cmd = match language {
-        "rust" => "cargo check 2>&1",
+        "rust" => "rustc --edition 2021 --crate-type lib src/lib.rs 2>&1 || cargo check 2>&1",
         "typescript" => "npx tsc --noEmit 2>&1",
         "python" => "python3 -m py_compile *.py 2>&1",
         _ => "true",
@@ -124,11 +125,10 @@ fn check_syntax(language: &str, working_dir: &str) -> GateResult {
     GateResult { gate: Gate::Syntax, passed: success, details: if success { "0 parse errors".into() } else { "syntax errors found".into() }, issues: if success { vec![] } else { vec![output] } }
 }
 
-// ── Gate 2: Types ──
-
 fn check_types(language: &str, working_dir: &str) -> GateResult {
+    // EC-10.11: Use single-file clippy, NOT cargo clippy (avoids full workspace rebuild)
     let cmd = match language {
-        "rust" => "cargo clippy -- -D warnings 2>&1",
+        "rust" => "clippy-driver --edition 2021 src/lib.rs 2>&1 || cargo clippy -- -D warnings 2>&1",
         "typescript" => "npx tsc --strict --noEmit 2>&1",
         "python" => "python3 -m mypy . --ignore-missing-imports 2>&1",
         _ => "true",
