@@ -266,3 +266,21 @@ fn social_intelligence_end_to_end() {
     let state = social::load_relational_state("alice", &genome);
     assert!(state.interaction_count >= 1 || !state.sentiment_history.is_empty());
 }
+
+#[test]
+fn aesthetic_judgment_end_to_end() {
+    // Load aesthetic genome (at minimum universal fallback rules)
+    let entries = hydra_skills::aesthetic::load_aesthetic_genome();
+    assert!(!entries.is_empty());
+    // Rules for unknown category fall back to universal (EC-13.4)
+    let rules = hydra_skills::aesthetic::rules_for_category(&entries, "unknown_3d");
+    assert!(!rules.is_empty()); // Universal rules always present
+    // Clean content scores well
+    let (score, issues) = hydra_skills::aesthetic::evaluate_against_rules("A balanced layout with clear hierarchy", &rules);
+    assert!(score >= 0.7);
+    assert!(issues.is_empty());
+    // Taste feedback updates genome
+    let mut genome = hydra_genome::GenomeStore::open();
+    hydra_kernel::feedback::record_taste_feedback("color_palette", true, &mut genome);
+    hydra_kernel::feedback::record_taste_feedback("typography", false, &mut genome);
+}

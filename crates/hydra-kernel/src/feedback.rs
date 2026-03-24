@@ -199,6 +199,30 @@ pub fn bayesian_update(prior: f64, observation: f64) -> f64 {
     updated.clamp(MIN_CONFIDENCE, MAX_CONFIDENCE) // EC-3.2
 }
 
+// ── O13: Taste Learning ──
+
+/// Record aesthetic taste feedback — updates genome confidence for design patterns.
+/// EC-13.2: Respects user taste even if it contradicts design principles.
+pub fn record_taste_feedback(domain: &str, positive: bool, genome: &mut hydra_genome::GenomeStore) {
+    let query = format!("aesthetic {domain}");
+    let matches = genome.query(&query);
+    if let Some(entry) = matches.first() {
+        let id = entry.id.clone();
+        if let Err(e) = genome.record_use(&id, positive) {
+            eprintln!("hydra-feedback: taste record: {e}");
+        }
+        eprintln!("hydra-feedback: taste {} for {domain} (updated existing)", if positive { "positive" } else { "negative" });
+    } else {
+        // New aesthetic domain — create entry
+        let entry = hydra_genome::social_genome::create_communication_entry(
+            "aesthetic", domain, &format!("user taste for {domain}"), if positive { 0.8 } else { 0.3 });
+        if let Err(e) = genome.add(entry) {
+            eprintln!("hydra-feedback: taste add: {e}");
+        }
+        eprintln!("hydra-feedback: taste {} for {domain} (new entry)", if positive { "positive" } else { "negative" });
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -16,7 +16,7 @@ pub struct VisualMetrics {
 /// Samples from a grid of regions (EC-13.1) rather than every pixel.
 pub fn analyze_screenshot(png_bytes: &[u8]) -> Result<VisualMetrics, DesktopError> {
     let img = image::load_from_memory(png_bytes)
-        .map_err(|e| DesktopError::ScreenshotFailed(format!("image decode: {e}")))?;
+        .map_err(|e| DesktopError::CaptureFailed(format!("image decode: {e}")))?;
     let rgb = img.to_rgb8();
     let (w, h) = rgb.dimensions();
     // Sample a 10x10 grid of regions (EC-13.1: region-based, not pixel-level)

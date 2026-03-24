@@ -133,6 +133,7 @@ fn evaluate_dimension(dim: &QualityDimension, output: &str, goal: &str) -> f64 {
         CheckMethod::FilePattern { pattern } => evaluate_pattern(output, pattern),
         CheckMethod::SemanticCheck { expected } => evaluate_semantic(output, expected, goal),
         CheckMethod::GenomeRule { rule } => evaluate_genome_rule(output, rule),
+        CheckMethod::AestheticCheck { category } => evaluate_aesthetic(output, category),
     }
 }
 
@@ -185,6 +186,21 @@ fn evaluate_genome_rule(output: &str, rule: &str) -> f64 {
     let matched = terms.iter().filter(|t| lower.contains(&t.to_lowercase())).count();
     let ratio = matched as f64 / terms.len() as f64;
     (ratio * 10.0).clamp(0.0, 10.0)
+}
+
+// ── O13: Aesthetic Evaluation ──
+
+fn evaluate_aesthetic(output: &str, category: &str) -> f64 {
+    let entries = hydra_skills::aesthetic::load_aesthetic_genome();
+    let rules = hydra_skills::aesthetic::rules_for_category(&entries, category);
+    if rules.is_empty() {
+        // EC-13.4: No aesthetic data for this category — neutral fallback
+        eprintln!("hydra-critic: no aesthetic rules for '{}' — universal fallback", category);
+        return 7.0;
+    }
+    let (score, issues) = hydra_skills::aesthetic::evaluate_against_rules(output, &rules);
+    for issue in &issues { eprintln!("hydra-critic: aesthetic — {issue}"); }
+    score * 10.0 // Scale 0.0-1.0 to 0.0-10.0 for consistency with other evaluators
 }
 
 // ── Fix Generation ──

@@ -64,6 +64,7 @@ pub fn parse_rubric(toml_content: &str) -> Result<QualityRubric, String> {
             "file" => CheckMethod::FilePattern { pattern: d.check.pattern.unwrap_or_default() },
             "semantic" => CheckMethod::SemanticCheck { expected: d.check.expected.unwrap_or_default() },
             "genome" => CheckMethod::GenomeRule { rule: d.check.rule.unwrap_or_default() },
+            "aesthetic" => CheckMethod::AestheticCheck { category: d.check.category.unwrap_or_default() },
             _ => CheckMethod::SemanticCheck { expected: d.name.clone() },
         };
         QualityDimension { name: d.name, weight: d.weight, check }
