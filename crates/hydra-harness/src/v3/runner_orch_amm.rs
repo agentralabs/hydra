@@ -131,3 +131,21 @@ pub fn check_quality(test: &V3Test) -> V3Result {
     ok(test, &format!("quality: {:.0}% {} ({} criteria)",
         report.overall_score * 100.0, report.verdict.label(), report.criteria.len()))
 }
+
+pub fn check_deliberation(test: &V3Test) -> V3Result {
+    let genome = hydra_genome::GenomeStore::open();
+    // Test 1: Simple task should skip deliberation
+    let simple_depth = hydra_kernel::deliberation::compute_depth("save file", &genome);
+    let simple_skip = !hydra_kernel::deliberation::should_deliberate("save file", simple_depth);
+    // Test 2: Complex task should trigger full deliberation
+    let complex_depth = hydra_kernel::deliberation::compute_depth(
+        "design a 2-bedroom floor plan with kitchen and bathrooms in AutoCAD", &genome);
+    let complex_thinks = hydra_kernel::deliberation::should_deliberate(
+        "design a 2-bedroom floor plan with kitchen and bathrooms in AutoCAD", complex_depth);
+    // Test 3: Run deliberation on complex task
+    let state = hydra_kernel::deliberation::deliberate(
+        "build a REST API with authentication", "engineering", &genome);
+    let modes: Vec<&str> = state.thinking_log.iter().map(|s| s.mode.label()).collect();
+    ok(test, &format!("deliberation: simple_skip={simple_skip} complex_thinks={complex_thinks} \
+        depth={complex_depth:.2} modes={:?} iterations={}", modes, state.iterations))
+}

@@ -75,6 +75,7 @@ pub mod quality_judge;
 pub mod proactive;
 pub mod guardrail;
 pub mod routine;
+pub mod deliberation;
 
 // Re-exports for convenience
 pub use boot::{BootResult, run_boot_sequence};

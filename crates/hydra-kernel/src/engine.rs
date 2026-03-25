@@ -128,11 +128,33 @@ impl CognitiveLoop {
         self.middlewares.run_post_route(&perceived, path.label());
 
         // Collect middleware enrichments for prompt.
-        // Two sources: (1) enrich_prompt() trait method, (2) perceived.enrichments from post_perceive.
         let mut mw_enrichments = self.middlewares.collect_enrichments(&perceived);
-        // Merge perceived.enrichments (genome, memory, calibration, etc.)
         for (k, v) in &perceived.enrichments {
             mw_enrichments.entry(k.clone()).or_insert_with(|| v.clone());
+        }
+
+        // O34: Deliberation — think before acting on complex tasks
+        let domain = perceived.comprehended.primary_domain.label();
+        let delib = crate::deliberation::deliberate(raw, domain, &self.genome);
+        for step in &delib.thinking_log {
+            eprintln!("hydra-think: [{}] {}", step.mode.label(), step.thought);
+        }
+        // Inject deliberation context into enrichments for the LLM
+        if !delib.thinking_log.is_empty() {
+            let thinking_summary: String = delib.thinking_log.iter()
+                .map(|s| format!("[{}] {}", s.mode.label(), s.thought))
+                .collect::<Vec<_>>().join("\n");
+            mw_enrichments.insert("deliberation.thinking".into(), thinking_summary);
+        }
+        if !delib.research_findings.is_empty() {
+            mw_enrichments.insert("deliberation.research".into(),
+                delib.research_findings.join("\n"));
+        }
+        if !delib.plan.is_empty() {
+            let plan_summary: String = delib.plan.iter().enumerate()
+                .map(|(i, s)| format!("{}. {} ({:.0}%)", i+1, s.description, s.confidence * 100.0))
+                .collect::<Vec<_>>().join("\n");
+            mw_enrichments.insert("deliberation.plan".into(), plan_summary);
         }
 
         // PHASE 3: Generate response

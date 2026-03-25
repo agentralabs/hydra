@@ -138,5 +138,9 @@ pub fn orch_tests() -> Vec<V3Test> {
         V3Test { id: "orch-quality", name: "O32: Quality judgment", category: V3Category::OrchExecution,
             eval_method: EvalMethod::DirectCheck, input: "quality_judge",
             pass_contains: &[], fail_contains: &[], min_hour: 0, timeout_secs: 60 },
+        // O34: Deliberation Engine
+        V3Test { id: "orch-deliberate", name: "O34: Deliberation engine", category: V3Category::OrchIntelligence,
+            eval_method: EvalMethod::DirectCheck, input: "deliberation_engine",
+            pass_contains: &[], fail_contains: &[], min_hour: 0, timeout_secs: 60 },
     ]
 }
