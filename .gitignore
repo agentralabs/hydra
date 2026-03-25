@@ -13,6 +13,12 @@ specs/
 # Catalogue — internal documentation, not public yet
 catalogue/
 
+# Orchestration registry — internal tracking
+orchestrations/
+
+# Docs — not ready for public distribution yet
+docs/
+
 # Harness reports and logs — generated output
 harness-reports/
 harness-*.log
