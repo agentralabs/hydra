@@ -1,9 +1,9 @@
 # Hydra Orchestration Registry — Master Index
 
-**Total: 114 orchestrations** (41 complete, 73 future)
+**Total: 120 orchestrations** (49 complete, 73 future — 2 unallocated)
 **Last updated: 2026-03-25**
 
-## Completed Orchestrations (41)
+## Completed Orchestrations (49)
 
 | O# | Name | Session | Status | Key File |
 |---|---|---|---|---|
@@ -42,6 +42,15 @@
 | O32 | Quality Judge | 33 | Complete | kernel/quality_judge.rs |
 | O33 | Atomic Input Algebra | 33 | Complete | desktop/input_atoms.rs + input_platform.rs |
 | O34 | Deliberation Engine | 33 | Complete | kernel/deliberation.rs |
+| O35 | Inner Monologue | 33 | Complete | kernel/inner_monologue.rs |
+| O36 | Emotional Valence | 33 | Complete | kernel/emotional_valence.rs |
+| O37 | Temporal Self | 33 | Complete | kernel/temporal_self.rs |
+| O38 | Continuous Vision | 33 | Complete | desktop/vision_stream.rs |
+| O39 | Voice Pipeline | 33 | Complete | kernel/voice_pipeline.rs |
+| O40 | Natural Speech | 33 | Complete | kernel/voice_pipeline.rs (TTS) |
+| O41 | Multi-Machine Control | 33 | Complete | kernel/remote_control.rs |
+| O42 | Immortal Daemon | 33 | Complete | kernel/immortal.rs |
+| O43 | Physical Bridge | 33 | Complete | kernel/physical_bridge.rs |
 | — | Autonomous Learning | 20 | Complete | kernel/learning_loop.rs + learning_validator.rs |
 | — | Multi-Agent Swarm | 21 | Complete | kernel/swarm_learning.rs + swarm-browser/ |
 | — | Boot Orchestrator | 22 | Complete | kernel/boot.rs + health.rs + discovery.rs |
