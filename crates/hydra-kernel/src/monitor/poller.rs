@@ -43,9 +43,10 @@ impl Poller {
         match self.last_check {
             None => true,
             Some(last) => {
-                // EC-16.7: Back off on consecutive failures
-                let effective_interval = if self.consecutive_failures > 3 {
-                    self.interval_secs * 2
+                // EC-16.7: Exponential backoff on consecutive failures (cap at 5 min)
+                let effective_interval = if self.consecutive_failures > 2 {
+                    let backoff = self.interval_secs * 2u64.pow(self.consecutive_failures.min(6));
+                    backoff.min(300) // cap at 5 minutes
                 } else {
                     self.interval_secs
                 };

@@ -39,22 +39,16 @@ impl GenomeDb {
     }
 
     /// Insert an entry. Ignores duplicates by ID.
-    pub fn insert(&self, entry: &GenomeEntry) {
-        let json = match serde_json::to_string(entry) {
-            Ok(j) => j,
-            Err(e) => {
-                eprintln!("hydra: genome serialize failed: {}", e);
-                return;
-            }
-        };
+    pub fn insert(&self, entry: &GenomeEntry) -> Result<(), String> {
+        let json = serde_json::to_string(entry)
+            .map_err(|e| { eprintln!("hydra: genome serialize failed: {e}"); format!("{e}") })?;
         let added_at = entry.created_at.to_rfc3339();
-        match self.conn.execute(
+        self.conn.execute(
             "INSERT OR IGNORE INTO genome_entries (id, entry_json, added_at) VALUES (?1, ?2, ?3)",
             rusqlite::params![entry.id, json, added_at],
-        ) {
-            Ok(_) => eprintln!("hydra: genome entry persisted: {}", entry.id),
-            Err(e) => eprintln!("hydra: genome insert failed: {}", e),
-        }
+        ).map_err(|e| { eprintln!("hydra: genome insert failed: {e}"); format!("{e}") })?;
+        eprintln!("hydra: genome entry persisted: {}", entry.id);
+        Ok(())
     }
 
     /// Load all entries from the database.

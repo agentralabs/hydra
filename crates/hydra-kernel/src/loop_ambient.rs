@@ -15,14 +15,12 @@ use serde::{Deserialize, Serialize};
 /// The result of one ambient tick.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AmbientTickResult {
-    /// The updated state after this tick.
     pub state: HydraState,
-    /// Whether all invariants passed.
     pub invariants_ok: bool,
-    /// Metabolism intervention level after this tick.
     pub intervention_level: String,
-    /// Summary message.
     pub summary: String,
+    /// Owner guardrail kill signal detected — caller should initiate shutdown.
+    pub kill_signaled: bool,
 }
 
 /// Ambient subsystems that persist across ticks.
@@ -41,6 +39,8 @@ pub struct AmbientSubsystems {
     pub presence: Option<hydra_desktop::PresenceEngine>,
     /// O17: Voice wake word detector (ready for audio frames when available).
     pub wake_word: hydra_voice::wake_word::WakeWordDetector,
+    /// Owner Guardrail System — kill switch, evolution gates, audit trail.
+    pub guardrail: crate::guardrail::GuardrailEngine,
 }
 
 impl AmbientSubsystems {
@@ -69,6 +69,7 @@ impl AmbientSubsystems {
             file_observer: None, // Activated via /pair <dir> command
             presence,
             wake_word: hydra_voice::wake_word::WakeWordDetector::default_detector(),
+            guardrail: crate::guardrail::GuardrailEngine::new(),
         }
     }
 }
@@ -92,11 +93,17 @@ pub fn tick_with_subsystems(
 ) -> AmbientTickResult {
     let next_state = integrate_euler(state, dt);
     let invariant_results = invariants::check_all(&next_state);
-    // Use a static counter since HydraState::initial() always has step_count=0
     static AMBIENT_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let step = AMBIENT_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let mut kill_signaled = false;
 
     let intervention_level = if let Some(subs) = subsystems {
+        // GUARDRAIL: kill-file check (highest priority, before all work)
+        if subs.guardrail.check_kill_signal() {
+            kill_signaled = true;
+        }
+        // GUARDRAIL: dead-man-switch check every ~60 seconds
+        if step % 600 == 0 { subs.guardrail.check_dead_man_switch(); }
         // Metabolism: Lyapunov monitoring
         let level = match subs
             .metabolism
@@ -270,6 +277,7 @@ pub fn tick_with_subsystems(
         invariants_ok: invariant_results.all_passed,
         intervention_level,
         summary,
+        kill_signaled,
     }
 }
 

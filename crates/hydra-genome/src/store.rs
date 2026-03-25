@@ -52,7 +52,8 @@ impl GenomeStore {
                 }
             }
             Err(e) => {
-                eprintln!("hydra: genome db open failed: {}, using in-memory", e);
+                eprintln!("hydra: !! GENOME DB FAILED: {e} — running with EMPTY knowledge !!");
+                eprintln!("hydra: !! All learned patterns unavailable. Check ~/.hydra/data/genome.db !!");
                 Self::new()
             }
         }
@@ -74,7 +75,9 @@ impl GenomeStore {
         }
         let id = entry.id.clone();
         if let Some(ref db) = self.db {
-            db.insert(&entry);
+            if let Err(e) = db.insert(&entry) {
+                eprintln!("hydra: genome persist failed (in-memory only): {e}");
+            }
         }
         self.entries.push(entry);
         self.total_ever += 1;

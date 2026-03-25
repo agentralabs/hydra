@@ -249,9 +249,15 @@ pub fn execute_interface_step(
                             None => return Err(hydra_desktop::DesktopError::VisionError(
                                 "No API key for vision — set ANTHROPIC_API_KEY".into())),
                         };
-                        let (tx, _rx) = tokio::sync::mpsc::channel(64);
+                        // Channel for step updates — drained below for logging
+                        let (tx, mut rx) = tokio::sync::mpsc::channel(64);
                         let agent = hydra_desktop::agent::DesktopAgent::new();
-                        agent.execute_task_v2(&goal, &vision, tx).await
+                        let result = agent.execute_task_v2(&goal, &vision, tx).await;
+                        // Drain step updates for logging (TUI has its own channel)
+                        while let Ok(update) = rx.try_recv() {
+                            eprintln!("hydra-desktop: step {} — {}", update.step, update.action);
+                        }
+                        result
                     })
                 });
                 match result {

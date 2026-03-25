@@ -80,6 +80,11 @@ impl ProactiveEngine {
         genome: &hydra_genome::GenomeStore,
         human_active: bool,
     ) -> Vec<ProactiveAction> {
+        // GUARDRAIL: no proactive initiation when paused/dormant
+        let paused = dirs::home_dir().unwrap_or_default().join(".hydra/guardrails/PAUSED");
+        if paused.exists() {
+            return Vec::new();
+        }
         let mut actions = Vec::new();
         // Clean expired cooldowns
         self.recent.retain(|(_, t)| t.elapsed().as_secs() < self.cooldown_minutes * 60);

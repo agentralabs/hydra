@@ -74,8 +74,8 @@ pub fn save_snapshot(snapshot: &WorkspaceSnapshot) -> Result<(), String> {
         let dst = snapshot_path(i + 1);
         if src.exists() { let _ = std::fs::rename(&src, &dst); }
     }
-    // Atomic write: tmp + rename (EC-7.3)
-    let tmp = dir.join("workspace.json.tmp");
+    // Atomic write: unique tmp + rename (EC-7.3, race-safe)
+    let tmp = dir.join(format!("workspace.{}.tmp", std::process::id()));
     let json = serde_json::to_string_pretty(snapshot).map_err(|e| format!("serialize: {e}"))?;
     std::fs::write(&tmp, &json).map_err(|e| format!("write tmp: {e}"))?;
     std::fs::rename(&tmp, snapshot_path(0)).map_err(|e| format!("rename: {e}"))?;

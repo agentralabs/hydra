@@ -186,14 +186,20 @@ fn check_coder(test: &V3Test) -> V3Result {
 }
 
 fn check_zerodefect(test: &V3Test) -> V3Result {
-    // ZeroDefect pipeline is in zero_defect.rs — verify the module types construct
-    // The full pipeline needs subprocess, so we test the gate definitions exist
-    ok(test, "zero-defect module functional (gates defined)")
+    let (gates, cert) = hydra_kernel::zero_defect::run_gates(
+        "fn main() {}", "test.rs", "rust", ".");
+    let passed = gates.iter().filter(|g| g.passed).count();
+    ok(test, &format!("zero-defect: {}/{} gates passed, cert={}", passed, gates.len(), cert.is_some()))
 }
 
 fn check_worker(test: &V3Test) -> V3Result {
-    // Worker types exist in worker.rs — verify construction
-    ok(test, "worker module types functional")
+    // Test real interface classification
+    use hydra_kernel::conductor::{Step, StepType};
+    let step = Step { id: 0, step_type: StepType::Shell { command: "echo hi".into(), long_running: false },
+        description: "test".into(), depends_on: vec![], timeout_ms: 5000 };
+    let interface = hydra_kernel::worker::classify_interface(&step.step_type);
+    let blast = hydra_kernel::worker::blast_radius_for_step(&step);
+    ok(test, &format!("worker: interface={:?} blast={:?}", interface, blast))
 }
 
 fn check_evolution(test: &V3Test) -> V3Result {

@@ -9,6 +9,7 @@ pub mod info;
 pub mod companion;
 pub mod session;
 pub mod system;
+pub mod guardrail;
 
 use registry::{CommandRegistry, Command};
 
@@ -21,6 +22,7 @@ pub fn build_registry() -> CommandRegistry {
     commands.extend(companion::commands());
     commands.extend(system::commands());
     commands.extend(agent::commands());
+    commands.extend(guardrail::commands());
     CommandRegistry::new(commands)
 }
 

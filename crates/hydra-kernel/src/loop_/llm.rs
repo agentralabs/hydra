@@ -101,8 +101,14 @@ impl LlmCaller {
             "ollama" => {}
             _ => { req = req.header("x-api-key", &api_key).header("anthropic-version", "2023-06-01"); }
         }
-        let resp = req.send().await.ok()?;
-        let parsed: serde_json::Value = resp.json().await.ok()?;
+        let resp = match req.send().await {
+            Ok(r) => r,
+            Err(e) => { eprintln!("hydra-micro: send failed: {e}"); return None; }
+        };
+        let parsed: serde_json::Value = match resp.json().await {
+            Ok(j) => j,
+            Err(e) => { eprintln!("hydra-micro: parse failed: {e}"); return None; }
+        };
         Self::extract_micro_response(&parsed)
     }
 
@@ -144,8 +150,14 @@ impl LlmCaller {
             "ollama" => {} // No auth
             _ => { req = req.header("x-api-key", &api_key).header("anthropic-version", "2023-06-01"); }
         }
-        let resp = req.send().ok()?;
-        let parsed: serde_json::Value = resp.json().ok()?;
+        let resp = match req.send() {
+            Ok(r) => r,
+            Err(e) => { eprintln!("hydra-micro-blocking: send failed: {e}"); return None; }
+        };
+        let parsed: serde_json::Value = match resp.json() {
+            Ok(j) => j,
+            Err(e) => { eprintln!("hydra-micro-blocking: parse failed: {e}"); return None; }
+        };
         Self::extract_micro_response(&parsed)
     }
 

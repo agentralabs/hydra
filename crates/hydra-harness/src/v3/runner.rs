@@ -68,7 +68,7 @@ fn run_file_check(test: &V3Test) -> V3Result {
             let records = gw.tick();
             let processed = hd.join("drop/processed/v3-test-cred.env");
             let audit = hd.join("drop/audit.jsonl");
-            let ok = processed.exists() || !drop.exists();
+            let ok = processed.exists(); // Must actually be in processed/, not just "disappeared"
             let audit_ok = audit.exists() && std::fs::read_to_string(&audit)
                 .map(|c| c.contains("v3-test-cred")).unwrap_or(false);
             (ok && audit_ok, format!("processed={ok} audit={audit_ok} records={}", records.len()))
@@ -79,7 +79,7 @@ fn run_file_check(test: &V3Test) -> V3Result {
             let mut gw = hydra_kernel::drop::DropGateway::new();
             let _ = gw.tick();
             let processed = hd.join("drop/processed/v3-test-skill.md");
-            let ok = processed.exists() || !drop.exists();
+            let ok = processed.exists();
             (ok, format!("skill_learned={ok}"))
         }
         "drop-3" | "day-mon-2" => {

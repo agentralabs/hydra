@@ -202,6 +202,14 @@ async fn run_daemon() {
             eprintln!("hydra: HTTP API error: {e}");
         }
     });
+    // B1: Verify HTTP API is reachable after spawn
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    match reqwest::Client::new().get(format!("http://127.0.0.1:{api_port}/api/health"))
+        .timeout(std::time::Duration::from_secs(2)).send().await {
+        Ok(r) if r.status().is_success() => eprintln!("hydra: HTTP API listening on port {api_port}"),
+        Ok(r) => eprintln!("hydra: HTTP API responded but status={}", r.status()),
+        Err(_) => eprintln!("hydra: WARNING — HTTP API not reachable on port {api_port}"),
+    }
 
     // The alive loop — runs until the process is killed
     // Fix #14: Wrap subsystem ticks in catch_unwind so one panic doesn't crash daemon

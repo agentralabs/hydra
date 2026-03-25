@@ -65,6 +65,33 @@ impl EvolutionEngine {
             Err(e) => { eprintln!("hydra-evolution: verification failed: {e}"); return EvolutionResult::VerificationFailed(e); }
         };
 
+        // 5.5 GUARDRAIL: evolution approval gate
+        let gr_config = crate::guardrail::config::GuardrailConfig::load();
+        if !gr_config.is_path_allowed(&path) {
+            eprintln!("hydra-evolution: BLOCKED by guardrail — forbidden path: {path}");
+            crate::guardrail::audit::record_quick(
+                crate::guardrail::audit::AuditEventType::BoundaryViolation,
+                &format!("Evolution blocked: {path}"));
+            return EvolutionResult::WriteFailed(format!("Path blocked by guardrail: {path}"));
+        }
+        let blast = if blueprint.approaches.len() > 5 { "Visible" } else { "Contained" };
+        if crate::guardrail::evolution_gate::needs_approval(blast, &gr_config) {
+            let proposal = crate::guardrail::evolution_gate::EvolutionProposal {
+                id: format!("evo-{}-{}", self.cycle_count, chrono::Utc::now().timestamp()),
+                name: blueprint.name.clone(), domain: gap.domain.clone(),
+                entries: valid_count, blast_radius: blast.into(), skill_path: path.clone(),
+                proposed_at: chrono::Utc::now(),
+                status: crate::guardrail::evolution_gate::ProposalStatus::Pending,
+            };
+            crate::guardrail::evolution_gate::queue_proposal(&proposal);
+            crate::guardrail::audit::record_quick(
+                crate::guardrail::audit::AuditEventType::EvolutionProposed,
+                &format!("Queued: {} ({})", blueprint.name, proposal.id));
+            eprintln!("hydra-evolution: QUEUED for owner approval — {}", blueprint.name);
+            return EvolutionResult::VerificationFailed(
+                format!("Awaiting owner approval: {}", blueprint.name));
+        }
+
         // 6. Load into genome at confidence 0.5
         for (situation, approach) in &blueprint.approaches {
             let sig = hydra_genome::ApproachSignature::new(

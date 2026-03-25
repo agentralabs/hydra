@@ -73,6 +73,7 @@ pub mod intent_compiler;
 pub mod recovery;
 pub mod quality_judge;
 pub mod proactive;
+pub mod guardrail;
 
 // Re-exports for convenience
 pub use boot::{BootResult, run_boot_sequence};

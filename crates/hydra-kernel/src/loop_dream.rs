@@ -1,10 +1,5 @@
-//! The DREAM loop — runs during idle periods.
-//!
-//! Handles belief consolidation, prediction rehearsal, learning,
-//! synthesis, portfolio optimization, crystallizer artifact generation,
-//! and SELF-WRITING GENOME — the automation engine detects patterns
-//! from real usage and crystallizes them into new genome entries.
-//! Hydra teaches itself from its own experience.
+//! The DREAM loop — belief consolidation, prediction, learning, synthesis,
+//! portfolio, crystallizer, and SELF-WRITING GENOME from real usage patterns.
 
 use hydra_automation::AutomationEngine;
 use hydra_belief::BeliefStore;
@@ -69,7 +64,7 @@ impl DreamSubsystems {
 }
 
 impl Default for DreamSubsystems { fn default() -> Self { Self::new() } }
-/// Run one cycle of the dream loop (without subsystems).
+/// Run one dream cycle.
 pub fn cycle(state: &HydraState) -> DreamCycleResult {
     cycle_with_subsystems(state, None)
 }
@@ -79,6 +74,13 @@ pub fn cycle_with_subsystems(
     state: &HydraState,
     subsystems: Option<&mut DreamSubsystems>,
 ) -> DreamCycleResult {
+    // GUARDRAIL: respect paused/dormant state (no dream work when paused)
+    let paused = dirs::home_dir().unwrap_or_default().join(".hydra/guardrails/PAUSED");
+    if paused.exists() {
+        return DreamCycleResult { did_work: false, beliefs_consolidated: 0,
+            predictions_rehearsed: 0, genome_entries_created: 0,
+            summary: "dream cycle: PAUSED by guardrail".into() };
+    }
     static DREAM_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let step = DREAM_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let beliefs_revised = state.growth_state.beliefs_revised;
@@ -199,10 +201,9 @@ pub fn cycle_with_subsystems(
             }
         }
 
-        // Curiosity: form hypotheses from observed patterns (every 50 steps)
+        // Curiosity: cross-domain hypotheses (every 50 steps)
         if step % 50 == 0 && step > 0 {
-            let patterns = subs.automation.pattern_count();
-            let genome_size = subs.genome.len();
+            let (patterns, genome_size) = (subs.automation.pattern_count(), subs.genome.len());
             if patterns > 2 && genome_size > 10 {
                 eprintln!(
                     "hydra: CURIOSITY — {} patterns, {} genome entries",
