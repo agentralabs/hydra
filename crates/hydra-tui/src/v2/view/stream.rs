@@ -254,23 +254,23 @@ pub fn render(frame: &mut Frame, area: ratatui::layout::Rect, state: &RenderStat
     let width = area.width.max(1) as usize;
     let estimated_total: usize = lines.iter()
         .map(|line| {
-            let line_width: usize = line.spans.iter().map(|s| s.content.len()).sum();
-            (line_width / width).max(1) // at least 1 visual line per logical line
+            let line_width: usize = line.spans.iter().map(|s| s.content.chars().count()).sum();
+            ((line_width + width - 1) / width).max(1) // ceil division, char-based
         })
         .sum();
     let visible_height = area.height as usize;
     let max_scroll = estimated_total.saturating_sub(visible_height);
     let scroll_offset = if state.stream_scroll_offset == 0 {
-        // Auto-scroll: only scroll when content exceeds viewport
-        // This keeps briefing visible until conversation fills the screen
-        max_scroll
+        max_scroll // auto-scroll to bottom
     } else {
         max_scroll.saturating_sub(state.stream_scroll_offset)
     };
 
+    // Clamp to u16 range to prevent overflow
+    let scroll_y = scroll_offset.min(u16::MAX as usize) as u16;
     let paragraph = Paragraph::new(lines)
         .wrap(Wrap { trim: false })
-        .scroll((scroll_offset as u16, 0));
+        .scroll((scroll_y, 0));
 
     frame.render_widget(paragraph, area);
 
