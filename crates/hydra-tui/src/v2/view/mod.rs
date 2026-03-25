@@ -20,8 +20,8 @@ pub fn render(frame: &mut Frame, state: &RenderState) {
     let input_lines = state.input_line_count.clamp(1, 5) as u16;
     let input_height = input_lines + 1;
 
-    // Top frame: show Hydra identity + session status (adaptive height)
-    let top_frame_height = 3u16; // compact: logo + status line + border
+    // Top frame: identity + session info + entity health (original 2-panel design)
+    let top_frame_height = if state.show_top_frame { 12u16 } else { 0u16 };
 
     // Slash menu: when input starts with "/", show inline command list below input
     let slash_active = state.input_text.starts_with('/') && !state.is_thinking;
