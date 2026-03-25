@@ -69,14 +69,18 @@ if [ ! -d "${HYDRA_HOME}/integrations" ] && [ -d "${REPO_DIR}/integrations" ]; t
     echo "  ✓ Integrations installed"
 fi
 
-# Install binaries
+# Install binaries — just 'hydra' and 'hydra-tui'
 mkdir -p "$INSTALL_DIR"
-for BIN in hydra hydra_tui; do
-    if [ -f "${REPO_DIR}/target/release/${BIN}" ]; then
-        cp "${REPO_DIR}/target/release/${BIN}" "${INSTALL_DIR}/${BIN}"
-        chmod +x "${INSTALL_DIR}/${BIN}"
-    fi
-done
+if [ -f "${REPO_DIR}/target/release/hydra" ]; then
+    cp "${REPO_DIR}/target/release/hydra" "${INSTALL_DIR}/hydra"
+    chmod +x "${INSTALL_DIR}/hydra"
+fi
+if [ -f "${REPO_DIR}/target/release/hydra_tui" ]; then
+    cp "${REPO_DIR}/target/release/hydra_tui" "${INSTALL_DIR}/hydra-tui"
+    chmod +x "${INSTALL_DIR}/hydra-tui"
+    # Also create 'hydra tui' alias via symlink
+    ln -sf "${INSTALL_DIR}/hydra-tui" "${INSTALL_DIR}/hydra_tui" 2>/dev/null || true
+fi
 echo "  ✓ Binaries installed to ${INSTALL_DIR}/"
 
 # PATH check
@@ -84,14 +88,29 @@ if ! echo "$PATH" | grep -q "${INSTALL_DIR}"; then
     SHELL_RC="${HOME}/.$(basename "$SHELL")rc"
     echo "export PATH=\"\${HOME}/.local/bin:\${PATH}\"" >> "$SHELL_RC"
     echo "  ✓ PATH updated in ${SHELL_RC}"
+    echo "    (restart your terminal or run: source ${SHELL_RC})"
+fi
+
+# .env setup
+if [ ! -f "${REPO_DIR}/.env" ] && [ -f "${REPO_DIR}/.env.example" ]; then
+    cp "${REPO_DIR}/.env.example" "${REPO_DIR}/.env"
+    echo "  ✓ .env created from example (add your ANTHROPIC_API_KEY)"
 fi
 
 echo ""
 echo "  ◈ Hydra installed successfully"
 echo ""
-echo "  Run:  hydra-tui"
+echo "  Commands:"
+echo "    hydra \"your question\"          Single-shot mode"
+echo "    hydra --interactive             Interactive REPL"
+echo "    hydra --daemon                  Always-on background daemon"
+echo "    hydra-tui                       Full TUI cockpit"
+echo ""
+echo "  Quick start:"
+echo "    1. Add your API key:  echo 'ANTHROPIC_API_KEY=sk-...' >> .env"
+echo "    2. Run:               hydra \"hello\""
+echo ""
 echo "  Data: ${HYDRA_HOME}/"
-echo "  Logs: ${LOG}"
 echo ""
 
 # Daemon install
