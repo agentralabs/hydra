@@ -289,11 +289,12 @@ mod tests {
     }
 
     #[test]
-    fn decompose_fallback_returns_empty() {
+    fn decompose_produces_plan_via_intent_compiler() {
         let genome = hydra_genome::GenomeStore::new();
-        // Without LLM or genome match, decompose returns empty (never raw-shell user input)
+        // O27: Intent Compiler now produces steps for any goal (no more empty fallback)
         let steps = decompose("can you post on the internet?", &genome);
-        assert!(steps.is_empty());
+        // Intent compiler generates at least a ClickElement + Verify step
+        assert!(!steps.is_empty(), "O27 intent compiler should produce steps");
     }
 
     #[test]

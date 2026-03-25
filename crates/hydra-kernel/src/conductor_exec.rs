@@ -433,11 +433,15 @@ mod tests {
     }
 
     #[test]
-    fn conduct_returns_empty_plan_without_llm() {
-        // Without LLM or genome, conduct returns EmptyPlan (never raw-shell user input)
+    fn conduct_processes_via_intent_compiler() {
+        // O27: Intent Compiler produces a plan. O29: Autonomy may refuse high-risk steps.
+        // Either way, conduct() should not return EmptyPlan — it should attempt execution.
         let genome = hydra_genome::GenomeStore::new();
         let result = conduct("echo hello world", &genome);
-        assert!(matches!(result, ConductorResult::EmptyPlan));
+        // Intent compiler generates steps, so it won't be EmptyPlan.
+        // Could be Complete, StepFailed (autonomy refused), or other — just not EmptyPlan.
+        assert!(!matches!(result, ConductorResult::EmptyPlan),
+            "O27 intent compiler should produce steps, not EmptyPlan");
     }
 
     #[test]
