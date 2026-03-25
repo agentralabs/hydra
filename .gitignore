@@ -21,7 +21,8 @@ harness-*.log
 # Hydra runtime data
 ~/.hydra/
 
-# Integration credentials — never commit API keys
+# User-specific connectors and integrations — never commit business configs
+connectors/*.toml
 integrations/*/credentials.toml
 
 # Vault — all credentials, never commit
