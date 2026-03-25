@@ -110,9 +110,18 @@ pub fn decompose(goal: &str, genome: &hydra_genome::GenomeStore) -> Vec<Step> {
             return steps_from_genome(entry);
         }
     }
+    // O27: Intent Compiler — typed UI plan before LLM fallback
+    let conventions = crate::convention::ConventionEngine::new();
+    let plan = crate::intent_compiler::compile(goal, None, &conventions, genome);
+    if !plan.instructions.is_empty() {
+        let steps = crate::intent_compiler::plan_to_steps(&plan);
+        if !steps.is_empty() {
+            eprintln!("hydra-conductor: intent compiler → {} steps (risk={:.2})", steps.len(), plan.risk_score);
+            return steps;
+        }
+    }
     // LLM micro-call fallback
     if let Some(steps) = try_llm_decompose(goal) { return steps; }
-    // Never execute raw user input as a shell command — return empty so the LLM handles it
     eprintln!("hydra-conductor: no genome match and LLM decompose failed, deferring to LLM");
     vec![]
 }

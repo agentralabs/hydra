@@ -172,10 +172,13 @@ async fn run_daemon() {
     let mut state = HydraState::initial();
     let mut ambient = AmbientSubsystems::new();
     let mut dream = DreamSubsystems::new();
+    let mut proactive = hydra_kernel::proactive::ProactiveEngine::new();
 
     let ambient_interval = std::time::Duration::from_millis(100);
     let dream_interval = std::time::Duration::from_millis(500);
+    let proactive_interval = std::time::Duration::from_secs(60);
     let mut last_dream = std::time::Instant::now();
+    let mut last_proactive = std::time::Instant::now();
 
     eprintln!("hydra: daemon alive — ambient=100ms dream=500ms");
     eprintln!("hydra: genome={} entries, self-writing enabled", dream.genome.len());
@@ -211,6 +214,24 @@ async fn run_daemon() {
                 );
             }
             last_dream = std::time::Instant::now();
+        }
+
+        // O31: Proactive Initiation — check triggers every 60s
+        if last_proactive.elapsed() >= proactive_interval {
+            let genome = hydra_genome::GenomeStore::open();
+            let triggers = hydra_kernel::proactive::ProactiveEngine::collect_triggers(&genome);
+            if !triggers.is_empty() {
+                let actions = proactive.evaluate_triggers(triggers, &genome, false);
+                for action in &actions {
+                    eprintln!("hydra-proactive: INITIATING '{}' (autonomy={:.2})",
+                        action.goal, action.autonomy_score);
+                    // Execute via conductor
+                    let result = hydra_kernel::conductor_exec::conduct(&action.goal, &genome);
+                    eprintln!("hydra-proactive: completed '{}'  → {:?}",
+                        action.goal, if matches!(result, hydra_kernel::conductor::ConductorResult::Complete { .. }) { "OK" } else { "FAILED" });
+                }
+            }
+            last_proactive = std::time::Instant::now();
         }
 
         tokio::time::sleep(ambient_interval).await;

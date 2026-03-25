@@ -124,16 +124,30 @@ fn classify_browser_blast(goal: &str) -> hydra_wisdom::BlastRadius {
 // ── Autonomy Check ──
 
 /// Check if a step can execute autonomously or needs human approval.
-/// Queries genome for confidence, applies Judgment Gate.
+/// Uses O29 Autonomy Gradient (continuous 0-1) and falls back to Judgment Gate.
 pub fn autonomy_check(step: &Step, genome: &hydra_genome::GenomeStore) -> hydra_wisdom::JudgmentDecision {
     let blast = blast_radius_for_step(step);
-    let matches = genome.query(&step.description);
-    let confidence = matches.first().map(|e| e.effective_confidence()).unwrap_or(0.5);
-    let prior_successes = matches.first().map(|e| e.success_count).unwrap_or(0);
-    hydra_wisdom::judge(&hydra_wisdom::JudgmentInput {
-        confidence, blast_radius: blast, trust_score: confidence.max(0.5), // Derive from genome confidence
-        prior_successes, action_description: step.description.chars().take(60).collect(),
-    })
+    // O29: Compute continuous autonomy score
+    let autonomy = hydra_wisdom::autonomy::autonomy_from_genome(&step.description, genome, &blast);
+    eprintln!("hydra-autonomy: '{}' → {:.2} ({})",
+        &step.description[..step.description.len().min(40)], autonomy.value, autonomy.decision.label());
+    // Map AutonomyDecision to JudgmentDecision for backward compat
+    match autonomy.decision {
+        hydra_wisdom::autonomy::AutonomyDecision::ActSilently => hydra_wisdom::JudgmentDecision::Act {
+            reason: format!("Autonomy {:.2} — acting silently", autonomy.value),
+            confidence: autonomy.confidence,
+        },
+        hydra_wisdom::autonomy::AutonomyDecision::ActAndNotify { msg } => hydra_wisdom::JudgmentDecision::Act {
+            reason: msg, confidence: autonomy.confidence,
+        },
+        hydra_wisdom::autonomy::AutonomyDecision::AskFirst { question } => hydra_wisdom::JudgmentDecision::Ask {
+            reason: question.clone(), confidence: autonomy.confidence,
+            what_could_go_wrong: format!("rev={:.2} blast={:.2}", autonomy.reversibility, autonomy.blast_radius),
+        },
+        hydra_wisdom::autonomy::AutonomyDecision::Refuse { reason } => hydra_wisdom::JudgmentDecision::Refuse {
+            reason, confidence: autonomy.confidence,
+        },
+    }
 }
 
 // ── Workflow Templates ──

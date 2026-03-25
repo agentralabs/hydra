@@ -266,7 +266,35 @@ pub fn execute_dag(ctx: &mut TaskContext, genome: &hydra_genome::GenomeStore) ->
                     }
                 }
             } else {
-                return ConductorResult::StepFailed { step_id, error: result.output };
+                // O30: Recovery Loop — try to recover instead of aborting
+                let remaining: Vec<crate::conductor::Step> = (step_id+1..total)
+                    .filter(|i| !completed.contains(i))
+                    .map(|i| ctx.steps[i].clone()).collect();
+                let recovery_ctx = crate::recovery::RecoveryContext {
+                    failed_step_id: step_id,
+                    failure_reason: result.output.clone(),
+                    original_goal: ctx.steps.first().map(|s| s.description.clone()).unwrap_or_default(),
+                    completed_steps: completed.iter().copied().collect(),
+                    remaining_steps: remaining,
+                    screen_description: String::new(),
+                    attempt: 0,
+                };
+                let mut mutable_genome = hydra_genome::GenomeStore::open();
+                let action = crate::recovery::RecoveryEngine::recover(&recovery_ctx, &mutable_genome);
+                match &action {
+                    crate::recovery::RecoveryAction::SkipAndContinue { reason } => {
+                        eprintln!("hydra-recovery: skipping step {}: {reason}", step_id + 1);
+                        completed.insert(step_id); // skip it
+                    }
+                    crate::recovery::RecoveryAction::DismissAndResume { dismiss_method, .. } => {
+                        eprintln!("hydra-recovery: dismiss and resume: {dismiss_method}");
+                        // Don't mark completed — will retry on next loop
+                    }
+                    _ => {
+                        crate::recovery::record_recovery(&result.output, &action, &mut mutable_genome);
+                        return ConductorResult::StepFailed { step_id, error: result.output };
+                    }
+                }
             }
             ctx.results.push(result);
             crate::feedback::log_outcome(&outcome);
@@ -335,6 +363,20 @@ pub fn conduct(goal: &str, genome: &hydra_genome::GenomeStore) -> ConductorResul
                 }
             }
         }
+    }
+
+    // O32: Quality Judgment — evaluate if the goal was actually met
+    if let ConductorResult::Complete { ref results } = final_result {
+        let artifacts = crate::quality_judge::TaskArtifacts {
+            files_created: results.iter().flat_map(|r| r.artifacts.clone()).collect(),
+            step_history: results.iter().map(|r| (r.output.clone(), if r.success { "ok".into() } else { "fail".into() })).collect(),
+            duration_ms: results.iter().map(|r| r.duration_ms).sum(),
+            final_screen_description: results.last().map(|r| r.output.clone()).unwrap_or_default(),
+        };
+        let report = crate::quality_judge::evaluate(goal, &artifacts, genome);
+        eprintln!("hydra-quality: {:.0}% {} — {}",
+            report.overall_score * 100.0, report.verdict.label(),
+            report.remediation.as_deref().unwrap_or("no issues"));
     }
 
     final_result
