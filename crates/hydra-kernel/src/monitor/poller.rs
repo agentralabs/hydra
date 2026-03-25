@@ -95,17 +95,35 @@ impl Poller {
 
 /// HTTP GET check with timeout. Returns status description.
 fn poll_http(url: &str, expect_status: u16, timeout_secs: u64) -> Result<String, String> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(timeout_secs))
-        .build().map_err(|e| format!("{e}"))?;
-    let resp = client.get(url).send().map_err(|e| {
-        // EC-16.1: detect credential expiry
-        let msg = e.to_string();
-        if msg.contains("401") || msg.contains("403") {
-            format!("credential_expired: {msg}")
-        } else { msg }
-    })?;
-    let status = resp.status().as_u16();
+    let url = url.to_string();
+    let result = if let Ok(handle) = tokio::runtime::Handle::try_current() {
+        tokio::task::block_in_place(|| {
+            handle.block_on(async {
+                let client = reqwest::Client::builder()
+                    .timeout(std::time::Duration::from_secs(timeout_secs))
+                    .build().map_err(|e| format!("{e}"))?;
+                let resp = client.get(&url).send().await.map_err(|e| {
+                    let msg = e.to_string();
+                    if msg.contains("401") || msg.contains("403") {
+                        format!("credential_expired: {msg}")
+                    } else { msg }
+                })?;
+                Ok::<u16, String>(resp.status().as_u16())
+            })
+        })
+    } else {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(timeout_secs))
+            .build().map_err(|e| format!("{e}"))?;
+        let resp = client.get(&url).send().map_err(|e| {
+            let msg = e.to_string();
+            if msg.contains("401") || msg.contains("403") {
+                format!("credential_expired: {msg}")
+            } else { msg }
+        })?;
+        Ok(resp.status().as_u16())
+    };
+    let status = result?;
     if status == expect_status {
         Ok(format!("ok: {status}"))
     } else if status == 401 || status == 403 {

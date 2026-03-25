@@ -81,6 +81,56 @@ impl InputSimulator {
         (self.current_x, self.current_y)
     }
 
+    /// Move to target using Fitts's Law timing + minimum-jerk trajectory.
+    /// target_width: approximate width of the target element in pixels.
+    /// This is physically indistinguishable from human motor control.
+    pub fn move_to_target(&mut self, x: f64, y: f64, target_width: f64) -> Result<(), DesktopError> {
+        let dx = x - self.current_x;
+        let dy = y - self.current_y;
+        let distance = (dx * dx + dy * dy).sqrt();
+        if distance < 1.0 {
+            self.current_x = x; self.current_y = y;
+            return Ok(());
+        }
+        // Fitts's Law: movement time based on target distance/width
+        let a = 50.0_f64;  // base time (ms)
+        let b = 150.0_f64; // scaling factor
+        let id = (distance / target_width.max(1.0) + 1.0).log2(); // index of difficulty
+        let duration_ms = (a + b * id) as u64;
+        let steps = (duration_ms / 5).max(5) as usize; // 5ms per step
+
+        for i in 0..=steps {
+            let t = i as f64 / steps as f64;
+            // Minimum-jerk trajectory: 5th order polynomial
+            // x(t) = 10t³ - 15t⁴ + 6t⁵  (bell-shaped velocity profile)
+            let frac = 10.0 * t.powi(3) - 15.0 * t.powi(4) + 6.0 * t.powi(5);
+            let px = self.current_x + dx * frac;
+            let py = self.current_y + dy * frac;
+            Self::platform_mouse_move(px as i32, py as i32)?;
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        self.current_x = x;
+        self.current_y = y;
+        Ok(())
+    }
+
+    /// Click at target with Fitts's Law approach + coordinate validation.
+    pub fn click_target(
+        &mut self, x: f64, y: f64, target_width: f64,
+        space: &crate::perception::CoordinateSpace,
+    ) -> Result<(), DesktopError> {
+        // Apply scale factor and validate bounds
+        let (px, py) = space.to_physical(x, y);
+        if !space.validate(px, py) {
+            return Err(DesktopError::AppError {
+                app: "input".into(),
+                reason: format!("coordinates ({px:.0}, {py:.0}) out of screen bounds"),
+            });
+        }
+        self.move_to_target(px, py, target_width)?;
+        self.click()
+    }
+
     fn jitter(&self, x: f64, y: f64) -> (f64, f64) {
         let mut rng = rand::thread_rng();
         let dx = rng.gen_range(-CLICK_JITTER_PX..=CLICK_JITTER_PX);

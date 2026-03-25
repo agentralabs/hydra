@@ -2259,6 +2259,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
+ "toml",
  "uuid",
 ]
 
@@ -2405,6 +2406,7 @@ dependencies = [
  "hydra-automation",
  "hydra-axiom",
  "hydra-belief",
+ "hydra-browser",
  "hydra-calibration",
  "hydra-cartography",
  "hydra-collective",
@@ -2416,6 +2418,7 @@ dependencies = [
  "hydra-context",
  "hydra-continuity",
  "hydra-crystallizer",
+ "hydra-desktop",
  "hydra-diplomat",
  "hydra-environment",
  "hydra-exchange",

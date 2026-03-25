@@ -35,9 +35,11 @@ impl CycleMiddleware for SecurityMiddleware {
 
     fn post_perceive(&mut self, perceived: &mut PerceivedInput) {
         // Evaluate input for threats
+        // Real feature extraction — feeds the immune system with actual threat signals
+        let (threat_class, features) = crate::security::features::extract_features(&perceived.raw);
         let signal = ThreatSignal::new(
-            ThreatClass::Unknown,
-            vec![],
+            threat_class,
+            features,
             "cognitive-loop",
             &perceived.raw,
         );
@@ -47,13 +49,12 @@ impl CycleMiddleware for SecurityMiddleware {
                 if matches!(response.action, hydra_adversary::ImmuneAction::Blocked) {
                     self.threats_blocked += 1;
                     perceived.enrichments.insert(
-                        "security.threat".into(),
+                        "security.blocked".into(),
                         format!("BLOCKED: {}", response.description),
                     );
-                    eprintln!(
-                        "hydra: security blocked threat: {}",
-                        response.description
-                    );
+                    // SEC-4: ENFORCE the block — neutralize the input
+                    perceived.raw = format!("[Security blocked: {}. Original input neutralized.]", response.description);
+                    eprintln!("hydra: SECURITY ENFORCED BLOCK: {}", response.description);
                 }
             }
             Err(e) => {

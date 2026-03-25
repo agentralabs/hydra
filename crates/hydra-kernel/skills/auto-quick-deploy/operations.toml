@@ -1,0 +1,17 @@
+[[operation]]
+name = "auto-quick-deploy"
+trigger = "quick-deploy"
+confidence = 0.6
+
+[[operation.steps]]
+type = "shell"
+command = "Build image"
+description = "Build image"
+needs_review = true
+
+[[operation.steps]]
+type = "shell"
+command = "Push to registry"
+description = "Push to registry"
+needs_review = true
+

@@ -86,6 +86,14 @@ impl CycleMiddleware for GrowthMiddleware {
             }
         }
 
+        // O22: Record rich output type preference for genome learning
+        let rich = crate::rich_output::classify_output(&cycle.response);
+        if !matches!(rich, crate::rich_output::RichOutput::Text(_)) {
+            let type_label = rich.type_label();
+            let mut genome = hydra_genome::GenomeStore::open();
+            crate::feedback::record_output_preference(&type_label, &cycle.domain, &mut genome);
+        }
+
         // Adapt plasticity — record environment encounter
         let env_name = format!("loop-{}", cycle.path);
         if let Some(env) = self.plasticity.get_mut(&env_name) {

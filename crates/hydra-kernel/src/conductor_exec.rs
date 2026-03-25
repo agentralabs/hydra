@@ -193,9 +193,21 @@ fn execute_verify(method: &VerifyMethod, ctx: &TaskContext) -> (bool, String, Ve
             }
         }
         VerifyMethod::HttpStatus { url, expect } => {
-            match reqwest::blocking::get(url) {
-                Ok(resp) if resp.status().as_u16() == *expect => (true, format!("HTTP {expect}"), vec![]),
-                Ok(resp) => (false, format!("HTTP {} (expected {expect})", resp.status()), vec![]),
+            let status_result: Result<u16, String> = if let Ok(handle) = tokio::runtime::Handle::try_current() {
+                tokio::task::block_in_place(|| {
+                    handle.block_on(async {
+                        let resp = reqwest::get(url).await.map_err(|e| format!("{e}"))?;
+                        Ok(resp.status().as_u16())
+                    })
+                })
+            } else {
+                reqwest::blocking::get(url)
+                    .map(|r| r.status().as_u16())
+                    .map_err(|e| format!("{e}"))
+            };
+            match status_result {
+                Ok(s) if s == *expect => (true, format!("HTTP {expect}"), vec![]),
+                Ok(s) => (false, format!("HTTP {s} (expected {expect})"), vec![]),
                 Err(e) => (false, format!("HTTP error: {e}"), vec![]),
             }
         }

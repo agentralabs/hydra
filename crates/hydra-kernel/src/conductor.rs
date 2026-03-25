@@ -144,24 +144,17 @@ fn infer_step_type(desc: &str) -> StepType {
 }
 
 fn try_llm_decompose(goal: &str) -> Option<Vec<Step>> {
-    let api_key = std::env::var("ANTHROPIC_API_KEY").ok()?;
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .build().unwrap_or_else(|_| reqwest::blocking::Client::new());
-    let body = serde_json::json!({
-        "model": "claude-haiku-4-5-20251001", "max_tokens": 512,
-        "messages": [{"role": "user", "content": format!(
-            "Decompose this task into executable steps. Return ONLY a JSON array.\n\
-             Each step: {{\"type\": \"shell|code_gen|browser|file_write|wait|verify|remote\", \"command\": \"...\", \"desc\": \"...\"}}\n\
-             Task: {goal}"
-        )}]
-    });
-    let resp = client.post("https://api.anthropic.com/v1/messages")
-        .header("x-api-key", &api_key).header("anthropic-version", "2023-06-01")
-        .header("content-type", "application/json").json(&body).send().ok()?;
-    let parsed: serde_json::Value = resp.json().ok()?;
-    let text = parsed.get("content")?.as_array()?.first()?.get("text")?.as_str()?;
-    parse_llm_steps(text)
+    let prompt = format!(
+        "Decompose this task into executable steps. Return ONLY a JSON array.\n\
+         Each step: {{\"type\": \"shell|code_gen|browser|file_write|wait|verify|remote\", \"command\": \"...\", \"desc\": \"...\"}}\n\
+         Task: {goal}"
+    );
+    // Use tokio::Handle to run async micro_call from sync context within async runtime
+    let handle = tokio::runtime::Handle::try_current().ok()?;
+    let text = tokio::task::block_in_place(|| {
+        handle.block_on(crate::loop_::llm::LlmCaller::micro_call(&prompt))
+    })?;
+    parse_llm_steps(&text)
 }
 
 fn parse_llm_steps(text: &str) -> Option<Vec<Step>> {

@@ -154,14 +154,17 @@ pub fn resume_workspace(snapshot: &WorkspaceSnapshot) -> ResumeResult {
     for proc in &snapshot.processes {
         if !proc.restartable { continue; }
         // EC-7.1: Check port availability
+        let mut cmd = proc.command.clone();
         if let Some(port) = proc.port {
             if !is_port_available(port) {
                 let alt = find_available_port(port);
-                warnings.push(format!("Port {} occupied, using {}", port, alt));
+                warnings.push(format!("Port {} occupied, remapping to {}", port, alt));
+                // EC-7.1: Replace port in command so process starts on available port
+                cmd = cmd.replace(&port.to_string(), &alt.to_string());
             }
         }
         // EC-7.4: Attempt restart, log if fails
-        match restart_process(&proc.command) {
+        match restart_process(&cmd) {
             Ok(_) => {
                 processes_restarted += 1;
                 eprintln!("hydra-workspace: restarted '{}'", proc.purpose);

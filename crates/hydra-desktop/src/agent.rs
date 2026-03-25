@@ -20,7 +20,7 @@ pub struct DesktopTaskResult {
 
 /// A single decision parsed from vision response.
 #[derive(Debug)]
-enum DesktopAction {
+pub(crate) enum DesktopAction {
     Click { x: f64, y: f64 },
     DoubleClick { x: f64, y: f64 },
     RightClick { x: f64, y: f64 },
@@ -154,7 +154,10 @@ impl DesktopAgent {
         })
     }
 
-    fn parse_response(response: &str) -> DesktopAction {
+    /// Get the max steps for this agent.
+    pub fn max_steps(&self) -> u32 { self.max_steps }
+
+    pub(crate) fn parse_response(response: &str) -> DesktopAction {
         if let Ok(val) = serde_json::from_str::<serde_json::Value>(response) {
             let action = val
                 .get("action")
@@ -209,7 +212,7 @@ impl DesktopAgent {
         }
     }
 
-    fn execute_action(
+    pub(crate) fn execute_action(
         action: &DesktopAction,
         input: &mut InputSimulator,
     ) -> Result<(String, String, bool), DesktopError> {

@@ -79,10 +79,12 @@ hydra-legacy        = { path = "../hydra-legacy" }
 hydra-influence     = { path = "../hydra-influence" }
 hydra-continuity    = { path = "../hydra-continuity" }
 
-# UI
+# UI + Desktop + Browser
 hydra-voice         = { path = "../hydra-voice" }
 hydra-memory        = { path = "../hydra-memory" }
 hydra-tui           = { path = "../hydra-tui" }
+hydra-browser       = { path = "../hydra-browser" }
+hydra-desktop       = { path = "../hydra-desktop" }
 
 tokio      = { version = "1", features = ["full"] }
 serde      = { version = "1", features = ["derive"] }
@@ -99,3 +101,7 @@ path = "src/bin/harness.rs"
 [[bin]]
 name = "harness_v2"
 path = "src/bin/harness_v2.rs"
+
+[[bin]]
+name = "harness_v3"
+path = "src/bin/harness_v3.rs"

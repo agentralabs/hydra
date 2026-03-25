@@ -68,7 +68,7 @@ impl QualityCritic {
         let weighted_score: f64 = dimension_scores.iter()
             .zip(self.rubric.dimensions.iter())
             .map(|((_, score), dim)| score * dim.weight)
-            .sum();
+            .sum::<f64>().clamp(0.0, 10.0);
 
         let revision_needed = weighted_score < self.rubric.threshold;
 
@@ -201,6 +201,39 @@ fn evaluate_aesthetic(output: &str, category: &str) -> f64 {
     let (score, issues) = hydra_skills::aesthetic::evaluate_against_rules(output, &rules);
     for issue in &issues { eprintln!("hydra-critic: aesthetic — {issue}"); }
     score * 10.0 // Scale 0.0-1.0 to 0.0-10.0 for consistency with other evaluators
+}
+
+/// Analyze visual metrics from a screenshot (O13 visual_analysis wiring).
+pub fn evaluate_visual_screenshot(png_bytes: &[u8]) -> f64 {
+    match hydra_desktop::visual_analysis::analyze_screenshot(png_bytes) {
+        Ok(metrics) => {
+            // Score based on color diversity and brightness balance
+            let color_score = (metrics.color_count as f64 / 10.0).clamp(0.0, 1.0);
+            let brightness_score = 1.0 - (metrics.brightness - 0.5).abs() * 2.0; // Prefer balanced
+            let score = (color_score * 0.6 + brightness_score * 0.4) * 10.0;
+            eprintln!("hydra-critic: visual analysis — {} colors, brightness {:.2}, score {:.1}",
+                metrics.color_count, metrics.brightness, score);
+            score
+        }
+        Err(e) => { eprintln!("hydra-critic: visual analysis failed: {e}"); 5.0 }
+    }
+}
+
+/// Extract and evaluate style from HTML output (O13 style_extract wiring).
+pub fn evaluate_html_style(html: &str, category: &str) -> f64 {
+    let profile = hydra_browser::style_extract::extract_from_html(html);
+    let entries = hydra_skills::aesthetic::load_aesthetic_genome();
+    let rules = hydra_skills::aesthetic::rules_for_category(&entries, category);
+    // Check extracted styles against aesthetic rules
+    let mut score = 7.0; // Neutral baseline
+    if !profile.colors.is_empty() { score += 0.5; } // Has intentional color scheme
+    if !profile.fonts.is_empty() { score += 0.5; } // Has typography choices
+    if profile.has_dark_theme { score += 0.3; } // Modern aesthetic bonus
+    let (rule_score, _) = hydra_skills::aesthetic::evaluate_against_rules(html, &rules);
+    score = (score + rule_score * 10.0) / 2.0;
+    eprintln!("hydra-critic: style eval — {} colors, {} fonts, score {:.1}",
+        profile.colors.len(), profile.fonts.len(), score);
+    score.clamp(0.0, 10.0)
 }
 
 // ── Fix Generation ──

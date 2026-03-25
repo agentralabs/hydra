@@ -14,6 +14,53 @@
 use crate::loop_::prompt::EnrichedPrompt;
 use crate::loop_::types::LlmResponse;
 
+/// Resolve an API key: vault first → env var → empty string.
+/// Vault path: `~/.hydra/vault/{provider}.toml` with `[credentials].api_key`.
+/// This follows the same TOML format as hydra-executor's vault system.
+fn resolve_api_key(provider: &str, env_key: &str) -> String {
+    // 1. Try env var first (fastest, covers .env + export)
+    if let Ok(key) = std::env::var(env_key) {
+        if !key.is_empty() {
+            return key;
+        }
+    }
+    // 2. Try vault: ~/.hydra/vault/{provider}.toml → [credentials].api_key
+    if let Some(key) = vault_get_api_key(provider) {
+        eprintln!("hydra-llm: API key loaded from vault/{provider}.toml");
+        return key;
+    }
+    // 3. Try project-local vault/: vault/{provider}.toml
+    if let Some(key) = project_vault_get_api_key(provider) {
+        eprintln!("hydra-llm: API key loaded from project vault/{provider}.toml");
+        return key;
+    }
+    eprintln!("hydra-llm: no API key found for {provider} (checked {env_key}, vault)");
+    String::new()
+}
+
+/// Read API key from ~/.hydra/vault/{provider}.toml
+fn vault_get_api_key(provider: &str) -> Option<String> {
+    let vault_dir = dirs::home_dir()?.join(".hydra/vault");
+    read_vault_toml(&vault_dir.join(format!("{provider}.toml")))
+}
+
+/// Read API key from project-local vault/{provider}.toml
+fn project_vault_get_api_key(provider: &str) -> Option<String> {
+    let vault_path = std::path::Path::new("vault").join(format!("{provider}.toml"));
+    read_vault_toml(&vault_path)
+}
+
+/// Parse a vault TOML file and extract [credentials].api_key or [credentials].token.
+fn read_vault_toml(path: &std::path::Path) -> Option<String> {
+    let content = std::fs::read_to_string(path).ok()?;
+    let table: toml::Table = content.parse().ok()?;
+    let creds = table.get("credentials")?.as_table()?;
+    // Try api_key first, then token (same precedence as hydra-executor)
+    creds.get("api_key").and_then(|v| v.as_str()).map(|s| s.to_string())
+        .or_else(|| creds.get("token").and_then(|v| v.as_str()).map(|s| s.to_string()))
+        .filter(|s| !s.is_empty() && !s.contains("your-"))
+}
+
 /// LLM call errors — all surfaced, none swallowed.
 #[derive(Debug, thiserror::Error)]
 pub enum LlmError {
@@ -50,12 +97,12 @@ impl LlmCaller {
                 _ => "claude-sonnet-4-20250514".into(),
             }
         });
-        let api_key = std::env::var(match provider.as_str() {
+        let key_env = match provider.as_str() {
             "openai" => "OPENAI_API_KEY",
             "gemini" => "GEMINI_API_KEY",
             _ => "ANTHROPIC_API_KEY",
-        })
-        .unwrap_or_default();
+        };
+        let api_key = resolve_api_key(&provider, key_env);
         let base_url =
             std::env::var("OLLAMA_BASE_URL").unwrap_or_else(|_| "http://localhost:11434".into());
 
@@ -71,26 +118,92 @@ impl LlmCaller {
         }
     }
 
-    /// Call the LLM with retry on transient failures.
-    /// Rate limits (429/529) get longer backoff: 2s, 8s, 20s.
-    /// Network errors get standard backoff: 1s, 2s, 4s.
-    /// ProviderError and MissingKey fail immediately (not retryable).
+    /// Async micro-call. Use this from async contexts (intent classifier, middleware).
+    /// Cheap model, 512 tokens, 15s timeout. Reads provider from env.
+    pub async fn micro_call(prompt: &str) -> Option<String> {
+        let provider = std::env::var("HYDRA_LLM_PROVIDER").unwrap_or_else(|_| "anthropic".into()).to_lowercase();
+        let key_env = match provider.as_str() {
+            "openai" => "OPENAI_API_KEY", "gemini" => "GEMINI_API_KEY", _ => "ANTHROPIC_API_KEY",
+        };
+        let api_key = resolve_api_key(&provider, key_env);
+        if api_key.is_empty() { return None; }
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(15)).build().ok()?;
+        let (url, body) = match provider.as_str() {
+            "openai" => ("https://api.openai.com/v1/chat/completions".to_string(), serde_json::json!({
+                "model": "gpt-4o-mini", "max_tokens": 512,
+                "messages": [{"role": "user", "content": prompt}]
+            })),
+            "ollama" => (format!("{}/api/chat", std::env::var("OLLAMA_BASE_URL").unwrap_or_else(|_| "http://localhost:11434".into())),
+                serde_json::json!({ "model": "llama3.2", "messages": [{"role": "user", "content": prompt}], "stream": false })),
+            _ => ("https://api.anthropic.com/v1/messages".to_string(), serde_json::json!({
+                "model": "claude-haiku-4-5-20251001", "max_tokens": 512,
+                "messages": [{"role": "user", "content": prompt}]
+            })),
+        };
+        let mut req = client.post(&url).header("content-type", "application/json").json(&body);
+        match provider.as_str() {
+            "openai" => { req = req.header("Authorization", format!("Bearer {api_key}")); }
+            "ollama" => {}
+            _ => { req = req.header("x-api-key", &api_key).header("anthropic-version", "2023-06-01"); }
+        }
+        let resp = req.send().await.ok()?;
+        let parsed: serde_json::Value = resp.json().await.ok()?;
+        Self::extract_micro_response(&parsed)
+    }
+
+    /// Extract text from micro-call response (handles Anthropic, OpenAI, Ollama formats).
+    fn extract_micro_response(parsed: &serde_json::Value) -> Option<String> {
+        parsed.get("content").and_then(|c| c.as_array()).and_then(|a| a.first())
+            .and_then(|b| b.get("text")).and_then(|t| t.as_str()).map(|s| s.to_string())
+            .or_else(|| parsed.get("choices").and_then(|c| c.as_array()).and_then(|a| a.first())
+                .and_then(|ch| ch.get("message")).and_then(|m| m.get("content")).and_then(|t| t.as_str()).map(|s| s.to_string()))
+            .or_else(|| parsed.get("message").and_then(|m| m.get("content")).and_then(|t| t.as_str()).map(|s| s.to_string()))
+    }
+
+    /// Blocking micro-call. Only use from non-async contexts (CLI tools, tests).
+    /// WARNING: This will fail inside an async runtime — use micro_call() instead.
+    pub fn micro_call_blocking(prompt: &str) -> Option<String> {
+        let provider = std::env::var("HYDRA_LLM_PROVIDER").unwrap_or_else(|_| "anthropic".into()).to_lowercase();
+        let key_env = match provider.as_str() {
+            "openai" => "OPENAI_API_KEY", "gemini" => "GEMINI_API_KEY", _ => "ANTHROPIC_API_KEY",
+        };
+        let api_key = resolve_api_key(&provider, key_env);
+        if api_key.is_empty() { return None; }
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(15)).build().ok()?;
+        let (url, body) = match provider.as_str() {
+            "openai" => ("https://api.openai.com/v1/chat/completions".to_string(), serde_json::json!({
+                "model": "gpt-4o-mini", "max_tokens": 512,
+                "messages": [{"role": "user", "content": prompt}]
+            })),
+            "ollama" => (format!("{}/api/chat", std::env::var("OLLAMA_BASE_URL").unwrap_or_else(|_| "http://localhost:11434".into())),
+                serde_json::json!({ "model": "llama3.2", "messages": [{"role": "user", "content": prompt}], "stream": false })),
+            _ => ("https://api.anthropic.com/v1/messages".to_string(), serde_json::json!({
+                "model": "claude-haiku-4-5-20251001", "max_tokens": 512,
+                "messages": [{"role": "user", "content": prompt}]
+            })),
+        };
+        let mut req = client.post(&url).header("content-type", "application/json").json(&body);
+        match provider.as_str() {
+            "openai" => { req = req.header("Authorization", format!("Bearer {api_key}")); }
+            "ollama" => {} // No auth
+            _ => { req = req.header("x-api-key", &api_key).header("anthropic-version", "2023-06-01"); }
+        }
+        let resp = req.send().ok()?;
+        let parsed: serde_json::Value = resp.json().ok()?;
+        Self::extract_micro_response(&parsed)
+    }
+
+    /// Call LLM with retry. Rate limits: 2/8/20s backoff. Network: 1/2/4s. Provider errors fail immediately.
     pub async fn call(&self, prompt: &EnrichedPrompt) -> Result<LlmResponse, LlmError> {
         let mut last_err = None;
         for attempt in 0..4u32 {
             if attempt > 0 {
                 let delay = match &last_err {
-                    Some(LlmError::RateLimited { .. }) => {
-                        // Longer backoff for rate limits: 2s, 8s, 20s
-                        match attempt {
-                            1 => 2000,
-                            2 => 8000,
-                            _ => 20000,
-                        }
-                    }
-                    _ => 1000 * 2u64.pow(attempt - 1), // 1s, 2s, 4s
+                    Some(LlmError::RateLimited { .. }) => match attempt { 1 => 2000, 2 => 8000, _ => 20000 },
+                    _ => 1000 * 2u64.pow(attempt - 1),
                 };
-                eprintln!("[hydra] retrying in {}ms (attempt {}/4)...", delay, attempt + 1);
                 tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
             }
             match self.call_once(prompt).await {
@@ -160,16 +273,11 @@ impl LlmCaller {
         if !status.is_success() {
             // 429 = rate limited, 529 = overloaded — both retryable
             if status.as_u16() == 429 || status.as_u16() == 529 {
-                return Err(LlmError::RateLimited {
-                    provider: "anthropic".into(),
-                });
+                return Err(LlmError::RateLimited { provider: "anthropic".into() });
             }
             return Err(LlmError::ProviderError {
                 provider: "anthropic".into(),
-                message: json["error"]["message"]
-                    .as_str()
-                    .unwrap_or("unknown")
-                    .to_string(),
+                message: json["error"]["message"].as_str().unwrap_or("unknown").to_string(),
             });
         }
 
@@ -351,7 +459,7 @@ impl LlmCaller {
     }
 
     /// Load .env file into process environment. Walks up from cwd.
-    fn load_dotenv() {
+    pub fn load_dotenv() {
         let mut dir = std::env::current_dir().ok();
         while let Some(d) = dir {
             let env_path = d.join(".env");

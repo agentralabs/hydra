@@ -6,6 +6,7 @@
 
 pub mod accessibility;
 pub mod agent;
+pub mod agent_amm;
 pub mod app;
 
 pub mod clipboard;
@@ -21,6 +22,10 @@ pub mod observer;
 pub mod presence;
 pub mod visual_analysis;
 pub mod webcam;
+pub mod perception;
+pub mod app_model;
+pub mod verification;
+pub mod state_graph;
 
 // ── Re-exports ──
 

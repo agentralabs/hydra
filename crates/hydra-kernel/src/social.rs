@@ -88,7 +88,8 @@ pub fn estimate_sentiment(text: &str) -> f64 {
         "wonderful", "love", "fantastic", "brilliant", "well done", "kudos"];
     let negative = ["frustrated", "disappointed", "angry", "upset", "terrible", "awful",
         "broken", "failed", "wrong", "bug", "issue", "problem", "delay", "missed"];
-    let sarcasm_markers = ["oh great", "just great", "wonderful,", "fantastic,", "amazing,"];
+    let sarcasm_markers = ["oh great", "just great", "wonderful,", "fantastic,", "amazing,",
+        "sure,", "right,", "yeah sure", "lovely,", "perfect,", "awesome,", "terrific,"];
     let pos_count = positive.iter().filter(|w| lower.contains(*w)).count() as f64;
     let neg_count = negative.iter().filter(|w| lower.contains(*w)).count() as f64;
     let sarcasm = sarcasm_markers.iter().any(|s| lower.contains(s));

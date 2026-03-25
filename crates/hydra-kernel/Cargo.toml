@@ -39,6 +39,7 @@ hydra-resurrection  = { path = "../hydra-resurrection" }
 hydra-legacy        = { path = "../hydra-legacy" }
 hydra-influence     = { path = "../hydra-influence" }
 hydra-swarm         = { path = "../hydra-swarm" }
+hydra-swarm-browser = { path = "../hydra-swarm-browser" }
 hydra-reach          = { path = "../hydra-reach" }
 hydra-reach-extended = { path = "../hydra-reach-extended" }
 hydra-voice          = { path = "../hydra-voice" }

@@ -44,6 +44,10 @@ impl PromptBuilder {
         budget: usize,
         mw_enrichments: &std::collections::HashMap<String, String>,
     ) -> EnrichedPrompt {
+        // SEC-3: Redact credentials from all enrichments before they reach the LLM
+        let mut safe_enrichments = mw_enrichments.clone();
+        redact_credentials_in_enrichments(&mut safe_enrichments);
+        let mw_enrichments = &safe_enrichments;
         let mut parts: Vec<String> = Vec::new();
 
         // TIER 0: Memory context — BEFORE identity, position 0 = maximum primacy.
@@ -96,7 +100,11 @@ impl PromptBuilder {
             "You are Hydra \u{2014} an autonomous agent operating under constitutional law. \
              Every action is receipted. Every claim is attributed. \
              You operate with calibrated confidence: never claim more certainty \
-             than your evidence supports."
+             than your evidence supports. \
+             You can create skills: users drop markdown into ~/.hydra/drop/ or use /learn <file>. \
+             You self-evolve by detecting gaps and generating new capabilities. \
+             Credentials you create or receive MUST be stored in the vault — protect them absolutely. \
+             If you open an account or generate a key, self-drop it to ~/.hydra/drop/ for vault storage."
                 .to_string()
         };
         parts.push(identity);
@@ -260,7 +268,19 @@ impl PromptBuilder {
 }
 
 impl Default for PromptBuilder {
-    fn default() -> Self {
-        Self::new()
+    fn default() -> Self { Self::new() }
+}
+
+/// SEC-3: Redact credential patterns from all enrichment values before LLM sees them.
+fn redact_credentials_in_enrichments(enrichments: &mut std::collections::HashMap<String, String>) {
+    let prefixes = ["sk-", "AKIA", "ghp_", "ghs_", "Bearer ", "password=", "token=", "secret="];
+    for val in enrichments.values_mut() {
+        for p in &prefixes {
+            while let Some(pos) = val.find(p) {
+                let end = val[pos..].find(|c: char| c.is_whitespace() || c == '"' || c == '\'')
+                    .map(|e| pos + e).unwrap_or(val.len());
+                val.replace_range(pos..end, &format!("{}[REDACTED]", &p[..p.len().min(3)]));
+            }
+        }
     }
 }

@@ -21,6 +21,16 @@ pub struct ScreenshotInfo {
     pub height: u32,
     pub bytes_len: usize,
     pub format: String,
+    /// EC-2.5: Display scale factor (2.0 on Retina, 1.0 on standard).
+    /// Callers must divide coordinates by this before clicking.
+    pub scale_factor: f64,
+}
+
+/// EC-2.9: Check if screenshot is uniform color (screen locked or blank).
+pub fn is_uniform_image(bytes: &[u8]) -> bool {
+    if bytes.len() < 200 { return true; }
+    let sample = &bytes[100..200]; // skip PNG header
+    sample.iter().all(|&b| (b as i16 - sample[0] as i16).abs() < 5)
 }
 
 /// Screen capture engine.
@@ -91,10 +101,8 @@ impl ScreenCapture {
         let _ = std::fs::remove_file(&tmp_path);
 
         let info = ScreenshotInfo {
-            width,
-            height,
-            bytes_len: bytes.len(),
-            format: "png".into(),
+            width, height, bytes_len: bytes.len(), format: "png".into(),
+            scale_factor: if cfg!(target_os = "macos") { 2.0 } else { 1.0 },
         };
 
         eprintln!(

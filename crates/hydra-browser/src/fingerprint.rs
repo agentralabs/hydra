@@ -48,6 +48,12 @@ pub fn stealth_js() -> &'static str {
         ]
     });
     Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+    Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 4 });
+    Object.defineProperty(screen, 'width', { get: () => 1920 });
+    Object.defineProperty(screen, 'height', { get: () => 1080 });
+    Object.defineProperty(window, 'outerWidth', { get: () => 1920 });
+    Object.defineProperty(window, 'outerHeight', { get: () => 1040 });
     if (window.chrome) { window.chrome.runtime = { connect: () => {}, sendMessage: () => {} }; }
     "#
 }

@@ -106,6 +106,9 @@ pub fn encrypt_file(path: &std::path::Path) -> Result<(), VaultCryptoError> {
 
     let enc_path = path.with_extension("toml.enc");
     std::fs::write(&enc_path, &output).map_err(|e| VaultCryptoError::Io(e.to_string()))?;
+    // SEC-1: Restrict vault file permissions to owner-only
+    #[cfg(unix)]
+    { use std::os::unix::fs::PermissionsExt; let _ = std::fs::set_permissions(&enc_path, std::fs::Permissions::from_mode(0o600)); }
 
     // Remove plaintext file
     let _ = std::fs::remove_file(path);

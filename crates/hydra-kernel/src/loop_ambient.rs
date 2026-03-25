@@ -40,8 +40,6 @@ pub struct AmbientSubsystems {
     pub evolution: crate::evolution::EvolutionEngine,
     /// Universal Drop Gateway: single entry point for all external items.
     pub drop_gateway: crate::drop::DropGateway,
-    /// Internal step counter — incremented each ambient tick.
-    pub ambient_step: u64,
 }
 
 impl AmbientSubsystems {
@@ -55,7 +53,6 @@ impl AmbientSubsystems {
             integrity: crate::integrity::IntegrityMonitor::new(),
             evolution: crate::evolution::EvolutionEngine::new(),
             drop_gateway: crate::drop::DropGateway::new(),
-            ambient_step: 0,
         }
     }
 }

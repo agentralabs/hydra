@@ -59,7 +59,17 @@ fn ocr_macos(image_path: &str) -> Result<Vec<OcrRegion>, DesktopError> {
     if let Ok(regions) = ocr_tesseract(image_path) {
         if !regions.is_empty() { return Ok(regions); }
     }
-    // Fallback: return empty (will cascade to Tier 3 vision)
+    // EC-2.6: Dark mode retry — invert image and try again
+    let inverted = format!("{}.inv.png", image_path);
+    let inv_ok = std::process::Command::new("convert")
+        .args([image_path, "-negate", &inverted]).output().map(|o| o.status.success()).unwrap_or(false);
+    if inv_ok {
+        if let Ok(regions) = ocr_tesseract(&inverted) {
+            let _ = std::fs::remove_file(&inverted);
+            if !regions.is_empty() { eprintln!("hydra-ocr: dark mode detected, inverted"); return Ok(regions); }
+        }
+        let _ = std::fs::remove_file(&inverted);
+    }
     eprintln!("hydra-ocr: no OCR engine available, cascading to vision");
     Ok(Vec::new())
 }

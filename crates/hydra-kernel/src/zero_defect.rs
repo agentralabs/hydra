@@ -116,7 +116,7 @@ fn run_gate(gate: Gate, code: &str, language: &str, working_dir: &str) -> GateRe
 fn check_syntax(language: &str, working_dir: &str) -> GateResult {
     // EC-10.11: Use single-file check, NOT cargo check (avoids full workspace rebuild)
     let cmd = match language {
-        "rust" => "rustc --edition 2021 --crate-type lib src/lib.rs 2>&1 || cargo check 2>&1",
+        "rust" => "rustc --edition 2021 --crate-type lib src/lib.rs 2>&1",
         "typescript" => "npx tsc --noEmit 2>&1",
         "python" => "python3 -m py_compile *.py 2>&1",
         _ => "true",
@@ -128,7 +128,7 @@ fn check_syntax(language: &str, working_dir: &str) -> GateResult {
 fn check_types(language: &str, working_dir: &str) -> GateResult {
     // EC-10.11: Use single-file clippy, NOT cargo clippy (avoids full workspace rebuild)
     let cmd = match language {
-        "rust" => "clippy-driver --edition 2021 src/lib.rs 2>&1 || cargo clippy -- -D warnings 2>&1",
+        "rust" => "clippy-driver --edition 2021 src/lib.rs 2>&1",
         "typescript" => "npx tsc --strict --noEmit 2>&1",
         "python" => "python3 -m mypy . --ignore-missing-imports 2>&1",
         _ => "true",
@@ -227,24 +227,17 @@ pub fn generate_edge_cases(code: &str, language: &str) -> Vec<EdgeCase> {
         _ => {}
     }
     if code.contains("async") || code.contains("await") || code.contains("spawn") {
-        cases.push(EdgeCase { name: "concurrent".into(), input: "10 simultaneous calls".into(), expected_behavior: "thread safe".into() });
+        cases.push(EdgeCase { name: "concurrent".into(), input: "10 simultaneous".into(), expected_behavior: "thread safe".into() });
     }
     if code.contains("password") || code.contains("token") || code.contains("secret") {
-        cases.push(EdgeCase { name: "sql_injection".into(), input: "'; DROP TABLE users;--".into(), expected_behavior: "parameterized query".into() });
-        cases.push(EdgeCase { name: "xss".into(), input: "<script>alert(1)</script>".into(), expected_behavior: "escaped output".into() });
+        cases.push(EdgeCase { name: "sql_injection".into(), input: "'; DROP TABLE--".into(), expected_behavior: "parameterized".into() });
+        cases.push(EdgeCase { name: "xss".into(), input: "<script>alert(1)</script>".into(), expected_behavior: "escaped".into() });
     }
     cases
 }
 
-// ── Gate 6: Integration ──
+fn check_integration(language: &str, working_dir: &str) -> GateResult { let mut r = check_tests(language, working_dir); r.gate = Gate::Integration; r }
 
-fn check_integration(language: &str, working_dir: &str) -> GateResult {
-    let mut r = check_tests(language, working_dir);
-    r.gate = Gate::Integration;
-    r
-}
-
-// ── Gate 7: Genome ──
 
 fn check_genome(code: &str) -> GateResult {
     let genome = hydra_genome::GenomeStore::open();
@@ -264,45 +257,48 @@ fn check_genome(code: &str) -> GateResult {
         issues: violations }
 }
 
-/// Attempt to fix a gate failure. Returns the fix description if successful.
-/// EC-9.3: after fix, re-run ALL gates from 1, not just the failed one.
-pub fn auto_fix(gate: Gate, issue: &str, _code: &str, _language: &str) -> Option<String> {
-    // Pattern-match common fixes from genome knowledge
+/// Attempt to fix a gate failure (EC-9.3: re-run ALL gates after fix).
+pub fn auto_fix(_gate: Gate, issue: &str, _code: &str, _language: &str) -> Option<String> {
     let lower = issue.to_lowercase();
-    if lower.contains("type") && lower.contains("undefined") { return Some("Add null coalescing (??) operator".into()); }
+    if lower.contains("type") && lower.contains("undefined") { return Some("Add null coalescing (??)".into()); }
     if lower.contains("innerhtml") { return Some("Replace innerHTML with textContent".into()); }
-    if lower.contains("unwrap") { return Some("Replace .unwrap() with ? or .expect()".into()); }
-    if lower.contains("unused") { return Some("Remove or prefix with underscore".into()); }
-    eprintln!("hydra-zero-defect: no auto-fix for gate {:?}: {}", gate, &issue[..issue.len().min(80)]);
+    if lower.contains("unwrap") { return Some("Replace .unwrap() with ?".into()); }
+    if lower.contains("unused") { return Some("Remove or prefix with _".into()); }
     None
 }
 
 fn save_certificate(cert: &ProofCertificate) {
     let dir = dirs::home_dir().unwrap_or_default().join(".hydra/certificates");
     let _ = std::fs::create_dir_all(&dir);
-    let name = format!("{}.json", cert.file_hash);
-    match serde_json::to_string_pretty(cert) {
-        Ok(json) => match std::fs::write(dir.join(&name), &json) {
-            Ok(_) => eprintln!("hydra-zero-defect: certificate saved — {name}"),
-            Err(e) => eprintln!("hydra-zero-defect: cert write failed: {e}"),
-        },
-        Err(e) => eprintln!("hydra-zero-defect: cert serialize failed: {e}"),
+    if let Ok(json) = serde_json::to_string_pretty(cert) {
+        let _ = std::fs::write(dir.join(format!("{}.json", cert.file_hash)), &json);
     }
 }
 
 // ── Helpers ──
 
+const GATE_TIMEOUT_MS: u64 = 30_000; // 30s per gate — prevents hung cargo from freezing system
+
 fn run_cmd(cmd: &str, working_dir: &str) -> (bool, String) {
     let mut command = std::process::Command::new("sh");
-    command.arg("-c").arg(cmd).current_dir(working_dir);
+    command.arg("-c").arg(cmd).current_dir(working_dir)
+        .stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped());
     #[cfg(unix)]
-    unsafe {
-        use std::os::unix::process::CommandExt;
-        command.pre_exec(|| { libc::setpgid(0, 0); Ok(()) });
-    }
-    match command.output() {
-        Ok(out) => (out.status.success(), format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr))),
-        Err(e) => (false, format!("Command failed: {e}")),
+    unsafe { use std::os::unix::process::CommandExt; command.pre_exec(|| { libc::setpgid(0, 0); Ok(()) }); }
+    let mut child = match command.spawn() {
+        Ok(c) => c,
+        Err(e) => return (false, format!("Command failed: {e}")),
+    };
+    let pgid = child.id() as i32;
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || { let _ = tx.send(child.wait_with_output()); });
+    match rx.recv_timeout(std::time::Duration::from_millis(GATE_TIMEOUT_MS)) {
+        Ok(Ok(out)) => (out.status.success(), format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr))),
+        _ => { // Timeout — kill entire process group
+            #[cfg(unix)]
+            unsafe { libc::killpg(pgid, libc::SIGKILL); }
+            (false, format!("Gate timed out ({}s) — killed", GATE_TIMEOUT_MS / 1000))
+        }
     }
 }
 

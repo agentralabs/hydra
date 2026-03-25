@@ -41,7 +41,15 @@ fn extract_url_tasks(goal: &SwarmGoal) -> Vec<SwarmTask> {
             ));
         }
     }
+    // EC-20.4: Deduplicate tasks by query to prevent multiple agents hitting the same page
+    dedup_by_query(&mut tasks);
     tasks
+}
+
+/// Remove duplicate tasks that would visit the same URL or run the same query.
+fn dedup_by_query(tasks: &mut Vec<SwarmTask>) {
+    let mut seen = std::collections::HashSet::new();
+    tasks.retain(|t| seen.insert(t.query.clone()));
 }
 
 /// Extract the core topic from a goal description (strip action words).

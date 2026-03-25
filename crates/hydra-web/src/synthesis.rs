@@ -15,11 +15,20 @@ pub async fn try_synthesize(query: &str, hits: &[SearchHit]) -> Option<String> {
 }
 
 /// Synchronous version for command handlers.
+/// Uses block_in_place + async client when inside a tokio runtime.
 pub fn try_synthesize_blocking(query: &str, hits: &[SearchHit]) -> Option<String> {
     let api_key = std::env::var("ANTHROPIC_API_KEY").ok()?;
     if hits.is_empty() { return None; }
     let prompt = build_prompt(query, hits);
-    call_llm_blocking(&api_key, &prompt)
+    if let Ok(handle) = tokio::runtime::Handle::try_current() {
+        let api_key = api_key.clone();
+        let prompt = prompt.clone();
+        tokio::task::block_in_place(|| {
+            handle.block_on(call_llm(&api_key, &prompt))
+        })
+    } else {
+        call_llm_blocking(&api_key, &prompt)
+    }
 }
 
 fn build_prompt(query: &str, hits: &[SearchHit]) -> String {

@@ -88,6 +88,8 @@ impl BrowserEngine {
             .wait_for_navigation()
             .await;
 
+        // EC-12.1: Inject stealth JavaScript to mask automation indicators
+        let _ = page.evaluate(crate::fingerprint::stealth_js()).await;
         eprintln!("hydra-browser: navigated to {}", url);
         self.page = Some(Arc::new(Mutex::new(page)));
         Ok(())
@@ -130,8 +132,12 @@ impl BrowserEngine {
         let label = action.label();
 
         // O12: Rate limiter check before mutations (EC-12.2)
+        let domain = match action {
+            BrowserAction::Navigate { url } => url.split('/').nth(2).unwrap_or("unknown"),
+            _ => "unknown",
+        };
         if action.is_mutation() {
-            if let crate::limiter::RateLimitStatus::BackedOff { remaining_ms } = self.limiter.check("_current", 30) {
+            if let crate::limiter::RateLimitStatus::BackedOff { remaining_ms } = self.limiter.check(domain, 30) {
                 return ActionResult::err(label, format!("RATE_LIMITED:{}ms", remaining_ms), 0);
             }
             self.human.delay().await;
@@ -174,11 +180,13 @@ impl BrowserEngine {
             _ => ActionResult::ok(label, "Action dispatched", 0),
         };
 
-        let duration = start.elapsed().as_millis() as u64;
-        ActionResult {
-            duration_ms: duration,
-            ..result
+        // EC-12.2: Track success/failure for rate limiter backoff
+        if result.success { self.limiter.record_success(domain); }
+        else if result.data.contains("429") || result.error.as_deref().unwrap_or("").contains("rate") {
+            self.limiter.record_429(domain);
         }
+        let duration = start.elapsed().as_millis() as u64;
+        ActionResult { duration_ms: duration, ..result }
     }
 
     /// Close the browser.

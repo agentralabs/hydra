@@ -52,18 +52,15 @@ impl Domain {
 
 /// Vocabulary-based domain detector.
 pub struct DomainVocabulary {
-    /// Engineering vocabulary.
     engineering: HashSet<&'static str>,
-    /// Finance vocabulary.
     finance: HashSet<&'static str>,
-    /// Security vocabulary.
     security: HashSet<&'static str>,
-    /// Data vocabulary.
     data: HashSet<&'static str>,
-    /// Operations vocabulary.
     operations: HashSet<&'static str>,
-    /// Personal vocabulary.
     personal: HashSet<&'static str>,
+    creative: HashSet<&'static str>,
+    research: HashSet<&'static str>,
+    skill: HashSet<&'static str>,
 }
 
 impl DomainVocabulary {
@@ -212,6 +209,25 @@ impl DomainVocabulary {
             ]
             .into_iter()
             .collect(),
+            creative: [
+                "design", "draw", "sketch", "layout", "render", "animate",
+                "compose", "illustrate", "visual", "graphic", "art", "color",
+                "font", "typography", "canvas", "palette", "template", "mockup",
+                "wireframe", "prototype", "cad", "autocad", "photoshop", "figma",
+                "blender", "gimp", "inkscape", "premiere", "aftereffects",
+            ].into_iter().collect(),
+            research: [
+                "study", "investigate", "research", "analyze", "experiment",
+                "hypothesis", "thesis", "journal", "paper", "publication",
+                "academic", "citation", "methodology", "survey", "literature",
+                "peer", "review", "findings", "conclusion", "abstract",
+            ].into_iter().collect(),
+            skill: [
+                "learn", "teach", "train", "master", "skill", "tutorial",
+                "practice", "course", "lesson", "beginner", "advanced",
+                "proficiency", "certification", "workshop", "exercise",
+                "improve", "study", "knowledge", "expertise", "competence",
+            ].into_iter().collect(),
         }
     }
 
@@ -229,18 +245,15 @@ impl DomainVocabulary {
         }
 
         let mut scores: Vec<(Domain, f64)> = vec![
-            (
-                Domain::Engineering,
-                self.match_score(&words, &self.engineering),
-            ),
+            (Domain::Engineering, self.match_score(&words, &self.engineering)),
             (Domain::Finance, self.match_score(&words, &self.finance)),
             (Domain::Security, self.match_score(&words, &self.security)),
             (Domain::Data, self.match_score(&words, &self.data)),
-            (
-                Domain::Operations,
-                self.match_score(&words, &self.operations),
-            ),
+            (Domain::Operations, self.match_score(&words, &self.operations)),
             (Domain::Personal, self.match_score(&words, &self.personal)),
+            (Domain::Creative, self.match_score(&words, &self.creative)),
+            (Domain::Research, self.match_score(&words, &self.research)),
+            (Domain::SkillDomain, self.match_score(&words, &self.skill)),
         ];
 
         scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));

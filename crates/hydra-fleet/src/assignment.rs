@@ -42,6 +42,7 @@ pub fn preferred_specialization(task_type: &TaskType) -> AgentSpecialization {
         TaskType::Documentation => AgentSpecialization::Documenter,
         TaskType::Refactoring => AgentSpecialization::Generalist,
         TaskType::Debugging => AgentSpecialization::Debugger,
+        TaskType::WebResearch => AgentSpecialization::Analyst,
     }
 }
 

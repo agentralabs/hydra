@@ -43,9 +43,6 @@ pub struct DreamSubsystems {
     pub genome: GenomeStore,
     pub swarm_learning: SwarmLearning,
     pub idle_secs: u64,
-    /// Internal step counter — incremented each dream cycle. Used instead of HydraState.step_count
-    /// which is always 0 from HydraState::initial().
-    pub dream_step: u64,
 }
 
 impl DreamSubsystems {
@@ -65,7 +62,6 @@ impl DreamSubsystems {
             genome,
             swarm_learning: SwarmLearning::new(),
             idle_secs: 0,
-            dream_step: 0,
         }
     }
 }

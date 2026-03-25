@@ -105,6 +105,19 @@ pub fn parse_operations(toml_content: &str) -> Result<Vec<Operation>, String> {
     }).collect()
 }
 
+/// EC-4.8: Check if an operation contains destructive shell commands.
+const DESTRUCTIVE_PATTERNS: &[&str] = &[
+    "rm -rf", "rm -r /", "truncate ", "dd if=/dev/zero", "mkfs", "fdisk",
+    "format c:", "> /dev/sda", "drop table", "drop database",
+];
+
+pub fn has_destructive_command(op: &Operation) -> bool {
+    op.steps.iter().any(|s| {
+        let cmd = s.command.as_deref().unwrap_or("").to_lowercase();
+        DESTRUCTIVE_PATTERNS.iter().any(|p| cmd.contains(p))
+    })
+}
+
 /// Load all operations from ~/.hydra/skills/*/operations.toml.
 pub fn load_all_operations() -> Vec<Operation> {
     let mut all = Vec::new();

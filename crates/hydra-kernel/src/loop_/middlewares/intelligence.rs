@@ -118,10 +118,18 @@ impl CycleMiddleware for IntelligenceMiddleware {
         };
         perceived.enrichments.insert("calibration.hefp".into(), hefp);
 
-        // Live web search for current-events queries
-        let lower = perceived.raw.to_lowercase();
-        if lower.contains("search") || lower.contains("latest") || lower.contains("current")
-            || lower.contains("today") || lower.contains("news") || lower.contains("recent") {
+        // Live web search: trigger from comprehension primitives (multilingual, no hardcoded keywords)
+        let search_from_primitives = perceived.comprehended.primitives.iter()
+            .any(|p| {
+                let l = p.label().to_lowercase();
+                l.contains("information") || l.contains("discovery") || l.contains("curiosity")
+                    || l.contains("learning") || l.contains("exploration")
+            });
+        // Also trigger for new creative/research/skill domains (proactive immersion)
+        let domain_label = perceived.comprehended.primary_domain.label();
+        let new_domain_needs_web = matches!(domain_label,
+            "creative" | "research" | "skill") && perceived.comprehended.confidence > 0.2;
+        if search_from_primitives || new_domain_needs_web {
             let mut web = hydra_web::SearchOrchestrator::new();
             match web.search_blocking(&perceived.raw) {
                 Ok(results) => { perceived.enrichments.insert("web.results".into(), results); }

@@ -67,6 +67,12 @@ pub mod swarm_learning;
 pub mod worker;
 pub mod workspace;
 pub mod zero_defect;
+pub mod convention;
+pub mod muscle_memory;
+pub mod intent_compiler;
+pub mod recovery;
+pub mod quality_judge;
+pub mod proactive;
 
 // Re-exports for convenience
 pub use boot::{BootResult, run_boot_sequence};

@@ -1,0 +1,7 @@
+# Auto-generated rules
+
+[[assumptions]]
+trigger = "v3-test-skill"
+checks = [
+  { statement = "Always check dependencies first", severity = 0.7 },
+]

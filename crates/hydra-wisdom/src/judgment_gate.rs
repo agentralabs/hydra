@@ -50,7 +50,7 @@ pub enum BlastRadius {
 
 impl BlastRadius {
     /// Numeric weight for the gate calculation.
-    fn weight(&self) -> f64 {
+    pub fn weight(&self) -> f64 {
         match self {
             Self::Contained => 0.1,
             Self::Visible => 0.4,

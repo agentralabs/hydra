@@ -92,14 +92,12 @@ impl Default for CheckpointWriter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hydra_kernel::state::HydraState;
 
     #[test]
     fn first_write_is_full() {
         let mut writer = CheckpointWriter::new();
         let mut index = CheckpointIndex::new();
-        let state = HydraState::initial();
-        let snap = KernelStateSnapshot::from_state(&state);
+        let snap = KernelStateSnapshot::initial();
         let cp = writer.write(&snap, &mut index).expect("write");
         assert_eq!(cp.kind, CheckpointKind::Full);
     }
@@ -108,12 +106,10 @@ mod tests {
     fn second_write_is_delta() {
         let mut writer = CheckpointWriter::new();
         let mut index = CheckpointIndex::new();
-        let state = HydraState::initial();
-        let snap = KernelStateSnapshot::from_state(&state);
+        let snap = KernelStateSnapshot::initial();
         let _ = writer.write(&snap, &mut index).expect("write full");
-        let mut state2 = state;
-        state2.step_count = 1;
-        let snap2 = KernelStateSnapshot::from_state(&state2);
+        let mut snap2 = KernelStateSnapshot::initial();
+        snap2.step_count = 1;
         let cp = writer.write(&snap2, &mut index).expect("write delta");
         assert_eq!(cp.kind, CheckpointKind::Delta);
     }
@@ -122,10 +118,8 @@ mod tests {
     fn write_ahead_index_updated() {
         let mut writer = CheckpointWriter::new();
         let mut index = CheckpointIndex::new();
-        let state = HydraState::initial();
-        let snap = KernelStateSnapshot::from_state(&state);
+        let snap = KernelStateSnapshot::initial();
         let cp = writer.write(&snap, &mut index).expect("write");
-        // Index should have the entry before we do anything with the checkpoint
         assert_eq!(index.len(), 1);
         assert_eq!(index.last().expect("entry").sha256, cp.sha256);
     }

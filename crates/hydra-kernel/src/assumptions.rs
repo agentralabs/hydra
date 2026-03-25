@@ -85,6 +85,7 @@ pub fn mine(goal: &str, genome: &GenomeStore) -> MinerResult {
         Complexity::Medium => 5,
         Complexity::Complex => 8,
     }.min(MAX_ASSUMPTIONS);
+    assumptions.sort_by(|a, b| b.severity.partial_cmp(&a.severity).unwrap_or(std::cmp::Ordering::Equal));
     assumptions.truncate(max);
 
     // 4. Check each assumption
@@ -159,7 +160,7 @@ fn check_historical_patterns(goal: &str, genome: &GenomeStore) -> Vec<Assumption
     }
 
     // EC-0.7: Tag with temporal context
-    let now = chrono::Utc::now();
+    let now = chrono::Local::now();
     if now.format("%A").to_string() == "Friday" {
         patterns.push(Assumption {
             statement: "This is a Friday operation".into(),
@@ -189,6 +190,13 @@ fn check_assumption(assumption: &mut Assumption, depth: u8) {
 enum Complexity { Simple, Medium, Complex }
 
 fn estimate_complexity(goal: &str) -> Complexity {
+    let lower = goal.to_lowercase();
+    // Dangerous operations are always Complex regardless of length
+    if lower.contains("rm ") || lower.contains("dd ") || lower.contains("drop ")
+        || lower.contains("delete") || lower.contains("format ") || lower.contains("sudo ")
+        || lower.contains("truncate") || lower.contains("--force") {
+        return Complexity::Complex;
+    }
     let words = goal.split_whitespace().count();
     let has_conjunction = goal.contains(" and ") || goal.contains(" then ");
     if words < 5 && !has_conjunction { Complexity::Simple }

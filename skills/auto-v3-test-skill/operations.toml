@@ -1,0 +1,17 @@
+[[operation]]
+name = "auto-v3-test-skill"
+trigger = "v3-test-skill"
+confidence = 0.6
+
+[[operation.steps]]
+type = "shell"
+command = "Build the project"
+description = "Build the project"
+needs_review = true
+
+[[operation.steps]]
+type = "shell"
+command = "Run tests"
+description = "Run tests"
+needs_review = true
+

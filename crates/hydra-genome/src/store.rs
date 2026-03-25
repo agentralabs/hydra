@@ -60,9 +60,17 @@ impl GenomeStore {
 
     pub fn add(&mut self, entry: GenomeEntry) -> Result<String, GenomeError> {
         if self.entries.len() >= GENOME_MAX_ENTRIES {
-            return Err(GenomeError::StoreFull {
-                max: GENOME_MAX_ENTRIES,
-            });
+            // EC-3.6: Evict lowest-value entry (low confidence + low use) before rejecting
+            if let Some(idx) = self.entries.iter().enumerate()
+                .filter(|(_, e)| e.effective_confidence() < 0.3 && e.use_count < 5)
+                .min_by(|(_, a), (_, b)| a.effective_confidence().partial_cmp(&b.effective_confidence()).unwrap_or(std::cmp::Ordering::Equal))
+                .map(|(i, _)| i)
+            {
+                eprintln!("hydra-genome: evicting low-value entry at idx {idx} to make room");
+                self.entries.remove(idx);
+            } else {
+                return Err(GenomeError::StoreFull { max: GENOME_MAX_ENTRIES });
+            }
         }
         let id = entry.id.clone();
         if let Some(ref db) = self.db {

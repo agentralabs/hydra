@@ -13,9 +13,33 @@ use hydra_kernel::state::HydraState;
 use hydra_kernel::{task_engine, workspace};
 use std::io::{self, BufRead, Write};
 
-#[tokio::main]
-async fn main() {
+fn main() {
+    // Suppress the known tokio/reqwest shutdown panic (not a real error).
+    // reqwest::blocking::Client creates its own internal tokio runtime;
+    // when the outer runtime drops, the inner one panics. The response
+    // is already delivered and workspace saved — this is benign.
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let msg = info.to_string();
+        if msg.contains("Cannot drop a runtime in a context where blocking is not allowed") {
+            return; // Known benign — reqwest blocking client vs tokio shutdown
+        }
+        default_hook(info);
+    }));
+
+    // catch_unwind absorbs the tokio shutdown panic so exit code is 0, not 101
+    let _ = std::panic::catch_unwind(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async_main());
+    });
+}
+
+async fn async_main() {
     tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 

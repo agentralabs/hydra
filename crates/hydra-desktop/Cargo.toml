@@ -18,6 +18,7 @@ image = { workspace = true }
 base64 = { workspace = true }
 rand = { workspace = true }
 hydra-browser = { path = "../hydra-browser" }
+toml = { workspace = true }
 
 [[bin]]
 name = "desktop-harness"

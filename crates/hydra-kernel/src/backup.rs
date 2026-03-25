@@ -186,9 +186,12 @@ pub fn prune_old_backups(max_days: u32) -> usize {
 
     let mut pruned = 0;
     let cutoff = chrono::Utc::now() - chrono::Duration::days(max_days as i64);
+    // EC-23.3: Count total backups — keep minimum 2 regardless of age
+    let total = std::fs::read_dir(&backups_dir).map(|e| e.flatten().filter(|e| e.path().is_dir()).count()).unwrap_or(0);
 
     if let Ok(entries) = std::fs::read_dir(&backups_dir) {
         for entry in entries.flatten() {
+            if total.saturating_sub(pruned) <= 2 { break; } // Keep at least 2
             let name = entry.file_name().to_string_lossy().to_string();
             // Parse directory name as YYYY-MM-DD
             if let Ok(date) = chrono::NaiveDate::parse_from_str(&name, "%Y-%m-%d") {

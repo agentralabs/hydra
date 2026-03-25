@@ -23,6 +23,8 @@ pub enum TaskType {
     Refactoring,
     /// Debug and diagnose an issue.
     Debugging,
+    /// Perform web research across multiple sources.
+    WebResearch,
 }
 
 impl std::fmt::Display for TaskType {
@@ -36,6 +38,7 @@ impl std::fmt::Display for TaskType {
             Self::Documentation => "Documentation",
             Self::Refactoring => "Refactoring",
             Self::Debugging => "Debugging",
+            Self::WebResearch => "WebResearch",
         };
         write!(f, "{label}")
     }

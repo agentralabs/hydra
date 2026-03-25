@@ -180,14 +180,33 @@ impl Default for LearningLoop {
 }
 
 fn fetch_and_extract(url: &str) -> Result<String, String> {
-    let client = reqwest::blocking::Client::builder()
-        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)")
-        .timeout(std::time::Duration::from_secs(15))
-        .build().map_err(|e| format!("{e}"))?;
-    let resp = client.get(url).send().map_err(|e| format!("{e}"))?;
-    let html = resp.text().map_err(|e| format!("{e}"))?;
-    let extracted = hydra_web::extractor::extract(&html);
-    Ok(extracted.main_text)
+    // Use block_in_place + async client to avoid reqwest::blocking inside tokio runtime
+    let url = url.to_string();
+    let handle = tokio::runtime::Handle::try_current();
+    if let Ok(handle) = handle {
+        tokio::task::block_in_place(|| {
+            handle.block_on(async {
+                let client = reqwest::Client::builder()
+                    .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)")
+                    .timeout(std::time::Duration::from_secs(15))
+                    .build().map_err(|e| format!("{e}"))?;
+                let resp = client.get(&url).send().await.map_err(|e| format!("{e}"))?;
+                let html = resp.text().await.map_err(|e| format!("{e}"))?;
+                let extracted = hydra_web::extractor::extract(&html);
+                Ok(extracted.main_text)
+            })
+        })
+    } else {
+        // Fallback: not inside tokio runtime, safe to use blocking
+        let client = reqwest::blocking::Client::builder()
+            .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)")
+            .timeout(std::time::Duration::from_secs(15))
+            .build().map_err(|e| format!("{e}"))?;
+        let resp = client.get(&url).send().map_err(|e| format!("{e}"))?;
+        let html = resp.text().map_err(|e| format!("{e}"))?;
+        let extracted = hydra_web::extractor::extract(&html);
+        Ok(extracted.main_text)
+    }
 }
 
 fn split_into_chunks(text: &str, mode: &ExtractMode) -> Vec<String> {

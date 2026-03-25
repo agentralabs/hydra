@@ -33,6 +33,7 @@ pub struct FileChange {
 const DEFAULT_IGNORES: &[&str] = &[
     "node_modules", ".git", "target", "__pycache__", ".next",
     "dist", "build", ".cache", ".vscode", ".idea",
+    ".env", "secrets", ".key", ".pem", "credentials",
 ];
 
 /// Poll-based file observer for a directory.

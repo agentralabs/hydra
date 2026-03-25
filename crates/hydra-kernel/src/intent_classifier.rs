@@ -83,58 +83,15 @@ pub fn inject_enrichments(
     }
 }
 
-async fn classify_via_llm(input: &str, api_key: &str) -> Option<AgentIntent> {
-    let client = reqwest::Client::new();
-    let body = serde_json::json!({
-        "model": "claude-haiku-4-5-20251001",
-        "max_tokens": 20,
-        "messages": [{
-            "role": "user",
-            "content": format!(
-                "Classify this user input into exactly ONE category. \
-                 Reply with ONLY the category name, nothing else.\n\n\
-                 Categories:\n\
-                 - browser_agent: multi-step web interaction (post, fill form, login, submit)\n\
-                 - browser_fetch: just open/read a URL or website\n\
-                 - desktop: control a desktop app (Figma, VS Code, Finder, etc.)\n\
-                 - shell: run a terminal command\n\
-                 - file: read/write/search files\n\
-                 - search: look up information online\n\
-                 - conversation: normal chat, question, or discussion\n\n\
-                 Input: {input}"
-            )
-        }]
-    });
-
-    let resp = client
-        .post("https://api.anthropic.com/v1/messages")
-        .header("x-api-key", api_key)
-        .header("anthropic-version", "2023-06-01")
-        .header("content-type", "application/json")
-        .json(&body)
-        .send()
-        .await
-        .ok()?;
-
-    if !resp.status().is_success() {
-        eprintln!(
-            "hydra-kernel: intent classifier HTTP {}",
-            resp.status()
-        );
-        return None;
-    }
-
-    let text = resp.text().await.ok()?;
-    let parsed: serde_json::Value = serde_json::from_str(&text).ok()?;
-    let content = parsed
-        .get("content")
-        .and_then(|c| c.as_array())
-        .and_then(|arr| arr.first())
-        .and_then(|block| block.get("text"))
-        .and_then(|t| t.as_str())?;
-
+async fn classify_via_llm(input: &str, _api_key: &str) -> Option<AgentIntent> {
+    let prompt = format!(
+        "Classify this user input into exactly ONE category. Reply with ONLY the category name.\n\
+         Categories: browser_agent, browser_fetch, desktop, shell, file, search, conversation\n\
+         Input: {input}"
+    );
+    let content = crate::loop_::llm::LlmCaller::micro_call(&prompt).await?;
     eprintln!("hydra-kernel: intent classified as: {content}");
-    Some(AgentIntent::from_str(content))
+    Some(AgentIntent::from_str(&content))
 }
 
 /// Synchronous classification for use in middleware (non-async context).

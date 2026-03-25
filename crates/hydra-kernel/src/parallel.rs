@@ -3,7 +3,7 @@
 //! Resource-limited: max lanes, max Chrome instances, max shell processes.
 
 use std::collections::{HashMap, HashSet};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::conductor::{Step, StepResult, StepType, TaskContext};
 use crate::conductor_exec::route_and_execute;
@@ -104,8 +104,11 @@ pub fn execute_parallel(ctx: &mut TaskContext, config: &ParallelConfig) -> Paral
         for result in &level_results {
             if !result.success {
                 failed_lanes.push((result.step_id, result.output.clone()));
-                // EC-8.4: check if downstream steps depend on this
-                // For now, continue — conductor handles failure at the DAG level
+                // EC-8.4: cancel if downstream steps depend on this failed step
+                if ctx.steps.iter().any(|s| s.depends_on.contains(&result.step_id)) {
+                    ctx.cancelled = true;
+                    eprintln!("hydra-parallel: cascade cancel — step {} failed, dependents exist", result.step_id);
+                }
             }
         }
 
@@ -140,20 +143,27 @@ fn execute_level(step_ids: &[usize], ctx: &TaskContext, config: &ParallelConfig)
 
     // Multiple steps — run in parallel threads
     let results = Arc::new(Mutex::new(Vec::new()));
+    let shell_count = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let mut handles: Vec<std::thread::JoinHandle<()>> = Vec::new();
 
-    // Chunk by max_lanes to respect resource limits
     for chunk in step_ids.chunks(config.max_lanes) {
         let chunk_handles: Vec<_> = chunk.iter().map(|&step_id| {
             let step = ctx.steps[step_id].clone();
             let working_dir = ctx.working_dir.clone();
             let env_vars = ctx.env_vars.clone();
             let results = Arc::clone(&results);
-
-            // EC-8.6: count shell steps to limit concurrent shells
-            let _is_shell = matches!(step.step_type, StepType::Shell { .. });
+            // EC-8.6: enforce max concurrent shell processes
+            let is_shell = matches!(step.step_type, StepType::Shell { .. });
+            let shell_count = Arc::clone(&shell_count);
+            let max_shell = config.max_shell;
 
             std::thread::spawn(move || {
+                if is_shell {
+                    while shell_count.load(std::sync::atomic::Ordering::SeqCst) >= max_shell {
+                        std::thread::sleep(Duration::from_millis(100));
+                    }
+                    shell_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                }
                 let thread_ctx = TaskContext {
                     goal: String::new(),
                     steps: vec![step.clone()],
@@ -165,9 +175,8 @@ fn execute_level(step_ids: &[usize], ctx: &TaskContext, config: &ParallelConfig)
                 };
                 let mut app_ctx = crate::worker::AppContext::new();
                 let result = route_and_execute(&step, &thread_ctx, &mut app_ctx);
-                if let Ok(mut r) = results.lock() {
-                    r.push(result);
-                }
+                if is_shell { shell_count.fetch_sub(1, std::sync::atomic::Ordering::SeqCst); }
+                if let Ok(mut r) = results.lock() { r.push(result); }
             })
         }).collect();
 

@@ -124,6 +124,11 @@ impl CycleMiddleware for ImmersionMiddleware {
             let genome = hydra_genome::GenomeStore::open();
             if let Some(mastery) = load_domain_mastery(&domain, &genome) {
                 self.active_domains.insert(domain.clone(), mastery);
+            } else if domain != "unknown" {
+                // Auto-start immersion for genuinely new domains
+                let mastery = DomainMastery::new(&domain);
+                eprintln!("hydra-immersion: auto-started immersion for '{domain}'");
+                self.active_domains.insert(domain.clone(), mastery);
             }
         }
         // EC-14.1: Survey phase — auto-fetch sources via web search

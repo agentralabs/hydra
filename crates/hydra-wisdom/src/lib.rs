@@ -20,6 +20,7 @@ pub mod memory;
 pub mod persistence;
 pub mod statement;
 pub mod uncertainty;
+pub mod autonomy;
 
 pub use distillation::{Archetype, MetaPattern, WisdomDistiller};
 pub use engine::WisdomEngine;

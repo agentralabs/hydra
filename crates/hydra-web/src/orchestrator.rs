@@ -93,77 +93,24 @@ impl SearchOrchestrator {
     }
 
     /// Synchronous search for slash command handlers.
+    /// Uses block_in_place + async client when called inside a tokio runtime.
     pub fn search_blocking(&mut self, query: &str) -> Result<String, String> {
         // Check cache first (no async needed)
         if let Some(cached) = self.cache.check(query, ContentFocus::General) {
             return Ok(cached.format_display());
         }
 
-        // Build a blocking client for fan-out
-        let client = reqwest::blocking::Client::builder()
-            .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)")
-            .timeout(std::time::Duration::from_secs(10))
-            .build().map_err(|e| format!("{e}"))?;
+        let query_owned = query.to_string();
 
-        let mut all_hits = Vec::new();
-
-        // DDG HTML scrape (blocking)
-        if let Ok(resp) = client.get("https://html.duckduckgo.com/html/").query(&[("q", query)]).send() {
-            if let Ok(html) = resp.text() { all_hits.extend(parse_ddg_blocking(&html)); }
-        }
-
-        // Wikipedia API (blocking)
-        if let Ok(resp) = client.get("https://en.wikipedia.org/w/api.php")
-            .query(&[("action", "query"), ("list", "search"), ("srsearch", query),
-                     ("format", "json"), ("srlimit", "5"), ("srprop", "snippet")])
-            .send()
-        {
-            if let Ok(body) = resp.json::<serde_json::Value>() {
-                if let Some(results) = body.get("query").and_then(|q| q.get("search")).and_then(|s| s.as_array()) {
-                    for item in results {
-                        if let (Some(title), Some(snippet)) = (
-                            item.get("title").and_then(|t| t.as_str()),
-                            item.get("snippet").and_then(|s| s.as_str()),
-                        ) {
-                            all_hits.push(RawSearchHit {
-                                title: title.to_string(),
-                                url: format!("https://en.wikipedia.org/wiki/{}", title.replace(' ', "_")),
-                                snippet: strip_tags(snippet),
-                                source_engine: EngineLabel::Wikipedia,
-                                fetched_content: None,
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
-        // StackExchange (blocking)
-        if let Ok(resp) = client.get("https://api.stackexchange.com/2.3/search/advanced")
-            .query(&[("order", "desc"), ("sort", "relevance"), ("q", query),
-                     ("site", "stackoverflow"), ("pagesize", "5")])
-            .send()
-        {
-            if let Ok(body) = resp.json::<serde_json::Value>() {
-                if let Some(items) = body.get("items").and_then(|i| i.as_array()) {
-                    for item in items {
-                        if let (Some(title), Some(url)) = (
-                            item.get("title").and_then(|t| t.as_str()),
-                            item.get("link").and_then(|l| l.as_str()),
-                        ) {
-                            let score = item.get("score").and_then(|s| s.as_i64()).unwrap_or(0);
-                            all_hits.push(RawSearchHit {
-                                title: strip_tags(title),
-                                url: url.to_string(),
-                                snippet: format!("[Score {score}]"),
-                                source_engine: EngineLabel::StackExchange,
-                                fetched_content: None,
-                            });
-                        }
-                    }
-                }
-            }
-        }
+        // Detect tokio runtime — use async client via block_in_place to avoid
+        // reqwest::blocking panic inside tokio
+        let all_hits: Vec<RawSearchHit> = if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            tokio::task::block_in_place(|| {
+                handle.block_on(search_async_fanout(&query_owned))
+            })
+        } else {
+            search_blocking_fanout(&query_owned)
+        };
 
         if all_hits.is_empty() {
             return Err("No results from any engine".into());
@@ -282,6 +229,124 @@ fn strip_tags(s: &str) -> String {
     let mut o = String::new(); let mut t = false;
     for c in s.chars() { if c=='<'{t=true;} else if c=='>'{t=false;} else if !t{o.push(c);} }
     o.trim().to_string()
+}
+
+/// Async fan-out to search engines. Used inside tokio runtime via block_in_place.
+async fn search_async_fanout(query: &str) -> Vec<RawSearchHit> {
+    let client = match reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)")
+        .timeout(std::time::Duration::from_secs(10))
+        .build() { Ok(c) => c, Err(_) => return Vec::new() };
+    let mut all_hits = Vec::new();
+    // DDG
+    if let Ok(resp) = client.get("https://html.duckduckgo.com/html/")
+        .query(&[("q", query)]).send().await {
+        if let Ok(html) = resp.text().await { all_hits.extend(parse_ddg_blocking(&html)); }
+    }
+    // Wikipedia
+    if let Ok(resp) = client.get("https://en.wikipedia.org/w/api.php")
+        .query(&[("action","query"),("list","search"),("srsearch",query),
+                 ("format","json"),("srlimit","5"),("srprop","snippet")])
+        .send().await {
+        if let Ok(body) = resp.json::<serde_json::Value>().await {
+            if let Some(results) = body.get("query").and_then(|q| q.get("search")).and_then(|s| s.as_array()) {
+                for item in results {
+                    if let (Some(title), Some(snippet)) = (
+                        item.get("title").and_then(|t| t.as_str()),
+                        item.get("snippet").and_then(|s| s.as_str()),
+                    ) {
+                        all_hits.push(RawSearchHit {
+                            title: title.to_string(),
+                            url: format!("https://en.wikipedia.org/wiki/{}", title.replace(' ', "_")),
+                            snippet: strip_tags(snippet),
+                            source_engine: EngineLabel::Wikipedia, fetched_content: None,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    // StackExchange
+    if let Ok(resp) = client.get("https://api.stackexchange.com/2.3/search/advanced")
+        .query(&[("order","desc"),("sort","relevance"),("q",query),
+                 ("site","stackoverflow"),("pagesize","5")])
+        .send().await {
+        if let Ok(body) = resp.json::<serde_json::Value>().await {
+            if let Some(items) = body.get("items").and_then(|i| i.as_array()) {
+                for item in items {
+                    if let (Some(title), Some(url)) = (
+                        item.get("title").and_then(|t| t.as_str()),
+                        item.get("link").and_then(|l| l.as_str()),
+                    ) {
+                        let score = item.get("score").and_then(|s| s.as_i64()).unwrap_or(0);
+                        all_hits.push(RawSearchHit {
+                            title: strip_tags(title), url: url.to_string(),
+                            snippet: format!("[Score {score}]"),
+                            source_engine: EngineLabel::StackExchange, fetched_content: None,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    all_hits
+}
+
+/// Blocking fan-out — only used when NOT inside a tokio runtime.
+fn search_blocking_fanout(query: &str) -> Vec<RawSearchHit> {
+    let client = match reqwest::blocking::Client::builder()
+        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)")
+        .timeout(std::time::Duration::from_secs(10))
+        .build() { Ok(c) => c, Err(_) => return Vec::new() };
+    let mut all_hits = Vec::new();
+    if let Ok(resp) = client.get("https://html.duckduckgo.com/html/").query(&[("q", query)]).send() {
+        if let Ok(html) = resp.text() { all_hits.extend(parse_ddg_blocking(&html)); }
+    }
+    if let Ok(resp) = client.get("https://en.wikipedia.org/w/api.php")
+        .query(&[("action","query"),("list","search"),("srsearch",query),
+                 ("format","json"),("srlimit","5"),("srprop","snippet")])
+        .send() {
+        if let Ok(body) = resp.json::<serde_json::Value>() {
+            if let Some(results) = body.get("query").and_then(|q| q.get("search")).and_then(|s| s.as_array()) {
+                for item in results {
+                    if let (Some(title), Some(snippet)) = (
+                        item.get("title").and_then(|t| t.as_str()),
+                        item.get("snippet").and_then(|s| s.as_str()),
+                    ) {
+                        all_hits.push(RawSearchHit {
+                            title: title.to_string(),
+                            url: format!("https://en.wikipedia.org/wiki/{}", title.replace(' ', "_")),
+                            snippet: strip_tags(snippet),
+                            source_engine: EngineLabel::Wikipedia, fetched_content: None,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    if let Ok(resp) = client.get("https://api.stackexchange.com/2.3/search/advanced")
+        .query(&[("order","desc"),("sort","relevance"),("q",query),
+                 ("site","stackoverflow"),("pagesize","5")])
+        .send() {
+        if let Ok(body) = resp.json::<serde_json::Value>() {
+            if let Some(items) = body.get("items").and_then(|i| i.as_array()) {
+                for item in items {
+                    if let (Some(title), Some(url)) = (
+                        item.get("title").and_then(|t| t.as_str()),
+                        item.get("link").and_then(|l| l.as_str()),
+                    ) {
+                        let score = item.get("score").and_then(|s| s.as_i64()).unwrap_or(0);
+                        all_hits.push(RawSearchHit {
+                            title: strip_tags(title), url: url.to_string(),
+                            snippet: format!("[Score {score}]"),
+                            source_engine: EngineLabel::StackExchange, fetched_content: None,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    all_hits
 }
 
 #[cfg(test)]
