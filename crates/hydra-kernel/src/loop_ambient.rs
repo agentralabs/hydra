@@ -39,15 +39,20 @@ pub struct AmbientSubsystems {
     pub file_observer: Option<hydra_desktop::FileObserver>,
     /// O19: Presence detection (activated via HYDRA_PRESENCE_ENABLED env).
     pub presence: Option<hydra_desktop::PresenceEngine>,
+    /// O17: Voice wake word detector (ready for audio frames when available).
+    pub wake_word: hydra_voice::wake_word::WakeWordDetector,
 }
 
 impl AmbientSubsystems {
     pub fn new() -> Self {
-        // O19: Enable presence if env var is set
-        let presence = if std::env::var("HYDRA_PRESENCE_ENABLED").is_ok() {
+        // O19: Enable presence if env var is set OR webcam is available
+        let presence_requested = std::env::var("HYDRA_PRESENCE_ENABLED").is_ok()
+            || hydra_desktop::deps::cmd_exists("imagesnap")
+            || hydra_desktop::deps::cmd_exists("ffmpeg");
+        let presence = if presence_requested {
             let mut engine = hydra_desktop::PresenceEngine::new();
             match engine.enable() {
-                Ok(()) => Some(engine),
+                Ok(()) => { eprintln!("hydra: presence detection enabled (webcam available)"); Some(engine) }
                 Err(e) => { eprintln!("hydra: presence disabled: {e}"); None }
             }
         } else { None };
@@ -63,6 +68,7 @@ impl AmbientSubsystems {
             drop_gateway: crate::drop::DropGateway::new(),
             file_observer: None, // Activated via /pair <dir> command
             presence,
+            wake_word: hydra_voice::wake_word::WakeWordDetector::default_detector(),
         }
     }
 }

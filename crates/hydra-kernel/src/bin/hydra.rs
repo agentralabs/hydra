@@ -103,6 +103,12 @@ async fn async_main() {
         return;
     }
 
+    // Fix #15: Load workspace snapshot from previous session
+    if let Some(snap) = workspace::load_snapshot() {
+        eprintln!("hydra: workspace restored ({} tasks, {} processes)",
+            snap.pending_tasks.len(), snap.processes.len());
+    }
+
     let mut hydra = CognitiveLoop::new();
 
     if !args.is_empty() && args[0] != "--interactive" {
@@ -198,23 +204,35 @@ async fn run_daemon() {
     });
 
     // The alive loop — runs until the process is killed
+    // Fix #14: Wrap subsystem ticks in catch_unwind so one panic doesn't crash daemon
     loop {
-        // Ambient tick
-        let result = tick_with_subsystems(&state, 0.1, Some(&mut ambient));
-        state = result.state;
-
-        if !result.invariants_ok {
-            eprintln!("hydra: INVARIANT FAILURE — {}", result.summary);
+        // Ambient tick (catch panic — subsystem crash must not kill daemon)
+        let ambient_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            tick_with_subsystems(&state, 0.1, Some(&mut ambient))
+        }));
+        match ambient_result {
+            Ok(result) => {
+                state = result.state;
+                if !result.invariants_ok {
+                    eprintln!("hydra: INVARIANT FAILURE — {}", result.summary);
+                }
+            }
+            Err(_) => eprintln!("hydra: AMBIENT TICK PANIC — recovered, continuing"),
         }
 
         // Dream cycle (every 500ms)
         if last_dream.elapsed() >= dream_interval {
-            let dream_result = cycle_with_subsystems(&state, Some(&mut dream));
-            if dream_result.genome_entries_created > 0 {
-                eprintln!(
-                    "hydra: GENOME GREW — {} new entries from experience",
-                    dream_result.genome_entries_created
-                );
+            let dream_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                cycle_with_subsystems(&state, Some(&mut dream))
+            }));
+            match dream_result {
+                Ok(result) => {
+                    if result.genome_entries_created > 0 {
+                        eprintln!("hydra: GENOME GREW — {} new entries from experience",
+                            result.genome_entries_created);
+                    }
+                }
+                Err(_) => eprintln!("hydra: DREAM CYCLE PANIC — recovered, continuing"),
             }
             last_dream = std::time::Instant::now();
         }

@@ -382,8 +382,17 @@ fn cmd_conduct(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
 fn cmd_swarm(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
     let goal = args.trim();
     if goal.is_empty() { return vec![sys("Usage: /swarm <research goal>")]; }
-    vec![sys(&format!("Swarm launched: {goal}")),
-         sys("Workers spawning... Results will appear when complete.")]
+    // Wire to real swarm learning
+    let mut learning = hydra_kernel::swarm_learning::SwarmLearning::new();
+    let mut genome = hydra_genome::GenomeStore::open();
+    let result = learning.tick(&mut genome, 0, 0);
+    let mut items = vec![sys(&format!("Swarm launched: {goal}"))];
+    items.push(sys(&format!("Single-agent harvest: +{} entries, {} rejected",
+        result.entries_added, result.entries_rejected)));
+    if result.entries_added > 0 {
+        items.push(sys(&format!("Genome now has {} entries", genome.len())));
+    }
+    items
 }
 
 fn expand_home(path: &str) -> String {

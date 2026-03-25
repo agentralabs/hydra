@@ -173,11 +173,32 @@ fn cmd_pause(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
 }
 
 fn cmd_digest(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
-    vec![sys("Reviewing signals...")]
+    // Wire to real monitor events
+    let events_path = dirs::home_dir().unwrap_or_default().join(".hydra/monitor/events.json");
+    let mut items = vec![sys("Signal digest:")];
+    if let Ok(content) = std::fs::read_to_string(&events_path) {
+        if let Ok(events) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+            let recent: Vec<_> = events.iter().rev().take(5).collect();
+            if recent.is_empty() { items.push(sys("  (no recent signals)")); }
+            for ev in recent {
+                let title = ev.get("title").and_then(|v| v.as_str()).unwrap_or("?");
+                items.push(sys(&format!("  - {title}")));
+            }
+        } else { items.push(sys("  (no signals)")); }
+    } else { items.push(sys("  (no signals)")); }
+    items
 }
 
 fn cmd_inbox(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
-    vec![sys("Loading inbox...")]
+    // Wire to drop gateway audit — show recent drops as inbox
+    let audit = dirs::home_dir().unwrap_or_default().join(".hydra/drop/audit.jsonl");
+    let mut items = vec![sys("Drop inbox:")];
+    if let Ok(content) = std::fs::read_to_string(&audit) {
+        let lines: Vec<_> = content.lines().rev().take(5).collect();
+        if lines.is_empty() { items.push(sys("  (empty)")); }
+        for line in lines { items.push(sys(&format!("  {}", &line[..line.len().min(80)]))); }
+    } else { items.push(sys("  (empty)")); }
+    items
 }
 
 fn cmd_companion(_args: &str, ctx: &CommandContext) -> Vec<StreamItem> {
