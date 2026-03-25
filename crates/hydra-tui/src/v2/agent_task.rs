@@ -290,7 +290,7 @@ mod tests {
     #[test]
     fn drain_returns_true_on_done() {
         let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
-        let (tx, mut rx) = mpsc::channel(8);
+        let (tx, mut rx) = mpsc::channel(256);
         rt.block_on(async {
             tx.send(AgentUpdate::Done { steps_taken: 3, completed: true, summary: "Task done".into() }).await.unwrap();
         });
@@ -301,7 +301,7 @@ mod tests {
     #[test]
     fn drain_returns_true_on_error() {
         let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
-        let (tx, mut rx) = mpsc::channel(8);
+        let (tx, mut rx) = mpsc::channel(256);
         rt.block_on(async {
             tx.send(AgentUpdate::Error("test error".into())).await.unwrap();
         });

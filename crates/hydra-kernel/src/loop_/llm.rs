@@ -75,14 +75,19 @@ impl LlmCaller {
     /// Async micro-call. Use this from async contexts (intent classifier, middleware).
     /// Cheap model, 512 tokens, 15s timeout. Reads provider from env.
     pub async fn micro_call(prompt: &str) -> Option<String> {
+        // Reuse static client across all micro-calls (avoid TLS handshake per call)
+        use std::sync::OnceLock;
+        static MICRO_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
         let provider = std::env::var("HYDRA_LLM_PROVIDER").unwrap_or_else(|_| "anthropic".into()).to_lowercase();
         let key_env = match provider.as_str() {
             "openai" => "OPENAI_API_KEY", "gemini" => "GEMINI_API_KEY", _ => "ANTHROPIC_API_KEY",
         };
         let api_key = resolve_api_key(&provider, key_env);
         if api_key.is_empty() { return None; }
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(15)).build().ok()?;
+        let client = MICRO_CLIENT.get_or_init(|| {
+            reqwest::Client::builder().timeout(std::time::Duration::from_secs(15))
+                .build().expect("micro http client")
+        });
         let (url, body) = match provider.as_str() {
             "openai" => ("https://api.openai.com/v1/chat/completions".to_string(), serde_json::json!({
                 "model": "gpt-4o-mini", "max_tokens": 512,

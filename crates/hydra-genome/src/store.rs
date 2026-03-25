@@ -179,6 +179,20 @@ impl GenomeStore {
         self.entries.is_empty()
     }
 
+    /// Batch evict low-value entries (confidence < 0.3 AND use_count < 3).
+    /// Returns number of entries evicted.
+    pub fn evict_low_value(&mut self, max_evict: usize) -> usize {
+        let mut evicted = 0;
+        self.entries.retain(|e| {
+            if evicted >= max_evict { return true; }
+            if e.effective_confidence() < 0.3 && e.use_count < 3 {
+                evicted += 1;
+                false
+            } else { true }
+        });
+        evicted
+    }
+
     /// Return a reference to all entries (for distillation/analysis).
     pub fn all_entries(&self) -> &[GenomeEntry] {
         &self.entries

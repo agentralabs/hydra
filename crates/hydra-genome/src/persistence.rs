@@ -43,12 +43,23 @@ impl GenomeDb {
         let json = serde_json::to_string(entry)
             .map_err(|e| { eprintln!("hydra: genome serialize failed: {e}"); format!("{e}") })?;
         let added_at = entry.created_at.to_rfc3339();
+        // Integrity: store hash alongside entry for tamper detection
+        let hash = Self::hash_json(&json);
         self.conn.execute(
             "INSERT OR IGNORE INTO genome_entries (id, entry_json, added_at) VALUES (?1, ?2, ?3)",
-            rusqlite::params![entry.id, json, added_at],
+            rusqlite::params![entry.id, format!("{hash}:{json}"), added_at],
         ).map_err(|e| { eprintln!("hydra: genome insert failed: {e}"); format!("{e}") })?;
         eprintln!("hydra: genome entry persisted: {}", entry.id);
         Ok(())
+    }
+
+    /// Simple integrity hash for tamper detection.
+    fn hash_json(json: &str) -> u64 {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut h = DefaultHasher::new();
+        json.hash(&mut h);
+        h.finish()
     }
 
     /// Load all entries from the database.
@@ -74,7 +85,20 @@ impl GenomeDb {
             }
         };
         let mut entries = Vec::new();
-        for json in rows.flatten() {
+        for raw in rows.flatten() {
+            // Integrity check: hash:json format
+            let json = if let Some(colon) = raw.find(':') {
+                let stored_hash = &raw[..colon];
+                let json_part = &raw[colon+1..];
+                if let Ok(expected) = stored_hash.parse::<u64>() {
+                    let actual = Self::hash_json(json_part);
+                    if actual != expected {
+                        eprintln!("hydra: genome INTEGRITY VIOLATION — entry tampered (expected {expected}, got {actual})");
+                        continue; // skip tampered entry
+                    }
+                }
+                json_part.to_string()
+            } else { raw }; // backward compat: old entries without hash prefix
             match serde_json::from_str::<GenomeEntry>(&json) {
                 Ok(e) => entries.push(e),
                 Err(e) => eprintln!("hydra: genome deserialize failed: {}", e),

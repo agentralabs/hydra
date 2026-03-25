@@ -24,7 +24,7 @@ pub enum SearchUpdate {
 
 /// Spawn a web search. Returns a receiver for results.
 pub fn spawn(rt: &tokio::runtime::Runtime, query: String) -> mpsc::Receiver<SearchUpdate> {
-    let (tx, rx) = mpsc::channel(8);
+    let (tx, rx) = mpsc::channel(256);
     rt.spawn(async move { run(query, tx).await });
     rx
 }
@@ -189,7 +189,7 @@ mod tests {
     #[test]
     fn drain_results_formats_correctly() {
         let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
-        let (tx, mut rx) = mpsc::channel(8);
+        let (tx, mut rx) = mpsc::channel(256);
         rt.block_on(async {
             tx.send(SearchUpdate::Results(vec![SearchResult {
                 title: "Test".into(), url: "https://example.com".into(), snippet: "A test".into(),

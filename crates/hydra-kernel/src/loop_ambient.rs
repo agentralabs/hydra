@@ -245,10 +245,18 @@ pub fn tick_with_subsystems(
         // Track checkpoint milestones
         if step - subs.last_checkpoint_step >= 100 {
             subs.last_checkpoint_step = step;
-            eprintln!(
-                "hydra: ambient checkpoint milestone step={}",
-                step
-            );
+            eprintln!("hydra: ambient checkpoint milestone step={}", step);
+        }
+
+        // DB maintenance: evict low-value genome entries every 50K ticks (~83 min)
+        if step % 50_000 == 0 && step > 0 {
+            let mut genome = hydra_genome::GenomeStore::open();
+            let before = genome.len();
+            genome.evict_low_value(100); // evict up to 100 low-value entries
+            let after = genome.len();
+            if before != after {
+                eprintln!("hydra: genome maintenance: evicted {} entries ({before}→{after})", before - after);
+            }
         }
 
         level

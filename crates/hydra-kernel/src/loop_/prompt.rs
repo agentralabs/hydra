@@ -273,7 +273,15 @@ impl Default for PromptBuilder {
 
 /// SEC-3: Redact credential patterns from all enrichment values before LLM sees them.
 fn redact_credentials_in_enrichments(enrichments: &mut std::collections::HashMap<String, String>) {
-    let prefixes = ["sk-", "AKIA", "ghp_", "ghs_", "Bearer ", "password=", "token=", "secret="];
+    let prefixes = [
+        "sk-", "AKIA", "ASIA", "ghp_", "ghs_", "glpat-",       // API keys
+        "Bearer ", "Authorization:", "x-api-key:",                // Auth headers
+        "password=", "passwd=", "passwd:", "pass:",               // Passwords
+        "token=", "secret=", "api_key=", "apikey=",              // Key-value secrets
+        "client_secret=", "client_secret:", "private_key",        // OAuth/SSH
+        "AIza",                                                   // GCP browser keys
+        "eyJ",                                                    // JWT tokens
+    ];
     for val in enrichments.values_mut() {
         for p in &prefixes {
             while let Some(pos) = val.find(p) {

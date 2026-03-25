@@ -169,6 +169,24 @@ impl ProactiveEngine {
             }
         }
 
+        // Routines: load all, check if any should fire now
+        let routines = crate::routine::load_routines();
+        for routine in &routines {
+            if crate::routine::should_fire(routine, chrono::Utc::now()) {
+                let goal = routine.steps.first().map(|s| s.goal.clone()).unwrap_or_default();
+                triggers.push(TriggerSource {
+                    source_type: TriggerType::Schedule {
+                        cron: routine.routine.schedule.clone(),
+                        task: routine.routine.name.clone(),
+                    },
+                    description: format!("Routine: {}", routine.routine.description),
+                    urgency: 0.5,
+                    confidence: 0.8, // owner-defined = high confidence
+                    suggested_goal: goal,
+                });
+            }
+        }
+
         // Monitor: convert recent connector/monitor events into triggers
         let events_path = dirs::home_dir().unwrap_or_default().join(".hydra/monitor/events.json");
         if let Ok(content) = std::fs::read_to_string(&events_path) {
