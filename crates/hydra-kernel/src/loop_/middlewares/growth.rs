@@ -50,6 +50,17 @@ impl CycleMiddleware for GrowthMiddleware {
         if skill_count > 0 {
             enrichments.push(format!("Skills loaded: {skill_count}"));
         }
+        // Fix #5: Inject active beliefs into prompt (beliefs were write-only before)
+        let beliefs = hydra_belief::BeliefStore::new();
+        let count = beliefs.len();
+        if count > 0 {
+            let mut sorted: Vec<_> = beliefs.all().into_iter().collect();
+            sorted.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+            let top: Vec<String> = sorted.iter().take(5)
+                .map(|b| format!("- {} (conf={:.0}%)", b.proposition, b.confidence * 100.0))
+                .collect();
+            enrichments.push(format!("Active beliefs ({count}):\n{}", top.join("\n")));
+        }
         enrichments
     }
 
