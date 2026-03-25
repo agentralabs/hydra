@@ -60,8 +60,7 @@ fn run(
         .map(|m| m.len() / 1024).unwrap_or(0);
     let booted = boot_systems();
     state.boot_complete = true;
-    // Greeting + boot phases — scroll naturally with the stream
-    for item in hydra_tui::v2::tui_helpers::greeting_items(&state.model, state.genome_count, state.middleware_count) { state.stream.push(item); }
+    // Boot phases only — top frame already shows greeting/session info
     for msg in &booted.boot_log { state.stream.push(sysn(&format!("◌ {msg}"))); }
     for issue in &booted.health_issues { state.stream.push(sysn(&format!("[Health] {issue}"))); }
     for item in hydra_tui::v2::morning_brief::generate_briefing(state.genome_count) { state.stream.push(item); }
