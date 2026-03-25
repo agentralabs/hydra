@@ -323,6 +323,18 @@ fn handle_submit(
                 _ => {}
             }
         }
+        // O34: Push deliberation thinking steps to TUI stream (visible reasoning)
+        if !cognitive.last_thinking.is_empty() {
+            state.stream.push(StreamItem::thinking("", "hydra thinking...", 0));
+            for step in &cognitive.last_thinking {
+                let indent = match step.mode {
+                    hydra_kernel::deliberation::CognitiveMode::Research => 1,
+                    hydra_kernel::deliberation::CognitiveMode::Critique => 1,
+                    _ => 0,
+                };
+                state.stream.push(StreamItem::thinking(step.mode.label(), &step.thought, indent));
+            }
+        }
         state.stream.push(StreamItem::AssistantText { id: uuid::Uuid::new_v4(), text: String::new(), timestamp: chrono::Utc::now() });
         match rt.block_on(cognitive.start_streaming(&prepared)) {
             Ok(rx) => { *active_stream = Some(rx); streaming_text.clear(); *streaming_display_cursor = 0; *streaming_prepared = Some(prepared); }

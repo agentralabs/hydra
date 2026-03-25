@@ -59,6 +59,8 @@ pub struct CognitiveLoop {
     last_tokens: usize,
     /// Last cycle's routing path.
     last_path: String,
+    /// O34: Last cycle's deliberation thinking log.
+    pub last_thinking: Vec<crate::deliberation::ThinkingStep>,
 }
 
 impl CognitiveLoop {
@@ -89,6 +91,7 @@ impl CognitiveLoop {
             last_enrichments: HashMap::new(),
             last_tokens: 0,
             last_path: String::new(),
+            last_thinking: Vec::new(),
         }
     }
 
@@ -136,6 +139,7 @@ impl CognitiveLoop {
         // O34: Deliberation — think before acting on complex tasks
         let domain = perceived.comprehended.primary_domain.label();
         let delib = crate::deliberation::deliberate(raw, domain, &self.genome);
+        self.last_thinking = delib.thinking_log.clone();
         for step in &delib.thinking_log {
             eprintln!("hydra-think: [{}] {}", step.mode.label(), step.thought);
         }

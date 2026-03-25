@@ -226,6 +226,21 @@ fn render_item(item: &StreamItem) -> Vec<Line<'static>> {
             out.push(Line::from(Span::styled("  └──────────────────────────────────────┘", Style::default().fg(Color::Red))));
             out
         }
+        // O34: Deliberation thinking — small dimmed text with tree connectors
+        StreamItem::Thinking { mode, thought, indent, .. } => {
+            let prefix = match *indent {
+                0 => "  ├ ",
+                _ => "  │   ",
+            };
+            let mode_style = Style::default().fg(Color::Rgb(120, 120, 180));
+            let text_style = Style::default().fg(t.dim);
+            vec![Line::from(vec![
+                Span::styled(prefix, Style::default().fg(t.dim)),
+                Span::styled(format!("[{mode}]"), mode_style),
+                Span::styled(format!(" {thought}"), text_style),
+            ])]
+        }
+
         StreamItem::Blank => vec![Line::from("")],
     }
 }

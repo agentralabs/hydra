@@ -197,6 +197,19 @@ pub enum StreamItem {
         timestamp: DateTime<Utc>,
     },
 
+    /// O34: Deliberation thinking step — visible in small dimmed text.
+    /// Shows Hydra's reasoning process like Claude Code's "Thinking..." display.
+    Thinking {
+        /// Cognitive mode: ASSESS, RESEARCH, PLAN, CRITIQUE, EXECUTE.
+        mode: String,
+        /// What Hydra is thinking.
+        thought: String,
+        /// Nesting depth (0 = top level, 1 = sub-finding).
+        indent: u8,
+        /// When this thought occurred.
+        timestamp: DateTime<Utc>,
+    },
+
     /// A blank line separator.
     Blank,
 }
@@ -217,7 +230,7 @@ impl StreamItem {
             | Self::SystemNotification { id, .. }
             | Self::AgentStep { id, .. }
             | Self::AlertFrame { id, .. } => Some(*id),
-            Self::ThinkingPill { .. } | Self::Blank => None,
+            Self::ThinkingPill { .. } | Self::Thinking { .. } | Self::Blank => None,
         }
     }
 
@@ -237,7 +250,16 @@ impl StreamItem {
             Self::AgentStep { .. } => "agent-step",
             Self::AlertFrame { .. } => "alert",
             Self::ThinkingPill { .. } => "thinking-pill",
+            Self::Thinking { .. } => "thinking",
             Self::Blank => "blank",
+        }
+    }
+
+    /// Create a deliberation thinking step for visible reasoning.
+    pub fn thinking(mode: &str, thought: &str, indent: u8) -> Self {
+        Self::Thinking {
+            mode: mode.into(), thought: thought.into(), indent,
+            timestamp: Utc::now(),
         }
     }
 
