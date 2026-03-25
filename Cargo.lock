@@ -2564,6 +2564,7 @@ dependencies = [
  "hydra-skills",
  "hydra-soul",
  "hydra-swarm",
+ "hydra-swarm-browser",
  "hydra-synthesis",
  "hydra-transform",
  "hydra-trust",

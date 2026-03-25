@@ -67,6 +67,11 @@ pub fn generate_briefing(genome_count: usize) -> Vec<StreamItem> {
     if integrity_report.memory_recovered {
         push_brief_item(&mut items, "●", "Memory auto-recovered from backup", w, BriefingPriority::High);
     }
+    // O21: User model proactive suggestions
+    let user_model = hydra_kernel::user_model::DeepUserModel::load();
+    for suggestion in user_model.proactive_suggestions().iter().take(2) {
+        push_brief_item(&mut items, "●", suggestion, w, BriefingPriority::Normal);
+    }
     push_brief_item(&mut items, "○", "All systems nominal · laws verified", w, BriefingPriority::Low);
 
     // │                                               │

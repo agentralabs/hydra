@@ -17,6 +17,8 @@ pub struct SelfModelMiddleware {
     last_snapshot: KernelStateSnapshot,
     transform: TransformEngine,
     cycles_processed: u64,
+    /// O21: Deep user model — learns patterns from every conversation.
+    user_model: crate::user_model::DeepUserModel,
 }
 
 impl SelfModelMiddleware {
@@ -28,6 +30,7 @@ impl SelfModelMiddleware {
             last_snapshot: KernelStateSnapshot::initial(),
             transform: TransformEngine::new(),
             cycles_processed: 0,
+            user_model: crate::user_model::DeepUserModel::load(),
         }
     }
 }
@@ -51,8 +54,24 @@ impl CycleMiddleware for SelfModelMiddleware {
         }
     }
 
+    fn enrich_prompt(&self, _perceived: &PerceivedInput) -> Vec<String> {
+        let mut lines = Vec::new();
+        // O21: User model context
+        match self.user_model.preferred_length {
+            crate::user_model::ResponseLength::Concise => lines.push("[User prefers concise answers]".into()),
+            crate::user_model::ResponseLength::Detailed => lines.push("[User prefers detailed answers]".into()),
+            _ => {}
+        }
+        lines
+    }
+
     fn post_deliver(&mut self, _cycle: &CycleResult) {
         self.cycles_processed += 1;
+
+        // O21: Observe exchange for user model learning
+        self.user_model.observe_exchange(
+            &_cycle.intent_summary, &_cycle.response, &_cycle.domain);
+        if self.cycles_processed % 10 == 0 { self.user_model.save(); }
 
         // Deepen morphic hash chain on every cycle
         if let Err(e) = self.identity.record_event(MorphicEventKind::CapabilityAdded {

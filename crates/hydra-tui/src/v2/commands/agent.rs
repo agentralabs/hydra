@@ -285,6 +285,24 @@ fn cmd_credentials(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
                 Err(e) => vec![sys(&format!("Read error: {e}"))],
             }
         }
+        Some("show") | Some("view") | Some("reveal") => {
+            let service = parts.get(1).unwrap_or(&"").trim();
+            if service.is_empty() {
+                return vec![sys("Usage: /credentials show <service>")];
+            }
+            // User is the principal — they ALWAYS have access to their own credentials
+            let enc = vault_dir.join(format!("{service}.toml.enc"));
+            let plain = vault_dir.join(format!("{service}.toml"));
+            let content = if enc.exists() {
+                hydra_kernel::vault_crypto::decrypt_file(&enc)
+                    .unwrap_or_else(|e| format!("Decrypt failed (set HYDRA_VAULT_PASSPHRASE): {e}"))
+            } else if plain.exists() {
+                std::fs::read_to_string(&plain).unwrap_or_else(|e| format!("Read failed: {e}"))
+            } else {
+                return vec![sys(&format!("No credentials found for '{service}'"))];
+            };
+            vec![sys(&format!("Credentials for {service}:")), sys(&content)]
+        }
         Some("delete") => {
             let service = parts.get(1).unwrap_or(&"").trim();
             if service.is_empty() {
@@ -296,7 +314,7 @@ fn cmd_credentials(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
             if removed { vec![sys(&format!("Deleted credentials for {service}"))] }
             else { vec![sys(&format!("No credentials found for {service}"))] }
         }
-        _ => vec![sys("Usage: /credentials add <service> <username> | list | delete <service>")],
+        _ => vec![sys("Usage: /credentials add|list|show|delete <service>")],
     }
 }
 

@@ -9,7 +9,7 @@ use serde::Deserialize;
 pub fn ssh_execute(machine_name: &str, command: &str) -> Result<(String, bool), String> {
     let machine = load_machine(machine_name)?;
     let mut args = vec![
-        "-o".to_string(), "StrictHostKeyChecking=no".to_string(),
+        "-o".to_string(), "StrictHostKeyChecking=accept-new".to_string(),
         "-o".to_string(), "ConnectTimeout=10".to_string(),
         "-p".to_string(), machine.port.to_string(),
     ];
@@ -18,7 +18,8 @@ pub fn ssh_execute(machine_name: &str, command: &str) -> Result<(String, bool), 
         args.push(key.clone());
     }
     args.push(format!("{}@{}", machine.user, machine.host));
-    args.push(command.to_string());
+    // EC-24.4: Shell-escape to prevent command injection via metacharacters
+    args.push(format!("'{}'", command.replace('\'', "'\\''")));
 
     eprintln!("hydra-remote: ssh {}@{}:{} '{}'", machine.user, machine.host, machine.port, command);
     let output = std::process::Command::new("ssh").args(&args).output()

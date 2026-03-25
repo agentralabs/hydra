@@ -223,6 +223,18 @@ pub fn record_taste_feedback(domain: &str, positive: bool, genome: &mut hydra_ge
     }
 }
 
+// ── O22 Rich Output Preference ──
+
+/// Record which output type worked for a given domain (genome learning).
+pub fn record_output_preference(output_type: &str, domain: &str, genome: &mut hydra_genome::GenomeStore) {
+    let desc = format!("output_type:{domain} {output_type}");
+    let approach = hydra_genome::ApproachSignature::new(
+        "rich_output", vec![output_type.to_string()], vec!["output".into()]);
+    if let Err(e) = genome.add_from_operation(&desc, approach, 0.7) {
+        eprintln!("hydra-feedback: output pref: {e}");
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

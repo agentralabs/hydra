@@ -38,6 +38,10 @@ pub struct AmbientSubsystems {
     pub integrity: crate::integrity::IntegrityMonitor,
     /// Self-evolution: detect gaps and generate new skills (Session 25).
     pub evolution: crate::evolution::EvolutionEngine,
+    /// Universal Drop Gateway: single entry point for all external items.
+    pub drop_gateway: crate::drop::DropGateway,
+    /// Internal step counter — incremented each ambient tick.
+    pub ambient_step: u64,
 }
 
 impl AmbientSubsystems {
@@ -50,6 +54,8 @@ impl AmbientSubsystems {
             last_checkpoint_step: 0,
             integrity: crate::integrity::IntegrityMonitor::new(),
             evolution: crate::evolution::EvolutionEngine::new(),
+            drop_gateway: crate::drop::DropGateway::new(),
+            ambient_step: 0,
         }
     }
 }
@@ -73,6 +79,9 @@ pub fn tick_with_subsystems(
 ) -> AmbientTickResult {
     let next_state = integrate_euler(state, dt);
     let invariant_results = invariants::check_all(&next_state);
+    // Use a static counter since HydraState::initial() always has step_count=0
+    static AMBIENT_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let step = AMBIENT_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
     let intervention_level = if let Some(subs) = subsystems {
         // Metabolism: Lyapunov monitoring
@@ -88,13 +97,13 @@ pub fn tick_with_subsystems(
         };
 
         // Continuity: prove lineage and write checkpoints periodically
-        if next_state.step_count % 100 == 0 && next_state.step_count > 0 {
+        if step % 100 == 0 && step > 0 {
             // Prove primary lineage is intact
             if let Err(e) = subs.continuity.prove_lineage("primary") {
                 eprintln!("hydra: continuity lineage proof: {e}");
             }
         }
-        if next_state.step_count % 1000 == 0 && next_state.step_count > 0 {
+        if step % 1000 == 0 && step > 0 {
             eprintln!(
                 "hydra: continuity lineages={} checkpoints={}",
                 subs.continuity.lineage_count(),
@@ -103,16 +112,16 @@ pub fn tick_with_subsystems(
         }
 
         // Resurrection: record checkpoint at milestones
-        if next_state.step_count - subs.last_checkpoint_step >= 100 {
+        if step - subs.last_checkpoint_step >= 100 {
             let snapshot = hydra_resurrection::KernelStateSnapshot::new(
                 next_state.lyapunov_value,
-                next_state.step_count,
+                step,
                 vec![0.0],      // manifold coordinates
                 0.9,            // average trust
                 0.1,            // queue utilization
                 next_state.growth_state.growth_rate,
             );
-            match hydra_resurrection::Checkpoint::full(next_state.step_count, snapshot) {
+            match hydra_resurrection::Checkpoint::full(step, snapshot) {
                 Ok(cp) => {
                     if let Err(e) = cp.verify_integrity() {
                         eprintln!("hydra: checkpoint integrity: {e}");
@@ -123,7 +132,7 @@ pub fn tick_with_subsystems(
         }
 
         // Reach: track connectivity health every 500 ticks (~50 seconds)
-        if next_state.step_count % 500 == 0 && next_state.step_count > 0 {
+        if step % 500 == 0 && step > 0 {
             let provider = std::env::var("HYDRA_LLM_PROVIDER").unwrap_or_else(|_| "anthropic".into());
             let endpoint = match provider.as_str() {
                 "openai" => "https://api.openai.com",
@@ -154,12 +163,32 @@ pub fn tick_with_subsystems(
             }
         }
 
+        // Self-preservation (O23): cloud backup every 20000 ticks (~8 hours)
+        if step % 20000 == 0 && step > 0 {
+            let config = crate::backup_cloud::CloudBackupConfig::default();
+            if config.enabled {
+                let backup_dir = dirs::home_dir().unwrap_or_default().join(".hydra/backups");
+                match crate::backup_cloud::upload_backup(&backup_dir, &config) {
+                    Ok(r) => eprintln!("hydra: cloud backup: {} files → {}", r.files_uploaded, r.destination),
+                    Err(e) => eprintln!("hydra: cloud backup skipped: {e}"),
+                }
+            }
+        }
+
         // Self-evolution (Session 25): detect gaps and generate skills
-        if next_state.step_count % 10000 == 0 && next_state.step_count > 0 {
+        if step % 10000 == 0 && step > 0 {
             let mut genome = hydra_genome::GenomeStore::open();
             let result = subs.evolution.tick(&mut genome);
             if let crate::evolution::EvolutionResult::NewCapability { ref name, .. } = result {
                 eprintln!("hydra: SELF-EVOLUTION — new capability: {name}");
+            }
+        }
+
+        // Universal Drop Gateway: process files from ~/.hydra/drop/ every 50 ticks (~5s)
+        if step % 50 == 0 {
+            let records = subs.drop_gateway.tick();
+            for r in &records {
+                eprintln!("hydra-drop: {} → {:?}", r.filename, r.outcome);
             }
         }
 
@@ -173,11 +202,11 @@ pub fn tick_with_subsystems(
         }
 
         // Track checkpoint milestones
-        if next_state.step_count - subs.last_checkpoint_step >= 100 {
-            subs.last_checkpoint_step = next_state.step_count;
+        if step - subs.last_checkpoint_step >= 100 {
+            subs.last_checkpoint_step = step;
             eprintln!(
                 "hydra: ambient checkpoint milestone step={}",
-                next_state.step_count
+                step
             );
         }
 
@@ -189,7 +218,7 @@ pub fn tick_with_subsystems(
     let summary = if invariant_results.all_passed {
         format!(
             "ambient tick {} ok, V(Psi)={:.4}, intervention={}",
-            next_state.step_count, next_state.lyapunov_value, intervention_level
+            step, next_state.lyapunov_value, intervention_level
         )
     } else {
         let failure = invariant_results
@@ -198,7 +227,7 @@ pub fn tick_with_subsystems(
             .unwrap_or_else(|| "unknown failure".to_string());
         format!(
             "ambient tick {} INVARIANT FAILED: {}",
-            next_state.step_count, failure
+            step, failure
         )
     };
 

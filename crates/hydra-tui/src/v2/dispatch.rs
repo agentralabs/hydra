@@ -6,14 +6,15 @@ use crate::v2::action::*;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEventKind};
 
 /// Dispatch a crossterm event into actions.
-/// `modal_open` determines whether we're in modal or conversation context.
-pub fn dispatch_event(event: &Event, modal_open: bool) -> Vec<Action> {
+/// `modal_open` determines modal or conversation context.
+/// `streaming` enables Escape to cancel active LLM stream.
+pub fn dispatch_event(event: &Event, modal_open: bool, streaming: bool, input_empty: bool) -> Vec<Action> {
     match event {
         Event::Key(key) => {
             if modal_open {
                 dispatch_modal_key(key)
             } else {
-                dispatch_conversation_key(key)
+                dispatch_conversation_key(key, streaming, input_empty)
             }
         }
         Event::Mouse(mouse) => dispatch_mouse(mouse),
@@ -26,7 +27,7 @@ pub fn dispatch_event(event: &Event, modal_open: bool) -> Vec<Action> {
 }
 
 /// Key dispatch in conversation mode (normal input).
-fn dispatch_conversation_key(key: &KeyEvent) -> Vec<Action> {
+fn dispatch_conversation_key(key: &KeyEvent, streaming: bool, input_empty: bool) -> Vec<Action> {
     // Ctrl combinations
     if key.modifiers.contains(KeyModifiers::CONTROL) {
         return match key.code {
@@ -71,11 +72,20 @@ fn dispatch_conversation_key(key: &KeyEvent) -> Vec<Action> {
         KeyCode::Right => vec![Action::Input(InputAction::MoveRight)],
         KeyCode::Home => vec![Action::Input(InputAction::MoveHome)],
         KeyCode::End => vec![Action::Input(InputAction::MoveEnd)],
-        KeyCode::Up => vec![Action::Input(InputAction::HistoryUp)],
-        KeyCode::Down => vec![Action::Input(InputAction::HistoryDown)],
+        KeyCode::Up => {
+            if input_empty { vec![Action::Stream(StreamAction::ScrollUp(1))] }
+            else { vec![Action::Input(InputAction::HistoryUp)] }
+        }
+        KeyCode::Down => {
+            if input_empty { vec![Action::Stream(StreamAction::ScrollDown(1))] }
+            else { vec![Action::Input(InputAction::HistoryDown)] }
+        }
         KeyCode::PageUp => vec![Action::Stream(StreamAction::ScrollUp(10))],
         KeyCode::PageDown => vec![Action::Stream(StreamAction::ScrollDown(10))],
-        KeyCode::Esc => vec![], // no-op in conversation mode
+        KeyCode::Esc => {
+            if streaming { vec![Action::Streaming(StreamingAction::Interrupt)] }
+            else { vec![] }
+        }
         KeyCode::Char(c) => vec![Action::Input(InputAction::InsertChar(c))],
         _ => vec![],
     }
@@ -106,8 +116,8 @@ fn dispatch_modal_key(key: &KeyEvent) -> Vec<Action> {
 /// Mouse event dispatch.
 fn dispatch_mouse(mouse: &crossterm::event::MouseEvent) -> Vec<Action> {
     match mouse.kind {
-        MouseEventKind::ScrollUp => vec![Action::Stream(StreamAction::ScrollUp(3))],
-        MouseEventKind::ScrollDown => vec![Action::Stream(StreamAction::ScrollDown(3))],
+        MouseEventKind::ScrollUp => vec![Action::Stream(StreamAction::ScrollUp(1))],
+        MouseEventKind::ScrollDown => vec![Action::Stream(StreamAction::ScrollDown(1))],
         _ => vec![],
     }
 }
@@ -128,26 +138,38 @@ mod tests {
 
     #[test]
     fn ctrl_k_opens_palette() {
-        let actions = dispatch_conversation_key(&key(KeyCode::Char('k'), KeyModifiers::CONTROL));
+        let actions = dispatch_conversation_key(&key(KeyCode::Char('k'), KeyModifiers::CONTROL), false, false);
         assert!(matches!(actions[0], Action::Modal(ModalAction::OpenPalette)));
     }
 
     #[test]
     fn ctrl_c_quits() {
-        let actions = dispatch_conversation_key(&key(KeyCode::Char('c'), KeyModifiers::CONTROL));
+        let actions = dispatch_conversation_key(&key(KeyCode::Char('c'), KeyModifiers::CONTROL), false, false);
         assert!(matches!(actions[0], Action::System(SystemAction::Quit)));
     }
 
     #[test]
     fn enter_submits() {
-        let actions = dispatch_conversation_key(&key(KeyCode::Enter, KeyModifiers::empty()));
+        let actions = dispatch_conversation_key(&key(KeyCode::Enter, KeyModifiers::empty()), false, false);
         assert!(matches!(actions[0], Action::Input(InputAction::Submit)));
     }
 
     #[test]
     fn shift_enter_inserts_newline() {
-        let actions = dispatch_conversation_key(&key(KeyCode::Enter, KeyModifiers::SHIFT));
+        let actions = dispatch_conversation_key(&key(KeyCode::Enter, KeyModifiers::SHIFT), false, false);
         assert!(matches!(actions[0], Action::Input(InputAction::InsertChar('\n'))));
+    }
+
+    #[test]
+    fn escape_interrupts_streaming() {
+        let actions = dispatch_conversation_key(&key(KeyCode::Esc, KeyModifiers::empty()), true, false);
+        assert!(matches!(actions[0], Action::Streaming(StreamingAction::Interrupt)));
+    }
+
+    #[test]
+    fn escape_noop_when_not_streaming() {
+        let actions = dispatch_conversation_key(&key(KeyCode::Esc, KeyModifiers::empty()), false, false);
+        assert!(actions.is_empty());
     }
 
     #[test]
@@ -158,14 +180,26 @@ mod tests {
 
     #[test]
     fn pageup_scrolls() {
-        let actions = dispatch_conversation_key(&key(KeyCode::PageUp, KeyModifiers::empty()));
+        let actions = dispatch_conversation_key(&key(KeyCode::PageUp, KeyModifiers::empty()), false, false);
         assert!(matches!(actions[0], Action::Stream(StreamAction::ScrollUp(10))));
     }
 
     #[test]
     fn char_inserts() {
-        let actions = dispatch_conversation_key(&key(KeyCode::Char('a'), KeyModifiers::empty()));
+        let actions = dispatch_conversation_key(&key(KeyCode::Char('a'), KeyModifiers::empty()), false, false);
         assert!(matches!(actions[0], Action::Input(InputAction::InsertChar('a'))));
+    }
+
+    #[test]
+    fn arrow_up_scrolls_when_input_empty() {
+        let actions = dispatch_conversation_key(&key(KeyCode::Up, KeyModifiers::empty()), false, true);
+        assert!(matches!(actions[0], Action::Stream(StreamAction::ScrollUp(1))));
+    }
+
+    #[test]
+    fn arrow_up_history_when_input_has_text() {
+        let actions = dispatch_conversation_key(&key(KeyCode::Up, KeyModifiers::empty()), false, false);
+        assert!(matches!(actions[0], Action::Input(InputAction::HistoryUp)));
     }
 
     #[test]

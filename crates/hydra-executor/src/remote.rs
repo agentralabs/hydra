@@ -94,7 +94,7 @@ pub fn scp_to(target: &ExecutionTarget, local: &str, remote_path: &str) -> Resul
         if let RemoteAuth::SshKey { path } = auth {
             args.extend(["-i".to_string(), path.display().to_string()]);
         }
-        args.push("-o".to_string()); args.push("StrictHostKeyChecking=no".to_string());
+        args.push("-o".to_string()); args.push("StrictHostKeyChecking=accept-new".to_string());
         args.push(local.to_string());
         args.push(format!("{user}@{host}:{remote_path}"));
         let output = std::process::Command::new("scp").args(&args).output()
@@ -116,7 +116,7 @@ pub fn check_ssh_available() -> bool {
 /// Build SSH arguments for a remote command.
 fn build_ssh_args(host: &str, user: &str, auth: &RemoteAuth, port: u16, command: &str) -> Vec<String> {
     let mut args = Vec::new();
-    args.push("-o".into()); args.push("StrictHostKeyChecking=no".into());
+    args.push("-o".into()); args.push("StrictHostKeyChecking=accept-new".into());
     args.push("-o".into()); args.push("ConnectTimeout=10".into());
     args.push("-p".into()); args.push(port.to_string());
     match auth {

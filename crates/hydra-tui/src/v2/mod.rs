@@ -3,6 +3,7 @@
 
 pub mod action;
 pub mod agent_task;
+pub mod cache;
 pub mod alert;
 pub mod bridge_companion;
 pub mod browser_task;
@@ -18,6 +19,7 @@ pub mod search_parse;
 pub mod search_task;
 pub mod session;
 pub mod shell_task;
+pub mod smart_pacer;
 pub mod state;
 pub mod tui_helpers;
 pub mod view;

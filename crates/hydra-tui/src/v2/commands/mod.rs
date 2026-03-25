@@ -7,6 +7,7 @@ pub mod agent;
 pub mod core;
 pub mod info;
 pub mod companion;
+pub mod session;
 pub mod system;
 
 use registry::{CommandRegistry, Command};
@@ -15,6 +16,7 @@ use registry::{CommandRegistry, Command};
 pub fn build_registry() -> CommandRegistry {
     let mut commands: Vec<Command> = Vec::new();
     commands.extend(core::commands());
+    commands.extend(session::commands());
     commands.extend(info::commands());
     commands.extend(companion::commands());
     commands.extend(system::commands());

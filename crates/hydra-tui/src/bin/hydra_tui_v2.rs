@@ -18,13 +18,18 @@ use hydra_tui::v2::commands;
 use hydra_tui::v2::dispatch::dispatch_event;
 use hydra_tui::v2::state::{AppState, reduce};
 use hydra_tui::v2::tui_helpers::{
-    build_command_context, build_render_state_full, ComputerUseState, drain_browser, redirect_stderr, sysn,
+    build_command_context, build_render_state_full, boot_systems, shutdown_systems,
+    ComputerUseState, drain_browser, redirect_stderr, sysn,
 };
 use hydra_tui::v2::view;
 
 const TICK_RATE: Duration = Duration::from_millis(50);
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // First-run wizard MUST run before raw mode (needs normal stdin)
+    if hydra_kernel::first_run::is_first_run() {
+        hydra_kernel::first_run::run_wizard();
+    }
     let config = hydra_tui::config::HydraConfig::load();
     hydra_tui::theme::init(hydra_tui::theme::Theme::by_name(&config.tui.theme));
     redirect_stderr();
@@ -53,7 +58,12 @@ fn run(
     state.memory_size_kb = dirs::home_dir()
         .and_then(|h| std::fs::metadata(h.join(".hydra/data/hydra.amem")).ok())
         .map(|m| m.len() / 1024).unwrap_or(0);
+    let booted = boot_systems();
     state.boot_complete = true;
+    // Greeting + boot phases — scroll naturally with the stream
+    for item in hydra_tui::v2::tui_helpers::greeting_items(&state.model, state.genome_count, state.middleware_count) { state.stream.push(item); }
+    for msg in &booted.boot_log { state.stream.push(sysn(&format!("◌ {msg}"))); }
+    for issue in &booted.health_issues { state.stream.push(sysn(&format!("[Health] {issue}"))); }
     for item in hydra_tui::v2::morning_brief::generate_briefing(state.genome_count) { state.stream.push(item); }
     if let Some(exs) = hydra_kernel::conversation_store::ConversationStore::load_latest() {
         for ex in exs.iter().rev().take(3).rev() {
@@ -67,8 +77,9 @@ fn run(
     let (companion_channel, companion_endpoint) = hydra_signals::create_companion_channel();
     let mut companion_service = hydra_companion::CompanionService::new(companion_endpoint);
     let mut dream_subs = hydra_kernel::loop_dream::DreamSubsystems::new();
+    let mut ambient_subs = hydra_kernel::loop_ambient::AmbientSubsystems::new();
     let mut metabolism = hydra_metabolism::MetabolismMonitor::new();
-    let (boot_time, mut last_dream) = (Instant::now(), Instant::now());
+    let (boot_time, mut last_dream, mut last_ambient, mut last_user_input) = (Instant::now(), Instant::now(), Instant::now(), Instant::now());
     type ChunkRx = tokio::sync::mpsc::Receiver<hydra_kernel::loop_::llm_stream::StreamChunk>;
     let mut active_stream: Option<ChunkRx> = None;
     let mut streaming_text = String::new();
@@ -84,17 +95,19 @@ fn run(
     let mut shell_mode = false;
     type ConductorRx = tokio::sync::mpsc::Receiver<hydra_tui::v2::tui_helpers::ConductorUpdate>;
     let mut conductor_rx: Option<ConductorRx> = None;
+    let mut frame_cache = hydra_tui::v2::cache::FrameCache::new();
     loop {
         state.session_minutes = boot_time.elapsed().as_secs() / 60;
-        tick_spinner(&mut state);
+        hydra_tui::v2::tui_helpers::tick_spinner(&mut state);
         let cu_state = ComputerUseState {
             shell_mode, agent_active: agent_rx.is_some(), vision_budget_remaining: None,
         };
-        let render_state = build_render_state_full(&state, metabolism.tracker().current().unwrap_or(0.42), &cu_state);
+        let render_state = build_render_state_full(&state, metabolism.tracker().current().unwrap_or(0.42), &cu_state, &mut frame_cache);
         terminal.draw(|frame| { view::render(frame, &render_state); })?;
         if event::poll(TICK_RATE)? {
             let ev = event::read()?;
-            for action in dispatch_event(&ev, state.modal_open()) {
+            last_user_input = Instant::now(); // Track idle for swarm learning
+            for action in dispatch_event(&ev, state.modal_open(), active_stream.is_some(), state.input.text().is_empty()) {
                 handle_action(action, &mut state, &mut active_stream, &mut streaming_text,
                     &mut streaming_display_cursor, &mut streaming_prepared, &mut cognitive,
                     &registry, &companion_channel, &mut voice_loop, &rt,
@@ -121,6 +134,9 @@ fn run(
                         let icon = if success { "✓" } else { "✗" };
                         state.stream.push(sysn(&format!("  {icon} {description}")));
                     }
+                    ConductorUpdate::Info { message } => {
+                        state.stream.push(sysn(&format!("  ◌ {message}")));
+                    }
                     ConductorUpdate::Done { steps, success } => {
                         state.stream.push(sysn(&format!("Conductor: {steps} steps, {}", if success { "all passed" } else { "some failed" })));
                         conductor_rx = None; break;
@@ -137,6 +153,7 @@ fn run(
         for a in hydra_tui::v2::bridge_companion::poll_companion(&companion_channel) { reduce(&mut state, a); }
         companion_service.tick();
         if last_dream.elapsed() >= Duration::from_secs(5) {
+            dream_subs.idle_secs = last_user_input.elapsed().as_secs();
             let r = hydra_kernel::loop_dream::cycle_with_subsystems(
                 &hydra_kernel::state::HydraState::initial(), Some(&mut dream_subs));
             if r.genome_entries_created > 0 {
@@ -146,21 +163,18 @@ fn run(
             }
             last_dream = Instant::now();
         }
+        // Ambient loop: self-evolution, integrity, cloud backup, signals (every 10s)
+        if last_ambient.elapsed() >= Duration::from_secs(10) {
+            hydra_kernel::loop_ambient::tick_with_subsystems(
+                &hydra_kernel::state::HydraState::initial(), 10.0, Some(&mut ambient_subs));
+            last_ambient = Instant::now();
+        }
         if state.should_quit { break; }
     }
+    voice_loop.stop_listening();
+    shutdown_systems();
+    rt.shutdown_timeout(Duration::from_secs(3));
     Ok(())
-}
-
-fn tick_spinner(state: &mut AppState) {
-    if state.is_thinking {
-        state.think_spinner_frame = state.think_spinner_frame.wrapping_add(1);
-        if state.think_spinner_frame % 44 == 0 {
-            let contexts = hydra_tui::verb::VerbContext::all();
-            let ctx = &contexts[(state.think_spinner_frame / 44) % contexts.len()];
-            let alts = ctx.alternatives();
-            state.thinking_verb = alts[(state.think_spinner_frame / 11) % alts.len()].to_string();
-        }
-    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -207,7 +221,7 @@ fn handle_action(
         }
     }
     match &action {
-        Action::System(SystemAction::Quit) if active_stream.is_some() => {
+        Action::System(SystemAction::Quit) | Action::Streaming(StreamingAction::Interrupt) if active_stream.is_some() => {
             *active_stream = None; streaming_text.clear(); *streaming_display_cursor = 0;
             state.is_thinking = false; state.stream.push(sysn("Interrupted.")); state.stream.scroll_to_bottom();
         }
@@ -348,6 +362,8 @@ fn drain_llm_stream(
                                     .unwrap_or_default();
                                 state.session.record(&input_text, streaming_text, tokens_used, duration_ms);
                             }
+                            state.stream.push(StreamItem::ThinkingPill { duration_secs: duration_ms as f64 / 1000.0 });
+                            state.input_placeholder = hydra_tui::v2::tui_helpers::suggest_placeholder(streaming_text);
                             state.stream.push(StreamItem::Blank);
                             state.stream.scroll_to_bottom();
                             *active_stream = None; streaming_text.clear(); *cursor = 0;
@@ -355,7 +371,13 @@ fn drain_llm_stream(
                         }
                         StreamChunk::Error(e) => {
                             state.is_thinking = false;
-                            state.stream.push(sysn(&format!("Error: {e}")));
+                            let err = format!("{e}");
+                            if hydra_tui::v2::tui_helpers::is_transient_error(&err) {
+                                state.stream.push(sysn(&format!("Transient error: {err}")));
+                                state.stream.push(sysn("Press Enter to retry, or type a new message."));
+                            } else {
+                                state.stream.push(sysn(&format!("Error: {err}")));
+                            }
                             *active_stream = None; streaming_text.clear(); *cursor = 0;
                             break;
                         }
@@ -369,7 +391,7 @@ fn drain_llm_stream(
             *cursor = (*cursor + pacer_chars).min(streaming_text.len());
             while *cursor < streaming_text.len() && !streaming_text.is_char_boundary(*cursor) { *cursor += 1; }
             state.stream.update_last_text(&streaming_text[..*cursor]);
-            state.stream.scroll_to_bottom();
+            if state.stream.is_auto_scroll() { state.stream.scroll_to_bottom(); }
         }
     }
 }

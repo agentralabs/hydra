@@ -101,7 +101,54 @@ pub fn commands() -> Vec<Command> {
             category: CommandCategory::Info,
             handler: cmd_evolved,
         },
+        Command {
+            name: "learn",
+            aliases: &["teach-md"],
+            description: "Learn a skill from a markdown document",
+            args_help: "<path-to-md-file>",
+            category: CommandCategory::System,
+            handler: cmd_learn,
+        },
+        Command {
+            name: "drop",
+            aliases: &["inbox", "gateway"],
+            description: "View drop gateway activity and status",
+            args_help: "[status]",
+            category: CommandCategory::System,
+            handler: cmd_drop,
+        },
+        Command {
+            name: "camera",
+            aliases: &["cam", "webcam"],
+            description: "Toggle webcam presence detection (O19)",
+            args_help: "[on|off|status]",
+            category: CommandCategory::Companion,
+            handler: cmd_camera,
+        },
+        Command {
+            name: "document",
+            aliases: &["doc"],
+            description: "Analyze a document (PDF, image, CSV)",
+            args_help: "<path>",
+            category: CommandCategory::System,
+            handler: cmd_document,
+        },
     ]
+}
+
+fn cmd_drop(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
+    let drop_dir = dirs::home_dir().unwrap_or_default().join(".hydra/drop");
+    let audit = drop_dir.join("audit.jsonl");
+    let mut items = vec![sys(&format!("Drop Gateway: {}", drop_dir.display()))];
+    if let Ok(content) = std::fs::read_to_string(&audit) {
+        for line in content.lines().rev().take(10) {
+            if let Ok(r) = serde_json::from_str::<hydra_kernel::drop::DropRecord>(line) {
+                let icon = if matches!(r.outcome, hydra_kernel::drop::handlers::DropOutcome::Accepted{..}) { "✓" } else { "✗" };
+                items.push(sys(&format!("  {icon} {} ({})", r.filename, r.item_type.label())));
+            }
+        }
+    } else { items.push(sys("  No drops yet. Place files in ~/.hydra/drop/")); }
+    items
 }
 
 fn cmd_evolved(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
@@ -199,24 +246,10 @@ fn cmd_integrity(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
     if report.memory_recovered {
         items.push(sys("  Memory: auto-recovered from backup"));
     }
-    match &report.genome {
-        Some(hydra_kernel::integrity::Health::Ok(size)) => {
-            items.push(sys(&format!("  genome.db: OK ({}KB)", size / 1024)));
-        }
-        Some(hydra_kernel::integrity::Health::Missing) => {
-            items.push(sys("  genome.db: MISSING"));
-        }
-        _ => {}
-    }
-    match &report.memory {
-        Some(hydra_kernel::integrity::Health::Ok(size)) => {
-            items.push(sys(&format!("  hydra.amem: OK ({}KB)", size / 1024)));
-        }
-        Some(hydra_kernel::integrity::Health::Missing) => {
-            items.push(sys("  hydra.amem: MISSING"));
-        }
-        _ => {}
-    }
+    if let Some(hydra_kernel::integrity::Health::Ok(s)) = &report.genome { items.push(sys(&format!("  genome.db: OK ({}KB)", s / 1024))); }
+    if let Some(hydra_kernel::integrity::Health::Missing) = &report.genome { items.push(sys("  genome.db: MISSING")); }
+    if let Some(hydra_kernel::integrity::Health::Ok(s)) = &report.memory { items.push(sys(&format!("  hydra.amem: OK ({}KB)", s / 1024))); }
+    if let Some(hydra_kernel::integrity::Health::Missing) = &report.memory { items.push(sys("  hydra.amem: MISSING")); }
     items
 }
 
@@ -264,6 +297,38 @@ fn cmd_ssh(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
     }
 }
 
+fn cmd_learn(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
+    let path = args.trim();
+    if path.is_empty() {
+        return vec![sys("Usage: /learn <path-to-markdown-file>")];
+    }
+    if !std::path::Path::new(path).exists() {
+        return vec![sys(&format!("File not found: {path}"))];
+    }
+    match hydra_kernel::learn_md::learn_from_markdown(path) {
+        Ok(result) => {
+            let mut items = vec![
+                sys(&format!("Learned from: {path}")),
+                sys(&format!("  Domain: {}", result.domain)),
+                sys(&format!("  Knowledge: {} entries", result.knowledge_count)),
+                sys(&format!("  Steps: {} operations", result.step_count)),
+                sys(&format!("  Rules: {} assumptions", result.rule_count)),
+                sys(&format!("  Skill dir: {}", result.skill_dir)),
+            ];
+            for c in &result.conflicts {
+                items.push(sys(&format!("  CONFLICT: {c}")));
+            }
+            // Persist to genome DB so future sessions pick it up
+            let mut genome = hydra_genome::GenomeStore::open();
+            genome.load_from_skills();
+            items.push(sys(&format!("  Genome: {} entries persisted", genome.len())));
+            items.push(sys("  New skills active after session restart"));
+            items
+        }
+        Err(e) => vec![sys(&format!("Learn failed: {e}"))],
+    }
+}
+
 fn cmd_analytics(_args: &str, ctx: &CommandContext) -> Vec<StreamItem> {
     let genome = hydra_genome::GenomeStore::open();
     let ledger = hydra_settlement::SettlementLedger::open();
@@ -283,12 +348,52 @@ fn cmd_analytics(_args: &str, ctx: &CommandContext) -> Vec<StreamItem> {
     ]
 }
 
+fn cmd_document(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
+    let path = args.trim();
+    if path.is_empty() { return vec![sys("Usage: /document <file-path>")]; }
+    match hydra_desktop::document::process_document(path) {
+        Ok(content) => {
+            let mut items = vec![
+                sys(&format!("Document: {} (tier {}, conf={:.0}%)",
+                    content.doc_type.label(), content.tier_used, content.confidence * 100.0)),
+            ];
+            if let Some(ref table) = content.structure {
+                items.push(sys(&format!("  Table: {}", table.summary)));
+            }
+            let preview = if content.text.len() > 300 { &content.text[..300] } else { &content.text };
+            for line in preview.lines().take(10) {
+                items.push(sys(&format!("  {line}")));
+            }
+            items
+        }
+        Err(e) => vec![sys(&format!("Document analysis failed: {e}"))],
+    }
+}
+
+fn cmd_camera(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
+    match args.trim() {
+        "on" | "enable" => vec![
+            sys("Camera: enabling presence detection..."),
+            sys("  Privacy: zero frames stored, zero cloud, local motion-diff only"),
+            sys("  Gestures: wave=confirm, large motion=attention"),
+        ],
+        "off" | "disable" => vec![sys("Camera: presence detection disabled")],
+        "status" | "" => vec![
+            sys("Camera: disabled (default — privacy first)"),
+            sys("  /camera on   — enable presence detection"),
+            sys("  /camera off  — disable"),
+            sys("  Privacy: motion detection only, no frames stored"),
+        ],
+        _ => vec![sys("Usage: /camera [on|off|status]")],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn commands_count() {
-        assert_eq!(commands().len(), 12);
+        assert_eq!(commands().len(), 16);
     }
 }

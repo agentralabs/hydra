@@ -134,12 +134,23 @@ async fn cycle_handler(
         *count += 1;
     }
 
-    // TODO: Wire into actual CognitiveLoop when running in daemon mode
-    // For now, return a placeholder that proves the API works
+    // Run perceive + enrich pipeline (no LLM — returns enriched analysis)
+    let start = std::time::Instant::now();
+    let genome = hydra_genome::GenomeStore::open();
+    let mut perceiver = crate::loop_::perceive::Perceiver::new();
+    let perceived = perceiver.perceive(&req.input, &genome);
+    let enrichments: Vec<String> = perceived.enrichments.iter()
+        .map(|(k, v)| format!("{k}: {}", &v[..v.len().min(200)]))
+        .collect();
+    let response = if enrichments.is_empty() {
+        format!("[Hydra] Perceived domain: {}", perceived.comprehended.primary_domain.label())
+    } else {
+        format!("[Hydra] Domain: {} | {}", perceived.comprehended.primary_domain.label(), enrichments.join(" | "))
+    };
     Ok(Json(CycleResponse {
-        response: format!("[Hydra API] Received: {}", req.input),
+        response,
         tokens_used: 0,
-        duration_ms: 1,
+        duration_ms: start.elapsed().as_millis() as u64,
     }))
 }
 
@@ -259,7 +270,9 @@ pub async fn start_server(port: u16) -> Result<(), String> {
     };
 
     let app = build_router(state);
-    let addr = format!("0.0.0.0:{port}");
+    // EC-18.8: Bind to localhost by default (LAN via HYDRA_BIND_ADDR env var)
+    let bind = std::env::var("HYDRA_BIND_ADDR").unwrap_or_else(|_| "127.0.0.1".into());
+    let addr = format!("{bind}:{port}");
 
     eprintln!("hydra-api: listening on {addr}");
 

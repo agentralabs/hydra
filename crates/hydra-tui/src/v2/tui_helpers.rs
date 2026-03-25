@@ -15,32 +15,37 @@ pub struct ComputerUseState {
 }
 
 /// Build a RenderState snapshot from current AppState.
-pub fn build_render_state(s: &AppState, lyapunov: f64) -> RenderState {
+pub fn build_render_state(s: &AppState, lyapunov: f64, cache: &mut crate::v2::cache::FrameCache) -> RenderState {
     build_render_state_full(s, lyapunov, &ComputerUseState {
         shell_mode: false, agent_active: false, vision_budget_remaining: None,
-    })
+    }, cache)
 }
 
 /// Build a RenderState with computer-use state.
-pub fn build_render_state_full(s: &AppState, lyapunov: f64, cu: &ComputerUseState) -> RenderState {
+pub fn build_render_state_full(
+    s: &AppState, lyapunov: f64, cu: &ComputerUseState,
+    cache: &mut crate::v2::cache::FrameCache,
+) -> RenderState {
+    // Refresh cached values (only recomputes if TTL expired)
+    cache.refresh();
     RenderState {
-        stream_items: s.stream.items().to_vec(),
+        stream_items: s.stream.items_shared(),
         stream_scroll_offset: s.stream.scroll_offset(),
         is_thinking: s.is_thinking,
-        thinking_verb: s.thinking_verb.clone(),
+        thinking_verb: std::sync::Arc::from(s.thinking_verb.as_str()),
         thinking_color: ratatui::style::Color::Rgb(200, 169, 110),
         think_spinner_frame: s.think_spinner_frame,
         input_text: s.input.text().to_string(),
         input_cursor: s.input.cursor(),
         input_line_count: s.input.text().matches('\n').count() + 1,
-        input_placeholder: "What are we building today?".into(),
+        input_placeholder: std::sync::Arc::from(s.input_placeholder.as_str()),
         is_searching: s.input.is_searching(),
         search_query: s.input.search_prompt(),
         genome_count: s.genome_count,
         memory_size_kb: s.memory_size_kb,
         middleware_count: s.middleware_count,
-        provider: s.provider.clone(),
-        model: s.model.clone(),
+        provider: std::sync::Arc::from(s.provider.as_str()),
+        model: std::sync::Arc::from(s.model.as_str()),
         session_minutes: s.session_minutes,
         tokens_used: s.tokens_used,
         mode: "local".into(),
@@ -48,21 +53,21 @@ pub fn build_render_state_full(s: &AppState, lyapunov: f64, cu: &ComputerUseStat
         task_count: 0,
         slash_selected: s.slash_selected,
         show_top_frame: true,
-        username: whoami::username(),
-        project_path: std::env::current_dir()
-            .map(|p| p.display().to_string())
-            .unwrap_or_default(),
-        git_branch: git_branch(),
+        username: std::sync::Arc::from(cache.username.get().as_str()),
+        project_path: std::sync::Arc::from(cache.project_path.get().as_str()),
+        git_branch: std::sync::Arc::from(cache.git_branch.get().as_str()),
         modal_active: s.modal.is_some(),
         modal: s.modal.clone(),
         vision_budget_remaining: cu.vision_budget_remaining,
         shell_mode: cu.shell_mode,
         agent_active: cu.agent_active,
         theme: crate::theme::current(),
-        voice_state: None,
+        voice_state: s.voice_state.clone(),
         monitor_count: 0,
         alert_count: 0,
-        alive_message: None,
+        alive_message: Some(alive_message(s.session_minutes)),
+        presence_state: None,
+        new_while_scrolled: s.stream.new_while_scrolled(),
     }
 }
 
@@ -201,8 +206,10 @@ pub fn spawn_conductor(
 ) -> tokio::sync::mpsc::Receiver<ConductorUpdate> {
     let (tx, rx) = tokio::sync::mpsc::channel(32);
     rt.spawn(async move {
+        let _ = tx.send(ConductorUpdate::Info { message: "Mining assumptions...".into() }).await;
         let genome = hydra_genome::GenomeStore::open();
         let result = hydra_kernel::conductor_exec::conduct(&goal, &genome);
+        let _ = tx.send(ConductorUpdate::Info { message: "Evaluating quality...".into() }).await;
         match result {
             hydra_kernel::conductor::ConductorResult::Complete { results } => {
                 for r in &results {
@@ -233,6 +240,7 @@ pub fn spawn_conductor(
 #[derive(Debug, Clone)]
 pub enum ConductorUpdate {
     Step { description: String, success: bool },
+    Info { message: String },
     Done { steps: usize, success: bool },
     Failed { step: usize, error: String },
 }
@@ -248,30 +256,48 @@ pub struct BootedSystems {
     pub remote_active: bool,
     pub learning_active: bool,
     pub health_issues: Vec<String>,
+    /// Boot phase messages for TUI display.
+    pub boot_log: Vec<String>,
 }
 
 /// Boot all enabled background systems. Called once at TUI startup.
 pub fn boot_systems() -> BootedSystems {
     let mut sys = BootedSystems::default();
-    // 1. Resume workspace (O7)
+    sys.boot_log.push("Verifying constitution...".into());
+    // Self-preservation health check on startup (O23)
+    let mut integrity = hydra_kernel::integrity::IntegrityMonitor::new();
+    let report = integrity.check();
+    if !report.is_healthy() {
+        for issue in &report.issues { sys.health_issues.push(issue.clone()); }
+        sys.boot_log.push(format!("Health: {} issues detected", sys.health_issues.len()));
+    } else {
+        sys.boot_log.push("Health check passed".into());
+    }
+    // Resume workspace (O7)
     if hydra_kernel::workspace::load_snapshot().is_some() {
         sys.workspace_resumed = true;
-        eprintln!("hydra-boot: workspace snapshot found");
+        sys.boot_log.push("Workspace resumed from last session".into());
     }
-    // 2. Learning loop active (runs in dream loop)
     sys.learning_active = true;
-    // 3. Log boot complete
     let genome = hydra_genome::GenomeStore::open();
-    eprintln!("hydra-boot: all systems started (genome: {} entries)", genome.len());
+    sys.boot_log.push(format!("Genome: {} entries loaded", genome.len()));
+    sys.boot_log.push("All systems ready".into());
+    eprintln!("hydra-boot: all systems started (genome: {} entries, health: {} issues)",
+        genome.len(), sys.health_issues.len());
     sys
 }
 
 /// Graceful shutdown — flush all state before exit.
 pub fn shutdown_systems() {
-    eprintln!("hydra-shutdown: flushing genome...");
+    // Flush genome to DB
     let genome = hydra_genome::GenomeStore::open();
-    eprintln!("hydra-shutdown: genome has {} entries", genome.len());
-    eprintln!("hydra-shutdown: session ended");
+    eprintln!("hydra-shutdown: genome flushed ({} entries)", genome.len());
+    // Local backup on clean exit (O23)
+    match hydra_kernel::backup::create_backup() {
+        Ok(r) => eprintln!("hydra-shutdown: backup {} files", r.files_copied),
+        Err(e) => eprintln!("hydra-shutdown: backup skipped: {e}"),
+    }
+    eprintln!("hydra-shutdown: session ended cleanly");
 }
 
 /// Generate the alive signal message (rotating background activity indicator).
@@ -281,4 +307,49 @@ pub fn alive_message(tick: u64) -> String {
         "calibrating...", "dreaming...", "ready",
     ];
     messages[(tick as usize / 60) % messages.len()].to_string()
+}
+
+/// Tick the thinking spinner — verb rotation + frame advancement.
+/// Extracted from main binary for 400-line compliance.
+pub fn tick_spinner(state: &mut AppState) {
+    if state.is_thinking {
+        state.think_spinner_frame = state.think_spinner_frame.wrapping_add(1);
+        if state.think_spinner_frame % 44 == 0 {
+            let contexts = crate::verb::VerbContext::all();
+            let ctx = &contexts[(state.think_spinner_frame / 44) % contexts.len()];
+            let alts = ctx.alternatives();
+            state.thinking_verb = alts[(state.think_spinner_frame / 11) % alts.len()].to_string();
+        }
+        state.touch(); // Dirty flag: spinner changed
+    }
+}
+
+/// Check if an LLM error is transient and worth retrying.
+pub fn is_transient_error(error: &str) -> bool {
+    let e = error.to_lowercase();
+    e.contains("rate") || e.contains("429") || e.contains("529")
+        || e.contains("timeout") || e.contains("connection") || e.contains("overloaded")
+}
+
+/// Suggest a context-aware input placeholder based on last response (GAP 6).
+pub fn suggest_placeholder(response: &str) -> String {
+    let lower = response.to_lowercase();
+    if lower.contains("error") || lower.contains("failed") || lower.contains("panic") {
+        "How should we fix this?".into()
+    } else if lower.contains("```") {
+        "Want me to test this?".into()
+    } else if lower.contains("deployed") || lower.contains("published") {
+        "Check the status?".into()
+    } else if lower.contains("created") || lower.contains("wrote") || lower.contains("added") {
+        "What's next?".into()
+    } else if lower.contains("found") || lower.contains("searched") {
+        "Want me to dig deeper?".into()
+    } else {
+        "What are we building today?".into()
+    }
+}
+
+/// Re-export greeting from top_frame (the actual implementation lives there).
+pub fn greeting_items(model: &str, genome_count: usize, mw_count: usize) -> Vec<crate::stream_types::StreamItem> {
+    crate::v2::view::top_frame::greeting_items(model, genome_count, mw_count)
 }

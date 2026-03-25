@@ -3,6 +3,7 @@
 //! Events flow to TUI stream with priority indicators.
 
 pub mod auto_action;
+pub mod connectors;
 pub mod correlator;
 pub mod events;
 pub mod poller;
@@ -66,9 +67,38 @@ impl MonitorHub {
                 if let Some(mut event) = poller.poll() {
                     event.priority = classify_event(&event.category, &event.detail, &genome);
                     self.correlator.add_event(&event);
-                    // Check auto-actions
+                    // Check auto-actions — execute with 10s timeout + killpg
                     if let Some(action) = self.auto_actions.check_event(&event) {
-                        event.detail = format!("{} [auto-action: {action}]", event.detail);
+                        let mut cmd = std::process::Command::new("sh");
+                        cmd.arg("-c").arg(&action)
+                            .stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped());
+                        #[cfg(unix)]
+                        unsafe { use std::os::unix::process::CommandExt; cmd.pre_exec(|| { libc::setpgid(0, 0); Ok(()) }); }
+                        match cmd.spawn() {
+                            Ok(mut child) => {
+                                let pgid = child.id() as i32;
+                                let (tx, rx) = std::sync::mpsc::channel();
+                                std::thread::spawn(move || { let _ = tx.send(child.wait_with_output()); });
+                                match rx.recv_timeout(std::time::Duration::from_secs(10)) {
+                                    Ok(Ok(out)) => {
+                                        let stdout = String::from_utf8_lossy(&out.stdout);
+                                        let status = if out.status.success() { "OK" } else { "FAILED" };
+                                        event.detail = format!("{} [auto-action {status}: {action}]", event.detail);
+                                        eprintln!("hydra-monitor: auto-action: {}", &stdout[..stdout.len().min(200)]);
+                                    }
+                                    _ => {
+                                        #[cfg(unix)]
+                                        unsafe { libc::killpg(pgid, libc::SIGKILL); }
+                                        event.detail = format!("{} [auto-action TIMEOUT: {action}]", event.detail);
+                                        eprintln!("hydra-monitor: auto-action timeout (10s), killed pgid {pgid}");
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                event.detail = format!("{} [auto-action ERROR: {e}]", event.detail);
+                                eprintln!("hydra-monitor: auto-action exec failed: {e}");
+                            }
+                        }
                     }
                     new_events.push(event);
                 }
@@ -91,6 +121,12 @@ impl MonitorHub {
             }
         }
 
+        // EC-16.2: Cap event buffer to prevent OOM on high-volume sources
+        const MAX_EVENT_BUFFER: usize = 500;
+        if self.event_buffer.len() + new_events.len() > MAX_EVENT_BUFFER {
+            let drain = (self.event_buffer.len() + new_events.len()) - MAX_EVENT_BUFFER;
+            self.event_buffer.drain(..drain.min(self.event_buffer.len()));
+        }
         self.event_buffer.extend(new_events.clone());
         new_events
     }
@@ -125,11 +161,16 @@ impl Default for MonitorHub {
 /// Monitor middleware — injects pending events into the cognitive loop.
 pub struct MonitorMiddleware {
     hub: MonitorHub,
+    active_connectors: Vec<connectors::ActiveConnector>,
 }
 
 impl MonitorMiddleware {
     pub fn new() -> Self {
-        Self { hub: MonitorHub::new() }
+        let active_connectors = connectors::load_connectors();
+        if !active_connectors.is_empty() {
+            eprintln!("hydra-monitor: loaded {} connectors", active_connectors.len());
+        }
+        Self { hub: MonitorHub::new(), active_connectors }
     }
 }
 
@@ -138,7 +179,11 @@ impl CycleMiddleware for MonitorMiddleware {
 
     fn post_perceive(&mut self, perceived: &mut PerceivedInput) {
         // Tick monitors and collect new events
-        let events = self.hub.tick();
+        let mut events = self.hub.tick();
+        // Poll active connectors (database, API, cloud)
+        for conn in &mut self.active_connectors {
+            if conn.should_poll() { events.extend(conn.poll()); }
+        }
         if events.is_empty() { return; }
         // Inject alerts and important events as enrichments
         let alerts: Vec<String> = events.iter()

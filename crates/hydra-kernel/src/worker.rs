@@ -131,7 +131,7 @@ pub fn autonomy_check(step: &Step, genome: &hydra_genome::GenomeStore) -> hydra_
     let confidence = matches.first().map(|e| e.effective_confidence()).unwrap_or(0.5);
     let prior_successes = matches.first().map(|e| e.success_count).unwrap_or(0);
     hydra_wisdom::judge(&hydra_wisdom::JudgmentInput {
-        confidence, blast_radius: blast, trust_score: 0.9,
+        confidence, blast_radius: blast, trust_score: confidence.max(0.5), // Derive from genome confidence
         prior_successes, action_description: step.description.chars().take(60).collect(),
     })
 }
@@ -178,21 +178,22 @@ pub fn execute_interface_step(
         StepType::BrowserNavigate { url } => {
             app_ctx.focused_app = Some("browser".into());
             eprintln!("hydra-worker: browser navigate → {url}");
-            (true, format!("AGENT_DISPATCH:browser:navigate:{url}"), vec![])
+            (true, format!("[Browser: navigating to {url}]"), vec![])
         }
         StepType::BrowserInteract { goal } => {
             app_ctx.focused_app = Some("browser".into());
             eprintln!("hydra-worker: browser interact → {goal}");
-            (true, format!("AGENT_DISPATCH:browser:interact:{goal}"), vec![])
+            (true, format!("[Browser: {goal}]"), vec![])
         }
         StepType::DesktopAction { goal } => {
             app_ctx.focused_app = Some("desktop".into());
             eprintln!("hydra-worker: desktop action → {goal}");
-            (true, format!("AGENT_DISPATCH:desktop:{goal}"), vec![])
+            (true, format!("[Desktop: {goal}]"), vec![])
         }
         StepType::ApiCall { method, url, body } => {
-            let body_arg = body.as_ref().map(|b| format!(" -d '{b}'")).unwrap_or_default();
-            let cmd = format!("curl -s -X {method} '{url}'{body_arg} -w '\\n%{{http_code}}'");
+            let escaped_url = url.replace('\'', "'\\''");
+            let body_arg = body.as_ref().map(|b| format!(" -d '{}'", b.replace('\'', "'\\''"))).unwrap_or_default();
+            let cmd = format!("curl -s --connect-timeout 15 -X {method} '{escaped_url}'{body_arg} -w '\\n%{{http_code}}'");
             let mut command = std::process::Command::new("sh");
             command.arg("-c").arg(&cmd);
             #[cfg(unix)]

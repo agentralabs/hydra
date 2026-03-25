@@ -6,45 +6,65 @@
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 
+use std::sync::Arc;
+
 use crate::constants;
 use crate::stream_types::{BriefingPriority, CompanionStatus, StreamItem};
 use crate::theme;
 
 /// The conversation stream buffer with scrolling support.
+/// Items stored in Arc for zero-copy snapshot to render state (Fix 1).
 #[derive(Debug, Clone)]
 pub struct ConversationStream {
-    items: Vec<StreamItem>,
+    items: Arc<Vec<StreamItem>>,
     scroll_offset: usize,
+    /// Auto-scroll: when true, new items keep the view at the bottom.
+    auto_scroll: bool,
+    /// Generation counter — increments on every mutation.
+    pub generation: u64,
+    /// Items added while user is scrolled up (for "↓ N new" badge).
+    new_while_scrolled: usize,
 }
 
 impl ConversationStream {
     pub fn new() -> Self {
-        Self { items: Vec::new(), scroll_offset: 0 }
+        Self { items: Arc::new(Vec::new()), scroll_offset: 0, auto_scroll: true, generation: 0, new_while_scrolled: 0 }
     }
 
     pub fn push(&mut self, item: StreamItem) {
-        self.items.push(item);
+        Arc::make_mut(&mut self.items).push(item);
+        self.generation = self.generation.wrapping_add(1);
+        if !self.auto_scroll { self.new_while_scrolled += 1; }
+        // Chunked eviction: drain 500 at once instead of 1-at-a-time (Fix 10)
         if self.items.len() > constants::MAX_STREAM_BUFFER {
-            let excess = self.items.len() - constants::MAX_STREAM_BUFFER;
-            self.items.drain(..excess);
-            self.scroll_offset = self.scroll_offset.saturating_sub(excess);
+            let drain_count = constants::MAX_STREAM_BUFFER / 10;
+            Arc::make_mut(&mut self.items).drain(..drain_count);
+            self.scroll_offset = self.scroll_offset.saturating_sub(drain_count);
         }
     }
 
     pub fn scroll_up(&mut self, amount: usize) {
         let max_offset = self.items.len().saturating_sub(1);
         self.scroll_offset = (self.scroll_offset + amount).min(max_offset);
+        self.auto_scroll = false;
+        self.generation = self.generation.wrapping_add(1);
     }
 
     pub fn scroll_down(&mut self, amount: usize) {
         self.scroll_offset = self.scroll_offset.saturating_sub(amount);
+        if self.scroll_offset == 0 { self.auto_scroll = true; }
+        self.generation = self.generation.wrapping_add(1);
     }
 
-    pub fn scroll_to_bottom(&mut self) { self.scroll_offset = 0; }
+    pub fn scroll_to_bottom(&mut self) { self.scroll_offset = 0; self.auto_scroll = true; self.new_while_scrolled = 0; }
     pub fn scroll_offset(&self) -> usize { self.scroll_offset }
     pub fn len(&self) -> usize { self.items.len() }
     pub fn is_empty(&self) -> bool { self.items.is_empty() }
     pub fn items(&self) -> &[StreamItem] { &self.items }
+    /// Zero-copy Arc clone for render state snapshot (Fix 1).
+    pub fn items_shared(&self) -> Arc<Vec<StreamItem>> { Arc::clone(&self.items) }
+    pub fn is_auto_scroll(&self) -> bool { self.auto_scroll }
+    pub fn new_while_scrolled(&self) -> usize { self.new_while_scrolled }
 
     pub fn to_lines(&self, viewport_height: usize) -> Vec<Line<'static>> {
         if self.items.is_empty() { return vec![Line::from("")]; }
@@ -65,14 +85,17 @@ impl ConversationStream {
     }
 
     pub fn update_last_text(&mut self, new_text: &str) {
-        if let Some(StreamItem::AssistantText { text, .. }) = self.items.last_mut() {
+        if let Some(StreamItem::AssistantText { text, .. }) = Arc::make_mut(&mut self.items).last_mut() {
             *text = new_text.to_string();
+            self.generation = self.generation.wrapping_add(1);
         }
     }
 
     pub fn clear(&mut self) {
-        self.items.clear();
+        Arc::make_mut(&mut self.items).clear();
         self.scroll_offset = 0;
+        self.auto_scroll = true;
+        self.generation = self.generation.wrapping_add(1);
     }
 }
 
@@ -193,6 +216,15 @@ fn render_item(item: &StreamItem) -> Vec<Line<'static>> {
                 Span::styled(format!(" {action}"), Style::default().fg(t.fg_primary)),
                 Span::styled(format!(" [{status}]"), Style::default().fg(Color::DarkGray)),
             ])]
+        }
+        StreamItem::AlertFrame { title, lines: alert_lines, .. } => {
+            let mut out = vec![Line::from("")];
+            out.push(Line::from(Span::styled(format!("  ┌─ ▲ {title} ─────────────────────────┐"), Style::default().fg(Color::Red))));
+            for al in alert_lines {
+                out.push(Line::from(Span::styled(format!("  │ ▲ {al}"), Style::default().fg(Color::Red))));
+            }
+            out.push(Line::from(Span::styled("  └──────────────────────────────────────┘", Style::default().fg(Color::Red))));
+            out
         }
         StreamItem::Blank => vec![Line::from("")],
     }

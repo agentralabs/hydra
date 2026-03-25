@@ -30,7 +30,7 @@ pub fn render(frame: &mut Frame, area: Rect, state: &RenderState) {
         let line = Line::from(vec![
             Span::styled(" > ", prompt_style),
             Span::styled(
-                &state.input_placeholder,
+                &*state.input_placeholder,
                 Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
             ),
         ]);

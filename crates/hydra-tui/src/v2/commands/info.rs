@@ -324,6 +324,9 @@ fn cmd_self_model(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
         items.push(sys(&format!("  {} ({:?})", cap.name, cap.status)));
     }
     items.push(sys(&format!("Summary: {}", model.summary())));
+    // O21: User model patterns
+    let user_model = hydra_kernel::user_model::DeepUserModel::load();
+    items.push(sys(&format!("User: {}", user_model.summary())));
     items
 }
 

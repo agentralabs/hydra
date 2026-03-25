@@ -79,6 +79,18 @@ pub fn render(frame: &mut Frame, area: Rect, state: &RenderState) {
         left.push(Span::styled(label, Style::default().fg(color).add_modifier(Modifier::BOLD)));
     }
 
+    // O19: Spatial presence indicator
+    if let Some(ref presence) = state.presence_state {
+        left.push(sep.clone());
+        let (color, label) = match presence.as_str() {
+            "present" => (Color::Green, "CAM"),
+            "idle" => (Color::Yellow, "IDLE"),
+            "away" => (Color::Red, "AWAY"),
+            _ => (Color::DarkGray, "CAM"),
+        };
+        left.push(Span::styled(label, Style::default().fg(color).add_modifier(Modifier::BOLD)));
+    }
+
     // Session 22: Alive signal
     if let Some(ref msg) = state.alive_message {
         left.push(sep.clone());

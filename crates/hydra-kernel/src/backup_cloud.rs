@@ -51,7 +51,10 @@ pub fn upload_backup(
     match &config.provider {
         CloudProvider::LocalNas { path } => upload_to_local_nas(backup_dir, path, config.encrypt),
         CloudProvider::S3 { bucket, region } => {
-            // Would use aws cli: aws s3 sync backup_dir s3://bucket/
+            // IMPLEMENT: Real S3 upload. Use `aws s3 sync` CLI (no new crate needed).
+            // AES-256-GCM encrypt each file before upload when config.encrypt is true.
+            // Read AWS credentials from env (AWS_ACCESS_KEY_ID) or ~/.aws/credentials.
+            // IMPORTANT: Enter plan mode first. Design credential flow + retry logic before coding.
             eprintln!("hydra-cloud: S3 upload to {bucket} ({region}) — placeholder");
             Ok(CloudBackupResult {
                 files_uploaded: 0, total_bytes: 0, encrypted: config.encrypt,
@@ -59,6 +62,9 @@ pub fn upload_backup(
             })
         }
         CloudProvider::Gcs { bucket } => {
+            // IMPLEMENT: Real GCS upload. Use `gsutil rsync` CLI or gcloud storage commands.
+            // Same encryption pattern as S3. Read credentials from GOOGLE_APPLICATION_CREDENTIALS.
+            // IMPORTANT: Enter plan mode first.
             eprintln!("hydra-cloud: GCS upload to {bucket} — placeholder");
             Ok(CloudBackupResult {
                 files_uploaded: 0, total_bytes: 0, encrypted: config.encrypt,
@@ -66,6 +72,9 @@ pub fn upload_backup(
             })
         }
         CloudProvider::R2 { bucket, account_id } => {
+            // IMPLEMENT: Real R2 upload. R2 is S3-compatible — use same aws CLI with
+            // endpoint override: --endpoint-url https://{account_id}.r2.cloudflarestorage.com
+            // IMPORTANT: Enter plan mode first.
             eprintln!("hydra-cloud: R2 upload to {bucket} ({account_id}) — placeholder");
             Ok(CloudBackupResult {
                 files_uploaded: 0, total_bytes: 0, encrypted: config.encrypt,

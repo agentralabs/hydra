@@ -36,4 +36,12 @@ pub enum DesktopError {
     /// Generic I/O error.
     #[error("I/O error: {0}")]
     Io(String),
+
+    /// Camera/webcam operation failed (O19).
+    #[error("Camera error: {0}")]
+    CameraError(String),
+
+    /// Permission denied for camera or screen access (O19).
+    #[error("Permission denied: {0}")]
+    PermissionDenied(String),
 }

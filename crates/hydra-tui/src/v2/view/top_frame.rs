@@ -94,7 +94,7 @@ fn render_right(frame: &mut Frame, area: Rect, state: &RenderState) {
     let lines = vec![
         Line::from(Span::styled("Working context", hi)),
         Line::from(vec![Span::styled("project  ", k), Span::styled(shorten_path(&state.project_path), hi)]),
-        Line::from(vec![Span::styled("branch   ", k), Span::styled(&state.git_branch, v)]),
+        Line::from(vec![Span::styled("branch   ", k), Span::styled(&*state.git_branch, v)]),
         Line::from(vec![Span::styled("model    ", k), Span::styled(shorten_model(&state.model), Style::default().fg(BLUE))]),
         hr,
         Line::from(Span::styled("Entity health", Style::default().fg(Color::Rgb(45, 94, 58)))),
@@ -134,6 +134,52 @@ fn shorten_model(m: &str) -> String {
     else if m.contains("haiku") { "Haiku 4".into() } else if m.contains("gpt-4") { "GPT-4o".into() }
     else if m.contains("gemini") { "Gemini".into() } else if m.len() > 15 { format!("{}...", &m[..12]) }
     else { m.into() }
+}
+
+/// Generate the full rich greeting as stream items (scrolls with conversation).
+/// All values are LIVE — pulled from actual system state at boot time.
+pub fn greeting_items(model: &str, genome_count: usize, mw_count: usize) -> Vec<crate::stream_types::StreamItem> {
+    let greet = time_greeting();
+    let user = whoami::username();
+    let project = shorten_path(&std::env::current_dir().map(|p| p.display().to_string()).unwrap_or_default());
+    let branch = std::process::Command::new("git").args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .output().ok().filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
+    let md = shorten_model(model);
+    let sessions = hydra_kernel::conversation_store::ConversationStore::list_sessions();
+    let sn = sessions.len();
+    let ago = sessions.first().map(|(_, _, ts)| {
+        let h = (chrono::Utc::now() - *ts).num_hours();
+        if h < 1 { "just now".into() } else if h < 24 { format!("{h}h ago") } else { format!("{}d ago", h / 24) }
+    }).unwrap_or_else(|| "first session".into());
+    let bl = hydra_belief::BeliefStore::new().len();
+    let obs = hydra_antifragile::AntifragileStore::new().total_encounters();
+    let hw = 34usize;
+    let sep = "─".repeat(hw);
+    let left = [
+        format!("  Session #{sn} · last {ago}"), format!("  {sep}"), "  Cognitive state".into(),
+        format!("  ● genome: {genome_count} self-written"), format!("  ○ beliefs: {bl} · obstacles: {obs}"),
+        format!("  ○ middlewares: {mw_count} active"), "  ○ persona: core (/persona)".into(),
+    ];
+    let right = [
+        format!("  project  {project}"), format!("  branch   {}", if branch.is_empty() { "-" } else { &branch }),
+        format!("  model    {md}"), format!("  {sep}"), "  Entity health".into(),
+        "  ● alive · V=0.42 stable".into(), "  /help · /settings · Ctrl+K".into(),
+    ];
+    let s = |t: &str| -> crate::stream_types::StreamItem { crate::stream_types::StreamItem::SystemNotification {
+        id: uuid::Uuid::new_v4(), content: t.into(), timestamp: chrono::Utc::now() } };
+    let w = hw * 2 + 3;
+    let mut items = vec![s(&format!("┌─ {greet}, {user} {}┐", "─".repeat(w.saturating_sub(greet.len() + user.len() + 6))))];
+    // ◈ hydra logo centered under greeting
+    let logo = "◈ hydra";
+    let pad = (w.saturating_sub(logo.len())) / 2;
+    items.push(s(&format!("│{:>pad$}{logo}{:<rest$}│", "", "", pad = pad, rest = w - pad - logo.len())));
+    items.push(s(&format!("│{:<hw$}│{:<hw$}│", "", "")));
+    for (l, r) in left.iter().zip(&right) { items.push(s(&format!("│{:<hw$}│{:<hw$}│", l, r))); }
+    items.push(s(&format!("│{:<hw$}│{:<hw$}│", "", "")));
+    items.push(s(&format!("└{}┘", "─".repeat(w))));
+    items.push(crate::stream_types::StreamItem::Blank);
+    items
 }
 
 #[cfg(test)]

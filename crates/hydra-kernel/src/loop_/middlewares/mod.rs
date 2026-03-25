@@ -14,6 +14,7 @@ pub mod security;
 pub mod selfmodel;
 pub mod settlement;
 pub mod signals;
+pub mod spatial;
 
 use super::middleware::{CycleMiddleware, MiddlewareChain};
 
@@ -39,6 +40,8 @@ pub fn build_chain() -> MiddlewareChain {
         Box::new(scheduler::SchedulerMiddleware::new()),
         // Wave 6: Browser/IO awareness
         Box::new(browser::BrowserMiddleware::new()),
+        // Wave 6.25: Spatial Presence (O19 — webcam presence + gesture)
+        Box::new(spatial::SpatialMiddleware::new()),
         // Wave 6.5: Real-Time Collaboration (O15 — file observer, pair programming)
         Box::new(crate::collaboration::CollabMiddleware::new()),
         // Wave 7: Settlement
@@ -61,7 +64,7 @@ mod tests {
     #[test]
     fn build_chain_creates_all_middlewares() {
         let chain = build_chain();
-        assert_eq!(chain.len(), 16);
+        assert_eq!(chain.len(), 17);
     }
 
     #[test]

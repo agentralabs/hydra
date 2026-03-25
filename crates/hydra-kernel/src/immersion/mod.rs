@@ -126,6 +126,24 @@ impl CycleMiddleware for ImmersionMiddleware {
                 self.active_domains.insert(domain.clone(), mastery);
             }
         }
+        // EC-14.1: Survey phase — auto-fetch sources via web search
+        if let Some(mastery) = self.active_domains.get_mut(&domain) {
+            if mastery.phase == ImmersionPhase::Survey && mastery.sources.len() < 3 {
+                for q in survey_queries(&mastery.domain).iter().take(3) {
+                    let mut web = hydra_web::SearchOrchestrator::new();
+                    if let Ok(results) = web.search_blocking(q) {
+                        mastery.sources.push(DomainSource {
+                            url: q.clone(), title: results.chars().take(100).collect(),
+                            content_summary: results.chars().take(300).collect(),
+                            fetched_at: chrono::Utc::now(), is_free: true,
+                        });
+                    }
+                }
+                if mastery.sources.len() >= 3 {
+                    eprintln!("hydra-immersion: survey complete for '{}' ({} sources)", domain, mastery.sources.len());
+                }
+            }
+        }
         if let Some(mastery) = self.active_domains.get(&domain) {
             perceived.enrichments.insert("immersion_context".into(), format_immersion(mastery));
             if is_stale(mastery, &self.config) {

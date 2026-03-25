@@ -152,8 +152,8 @@ impl RemoteServer {
                 if text.trim().is_empty() {
                     return ServerMessage::Error { message: "Empty message".into() };
                 }
-                // Route through API cycle — placeholder for now, wired to cognitive loop
-                let response = format!("[Hydra] Received: {}", text.trim());
+                let safe_text = crate::monitor::redact_sensitive(text.trim());
+                let response = format!("[Hydra] Received: {}", safe_text);
                 ServerMessage::Chat {
                     text: response,
                     timestamp: Utc::now().format("%H:%M").to_string(),
@@ -178,13 +178,15 @@ impl RemoteServer {
 }
 
 /// Generate a random 4-digit PIN.
+/// SEC-5: Generate a 6-digit PIN with higher entropy than time-based.
 pub fn generate_pin() -> String {
-    use std::time::SystemTime;
-    let seed = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default()
-        .subsec_nanos();
-    format!("{:04}", seed % 10000)
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut h = DefaultHasher::new();
+    std::time::SystemTime::now().hash(&mut h);
+    std::thread::current().id().hash(&mut h);
+    std::process::id().hash(&mut h);
+    format!("{:06}", h.finish() % 1_000_000)
 }
 
 /// Get local LAN IP address.
@@ -210,6 +212,19 @@ pub fn remote_page_html() -> &'static str {
     include_str!("../static/remote.html")
 }
 
+/// EC-18: Redact credentials before broadcasting to remote clients.
+fn redact_sensitive(text: &str) -> String {
+    let mut out = text.to_string();
+    for prefix in &["sk-ant-", "sk-", "AKIA", "ghp_", "ghs_", "password=", "token=", "secret="] {
+        while let Some(pos) = out.find(prefix) {
+            let end = out[pos..].find(|c: char| c.is_whitespace() || c == '"' || c == '\'')
+                .map(|e| pos + e).unwrap_or(out.len());
+            out.replace_range(pos..end, &format!("{}***", &prefix[..prefix.len().min(3)]));
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -217,7 +232,7 @@ mod tests {
     #[test]
     fn pin_generation_is_4_digits() {
         let pin = generate_pin();
-        assert_eq!(pin.len(), 4);
+        assert_eq!(pin.len(), 6);
         assert!(pin.chars().all(|c| c.is_ascii_digit()));
     }
 

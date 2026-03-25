@@ -163,7 +163,11 @@ pub struct CollabMiddleware {
 
 impl CollabMiddleware {
     pub fn new() -> Self {
-        Self { state: CollaborationState::new(), observer: None }
+        // Auto-enable file observer for current working directory
+        let observer = std::env::current_dir().ok().map(|dir| {
+            hydra_desktop::FileObserver::new(&dir, 2000)
+        });
+        Self { state: CollaborationState::new(), observer }
     }
 }
 

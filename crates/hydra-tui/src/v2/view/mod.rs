@@ -2,6 +2,7 @@
 //! render(frame, state) is the only entry point.
 
 pub mod input;
+pub mod rich;
 pub mod modal;
 pub mod status_bar;
 pub mod stream;
@@ -19,9 +20,8 @@ pub fn render(frame: &mut Frame, state: &RenderState) {
     let input_lines = state.input_line_count.clamp(1, 5) as u16;
     let input_height = input_lines + 1;
 
-    // Top frame: show full at start, collapse after conversation begins
-    let has_conversation = state.stream_items.iter().any(|i| matches!(i, crate::stream_types::StreamItem::UserMessage { .. }));
-    let top_frame_height = if !state.show_top_frame { 0 } else if has_conversation { 0 } else { 12 };
+    // Greeting is now part of the stream (scrolls naturally like Claude Code)
+    let top_frame_height = 0u16;
 
     // Slash menu: when input starts with "/", show inline command list below input
     let slash_active = state.input_text.starts_with('/') && !state.is_thinking;
@@ -38,9 +38,6 @@ pub fn render(frame: &mut Frame, state: &RenderState) {
         ])
         .split(area);
 
-    if state.show_top_frame {
-        top_frame::render(frame, chunks[0], state);
-    }
     stream::render(frame, chunks[1], state);
     input::render(frame, chunks[2], state);
     if slash_active {
@@ -58,19 +55,19 @@ pub fn render(frame: &mut Frame, state: &RenderState) {
 /// Built from AppState before each render call. No mutation allowed.
 #[derive(Debug)]
 pub struct RenderState {
-    // Stream
-    pub stream_items: Vec<crate::stream_types::StreamItem>,
+    // Stream (Arc for zero-copy from AppState — Fix 1)
+    pub stream_items: std::sync::Arc<Vec<crate::stream_types::StreamItem>>,
     pub stream_scroll_offset: usize,
     pub is_thinking: bool,
-    pub thinking_verb: String,
+    pub thinking_verb: std::sync::Arc<str>,
     pub thinking_color: ratatui::style::Color,
     pub think_spinner_frame: usize,
 
-    // Input
+    // Input (these change per-keystroke, keep as String)
     pub input_text: String,
     pub input_cursor: usize,
     pub input_line_count: usize,
-    pub input_placeholder: String,
+    pub input_placeholder: std::sync::Arc<str>,
     pub is_searching: bool,
     pub search_query: String,
 
@@ -78,11 +75,11 @@ pub struct RenderState {
     pub genome_count: usize,
     pub memory_size_kb: u64,
     pub middleware_count: usize,
-    pub provider: String,
-    pub model: String,
+    pub provider: std::sync::Arc<str>,
+    pub model: std::sync::Arc<str>,
     pub session_minutes: u64,
     pub tokens_used: u64,
-    pub mode: String, // "local" or "remote"
+    pub mode: std::sync::Arc<str>,
 
     // Status bar spec fields
     pub lyapunov: f64,
@@ -93,9 +90,9 @@ pub struct RenderState {
 
     // Top frame
     pub show_top_frame: bool,
-    pub username: String,
-    pub project_path: String,
-    pub git_branch: String,
+    pub username: std::sync::Arc<str>,
+    pub project_path: std::sync::Arc<str>,
+    pub git_branch: std::sync::Arc<str>,
 
     // Modal
     pub modal_active: bool,
@@ -116,15 +113,19 @@ pub struct RenderState {
     pub alert_count: usize,
     // Alive signal (Session 22)
     pub alive_message: Option<String>,
+    // Spatial Presence (O19)
+    pub presence_state: Option<String>,
+    // Scroll badge
+    pub new_while_scrolled: usize,
 }
 
 impl Default for RenderState {
     fn default() -> Self {
         Self {
-            stream_items: Vec::new(),
+            stream_items: std::sync::Arc::new(Vec::new()),
             stream_scroll_offset: 0,
             is_thinking: false,
-            thinking_verb: String::new(),
+            thinking_verb: "".into(),
             thinking_color: ratatui::style::Color::White,
             think_spinner_frame: 0,
             input_text: String::new(),
@@ -145,11 +146,11 @@ impl Default for RenderState {
             task_count: 0,
             slash_selected: 0,
             show_top_frame: true,
-            username: whoami::username(),
+            username: whoami::username().into(),
             project_path: std::env::current_dir()
                 .map(|p| p.display().to_string())
-                .unwrap_or_default(),
-            git_branch: String::new(),
+                .unwrap_or_default().into(),
+            git_branch: "".into(),
             modal_active: false,
             modal: None,
             vision_budget_remaining: None,
@@ -160,6 +161,8 @@ impl Default for RenderState {
             monitor_count: 0,
             alert_count: 0,
             alive_message: None,
+            presence_state: None,
+            new_while_scrolled: 0,
         }
     }
 }

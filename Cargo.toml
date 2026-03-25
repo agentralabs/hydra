@@ -118,3 +118,10 @@ codegen-units = 16
 debug = 1
 split-debuginfo = "unpacked"
 incremental = true
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = true
+codegen-units = 1
+panic = "abort"

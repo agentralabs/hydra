@@ -186,6 +186,17 @@ pub enum StreamItem {
         timestamp: DateTime<Utc>,
     },
 
+    /// An urgent alert frame — bordered, red, demands attention.
+    /// For security events, integrity failures, critical monitor alerts.
+    AlertFrame {
+        id: Uuid,
+        /// Alert title (e.g., "SECURITY", "INTEGRITY", "MONITOR").
+        title: String,
+        /// Alert lines (each line shown inside the frame).
+        lines: Vec<String>,
+        timestamp: DateTime<Utc>,
+    },
+
     /// A blank line separator.
     Blank,
 }
@@ -204,7 +215,8 @@ impl StreamItem {
             | Self::BriefingItem { id, .. }
             | Self::DreamNotification { id, .. }
             | Self::SystemNotification { id, .. }
-            | Self::AgentStep { id, .. } => Some(*id),
+            | Self::AgentStep { id, .. }
+            | Self::AlertFrame { id, .. } => Some(*id),
             Self::ThinkingPill { .. } | Self::Blank => None,
         }
     }
@@ -223,8 +235,19 @@ impl StreamItem {
             Self::DreamNotification { .. } => "dream",
             Self::SystemNotification { .. } => "system",
             Self::AgentStep { .. } => "agent-step",
+            Self::AlertFrame { .. } => "alert",
             Self::ThinkingPill { .. } => "thinking-pill",
             Self::Blank => "blank",
+        }
+    }
+
+    /// Create an urgent alert frame for critical events.
+    pub fn alert(title: &str, lines: Vec<String>) -> Self {
+        Self::AlertFrame {
+            id: Uuid::new_v4(),
+            title: title.to_string(),
+            lines,
+            timestamp: Utc::now(),
         }
     }
 }

@@ -1,96 +1,101 @@
 #!/usr/bin/env bash
-# Hydra universal installer — detects OS/arch, builds from source, creates ~/.hydra.
+# Hydra installer — clean progress bar, no cargo spam.
 set -euo pipefail
 
-echo "=== Hydra Installer ==="
-echo ""
-
-# Detect platform
-OS="$(uname -s)"
-ARCH="$(uname -m)"
-echo "Platform: ${OS} ${ARCH}"
-
-# Check dependencies
-if ! command -v cargo &>/dev/null; then
-    echo "Error: Rust/Cargo not found. Install from https://rustup.rs"
-    exit 1
-fi
-
-if ! command -v git &>/dev/null; then
-    echo "Error: git not found. Install git first."
-    exit 1
-fi
-
-# Find repo root (or clone)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
+HYDRA_HOME="${HOME}/.hydra"
+INSTALL_DIR="${HOME}/.local/bin"
+LOG="${HYDRA_HOME}/build.log"
+TOTAL_CRATES=150
+
+echo ""
+echo "  ◈ Hydra — Autonomous Digital Intelligence"
+echo ""
+
+# Check dependencies
+OS="$(uname -s)"; ARCH="$(uname -m)"
+printf "  Detecting platform... %s %s ✓\n" "$OS" "$ARCH"
+
+if ! command -v cargo &>/dev/null; then
+    echo "  ✗ Rust/Cargo not found. Install from https://rustup.rs"; exit 1
+fi
+printf "  Checking Rust toolchain... ✓\n"
 
 if [ ! -f "${REPO_DIR}/Cargo.toml" ]; then
-    echo "Error: Run this script from the hydra repo."
-    exit 1
+    echo "  ✗ Run this script from the hydra repo."; exit 1
 fi
 
+# Build with progress bar
 echo ""
-echo "Building Hydra (release mode)..."
+echo "  Building release binary (3-8 minutes)..."
+echo ""
+mkdir -p "$HYDRA_HOME"
+: > "$LOG"
+
 cd "$REPO_DIR"
+COMPILED=0
+cargo build --release -p hydra-kernel -p hydra-tui 2>&1 | while IFS= read -r line; do
+    echo "$line" >> "$LOG"
+    if echo "$line" | grep -q "Compiling "; then
+        COMPILED=$((COMPILED + 1))
+        PCT=$((COMPILED * 100 / TOTAL_CRATES))
+        if [ "$PCT" -gt 100 ]; then PCT=99; fi
+        CRATE=$(echo "$line" | sed 's/.*Compiling //' | sed 's/ v.*//')
+        FILLED=$((PCT / 3))
+        EMPTY=$((33 - FILLED))
+        BAR=""
+        for _ in $(seq 1 "$FILLED" 2>/dev/null); do BAR="${BAR}█"; done
+        for _ in $(seq 1 "$EMPTY" 2>/dev/null); do BAR="${BAR}░"; done
+        printf "\r  [%s] %3d%%  %-30s" "$BAR" "$PCT" "$CRATE"
+    fi
+done
 
-# Build main binaries
-cargo build --release -p hydra-kernel -p hydra-tui 2>&1
-
+printf "\r  [█████████████████████████████████] 100%%  Done                          \n"
 echo ""
-echo "Creating directory structure..."
 
-HYDRA_HOME="${HOME}/.hydra"
-mkdir -p "${HYDRA_HOME}/data"
-mkdir -p "${HYDRA_HOME}/backups"
-mkdir -p "${HYDRA_HOME}/logs"
+# Create directory structure
+mkdir -p "${HYDRA_HOME}/data" "${HYDRA_HOME}/backups" "${HYDRA_HOME}/logs"
 
 # Copy skills if not already present
-if [ ! -d "${HYDRA_HOME}/skills" ]; then
+if [ ! -d "${HYDRA_HOME}/skills" ] && [ -d "${REPO_DIR}/skills" ]; then
     cp -r "${REPO_DIR}/skills" "${HYDRA_HOME}/skills"
-    echo "Copied default skills to ${HYDRA_HOME}/skills"
+    echo "  ✓ Skills installed"
 fi
 
 # Copy integrations if not already present
-if [ ! -d "${HYDRA_HOME}/integrations" ]; then
+if [ ! -d "${HYDRA_HOME}/integrations" ] && [ -d "${REPO_DIR}/integrations" ]; then
     cp -r "${REPO_DIR}/integrations" "${HYDRA_HOME}/integrations"
-    echo "Copied integrations to ${HYDRA_HOME}/integrations"
+    echo "  ✓ Integrations installed"
 fi
 
 # Install binaries
-INSTALL_DIR="${HOME}/.local/bin"
 mkdir -p "$INSTALL_DIR"
-
-cp "${REPO_DIR}/target/release/hydra" "${INSTALL_DIR}/hydra"
-cp "${REPO_DIR}/target/release/hydra_tui" "${INSTALL_DIR}/hydra-tui"
-chmod +x "${INSTALL_DIR}/hydra" "${INSTALL_DIR}/hydra-tui"
-
-echo ""
-echo "=== Installation Complete ==="
-echo ""
-echo "Binaries installed to: ${INSTALL_DIR}/"
-echo "  hydra      — CLI and daemon"
-echo "  hydra-tui  — Terminal cockpit"
-echo ""
-echo "Data directory: ${HYDRA_HOME}/"
-echo ""
-
-# Check if install dir is in PATH
-if ! echo "$PATH" | grep -q "${INSTALL_DIR}"; then
-    echo "NOTE: Add ${INSTALL_DIR} to your PATH:"
-    echo "  export PATH=\"\${HOME}/.local/bin:\${PATH}\""
-    echo ""
-fi
-
-# Offer daemon install
-if [ "${1:-}" = "--daemon" ]; then
-    echo "Installing daemon..."
-    if [ "$OS" = "Darwin" ]; then
-        bash "${REPO_DIR}/scripts/install-daemon.sh" install
-    else
-        bash "${REPO_DIR}/scripts/install-daemon-linux.sh" install
+for BIN in hydra hydra_tui; do
+    if [ -f "${REPO_DIR}/target/release/${BIN}" ]; then
+        cp "${REPO_DIR}/target/release/${BIN}" "${INSTALL_DIR}/${BIN}"
+        chmod +x "${INSTALL_DIR}/${BIN}"
     fi
+done
+echo "  ✓ Binaries installed to ${INSTALL_DIR}/"
+
+# PATH check
+if ! echo "$PATH" | grep -q "${INSTALL_DIR}"; then
+    SHELL_RC="${HOME}/.$(basename "$SHELL")rc"
+    echo "export PATH=\"\${HOME}/.local/bin:\${PATH}\"" >> "$SHELL_RC"
+    echo "  ✓ PATH updated in ${SHELL_RC}"
 fi
 
-echo "Run 'hydra-tui' to start the cockpit."
-echo "Run 'hydra --daemon' to start the background daemon."
+echo ""
+echo "  ◈ Hydra installed successfully"
+echo ""
+echo "  Run:  hydra-tui"
+echo "  Data: ${HYDRA_HOME}/"
+echo "  Logs: ${LOG}"
+echo ""
+
+# Daemon install
+if [ "${1:-}" = "--daemon" ]; then
+    if [ "$OS" = "Darwin" ]; then bash "${REPO_DIR}/scripts/install-daemon.sh" install
+    else bash "${REPO_DIR}/scripts/install-daemon-linux.sh" install; fi
+fi

@@ -105,22 +105,30 @@ pub fn route_and_execute(step: &Step, ctx: &TaskContext, app_ctx: &mut crate::wo
 
 fn execute_shell(command: &str, ctx: &TaskContext) -> (bool, String, Vec<String>) {
     let mut cmd = std::process::Command::new("sh");
-    cmd.arg("-c").arg(command)
-        .current_dir(&ctx.working_dir).envs(&ctx.env_vars);
-    // Set new process group so entire tree can be killed on cleanup (no orphans)
+    cmd.arg("-c").arg(command).current_dir(&ctx.working_dir).envs(&ctx.env_vars)
+        .stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped());
     #[cfg(unix)]
-    unsafe {
-        use std::os::unix::process::CommandExt;
-        cmd.pre_exec(|| { libc::setpgid(0, 0); Ok(()) });
-    }
-    match cmd.output() {
-        Ok(out) => {
-            let stdout = String::from_utf8_lossy(&out.stdout).to_string();
-            let stderr = String::from_utf8_lossy(&out.stderr).to_string();
-            let output = if stderr.is_empty() { stdout } else { format!("{stdout}\nstderr: {stderr}") };
+    unsafe { use std::os::unix::process::CommandExt; cmd.pre_exec(|| { libc::setpgid(0, 0); Ok(()) }); }
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(e) => return (false, format!("Shell error: {e}"), vec![]),
+    };
+    let pgid = child.id() as i32;
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || { let _ = tx.send(child.wait_with_output()); });
+    match rx.recv_timeout(std::time::Duration::from_millis(crate::conductor::SHELL_TIMEOUT_MS)) {
+        Ok(Ok(out)) => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            let output = if stderr.is_empty() { stdout.to_string() } else { format!("{stdout}\nstderr: {stderr}") };
             (out.status.success(), output, vec![])
         }
-        Err(e) => (false, format!("Shell error: {e}"), vec![]),
+        Ok(Err(e)) => (false, format!("Shell error: {e}"), vec![]),
+        Err(_) => { // Timeout — kill entire process group
+            #[cfg(unix)]
+            unsafe { libc::killpg(pgid, libc::SIGKILL); }
+            (false, format!("Timeout ({}s) — killed", crate::conductor::SHELL_TIMEOUT_MS / 1000), vec![])
+        }
     }
 }
 
@@ -200,10 +208,15 @@ fn execute_verify(method: &VerifyMethod, ctx: &TaskContext) -> (bool, String, Ve
 pub fn execute_dag(ctx: &mut TaskContext, genome: &hydra_genome::GenomeStore) -> ConductorResult {
     if let Err(e) = validate_dag(&ctx.steps) { return e; }
     let mut completed: HashSet<usize> = HashSet::new();
-    let mut app_ctx = crate::worker::AppContext::new(); // O6: persists across steps
+    let mut app_ctx = crate::worker::AppContext::new();
     let total = ctx.steps.len();
+    let task_start = std::time::Instant::now();
+    const MAX_TASK_MS: u64 = 600_000; // 10 min overall timeout
     loop {
         if ctx.cancelled { return ConductorResult::Cancelled; }
+        if task_start.elapsed().as_millis() as u64 > MAX_TASK_MS {
+            return ConductorResult::StepFailed { step_id: 0, error: format!("Task timeout ({}s)", MAX_TASK_MS / 1000) };
+        }
         let ready: Vec<usize> = (0..total)
             .filter(|i| !completed.contains(i))
             .filter(|i| ctx.steps[*i].depends_on.iter().all(|d| completed.contains(d)))
@@ -244,13 +257,11 @@ pub fn execute_dag(ctx: &mut TaskContext, genome: &hydra_genome::GenomeStore) ->
                 return ConductorResult::StepFailed { step_id, error: result.output };
             }
             ctx.results.push(result);
-            // O3: Log feedback (genome update deferred — conduct() has immutable genome ref)
             crate::feedback::log_outcome(&outcome);
         }
     }
-    // O6: Log interface effectiveness summary after all steps
     let summary = app_ctx.interface_summary();
-    if !summary.is_empty() { eprintln!("hydra-worker: task complete — {summary}"); }
+    if !summary.is_empty() { eprintln!("hydra-worker: {summary}"); }
     ConductorResult::Complete { results: ctx.results.clone() }
 }
 
@@ -264,8 +275,7 @@ pub fn conduct(goal: &str, genome: &hydra_genome::GenomeStore) -> ConductorResul
     // O0: Mine assumptions before execution
     let miner_result = crate::assumptions::mine(goal, genome);
     if !miner_result.questions.is_empty() {
-        eprintln!("hydra-conductor: {} assumption questions before proceeding:", miner_result.questions.len());
-        for q in &miner_result.questions { eprintln!("  ? {q}"); }
+        eprintln!("hydra-conductor: {} assumptions mined", miner_result.questions.len());
     }
     let steps = crate::conductor::decompose(goal, genome);
     let mut ctx = TaskContext {
@@ -273,10 +283,8 @@ pub fn conduct(goal: &str, genome: &hydra_genome::GenomeStore) -> ConductorResul
         working_dir: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
         env_vars: std::env::vars().collect(), decomposition_depth: 0, cancelled: false,
     };
-    // O8: Use parallel execution if steps are parallelizable
     let result = if crate::parallel::is_parallelizable(&ctx.steps) {
         let config = crate::parallel::ParallelConfig::default();
-        eprintln!("hydra-conductor: parallel execution ({} steps)", ctx.steps.len());
         let par = crate::parallel::execute_parallel(&mut ctx, &config);
         if par.failed_lanes.is_empty() {
             ConductorResult::Complete { results: par.all_results }
@@ -293,19 +301,16 @@ pub fn conduct(goal: &str, genome: &hydra_genome::GenomeStore) -> ConductorResul
     if let ConductorResult::Complete { ref mut results } = final_result {
         let output = results.iter().map(|r| r.output.as_str()).collect::<Vec<_>>().join("\n");
         if !output.trim().is_empty() {
-            let max_revisions = 3u32;
+            let (max_revisions, mut prev_score) = (3u32, 0.0);
             for revision in 0..max_revisions {
                 let feedback = crate::critic::universal_evaluate(&output, goal);
-                eprintln!("hydra-critic: v{} score={:.1} issues={} revision_needed={}",
-                    revision + 1, feedback.score, feedback.issues.len(), feedback.revision_needed);
+                eprintln!("hydra-critic: v{} score={:.1} issues={}", revision + 1, feedback.score, feedback.issues.len());
                 if !feedback.revision_needed { break; }
-
+                // Convergence: exit if score not improving
+                if revision > 0 && (feedback.score - prev_score).abs() < 0.5 { break; }
+                prev_score = feedback.score;
                 let fix_steps = crate::critic::generate_fix_steps(&feedback.issues, goal);
-                if fix_steps.is_empty() {
-                    eprintln!("hydra-critic: no actionable fixes (all issues low severity)");
-                    break;
-                }
-                eprintln!("hydra-critic: executing {} fix steps (revision {})", fix_steps.len(), revision + 1);
+                if fix_steps.is_empty() { break; }
                 let mut fix_ctx = TaskContext {
                     goal: format!("{goal} [revision {}]", revision + 1),
                     steps: fix_steps, results: Vec::new(),
@@ -313,13 +318,8 @@ pub fn conduct(goal: &str, genome: &hydra_genome::GenomeStore) -> ConductorResul
                     env_vars: std::env::vars().collect(), decomposition_depth: 0, cancelled: false,
                 };
                 match execute_dag(&mut fix_ctx, genome) {
-                    ConductorResult::Complete { results: fix_results } => {
-                        results.extend(fix_results);
-                    }
-                    _ => {
-                        eprintln!("hydra-critic: fix execution failed, stopping revisions");
-                        break;
-                    }
+                    ConductorResult::Complete { results: fix_results } => { results.extend(fix_results); }
+                    _ => { break; }
                 }
             }
         }

@@ -18,6 +18,9 @@ pub fn write_skill(blueprint: &SkillBlueprint) -> Result<String, String> {
 
     let path_str = path.display().to_string();
     eprintln!("hydra-evolution: wrote skill to {path_str}");
+    // Audit via drop gateway — record self-evolved skill
+    let _ = crate::drop::self_drop_file(
+        &format!("self-evolved-{}.toml", blueprint.name), toml.as_bytes());
     Ok(path_str)
 }
 

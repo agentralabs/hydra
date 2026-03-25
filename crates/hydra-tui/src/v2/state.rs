@@ -37,10 +37,19 @@ pub struct AppState {
 
     // Voice
     pub voice_active: bool,
+    /// GAP 8: Voice presence state for status bar.
+    pub voice_state: Option<String>,
+
+    /// GAP 6: Context-aware input placeholder.
+    pub input_placeholder: String,
 
     // Flags
     pub should_quit: bool,
     pub boot_complete: bool,
+
+    /// Generation counter — incremented on every state mutation.
+    /// Render loop skips frames when generation hasn't changed (dirty flag).
+    pub generation: u64,
 }
 
 impl AppState {
@@ -63,8 +72,11 @@ impl AppState {
             think_spinner_frame: 0,
             slash_selected: 0,
             voice_active: false,
+            voice_state: None,
+            input_placeholder: "What are we building today?".into(),
             should_quit: false,
             boot_complete: false,
+            generation: 0,
         }
     }
 
@@ -72,6 +84,9 @@ impl AppState {
     pub fn modal_open(&self) -> bool {
         self.modal.is_some()
     }
+
+    /// Mark state as dirty — must be called after any mutation outside reduce().
+    pub fn touch(&mut self) { self.generation = self.generation.wrapping_add(1); }
 }
 
 /// The single mutation point. All state changes go through here.
@@ -88,6 +103,8 @@ pub fn reduce(state: &mut AppState, action: Action) {
         Action::Companion(ca) => reduce_companion(state, ca),
         Action::System(sa) => reduce_system(state, sa),
     }
+    // Dirty flag: mark state as changed so render loop knows to redraw
+    state.touch();
 }
 
 fn reduce_input(state: &mut AppState, action: InputAction) {
@@ -197,11 +214,22 @@ fn reduce_streaming(state: &mut AppState, action: StreamingAction) {
 }
 
 fn reduce_voice(state: &mut AppState, action: VoiceAction) {
-    if let VoiceAction::FinalTranscript(text) = action {
-        state.input.clear();
-        for ch in text.chars() {
-            state.input.insert(ch);
+    match action {
+        VoiceAction::Listening => { state.voice_state = Some("listening".into()); }
+        VoiceAction::Speaking(_) => { state.voice_state = Some("speaking".into()); }
+        VoiceAction::SpeakingDone => { state.voice_state = Some("dormant".into()); }
+        VoiceAction::WakeWordDetected => { state.voice_state = Some("listening".into()); }
+        VoiceAction::SessionTimeout => { state.voice_state = Some("dormant".into()); }
+        VoiceAction::FinalTranscript(text) => {
+            state.input.clear();
+            for ch in text.chars() { state.input.insert(ch); }
+            state.voice_state = Some("processing".into());
         }
+        VoiceAction::Toggle => {
+            state.voice_active = !state.voice_active;
+            state.voice_state = if state.voice_active { Some("dormant".into()) } else { None };
+        }
+        _ => {}
     }
 }
 

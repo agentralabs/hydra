@@ -82,7 +82,10 @@ pub fn decompose(goal: &str, genome: &hydra_genome::GenomeStore) -> Vec<Step> {
     // O4: Check operational skills FIRST (zero LLM tokens, TOML-defined action plans)
     let all_ops = hydra_skills::operations::load_all_operations();
     if let Some(op) = hydra_skills::operations::match_operation(goal, &all_ops) {
-        match hydra_skills::operations::extract_params(goal, &op.params) {
+        // EC-4.8: Block destructive commands in skills
+        if hydra_skills::operations::has_destructive_command(op) {
+            eprintln!("hydra-conductor: BLOCKED destructive operation in skill '{}'", op.name);
+        } else { match hydra_skills::operations::extract_params(goal, &op.params) {
             Ok(params) => {
                 eprintln!("hydra-conductor: operational skill '{}' matched (conf={:.2})",
                     op.name, op.confidence);
@@ -92,7 +95,7 @@ pub fn decompose(goal: &str, genome: &hydra_genome::GenomeStore) -> Vec<Step> {
                 eprintln!("hydra-conductor: skill '{}' matched but missing params: {:?}",
                     op.name, missing);
             }
-        }
+        } } // close else + match
     }
     // O6: Check workflow templates (multi-app patterns)
     if let Some(steps) = crate::worker::expand_workflow(goal) {
@@ -126,26 +129,30 @@ fn infer_step_type(desc: &str) -> StepType {
     if lower.starts_with("npm ") || lower.starts_with("npx ") || lower.starts_with("pip ")
         || lower.starts_with("cargo ") || lower.starts_with("git ") || lower.contains("&&") {
         StepType::Shell { command: desc.into(), long_running: lower.contains("install") || lower.contains("build") }
+    } else if lower.contains("ssh ") || lower.starts_with("remote ") || lower.contains("on server") {
+        StepType::Remote { machine: String::new(), command: desc.into() }
     } else if lower.contains("navigate") || lower.contains("open http") {
         StepType::BrowserNavigate { url: desc.into() }
     } else if lower.contains("write ") || lower.contains("create file") {
         StepType::FileWrite { path: String::new(), content: String::new() }
     } else {
         // Natural language descriptions must NOT become shell commands.
-        // Return a FileRead no-op so the step is skipped safely.
-        eprintln!("hydra-conductor: skipping non-executable step: {desc}");
-        StepType::FileRead { path: String::new() }
+        // Make the skip visible so user knows it wasn't executed.
+        eprintln!("hydra-conductor: unrecognized step type: {desc}");
+        StepType::Verify { method: VerifyMethod::CommandSuccess { command: format!("echo 'Skipped: {}'", desc.replace('\'', "")) } }
     }
 }
 
 fn try_llm_decompose(goal: &str) -> Option<Vec<Step>> {
     let api_key = std::env::var("ANTHROPIC_API_KEY").ok()?;
-    let client = reqwest::blocking::Client::new();
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build().unwrap_or_else(|_| reqwest::blocking::Client::new());
     let body = serde_json::json!({
         "model": "claude-haiku-4-5-20251001", "max_tokens": 512,
         "messages": [{"role": "user", "content": format!(
             "Decompose this task into executable steps. Return ONLY a JSON array.\n\
-             Each step: {{\"type\": \"shell|code_gen|browser|file_write|wait|verify\", \"command\": \"...\", \"desc\": \"...\"}}\n\
+             Each step: {{\"type\": \"shell|code_gen|browser|file_write|wait|verify|remote\", \"command\": \"...\", \"desc\": \"...\"}}\n\
              Task: {goal}"
         )}]
     });
@@ -171,6 +178,8 @@ fn parse_llm_steps(text: &str) -> Option<Vec<Step>> {
             "file_write" => StepType::FileWrite { path: cmd, content: String::new() },
             "wait" => StepType::Wait { condition: WaitCondition::Duration { ms: 2000 } },
             "verify" => StepType::Verify { method: VerifyMethod::CommandSuccess { command: cmd } },
+            "remote" => { let parts: Vec<&str> = cmd.splitn(2, ':').collect();
+                StepType::Remote { machine: parts.first().unwrap_or(&"").to_string(), command: parts.get(1).unwrap_or(&"").to_string() } },
             _ => StepType::Shell { command: cmd, long_running: false },
         };
         Some(Step { id: i, step_type, description: desc,
@@ -225,7 +234,7 @@ pub fn from_operation(
         };
         Step { id: i, step_type, description: desc,
             depends_on: if i > 0 { vec![i - 1] } else { vec![] },
-            timeout_ms: step.timeout_ms.unwrap_or(SHELL_TIMEOUT_MS) }
+            timeout_ms: step.timeout_ms.unwrap_or(if step.long_running { 300_000 } else { SHELL_TIMEOUT_MS }) }
     }).collect()
 }
 
