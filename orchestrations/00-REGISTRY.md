@@ -1,9 +1,9 @@
 # Hydra Orchestration Registry — Master Index
 
-**Total: 112 orchestrations** (39 complete, 73 future)
+**Total: 114 orchestrations** (41 complete, 73 future)
 **Last updated: 2026-03-25**
 
-## Completed Orchestrations (39)
+## Completed Orchestrations (41)
 
 | O# | Name | Session | Status | Key File |
 |---|---|---|---|---|
@@ -40,6 +40,8 @@
 | O30 | Recovery Engine | 33 | Complete | kernel/recovery.rs |
 | O31 | Proactive Agent | 33 | Complete | kernel/proactive.rs |
 | O32 | Quality Judge | 33 | Complete | kernel/quality_judge.rs |
+| O33 | Atomic Input Algebra | 33 | Complete | desktop/input_atoms.rs + input_platform.rs |
+| O34 | Deliberation Engine | 33 | Complete | kernel/deliberation.rs |
 | — | Autonomous Learning | 20 | Complete | kernel/learning_loop.rs + learning_validator.rs |
 | — | Multi-Agent Swarm | 21 | Complete | kernel/swarm_learning.rs + swarm-browser/ |
 | — | Boot Orchestrator | 22 | Complete | kernel/boot.rs + health.rs + discovery.rs |
