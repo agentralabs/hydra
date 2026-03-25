@@ -75,11 +75,9 @@ if [ -f "${REPO_DIR}/target/release/hydra" ]; then
     cp "${REPO_DIR}/target/release/hydra" "${INSTALL_DIR}/hydra"
     chmod +x "${INSTALL_DIR}/hydra"
 fi
-if [ -f "${REPO_DIR}/target/release/hydra_tui" ]; then
-    cp "${REPO_DIR}/target/release/hydra_tui" "${INSTALL_DIR}/hydra-tui"
+if [ -f "${REPO_DIR}/target/release/hydra-tui" ]; then
+    cp "${REPO_DIR}/target/release/hydra-tui" "${INSTALL_DIR}/hydra-tui"
     chmod +x "${INSTALL_DIR}/hydra-tui"
-    # Also create 'hydra tui' alias via symlink
-    ln -sf "${INSTALL_DIR}/hydra-tui" "${INSTALL_DIR}/hydra_tui" 2>/dev/null || true
 fi
 echo "  ✓ Binaries installed to ${INSTALL_DIR}/"
 

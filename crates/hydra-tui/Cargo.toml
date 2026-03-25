@@ -48,9 +48,5 @@ whoami = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 
 [[bin]]
-name = "hydra_tui"
+name = "hydra-tui"
 path = "src/bin/hydra_tui_v2.rs"
-
-[[bin]]
-name = "smoke_test"
-path = "src/bin/smoke_test.rs"
