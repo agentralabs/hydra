@@ -44,6 +44,11 @@ pub fn run_orch_check(test: &V3Test) -> V3Result {
         "orch-monologue" => super::runner_orch_amm::check_monologue(test),
         "orch-valence" => super::runner_orch_amm::check_valence(test),
         "orch-narrative" => super::runner_orch_amm::check_narrative(test),
+        "orch-vision-stream" => super::runner_orch_amm::check_vision_stream(test),
+        "orch-voice-pipe" => super::runner_orch_amm::check_voice_pipeline(test),
+        "orch-remote-ctrl" => super::runner_orch_amm::check_remote_control(test),
+        "orch-immortal" => super::runner_orch_amm::check_immortal(test),
+        "orch-physical" => super::runner_orch_amm::check_physical(test),
         // O26-O32: delegate to runner_orch_amm
         "orch-perception" => super::runner_orch_amm::check_perception(test),
         "orch-amm" => super::runner_orch_amm::check_app_model(test),

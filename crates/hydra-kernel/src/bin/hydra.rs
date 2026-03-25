@@ -71,6 +71,7 @@ async fn async_main() {
 
     // Auto-install system dependencies + check permissions
     hydra_desktop::deps::preflight();
+    hydra_kernel::immortal::auto_repair(); // O42: repair after crash
 
     eprintln!("Hydra — Agentra Labs");
     eprintln!(

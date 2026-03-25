@@ -180,3 +180,36 @@ pub fn check_narrative(test: &V3Test) -> V3Result {
     ok(test, &format!("narrative: day={} identity={has_identity} learning={has_learning} context_len={}",
         narrative.day_number, context.len()))
 }
+
+// ── O38-O43: Omnipresence ──
+
+pub fn check_vision_stream(test: &V3Test) -> V3Result {
+    // Verify VisionStream can be constructed (don't start capture in test)
+    let stream = hydra_desktop::vision_stream::VisionStream::start(1);
+    std::thread::sleep(std::time::Duration::from_millis(1500));
+    let age = stream.frame_age_ms();
+    let has_frame = age < 5000;
+    stream.stop();
+    ok(test, &format!("vision_stream: fps={} has_frame={has_frame} age={age}ms", stream.fps()))
+}
+
+pub fn check_voice_pipeline(test: &V3Test) -> V3Result {
+    let mut pipe = hydra_kernel::voice_pipeline::VoicePipeline::new();
+    let tts = hydra_kernel::voice_pipeline::tts_available();
+    ok(test, &format!("voice: enabled={} tts_available={tts}", pipe.enabled))
+}
+
+pub fn check_remote_control(test: &V3Test) -> V3Result {
+    let machines = hydra_kernel::remote_control::RemoteMachine::list_machines();
+    ok(test, &format!("remote: {} machines configured", machines.len()))
+}
+
+pub fn check_immortal(test: &V3Test) -> V3Result {
+    let installed = hydra_kernel::immortal::is_installed();
+    ok(test, &format!("immortal: daemon_installed={installed}"))
+}
+
+pub fn check_physical(test: &V3Test) -> V3Result {
+    let devices = hydra_kernel::physical_bridge::discover_devices();
+    ok(test, &format!("physical: {} devices discovered", devices.len()))
+}

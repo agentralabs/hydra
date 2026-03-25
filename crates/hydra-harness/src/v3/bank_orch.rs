@@ -151,5 +151,21 @@ pub fn orch_tests() -> Vec<V3Test> {
         V3Test { id: "orch-narrative", name: "O37: Temporal self", category: V3Category::OrchIntelligence,
             eval_method: EvalMethod::DirectCheck, input: "temporal_self",
             pass_contains: &[], fail_contains: &[], min_hour: 0, timeout_secs: 60 },
+        // O38-O43: Omnipresence
+        V3Test { id: "orch-vision-stream", name: "O38: Continuous vision", category: V3Category::OrchPresence,
+            eval_method: EvalMethod::DirectCheck, input: "vision_stream",
+            pass_contains: &[], fail_contains: &[], min_hour: 0, timeout_secs: 60 },
+        V3Test { id: "orch-voice-pipe", name: "O39+O40: Voice pipeline", category: V3Category::OrchPresence,
+            eval_method: EvalMethod::DirectCheck, input: "voice_pipeline",
+            pass_contains: &[], fail_contains: &[], min_hour: 0, timeout_secs: 60 },
+        V3Test { id: "orch-remote-ctrl", name: "O41: Multi-machine", category: V3Category::OrchPresence,
+            eval_method: EvalMethod::DirectCheck, input: "remote_control",
+            pass_contains: &[], fail_contains: &[], min_hour: 0, timeout_secs: 60 },
+        V3Test { id: "orch-immortal", name: "O42: Immortal daemon", category: V3Category::OrchPresence,
+            eval_method: EvalMethod::DirectCheck, input: "immortal_daemon",
+            pass_contains: &[], fail_contains: &[], min_hour: 0, timeout_secs: 60 },
+        V3Test { id: "orch-physical", name: "O43: Physical bridge", category: V3Category::OrchPresence,
+            eval_method: EvalMethod::DirectCheck, input: "physical_bridge",
+            pass_contains: &[], fail_contains: &[], min_hour: 0, timeout_secs: 60 },
     ]
 }

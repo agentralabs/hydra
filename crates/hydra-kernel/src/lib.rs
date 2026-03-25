@@ -79,6 +79,10 @@ pub mod deliberation;
 pub mod inner_monologue;
 pub mod emotional_valence;
 pub mod temporal_self;
+pub mod voice_pipeline;
+pub mod remote_control;
+pub mod immortal;
+pub mod physical_bridge;
 
 // Re-exports for convenience
 pub use boot::{BootResult, run_boot_sequence};

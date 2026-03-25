@@ -30,6 +30,7 @@ pub mod muscle_memory;
 pub mod deps;
 pub mod input_atoms;
 pub mod input_platform;
+pub mod vision_stream;
 
 // ── Re-exports ──
 
