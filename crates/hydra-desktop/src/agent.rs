@@ -28,6 +28,10 @@ pub(crate) enum DesktopAction {
     KeyPress { key: String },
     KeyCombo { modifier: String, key: String },
     Scroll { direction: String, amount: u32 },
+    Drag { x1: f64, y1: f64, x2: f64, y2: f64 },
+    ModifierClick { x: f64, y: f64, modifier: String },
+    Paste { text: String },
+    WaitForStable { timeout_ms: u64 },
     Wait { ms: u64 },
     Done { reasoning: String },
     Unknown { raw: String },
@@ -195,8 +199,19 @@ impl DesktopAgent {
                 "key_combo" => DesktopAction::KeyCombo { modifier, key },
                 "scroll" => {
                     let dir = val.get("direction").and_then(|v| v.as_str()).unwrap_or("down").to_string();
-                    let amt = val.get("amount").and_then(|v| v.as_u64()).unwrap_or(300) as u32;
+                    let amt = val.get("amount").and_then(|v| v.as_u64()).unwrap_or(3) as u32;
                     DesktopAction::Scroll { direction: dir, amount: amt }
+                }
+                "drag" => {
+                    let x2 = val.get("x2").and_then(|v| v.as_f64()).unwrap_or(x + 100.0);
+                    let y2 = val.get("y2").and_then(|v| v.as_f64()).unwrap_or(y);
+                    DesktopAction::Drag { x1: x, y1: y, x2, y2 }
+                }
+                "modifier_click" => DesktopAction::ModifierClick { x, y, modifier },
+                "paste" => DesktopAction::Paste { text },
+                "wait_stable" => {
+                    let ms = val.get("timeout_ms").and_then(|v| v.as_u64()).unwrap_or(5000);
+                    DesktopAction::WaitForStable { timeout_ms: ms }
                 }
                 "wait" => {
                     let ms = val.get("ms").and_then(|v| v.as_u64()).unwrap_or(1000);
@@ -244,12 +259,26 @@ impl DesktopAgent {
                 Ok((format!("combo: {modifier}+{key}"), "Pressed".into(), false))
             }
             DesktopAction::Scroll { direction, amount } => {
-                // Use key-based scrolling as a simple approach
-                let key = if direction == "up" { "Up" } else { "Down" };
-                for _ in 0..(*amount / 100).max(1) {
-                    input.key_press(key)?;
-                }
-                Ok((format!("scroll {direction} {amount}px"), "Scrolled".into(), false))
+                let dy = if direction == "up" { *amount as i32 } else { -(*amount as i32) };
+                let (x, y) = input.position();
+                input.scroll_wheel(x, y, dy)?;
+                Ok((format!("scroll {direction} {amount}"), "Scrolled".into(), false))
+            }
+            DesktopAction::Drag { x1, y1, x2, y2 } => {
+                input.drag(*x1, *y1, *x2, *y2)?;
+                Ok((format!("drag ({x1:.0},{y1:.0})→({x2:.0},{y2:.0})"), "Dragged".into(), false))
+            }
+            DesktopAction::ModifierClick { x, y, modifier } => {
+                input.click_with_modifier(*x, *y, modifier)?;
+                Ok((format!("{modifier}+click ({x:.0},{y:.0})"), "Modifier-clicked".into(), false))
+            }
+            DesktopAction::Paste { text } => {
+                input.paste_text(text)?;
+                Ok((format!("paste: '{}'", &text[..text.len().min(30)]), "Pasted".into(), false))
+            }
+            DesktopAction::WaitForStable { timeout_ms } => {
+                let _ = input.wait_for_stable(*timeout_ms);
+                Ok((format!("wait_stable {timeout_ms}ms"), "Screen stable".into(), false))
             }
             DesktopAction::Wait { ms } => {
                 std::thread::sleep(std::time::Duration::from_millis(*ms));

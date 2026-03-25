@@ -28,6 +28,8 @@ pub mod verification;
 pub mod state_graph;
 pub mod muscle_memory;
 pub mod deps;
+pub mod input_atoms;
+pub mod input_platform;
 
 // ── Re-exports ──
 

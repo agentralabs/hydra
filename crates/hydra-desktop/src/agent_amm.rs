@@ -61,6 +61,12 @@ impl DesktopAgent {
                         UiPrimitive::KeyPress { key } => { let _ = input.key_press(key); }
                         UiPrimitive::KeyCombo { modifier, key } => { let _ = input.key_combo(modifier, key); }
                         UiPrimitive::TypeText { text } => { let _ = input.key_type(text); }
+                        UiPrimitive::Drag { x1, y1, x2, y2 } => { let _ = input.drag(*x1, *y1, *x2, *y2); }
+                        UiPrimitive::ScrollWheel { x, y, dy } => { let _ = input.scroll_wheel(*x, *y, *dy); }
+                        UiPrimitive::ModifierClick { x, y, modifier } => { let _ = input.click_with_modifier(*x, *y, modifier); }
+                        UiPrimitive::ModifierDrag { x1, y1, x2, y2, modifier } => { let _ = input.drag_with_modifier(*x1, *y1, *x2, *y2, modifier); }
+                        UiPrimitive::PasteText { text } => { let _ = input.paste_text(text); }
+                        UiPrimitive::WaitForStable { timeout_ms } => { let _ = input.wait_for_stable(*timeout_ms); }
                         UiPrimitive::WaitFor { timeout_ms, .. } => {
                             tokio::time::sleep(std::time::Duration::from_millis(*timeout_ms)).await;
                         }
@@ -133,10 +139,17 @@ impl DesktopAgent {
                  PREVIOUS STEPS:\n{history_text}\nCURRENT STEP: {step_num}\n\n\
                  Look at this screenshot. Decide the NEXT action.\n\
                  Respond in JSON: {{\"action\": \"click|double_click|right_click|\
-                 type|key_press|key_combo|scroll|wait|done\", \
-                 \"x\": pixel_x, \"y\": pixel_y, \"text\": \"...\", \
-                 \"modifier\": \"cmd|ctrl|alt|shift\", \"key\": \"...\", \
-                 \"reasoning\": \"why\"}}\n\nIf the goal is complete, use \"done\"."
+                 type|key_press|key_combo|scroll|drag|modifier_click|paste|wait|wait_stable|done\", \
+                 \"x\": pixel_x, \"y\": pixel_y, \"x2\": drag_end_x, \"y2\": drag_end_y, \
+                 \"text\": \"text to type or paste\", \
+                 \"modifier\": \"cmd|ctrl|alt|shift\", \"key\": \"key name\", \
+                 \"direction\": \"up|down\", \"amount\": scroll_clicks, \
+                 \"reasoning\": \"why\"}}\n\n\
+                 Use drag for: moving items, resizing, timeline scrubbing, slider adjustment.\n\
+                 Use modifier_click for: Shift+Click (range select), Cmd+Click (multi-select).\n\
+                 Use paste for: inserting text from clipboard.\n\
+                 Use wait_stable for: waiting for renders, downloads, or compiles.\n\
+                 If the goal is complete, use \"done\"."
             );
 
             // O2: Vision Bridge — try FREE tiers (a11y + OCR) before expensive LLM vision

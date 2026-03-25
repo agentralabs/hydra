@@ -25,6 +25,18 @@ pub enum UiPrimitive {
     SwitchTool { tool: String },
     /// Wait for a condition (text appears, timeout).
     WaitFor { condition: String, timeout_ms: u64 },
+    /// Drag from point A to point B.
+    Drag { x1: f64, y1: f64, x2: f64, y2: f64 },
+    /// Scroll wheel at position.
+    ScrollWheel { x: f64, y: f64, dy: i32 },
+    /// Click with modifier held.
+    ModifierClick { x: f64, y: f64, modifier: String },
+    /// Drag with modifier held.
+    ModifierDrag { x1: f64, y1: f64, x2: f64, y2: f64, modifier: String },
+    /// Write to clipboard and paste.
+    PasteText { text: String },
+    /// Wait for screen to stabilize.
+    WaitForStable { timeout_ms: u64 },
 }
 
 /// A stored muscle memory sequence for an app + goal.

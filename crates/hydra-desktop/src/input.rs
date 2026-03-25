@@ -330,6 +330,61 @@ impl InputSimulator {
             other => other.into(),
         }
     }
+
+    // ── O33: Atomic Input Algebra — composed operations ──
+
+    /// Drag from (x1,y1) to (x2,y2) with smooth minimum-jerk movement.
+    pub fn drag(&mut self, x1: f64, y1: f64, x2: f64, y2: f64) -> Result<(), DesktopError> {
+        let atoms = crate::input_atoms::drag(x1, y1, x2, y2);
+        let mut composer = crate::input_atoms::InputComposer::new();
+        composer.execute(&atoms)?;
+        self.current_x = x2; self.current_y = y2;
+        Ok(())
+    }
+
+    /// Real wheel scroll at position (not arrow key stub).
+    pub fn scroll_wheel(&mut self, x: f64, y: f64, dy: i32) -> Result<(), DesktopError> {
+        let atoms = crate::input_atoms::scroll(x, y, dy);
+        crate::input_atoms::InputComposer::new().execute(&atoms)
+    }
+
+    /// Click with modifier held (Shift+Click, Cmd+Click, Ctrl+Click).
+    pub fn click_with_modifier(&mut self, x: f64, y: f64, modifier: &str) -> Result<(), DesktopError> {
+        let atoms = crate::input_atoms::modifier_click(x, y, modifier);
+        crate::input_atoms::InputComposer::new().execute(&atoms)
+    }
+
+    /// Drag with modifier held (Alt+Drag to duplicate, Shift+Drag to constrain).
+    pub fn drag_with_modifier(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, modifier: &str) -> Result<(), DesktopError> {
+        let atoms = crate::input_atoms::modifier_drag(x1, y1, x2, y2, modifier);
+        crate::input_atoms::InputComposer::new().execute(&atoms)?;
+        self.current_x = x2; self.current_y = y2;
+        Ok(())
+    }
+
+    /// Write text to clipboard then paste (Cmd+V / Ctrl+V).
+    pub fn paste_text(&mut self, text: &str) -> Result<(), DesktopError> {
+        let atoms = crate::input_atoms::clipboard_paste(text);
+        crate::input_atoms::InputComposer::new().execute(&atoms)
+    }
+
+    /// Wait until screen stops changing (renders complete, downloads finish).
+    pub fn wait_for_stable(&self, timeout_ms: u64) -> Result<(), DesktopError> {
+        let atoms = crate::input_atoms::wait_stable(timeout_ms);
+        crate::input_atoms::InputComposer::new().execute(&atoms)
+    }
+
+    /// Wait until specific text appears on screen via OCR.
+    pub fn wait_for_text(&self, text: &str, timeout_ms: u64) -> Result<(), DesktopError> {
+        let atoms = crate::input_atoms::wait_text(text, timeout_ms);
+        crate::input_atoms::InputComposer::new().execute(&atoms)
+    }
+
+    /// Multi-modifier key combo (Cmd+Shift+S, Ctrl+Alt+Del).
+    pub fn key_combo_multi(&self, modifiers: &[&str], key: &str) -> Result<(), DesktopError> {
+        let atoms = crate::input_atoms::multi_modifier_combo(modifiers, key);
+        crate::input_atoms::InputComposer::new().execute(&atoms)
+    }
 }
 
 impl Default for InputSimulator {
