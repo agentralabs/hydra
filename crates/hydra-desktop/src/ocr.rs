@@ -74,9 +74,10 @@ fn ocr_macos(image_path: &str) -> Result<Vec<OcrRegion>, DesktopError> {
     Ok(Vec::new())
 }
 
-/// OCR via tesseract CLI (cross-platform).
+/// OCR via tesseract CLI (cross-platform). Auto-installs if missing.
 fn ocr_tesseract(image_path: &str) -> Result<Vec<OcrRegion>, DesktopError> {
-    // tesseract outputs TSV with coordinates when using --tsv flag
+    // Self-sufficiency: ensure tesseract is installed
+    crate::deps::ensure_command("tesseract");
     let output = std::process::Command::new("tesseract")
         .args([image_path, "stdout", "--tsv"])
         .output()

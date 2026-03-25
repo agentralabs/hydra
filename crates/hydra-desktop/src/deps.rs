@@ -1,110 +1,198 @@
-//! Auto-dependency installer — Hydra installs its own system dependencies.
+//! Generic self-sufficiency — Hydra detects and installs ANY missing dependency.
 //!
-//! On first run, checks for required tools (tesseract, cliclick, etc.)
-//! and installs them via Homebrew (macOS) or apt (Linux).
-//! Never asks the user to install anything manually.
+//! When any shell command fails with "command not found" or similar,
+//! Hydra figures out what package provides it and installs it.
+//! No hardcoded lists — uses the package manager's search to resolve.
+//! Like a human: see the error → figure out the fix → apply it → retry.
 
+use std::collections::HashMap;
 use std::process::Command;
+use std::sync::Mutex;
+use std::time::Instant;
 
-/// A system dependency with install command.
-struct Dep {
-    name: &'static str,
-    check_cmd: &'static str,
-    brew_pkg: &'static str,
-    apt_pkg: &'static str,
-    critical: bool,
-}
-
-const DEPS: &[Dep] = &[
-    Dep { name: "tesseract", check_cmd: "tesseract", brew_pkg: "tesseract", apt_pkg: "tesseract-ocr", critical: false },
-    Dep { name: "cliclick", check_cmd: "cliclick", brew_pkg: "cliclick", apt_pkg: "", critical: false },
-    Dep { name: "ImageMagick", check_cmd: "convert", brew_pkg: "imagemagick", apt_pkg: "imagemagick", critical: false },
-];
+static INSTALL_CACHE: Mutex<Option<HashMap<String, Instant>>> = Mutex::new(None);
 
 /// Check if a command exists in PATH.
-fn cmd_exists(cmd: &str) -> bool {
+pub fn cmd_exists(cmd: &str) -> bool {
     Command::new("which").arg(cmd)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .status().map(|s| s.success()).unwrap_or(false)
 }
 
-/// Check if Homebrew is available (macOS).
-fn has_brew() -> bool { cmd_exists("brew") }
+/// Detect the platform's package manager.
+fn detect_package_manager() -> Option<PackageManager> {
+    if cfg!(target_os = "macos") {
+        if cmd_exists("brew") { return Some(PackageManager::Brew); }
+        if cmd_exists("port") { return Some(PackageManager::MacPorts); }
+    }
+    if cfg!(target_os = "linux") {
+        if cmd_exists("apt-get") { return Some(PackageManager::Apt); }
+        if cmd_exists("dnf") { return Some(PackageManager::Dnf); }
+        if cmd_exists("pacman") { return Some(PackageManager::Pacman); }
+        if cmd_exists("zypper") { return Some(PackageManager::Zypper); }
+    }
+    None
+}
 
-/// Check if apt-get is available (Linux).
-fn has_apt() -> bool { cmd_exists("apt-get") }
+#[derive(Debug, Clone)]
+enum PackageManager { Brew, MacPorts, Apt, Dnf, Pacman, Zypper }
 
-/// Install a package via the appropriate package manager.
-fn install_pkg(dep: &Dep) -> bool {
-    if cfg!(target_os = "macos") && has_brew() && !dep.brew_pkg.is_empty() {
-        eprintln!("hydra-deps: installing {} via brew...", dep.name);
-        let status = Command::new("brew")
-            .args(["install", dep.brew_pkg])
-            .stdout(std::process::Stdio::null())
-            .status();
+impl PackageManager {
+    /// Search for a package that provides a given command.
+    fn search(&self, cmd_name: &str) -> Option<String> {
+        let output = match self {
+            Self::Brew => Command::new("brew").args(["search", cmd_name])
+                .output().ok()?,
+            Self::Apt => Command::new("apt-cache").args(["search", cmd_name])
+                .output().ok()?,
+            Self::Dnf => Command::new("dnf").args(["search", cmd_name])
+                .output().ok()?,
+            Self::Pacman => Command::new("pacman").args(["-Ss", cmd_name])
+                .output().ok()?,
+            Self::MacPorts => Command::new("port").args(["search", cmd_name])
+                .output().ok()?,
+            Self::Zypper => Command::new("zypper").args(["search", cmd_name])
+                .output().ok()?,
+        };
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        // Find the best match — usually the first line that contains the exact command name
+        for line in stdout.lines() {
+            let pkg = line.split_whitespace().next().unwrap_or("");
+            // Exact match or contains the command name
+            if pkg == cmd_name || pkg.contains(cmd_name) {
+                // Clean up brew format (removes version info)
+                let clean = pkg.split('/').last().unwrap_or(pkg)
+                    .split('@').next().unwrap_or(pkg);
+                return Some(clean.to_string());
+            }
+        }
+        // Fallback: the command name itself is often the package name
+        Some(cmd_name.to_string())
+    }
+
+    /// Install a package by name.
+    fn install(&self, package: &str) -> bool {
+        eprintln!("hydra-deps: installing '{package}' via {:?}...", self);
+        let status = match self {
+            Self::Brew => Command::new("brew").args(["install", package])
+                .stdout(std::process::Stdio::null()).status(),
+            Self::Apt => Command::new("sudo").args(["apt-get", "install", "-y", package])
+                .stdout(std::process::Stdio::null()).status(),
+            Self::Dnf => Command::new("sudo").args(["dnf", "install", "-y", package])
+                .stdout(std::process::Stdio::null()).status(),
+            Self::Pacman => Command::new("sudo").args(["pacman", "-S", "--noconfirm", package])
+                .stdout(std::process::Stdio::null()).status(),
+            Self::MacPorts => Command::new("sudo").args(["port", "install", package])
+                .stdout(std::process::Stdio::null()).status(),
+            Self::Zypper => Command::new("sudo").args(["zypper", "install", "-y", package])
+                .stdout(std::process::Stdio::null()).status(),
+        };
         match status {
             Ok(s) if s.success() => {
-                eprintln!("hydra-deps: {} installed successfully", dep.name);
+                eprintln!("hydra-deps: '{package}' installed successfully");
                 true
             }
             _ => {
-                eprintln!("hydra-deps: failed to install {}", dep.name);
+                eprintln!("hydra-deps: failed to install '{package}'");
                 false
             }
         }
-    } else if cfg!(target_os = "linux") && has_apt() && !dep.apt_pkg.is_empty() {
-        eprintln!("hydra-deps: installing {} via apt-get...", dep.name);
-        let status = Command::new("sudo")
-            .args(["apt-get", "install", "-y", dep.apt_pkg])
-            .stdout(std::process::Stdio::null())
-            .status();
-        match status {
-            Ok(s) if s.success() => {
-                eprintln!("hydra-deps: {} installed successfully", dep.name);
-                true
-            }
-            _ => {
-                eprintln!("hydra-deps: failed to install {}", dep.name);
-                false
-            }
-        }
-    } else {
-        eprintln!("hydra-deps: no package manager found for {}", dep.name);
-        false
     }
 }
 
-/// Check and install all dependencies. Called once at startup.
-/// Returns (installed_count, missing_count).
-pub fn ensure_deps() -> (usize, usize) {
-    let mut installed = 0;
-    let mut missing = 0;
-    for dep in DEPS {
-        if cmd_exists(dep.check_cmd) {
-            continue; // already installed
+/// Ensure a command is available. If missing, find the package and install it.
+/// Returns true if the command is now available (was present or successfully installed).
+/// Caches install attempts to avoid retrying within the same session.
+pub fn ensure_command(cmd: &str) -> bool {
+    if cmd_exists(cmd) { return true; }
+
+    // Check cache — don't retry failed installs in same session
+    {
+        let mut cache = INSTALL_CACHE.lock().unwrap();
+        let map = cache.get_or_insert_with(HashMap::new);
+        if let Some(when) = map.get(cmd) {
+            if when.elapsed().as_secs() < 3600 { return cmd_exists(cmd); }
         }
-        eprintln!("hydra-deps: {} not found, attempting install...", dep.name);
-        if install_pkg(dep) {
-            installed += 1;
-        } else {
-            missing += 1;
-            if dep.critical {
-                eprintln!("hydra-deps: CRITICAL dependency {} missing — some features will not work", dep.name);
+    }
+
+    eprintln!("hydra-deps: '{cmd}' not found — resolving...");
+
+    let pm = match detect_package_manager() {
+        Some(pm) => pm,
+        None => {
+            eprintln!("hydra-deps: no package manager found — cannot install '{cmd}'");
+            return false;
+        }
+    };
+
+    // Search for the package
+    let package = match pm.search(cmd) {
+        Some(pkg) => pkg,
+        None => {
+            eprintln!("hydra-deps: could not find package for '{cmd}'");
+            return false;
+        }
+    };
+
+    // Install it
+    let success = pm.install(&package);
+
+    // Cache the attempt
+    {
+        let mut cache = INSTALL_CACHE.lock().unwrap();
+        let map = cache.get_or_insert_with(HashMap::new);
+        map.insert(cmd.to_string(), Instant::now());
+    }
+
+    success && cmd_exists(cmd)
+}
+
+/// Detect and install a missing command from an error message.
+/// Parses error output for "command not found", "No such file", etc.
+/// Returns the command name if detected and installed.
+pub fn resolve_from_error(error_msg: &str) -> Option<String> {
+    let lower = error_msg.to_lowercase();
+
+    // Pattern: "command not found: <cmd>"
+    if lower.contains("command not found") {
+        let cmd = error_msg.split("command not found:").last()
+            .or_else(|| error_msg.split("command not found").last())
+            .map(|s| s.trim().trim_matches('\'').trim_matches('"'))
+            .filter(|s| !s.is_empty() && s.len() < 50)?;
+        if ensure_command(cmd) { return Some(cmd.to_string()); }
+    }
+
+    // Pattern: "No such file or directory" with a path containing a binary name
+    if lower.contains("no such file or directory") {
+        // Extract the last path component
+        let parts: Vec<&str> = error_msg.split('/').collect();
+        if let Some(binary) = parts.last() {
+            let clean = binary.trim().trim_matches(|c: char| !c.is_alphanumeric() && c != '-' && c != '_');
+            if !clean.is_empty() && clean.len() < 50 {
+                if ensure_command(clean) { return Some(clean.to_string()); }
             }
         }
     }
-    if installed > 0 {
-        eprintln!("hydra-deps: installed {installed} dependencies");
+
+    // Pattern: "error: program '<cmd>' not found"
+    if lower.contains("not found") || lower.contains("not installed") {
+        // Try to extract the program name between quotes
+        let between_quotes: Vec<&str> = error_msg.split('\'').collect();
+        if between_quotes.len() >= 3 {
+            let cmd = between_quotes[1].trim();
+            if !cmd.is_empty() && cmd.len() < 50 && !cmd.contains(' ') {
+                if ensure_command(cmd) { return Some(cmd.to_string()); }
+            }
+        }
     }
-    (installed, missing)
+
+    None
 }
 
 /// Check macOS permissions (screen recording + accessibility).
-/// Returns (screen_ok, a11y_ok).
 pub fn check_permissions() -> (bool, bool) {
     let screen_ok = crate::screen::ScreenCapture::has_permission();
-    // Accessibility check: try to query System Events
     let a11y_ok = if cfg!(target_os = "macos") {
         Command::new("osascript")
             .args(["-e", "tell application \"System Events\" to get name of first process whose frontmost is true"])
@@ -115,25 +203,20 @@ pub fn check_permissions() -> (bool, bool) {
 
     if !screen_ok {
         eprintln!("hydra-deps: Screen Recording permission NOT granted");
-        eprintln!("hydra-deps: Grant in: System Settings → Privacy & Security → Screen Recording");
+        eprintln!("hydra-deps: Grant in: System Settings > Privacy & Security > Screen Recording");
     }
     if !a11y_ok {
         eprintln!("hydra-deps: Accessibility permission NOT granted");
-        eprintln!("hydra-deps: Grant in: System Settings → Privacy & Security → Accessibility");
+        eprintln!("hydra-deps: Grant in: System Settings > Privacy & Security > Accessibility");
     }
     (screen_ok, a11y_ok)
 }
 
-/// Full preflight: check deps + permissions. Call at startup.
+/// Preflight: check permissions. Deps are installed on-demand, not upfront.
 pub fn preflight() -> bool {
-    let (installed, missing) = ensure_deps();
     let (screen_ok, a11y_ok) = check_permissions();
-    let ready = screen_ok && a11y_ok;
-    if ready {
-        eprintln!("hydra-deps: preflight OK (deps: {} installed, {} missing, permissions: all granted)",
-            installed, missing);
-    } else {
-        eprintln!("hydra-deps: preflight INCOMPLETE — some permissions missing");
+    if screen_ok && a11y_ok {
+        eprintln!("hydra-deps: preflight OK — permissions granted, deps install on-demand");
     }
-    ready
+    screen_ok && a11y_ok
 }

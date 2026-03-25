@@ -104,6 +104,18 @@ pub fn route_and_execute(step: &Step, ctx: &TaskContext, app_ctx: &mut crate::wo
 }
 
 fn execute_shell(command: &str, ctx: &TaskContext) -> (bool, String, Vec<String>) {
+    let (success, output, artifacts) = run_shell_once(command, ctx);
+    // Self-sufficiency: if command failed with "not found", auto-install and retry
+    if !success {
+        if let Some(installed) = hydra_desktop::deps::resolve_from_error(&output) {
+            eprintln!("hydra-shell: auto-installed '{installed}' — retrying command");
+            return run_shell_once(command, ctx);
+        }
+    }
+    (success, output, artifacts)
+}
+
+fn run_shell_once(command: &str, ctx: &TaskContext) -> (bool, String, Vec<String>) {
     let mut cmd = std::process::Command::new("sh");
     cmd.arg("-c").arg(command).current_dir(&ctx.working_dir).envs(&ctx.env_vars)
         .stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped());
@@ -124,7 +136,7 @@ fn execute_shell(command: &str, ctx: &TaskContext) -> (bool, String, Vec<String>
             (out.status.success(), output, vec![])
         }
         Ok(Err(e)) => (false, format!("Shell error: {e}"), vec![]),
-        Err(_) => { // Timeout — kill entire process group
+        Err(_) => {
             #[cfg(unix)]
             unsafe { libc::killpg(pgid, libc::SIGKILL); }
             (false, format!("Timeout ({}s) — killed", crate::conductor::SHELL_TIMEOUT_MS / 1000), vec![])
