@@ -192,12 +192,49 @@ pub fn execute_interface_step(
         StepType::BrowserNavigate { url } => {
             app_ctx.focused_app = Some("browser".into());
             eprintln!("hydra-worker: browser navigate → {url}");
-            (true, format!("[Browser: navigating to {url}]"), vec![])
+            if let Ok(handle) = tokio::runtime::Handle::try_current() {
+                let url = url.clone();
+                let result = tokio::task::block_in_place(|| {
+                    handle.block_on(async {
+                        let mut engine = hydra_browser::BrowserEngine::new();
+                        engine.launch().await.map_err(|e| format!("Browser launch: {e}"))?;
+                        engine.navigate(&url).await.map_err(|e| format!("Navigate: {e}"))?;
+                        Ok::<String, String>(format!("Navigated to {url}"))
+                    })
+                });
+                match result {
+                    Ok(msg) => (true, msg, vec![]),
+                    Err(e) => (false, e, vec![]),
+                }
+            } else {
+                (true, format!("[Browser: navigating to {url}]"), vec![])
+            }
         }
         StepType::BrowserInteract { goal } => {
             app_ctx.focused_app = Some("browser".into());
             eprintln!("hydra-worker: browser interact → {goal}");
-            (true, format!("[Browser: {goal}]"), vec![])
+            // Browser interact uses the full computer use agent with vision
+            // For now, launch browser + navigate to goal as URL or search
+            if let Ok(handle) = tokio::runtime::Handle::try_current() {
+                let goal = goal.clone();
+                let result = tokio::task::block_in_place(|| {
+                    handle.block_on(async {
+                        let mut engine = hydra_browser::BrowserEngine::new();
+                        engine.launch().await.map_err(|e| format!("Browser launch: {e}"))?;
+                        // If goal looks like a URL, navigate; otherwise search
+                        let url = if goal.starts_with("http") { goal.clone() }
+                            else { format!("https://html.duckduckgo.com/html/?q={}", goal.replace(' ', "+")) };
+                        engine.navigate(&url).await.map_err(|e| format!("Navigate: {e}"))?;
+                        Ok::<String, String>(format!("Browser: {goal}"))
+                    })
+                });
+                match result {
+                    Ok(msg) => (true, msg, vec![]),
+                    Err(e) => (false, e, vec![]),
+                }
+            } else {
+                (true, format!("[Browser: {goal}]"), vec![])
+            }
         }
         StepType::DesktopAction { goal } => {
             app_ctx.focused_app = Some("desktop".into());

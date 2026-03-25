@@ -6,6 +6,18 @@
 //! Connects to O27 Intent Compiler for plan generation.
 
 use std::time::Instant;
+use serde::{Deserialize, Serialize};
+
+/// Event format persisted by MonitorMiddleware for proactive trigger consumption.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MonitorTriggerEvent {
+    pub title: String,
+    pub category: String,
+    pub detail: String,
+    pub urgency: f64,
+    pub suggested_action: String,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+}
 
 /// A trigger source that may initiate autonomous action.
 #[derive(Debug, Clone)]
@@ -149,6 +161,26 @@ impl ProactiveEngine {
                     confidence: entry.effective_confidence(),
                     suggested_goal: entry.approach.steps.first().cloned().unwrap_or_default(),
                 });
+            }
+        }
+
+        // Monitor: convert recent connector/monitor events into triggers
+        let events_path = dirs::home_dir().unwrap_or_default().join(".hydra/monitor/events.json");
+        if let Ok(content) = std::fs::read_to_string(&events_path) {
+            if let Ok(events) = serde_json::from_str::<Vec<MonitorTriggerEvent>>(&content) {
+                let cutoff = chrono::Utc::now() - chrono::Duration::minutes(30);
+                for event in events.iter().filter(|e| e.timestamp > cutoff).take(10) {
+                    triggers.push(TriggerSource {
+                        source_type: TriggerType::Monitor {
+                            event_type: event.category.clone(),
+                            details: event.detail.clone(),
+                        },
+                        description: format!("Monitor: {}", event.title),
+                        urgency: event.urgency,
+                        confidence: 0.7,
+                        suggested_goal: event.suggested_action.clone(),
+                    });
+                }
             }
         }
 

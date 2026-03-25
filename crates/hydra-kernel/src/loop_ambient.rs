@@ -30,20 +30,28 @@ pub struct AmbientSubsystems {
     pub metabolism: MetabolismMonitor,
     pub continuity: ContinuityEngine,
     pub fabric: SignalFabric,
-    /// Connectivity health tracker — monitors reachability of external services.
     pub reach: hydra_reach_extended::ReachEngine,
-    /// Inline checkpoint tracking (step count at last checkpoint).
     pub last_checkpoint_step: u64,
-    /// Self-preservation: periodic data integrity verification (O23).
     pub integrity: crate::integrity::IntegrityMonitor,
-    /// Self-evolution: detect gaps and generate new skills (Session 25).
     pub evolution: crate::evolution::EvolutionEngine,
-    /// Universal Drop Gateway: single entry point for all external items.
     pub drop_gateway: crate::drop::DropGateway,
+    /// O15: File observer for pair programming mode (activated via /pair command).
+    pub file_observer: Option<hydra_desktop::FileObserver>,
+    /// O19: Presence detection (activated via HYDRA_PRESENCE_ENABLED env).
+    pub presence: Option<hydra_desktop::PresenceEngine>,
 }
 
 impl AmbientSubsystems {
     pub fn new() -> Self {
+        // O19: Enable presence if env var is set
+        let presence = if std::env::var("HYDRA_PRESENCE_ENABLED").is_ok() {
+            let mut engine = hydra_desktop::PresenceEngine::new();
+            match engine.enable() {
+                Ok(()) => Some(engine),
+                Err(e) => { eprintln!("hydra: presence disabled: {e}"); None }
+            }
+        } else { None };
+
         Self {
             metabolism: MetabolismMonitor::new(),
             continuity: ContinuityEngine::new(),
@@ -53,6 +61,8 @@ impl AmbientSubsystems {
             integrity: crate::integrity::IntegrityMonitor::new(),
             evolution: crate::evolution::EvolutionEngine::new(),
             drop_gateway: crate::drop::DropGateway::new(),
+            file_observer: None, // Activated via /pair <dir> command
+            presence,
         }
     }
 }
@@ -186,6 +196,27 @@ pub fn tick_with_subsystems(
             let records = subs.drop_gateway.tick();
             for r in &records {
                 eprintln!("hydra-drop: {} → {:?}", r.filename, r.outcome);
+            }
+        }
+
+        // O15: File observer for pair programming (scan every 50 ticks ~5s)
+        if step % 50 == 0 {
+            if let Some(obs) = &mut subs.file_observer {
+                let _ = obs.scan();
+                let changes = obs.drain_changes();
+                for change in &changes {
+                    eprintln!("hydra-pair: {} {}", change.kind.label(), change.path.display());
+                }
+            }
+        }
+
+        // O19: Presence detection (poll every 20 ticks ~2s)
+        if step % 20 == 0 {
+            if let Some(presence) = &mut subs.presence {
+                let (changed, _cmd) = presence.poll();
+                if changed {
+                    eprintln!("hydra-presence: state → {}", presence.state().label());
+                }
             }
         }
 

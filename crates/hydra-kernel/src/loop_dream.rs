@@ -33,7 +33,7 @@ pub struct DreamCycleResult {
 /// Dream subsystems that persist across cycles.
 pub struct DreamSubsystems {
     pub beliefs: BeliefStore,
-    pub predictions: PredictionStager,
+    pub predictions: std::sync::Arc<std::sync::Mutex<PredictionStager>>,
     pub learning: LearningEngine,
     pub synthesis: SynthesisEngine,
     pub generative: GenerativeEngine,
@@ -42,6 +42,7 @@ pub struct DreamSubsystems {
     pub automation: AutomationEngine,
     pub genome: GenomeStore,
     pub swarm_learning: SwarmLearning,
+    pub self_test: crate::self_test::SelfTestTracker,
     pub idle_secs: u64,
 }
 
@@ -52,7 +53,7 @@ impl DreamSubsystems {
 
         Self {
             beliefs: BeliefStore::new(),
-            predictions: PredictionStager::new(),
+            predictions: std::sync::Arc::new(std::sync::Mutex::new(PredictionStager::new())),
             learning: LearningEngine::new(),
             synthesis: SynthesisEngine::new(),
             generative: GenerativeEngine::new(),
@@ -61,6 +62,7 @@ impl DreamSubsystems {
             automation: AutomationEngine::new(),
             genome,
             swarm_learning: SwarmLearning::new(),
+            self_test: crate::self_test::SelfTestTracker::new(),
             idle_secs: 0,
         }
     }
@@ -97,9 +99,11 @@ pub fn cycle_with_subsystems(
     let mut genome_entries_created = 0;
 
     if let Some(subs) = subsystems {
-        // Prediction rehearsal cycle
+        // Prediction rehearsal cycle (shared with intelligence middleware)
         if step > 0 {
-            subs.predictions.run_cycle();
+            if let Ok(mut stager) = subs.predictions.lock() {
+                stager.run_cycle();
+            }
         }
 
         // Learning: observe reasoning outcomes every cycle
@@ -136,13 +140,7 @@ pub fn cycle_with_subsystems(
             }
         }
 
-        // SELF-WRITING GENOME — the core innovation.
-        // Every 20 steps, check if the automation engine has detected
-        // any patterns worth crystallizing into genome entries.
-        // A pattern becomes a genome entry when:
-        //   - observed 5+ times
-        //   - success rate >= 75%
-        //   - not already in the genome (dedup by situation)
+        // SELF-WRITING GENOME: crystallize automation patterns into genome entries
         if step % 20 == 0 && step > 0 {
             let proposals = subs.automation.pending_proposals();
             for proposal in proposals {
@@ -201,10 +199,7 @@ pub fn cycle_with_subsystems(
             }
         }
 
-        // FEATURE 3: Curiosity — form hypotheses from observed patterns.
-        // Every 50 steps, the dream loop wonders: "What if these two
-        // patterns are connected?" This is not synthesis (which finds
-        // existing matches). This is curiosity (which asks new questions).
+        // Curiosity: form hypotheses from observed patterns (every 50 steps)
         if step % 50 == 0 && step > 0 {
             let patterns = subs.automation.pattern_count();
             let genome_size = subs.genome.len();
@@ -233,29 +228,20 @@ pub fn cycle_with_subsystems(
             }
         }
 
-        // Wisdom Distillation: discover transferable principles across domains
+        // Wisdom Distillation: discover transferable principles (every 200 steps)
         if step % 200 == 0 && step > 0 && subs.genome.len() > 20 {
-            let mut entries_by_domain: std::collections::HashMap<String, Vec<(String, String)>> =
+            let mut by_domain: std::collections::HashMap<String, Vec<(String, String)>> =
                 std::collections::HashMap::new();
-            for entry in subs.genome.all_entries() {
-                let domain = entry.approach.approach_type.clone();
-                let situation = entry.situation.keywords.iter().cloned().collect::<Vec<_>>().join(" ");
-                let approach = entry.approach.steps.join(" → ");
-                entries_by_domain
-                    .entry(domain)
-                    .or_default()
-                    .push((situation, approach));
+            for e in subs.genome.all_entries() {
+                let sit = e.situation.keywords.iter().cloned().collect::<Vec<_>>().join(" ");
+                by_domain.entry(e.approach.approach_type.clone()).or_default()
+                    .push((sit, e.approach.steps.join(" → ")));
             }
             let mut distiller = hydra_wisdom::WisdomDistiller::new();
-            let patterns = distiller.distill(&entries_by_domain);
+            let patterns = distiller.distill(&by_domain);
             if !patterns.is_empty() {
-                eprintln!(
-                    "hydra: WISDOM DISTILLATION — {} transferable principles discovered",
-                    patterns.len()
-                );
-                for p in patterns.iter().take(3) {
-                    eprintln!("  {:?} (spans {} domains)", p.archetype, p.domain_count);
-                }
+                eprintln!("hydra: WISDOM — {} principles", patterns.len());
+                for p in patterns.iter().take(3) { eprintln!("  {:?} ({} domains)", p.archetype, p.domain_count); }
             }
         }
 
@@ -307,6 +293,23 @@ pub fn cycle_with_subsystems(
                         }
                     }
                 }
+            }
+        }
+
+        // Self-test: periodic behavioral validation (only when deeply idle)
+        if step % 500 == 0 && step > 0 && subs.idle_secs > 300 {
+            use crate::self_test::{SelfTestTracker, TEST_QUESTIONS};
+            use crate::loop_::llm::LlmCaller;
+            let responses: Vec<(&crate::self_test::TestQuestion, String)> = TEST_QUESTIONS.iter()
+                .filter_map(|q| {
+                    LlmCaller::micro_call_blocking(q.input).map(|r| (q, r))
+                }).collect();
+            let pairs: Vec<_> = responses.iter().map(|(q, r)| (*q, r.as_str())).collect();
+            if !pairs.is_empty() {
+                let result = SelfTestTracker::evaluate_batch(&pairs);
+                eprintln!("hydra: SELF-TEST score={:.0}% ({}/{})",
+                    result.score * 100.0, result.passed, result.total);
+                subs.self_test.record(result);
             }
         }
 

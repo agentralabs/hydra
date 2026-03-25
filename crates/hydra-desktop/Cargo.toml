@@ -18,6 +18,7 @@ image = { workspace = true }
 base64 = { workspace = true }
 rand = { workspace = true }
 hydra-browser = { path = "../hydra-browser" }
+hydra-genome = { path = "../hydra-genome" }
 toml = { workspace = true }
 
 [[bin]]

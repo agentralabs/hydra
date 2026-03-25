@@ -43,6 +43,10 @@ impl BrowserEngine {
             .window_size(DEFAULT_VIEWPORT_WIDTH, DEFAULT_VIEWPORT_HEIGHT);
         // O12: Apply anti-detection stealth args (EC-12.1)
         for arg in crate::fingerprint::stealth_args() { config = config.arg(arg); }
+        // O12: Apply realistic user-agent from fingerprint profile
+        let profile = crate::fingerprint::default_profile();
+        config = config.arg(format!("--user-agent={}", profile.user_agent));
+        eprintln!("hydra-browser: stealth profile applied ({})", &profile.user_agent[..profile.user_agent.len().min(60)]);
         if let Ok(path) = std::env::var("HYDRA_CHROME_PATH") {
             config = config.chrome_executable(path);
         }

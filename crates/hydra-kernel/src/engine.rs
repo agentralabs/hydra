@@ -199,6 +199,20 @@ impl CognitiveLoop {
         };
         self.deliverer.deliver(&cycle);
 
+        // O3: Feedback loop — EVERY cycle updates genome + calibration (not just conductor tasks)
+        let outcome = if success {
+            crate::feedback::ActionOutcome::Success {
+                approach: domain.clone(), domain: domain.clone(),
+                duration_ms, quality: if tokens > 0 { 1.0 } else { 0.5 },
+            }
+        } else {
+            crate::feedback::ActionOutcome::Failure {
+                approach: domain.clone(), domain: domain.clone(),
+                obstacle: "LLM error response".into(), error: String::new(), rerouted: false,
+            }
+        };
+        crate::feedback::log_outcome(&outcome);
+
         // HOOK: post_deliver — middlewares finalize
         self.middlewares.run_post_deliver(&cycle);
 

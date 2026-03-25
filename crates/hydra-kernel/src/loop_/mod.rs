@@ -5,6 +5,7 @@
 
 pub mod deliver;
 pub mod llm;
+pub mod llm_key;
 pub mod llm_stream;
 pub mod middleware;
 pub mod middlewares;

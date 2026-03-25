@@ -26,6 +26,8 @@ pub struct IntelligenceMiddleware {
     surprise: SurpriseDetector,
     horizon: Horizon,
     exchange_count: u64,
+    /// Web knowledge index — maps topics to best sources, eliminates blind searches.
+    knowledge_index: crate::web_knowledge::KnowledgeIndex,
 }
 
 impl IntelligenceMiddleware {
@@ -43,6 +45,7 @@ impl IntelligenceMiddleware {
             surprise: SurpriseDetector::new(),
             horizon: Horizon::new(),
             exchange_count: 0,
+            knowledge_index: crate::web_knowledge::KnowledgeIndex::new(),
         }
     }
 }
@@ -91,30 +94,20 @@ impl CycleMiddleware for IntelligenceMiddleware {
             let _ = all_entries; // query side-effect: warms IDF cache
         }
 
-        // HEFP: Epistemic calibration (always inject — no significance gate)
+        // HEFP: Epistemic calibration (always inject)
         let profile = self.calibration.epistemic_profile(domain, &JudgmentType::SuccessProbability);
         use hydra_calibration::EpistemicClass;
         let hefp = match &profile.epistemic_class {
             EpistemicClass::WellCalibrated => format!(
-                "Domain '{}': WELL-CALIBRATED at {:.0}% confidence. You are confident and familiar with this domain. \
-                 Express strong certainty. Say you are confident. CI90: {:.0}%-{:.0}% from {} observations. \
-                 Methodology: {}",
-                domain, profile.calibrated_confidence * 100.0,
+                "'{domain}': WELL-CALIBRATED {:.0}% conf. CI90: {:.0}%-{:.0}%, {} obs. {}",
+                profile.calibrated_confidence * 100.0,
                 profile.credible_interval.0 * 100.0, profile.credible_interval.1 * 100.0,
-                profile.observations, profile.methodology,
-            ),
+                profile.observations, profile.methodology),
             EpistemicClass::Uncertain => format!(
-                "Domain '{}': LIMITED DATA ({} observations, meta-confidence {:.0}%). Express moderate confidence. Acknowledge uncertainty honestly.",
-                domain, profile.observations, profile.meta_confidence * 100.0,
-            ),
-            EpistemicClass::Uncalibrated => format!(
-                "Domain '{}': NO CALIBRATION DATA. Do not claim specific percentages. Hedge appropriately.",
-                domain,
-            ),
-            EpistemicClass::Irreducible => format!(
-                "Domain '{}': INHERENTLY STOCHASTIC. State explicitly that prediction is fundamentally limited here.",
-                domain,
-            ),
+                "'{domain}': LIMITED ({} obs, meta {:.0}%). Express moderate confidence.",
+                profile.observations, profile.meta_confidence * 100.0),
+            EpistemicClass::Uncalibrated => format!("'{domain}': NO DATA. Hedge appropriately."),
+            EpistemicClass::Irreducible => format!("'{domain}': STOCHASTIC. Prediction fundamentally limited."),
         };
         perceived.enrichments.insert("calibration.hefp".into(), hefp);
 
@@ -130,9 +123,31 @@ impl CycleMiddleware for IntelligenceMiddleware {
         let new_domain_needs_web = matches!(domain_label,
             "creative" | "research" | "skill") && perceived.comprehended.confidence > 0.2;
         if search_from_primitives || new_domain_needs_web {
+            // Check knowledge index first — avoid blind search if we know the source
+            let strategy = self.knowledge_index.resolution_strategy(&perceived.raw);
+            match &strategy {
+                crate::web_knowledge::ResolutionStrategy::Indexed { url, reliability } => {
+                    eprintln!("hydra: knowledge index hit: {} (rel={:.0}%)", url, reliability * 100.0);
+                    perceived.enrichments.insert("web.source".into(),
+                        format!("Indexed: {} (reliability {:.0}%)", url, reliability * 100.0));
+                }
+                _ => {} // Search or Genome — proceed with web search
+            }
             let mut web = hydra_web::SearchOrchestrator::new();
             match web.search_blocking(&perceived.raw) {
-                Ok(results) => { perceived.enrichments.insert("web.results".into(), results); }
+                Ok(results) => {
+                    perceived.enrichments.insert("web.results".into(), results.clone());
+                    // Index the result for next time
+                    if let Some(url) = results.lines().find(|l| l.starts_with("http")) {
+                        self.knowledge_index.add(crate::web_knowledge::KnowledgeSource {
+                            topic: perceived.raw.chars().take(60).collect(),
+                            url: url.to_string(),
+                            source_type: crate::web_knowledge::SourceType::Community,
+                            reliability: 0.7,
+                            last_accessed: Some(chrono::Utc::now().to_rfc3339()),
+                        });
+                    }
+                }
                 Err(e) => eprintln!("hydra: web search: {e}"),
             }
         }
@@ -351,22 +366,19 @@ impl CycleMiddleware for IntelligenceMiddleware {
 fn detect_language(text: &str) -> String {
     let chars: Vec<char> = text.chars().filter(|c| c.is_alphabetic()).collect();
     if chars.is_empty() { return "english".into(); }
-    // CJK characters
-    if chars.iter().any(|c| ('\u{4E00}'..='\u{9FFF}').contains(c)) { return "chinese".into(); }
-    if chars.iter().any(|c| ('\u{3040}'..='\u{309F}').contains(c) || ('\u{30A0}'..='\u{30FF}').contains(c)) { return "japanese".into(); }
-    if chars.iter().any(|c| ('\u{AC00}'..='\u{D7AF}').contains(c)) { return "korean".into(); }
-    // Arabic script
-    if chars.iter().any(|c| ('\u{0600}'..='\u{06FF}').contains(c)) { return "arabic".into(); }
-    // Cyrillic
-    if chars.iter().any(|c| ('\u{0400}'..='\u{04FF}').contains(c)) { return "russian".into(); }
-    // Devanagari (Hindi)
-    if chars.iter().any(|c| ('\u{0900}'..='\u{097F}').contains(c)) { return "hindi".into(); }
-    // Latin-based: check common words
-    let lower = text.to_lowercase();
-    if lower.contains(" est ") || lower.contains(" les ") || lower.contains(" je ") { return "french".into(); }
-    if lower.contains(" ist ") || lower.contains(" das ") || lower.contains(" ich ") { return "german".into(); }
-    if lower.contains(" es ") || lower.contains(" los ") || lower.contains(" el ") { return "spanish".into(); }
-    if lower.contains(" é ") || lower.contains(" não ") || lower.contains(" os ") { return "portuguese".into(); }
+    for c in &chars {
+        if ('\u{4E00}'..='\u{9FFF}').contains(c) { return "chinese".into(); }
+        if ('\u{3040}'..='\u{30FF}').contains(c) { return "japanese".into(); }
+        if ('\u{AC00}'..='\u{D7AF}').contains(c) { return "korean".into(); }
+        if ('\u{0600}'..='\u{06FF}').contains(c) { return "arabic".into(); }
+        if ('\u{0400}'..='\u{04FF}').contains(c) { return "russian".into(); }
+        if ('\u{0900}'..='\u{097F}').contains(c) { return "hindi".into(); }
+    }
+    let l = text.to_lowercase();
+    if l.contains(" est ") || l.contains(" les ") { return "french".into(); }
+    if l.contains(" ist ") || l.contains(" das ") { return "german".into(); }
+    if l.contains(" es ") || l.contains(" los ") { return "spanish".into(); }
+    if l.contains(" não ") || l.contains(" os ") { return "portuguese".into(); }
     "english".into()
 }
 

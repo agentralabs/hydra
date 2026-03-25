@@ -193,6 +193,30 @@ impl CycleMiddleware for MonitorMiddleware {
         if !alerts.is_empty() {
             perceived.enrichments.insert("monitor_events".into(), alerts.join("; "));
         }
+        // Persist alert/important events for proactive engine consumption
+        let trigger_events: Vec<crate::proactive::MonitorTriggerEvent> = events.iter()
+            .filter(|e| e.priority == EventPriority::Alert || e.priority == EventPriority::Important)
+            .map(|e| crate::proactive::MonitorTriggerEvent {
+                title: e.title.clone(),
+                category: e.category.label().into(),
+                detail: e.detail.clone(),
+                urgency: if e.priority == EventPriority::Alert { 0.9 } else { 0.6 },
+                suggested_action: format!("Investigate: {}", e.title),
+                timestamp: chrono::Utc::now(),
+            }).collect();
+        if !trigger_events.is_empty() {
+            let events_dir = dirs::home_dir().unwrap_or_default().join(".hydra/monitor");
+            let _ = std::fs::create_dir_all(&events_dir);
+            let events_path = events_dir.join("events.json");
+            match serde_json::to_string(&trigger_events) {
+                Ok(json) => {
+                    if let Err(e) = std::fs::write(&events_path, json) {
+                        eprintln!("hydra-monitor: failed to persist events: {e}");
+                    }
+                }
+                Err(e) => eprintln!("hydra-monitor: serialize events failed: {e}"),
+            }
+        }
     }
 
     fn post_deliver(&mut self, cycle: &CycleResult) {

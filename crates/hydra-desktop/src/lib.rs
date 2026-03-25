@@ -26,6 +26,7 @@ pub mod perception;
 pub mod app_model;
 pub mod verification;
 pub mod state_graph;
+pub mod muscle_memory;
 pub mod deps;
 
 // ── Re-exports ──

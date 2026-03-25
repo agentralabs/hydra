@@ -2253,6 +2253,7 @@ dependencies = [
  "chrono",
  "dirs 5.0.1",
  "hydra-browser",
+ "hydra-genome",
  "image",
  "rand 0.8.5",
  "serde",
