@@ -190,13 +190,33 @@ pub fn redirect_stderr() {
 /// caused false positives (e.g. "can you post" matched on "post ").
 pub fn is_task_intent(text: &str) -> bool {
     let lower = text.to_lowercase();
-    let task_signals = [
+    let task_verbs = [
+        // Creation & building
         "create ", "build ", "set up ", "setup ", "deploy ", "install ",
-        "run ", "execute ", "start ", "make ", "generate ", "write ",
-        "delete ", "remove ", "update ", "fix ", "add ", "configure ",
-        "publish ", "upload ", "download ", "send ", "post ",
+        "make ", "generate ", "write ", "add ", "configure ", "init ",
+        // Execution & running
+        "run ", "execute ", "start ", "launch ", "spawn ", "trigger ",
+        // Modification & management
+        "delete ", "remove ", "update ", "fix ", "edit ", "modify ", "change ",
+        "restart ", "stop ", "kill ", "pause ", "resume ",
+        // File & system operations
+        "publish ", "upload ", "download ", "send ", "post ", "move ", "copy ",
+        "rename ", "save ", "export ", "import ", "backup ",
+        // Browsing & navigation
+        "open ", "browse ", "navigate ", "go to ", "visit ", "search for ",
+        // Monitoring & checking
+        "check ", "scan ", "monitor ", "test ", "verify ", "audit ", "inspect ",
+        "analyze ", "diagnose ",
+        // Desktop & application control
+        "click ", "type ", "drag ", "scroll ", "press ", "switch to ",
+        "close ", "minimize ", "maximize ", "focus ",
+        // Learning & research
+        "learn ", "research ", "study ", "find ",
     ];
-    task_signals.iter().any(|s| lower.starts_with(s))
+    task_verbs.iter().any(|s| lower.starts_with(s))
+        // Also catch "can you <verb>" and "please <verb>" patterns
+        || lower.starts_with("can you ") && task_verbs.iter().any(|s| lower[8..].starts_with(s))
+        || lower.starts_with("please ") && task_verbs.iter().any(|s| lower[7..].starts_with(s))
 }
 
 /// Spawn the conductor as a background task. Returns a receiver for step updates.

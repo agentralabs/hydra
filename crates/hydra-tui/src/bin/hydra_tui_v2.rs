@@ -300,10 +300,15 @@ fn handle_submit(
     let intent = rt.block_on(hydra_kernel::intent_classifier::classify(&text, api_key.as_deref()));
     let mut prepared = cognitive.prepare_cycle(&text);
     hydra_kernel::intent_classifier::inject_enrichments(&intent, &mut prepared.enrichments);
-    // O1: Spawn conductor for task-like inputs (runs in parallel with LLM)
-    if hydra_tui::v2::tui_helpers::is_task_intent(&text) && conductor_rx.is_none() {
+    // O1: Route task intents to conductor (EXECUTE, don't just talk about it)
+    let is_task = hydra_tui::v2::tui_helpers::is_task_intent(&text);
+    if is_task && conductor_rx.is_none() {
         *conductor_rx = Some(hydra_tui::v2::tui_helpers::spawn_conductor(rt, text.clone()));
-        state.stream.push(sysn("Conductor: planning task..."));
+        state.stream.push(sysn("◌ Executing..."));
+        // For tasks: skip LLM streaming — conductor handles it
+        // The conductor result will show as step notifications
+        state.is_thinking = false;
+        return;
     }
     if prepared.needs_llm {
         for item in hydra_tui::v2::enrichment_bridge::surface_enrichments(&prepared.enrichments) { state.stream.push(item); }
