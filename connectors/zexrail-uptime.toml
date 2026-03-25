@@ -1,0 +1,16 @@
+# Zexrail Uptime Monitor — polled by Hydra's Monitor Hub (O16)
+# Drop this file in ~/.hydra/connectors/ for live monitoring
+
+[connector]
+name        = "zexrail-uptime"
+type        = "http"
+url         = "https://www.zexrail.com"
+method      = "GET"
+interval    = 60           # check every 60 seconds
+expect_status = 200
+timeout     = 10
+
+[alerts]
+on_failure  = "Site down! zexrail.com returned non-200"
+on_slow     = "Slow response from zexrail.com (>5s)"
+slow_threshold_ms = 5000

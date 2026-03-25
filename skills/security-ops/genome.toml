@@ -1,0 +1,23 @@
+[[entries]]
+situation    = "need to assess security posture of a production website"
+approach     = "Run 5-point check: 1. SSL grade (ssllabs API). 2. Security headers (HSTS, CSP, X-Frame-Options). 3. Exposed files (.env, .git, wp-config). 4. Open ports (only 80+443 should be public). 5. CORS policy (reject * origins). Score each. Report gaps with severity."
+confidence   = 0.95
+observations = 8000
+
+[[entries]]
+situation    = "suspected security breach or unauthorized access"
+approach     = "1. DON'T PANIC. 2. Capture evidence BEFORE changing anything (logs, screenshots, timestamps). 3. Check access logs for unusual IPs/patterns. 4. Check for new user accounts or modified files. 5. Check outbound connections (is data exfiltrating?). 6. Rotate all credentials. 7. Notify affected parties."
+confidence   = 0.97
+observations = 5000
+
+[[entries]]
+situation    = "DDoS attack or unusual traffic spike"
+approach     = "1. Check if traffic is legitimate (product launch?) or malicious. 2. If malicious: enable rate limiting, block top offending IPs, enable CDN/WAF if available. 3. If using Cloudflare: enable Under Attack mode. 4. Monitor bandwidth and server load. 5. Don't expose origin IP."
+confidence   = 0.93
+observations = 3000
+
+[[entries]]
+situation    = "need to harden a web application"
+approach     = "Priority order: 1. HTTPS everywhere (HSTS + redirect). 2. Security headers (CSP, X-Frame, X-Content-Type). 3. Rate limiting on auth endpoints. 4. Input validation on all user input. 5. Keep dependencies updated (npm audit, cargo audit). 6. Remove debug endpoints. 7. Restrict CORS. 8. Enable MFA for admin."
+confidence   = 0.96
+observations = 10000

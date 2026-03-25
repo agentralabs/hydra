@@ -1,0 +1,68 @@
+# Security Operations — cyber expert monitoring and response
+# Hydra acts as security analyst: scan, detect, alert, remediate
+
+[[operations]]
+name        = "security-audit"
+trigger     = "security audit|vulnerability scan|security check|pentest light"
+params      = ["url"]
+confidence  = 0.90
+steps       = [
+    "echo '=== Security Audit: {url} ==='",
+    "echo '--- Headers ---' && curl -sI {url} | grep -iE 'strict|content-security|x-frame|x-content|x-xss|referrer|permissions'",
+    "echo '--- SSL ---' && echo | openssl s_client -servername $(echo {url} | sed 's|https://||' | sed 's|/.*||') -connect $(echo {url} | sed 's|https://||' | sed 's|/.*||'):443 2>/dev/null | openssl x509 -noout -dates 2>/dev/null",
+    "echo '--- Cookies ---' && curl -sI {url} | grep -i set-cookie | head -5",
+    "echo '--- Open Redirect ---' && curl -sI '{url}?redirect=https://evil.com' | grep -i location | head -3",
+]
+description = "Quick security audit: headers, SSL, cookies, open redirect check"
+
+[[operations]]
+name        = "check-exposed-files"
+trigger     = "exposed files|sensitive files|information disclosure|file exposure"
+params      = ["url"]
+confidence  = 0.88
+steps       = [
+    "for path in .env .git/config wp-config.php .htaccess server-status phpinfo.php; do status=$(curl -o /dev/null -s -w '%{http_code}' {url}/$path); if [ \"$status\" != \"404\" ] && [ \"$status\" != \"403\" ]; then echo \"EXPOSED: $path (HTTP $status)\"; fi; done",
+]
+description = "Check for commonly exposed sensitive files"
+
+[[operations]]
+name        = "check-subdomains"
+trigger     = "subdomains|subdomain enumeration|find subdomains"
+params      = ["domain"]
+confidence  = 0.80
+steps       = [
+    "for sub in www api app mail ftp admin staging dev test beta cdn media static assets blog shop store; do ip=$(dig +short $sub.{domain} 2>/dev/null); if [ -n \"$ip\" ]; then echo \"$sub.{domain} → $ip\"; fi; done",
+]
+description = "Enumerate common subdomains via DNS"
+
+[[operations]]
+name        = "check-waf"
+trigger     = "waf detection|firewall check|protection check|waf status"
+params      = ["url"]
+confidence  = 0.82
+steps       = [
+    "curl -sI {url} | grep -iE 'server:|x-powered|cf-ray|x-amz|x-cache|via:|x-cdn' | head -10",
+    "echo '--- WAF probe ---'",
+    "curl -sI '{url}?id=1%20OR%201=1' 2>/dev/null | head -3",
+]
+description = "Detect WAF, CDN, server technology from headers"
+
+[[operations]]
+name        = "check-cors"
+trigger     = "cors check|cors policy|cross origin|cors headers"
+params      = ["url"]
+confidence  = 0.85
+steps       = [
+    "curl -sI -H 'Origin: https://evil.com' {url} | grep -i 'access-control'",
+]
+description = "Check CORS policy — does it allow arbitrary origins?"
+
+[[operations]]
+name        = "monitor-changes"
+trigger     = "monitor changes|detect changes|defacement check|content change"
+params      = ["url"]
+confidence  = 0.85
+steps       = [
+    "hash=$(curl -s {url} | sha256sum | cut -d' ' -f1); echo \"Current hash: $hash\"; stored=$(cat ~/.hydra/data/site-hash-$(echo {url} | md5sum | cut -d' ' -f1) 2>/dev/null); if [ -n \"$stored\" ] && [ \"$stored\" != \"$hash\" ]; then echo 'ALERT: Content changed!'; else echo 'No change detected'; fi; echo $hash > ~/.hydra/data/site-hash-$(echo {url} | md5sum | cut -d' ' -f1)",
+]
+description = "Hash page content and detect unauthorized changes"

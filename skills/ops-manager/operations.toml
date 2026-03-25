@@ -1,0 +1,72 @@
+# Operations Manager — server health, resource usage, process management
+# Hydra acts as ops engineer: monitor, diagnose, alert, restart
+
+[[operations]]
+name        = "server-health"
+trigger     = "server health|system status|server check|machine health"
+params      = ["host"]
+confidence  = 0.95
+steps       = [
+    "ssh {host} 'echo \"=== CPU ===\"; uptime; echo \"=== MEM ===\"; free -h 2>/dev/null || vm_stat 2>/dev/null; echo \"=== DISK ===\"; df -h / /tmp 2>/dev/null; echo \"=== LOAD ===\"; cat /proc/loadavg 2>/dev/null || sysctl -n vm.loadavg 2>/dev/null'",
+]
+description = "Full server health: CPU load, memory, disk, uptime"
+
+[[operations]]
+name        = "check-processes"
+trigger     = "check processes|running services|process list|what is running"
+params      = ["host"]
+confidence  = 0.90
+steps       = [
+    "ssh {host} 'ps aux --sort=-%mem | head -15 2>/dev/null || ps aux | head -15'",
+]
+description = "Top processes by memory usage"
+
+[[operations]]
+name        = "check-logs"
+trigger     = "check logs|error logs|recent errors|log tail"
+params      = ["host", "logfile"]
+confidence  = 0.88
+steps       = [
+    "ssh {host} 'tail -50 {logfile} | grep -iE \"error|fatal|exception|panic|fail\" | tail -10'",
+]
+description = "Check recent log errors"
+
+[[operations]]
+name        = "restart-service"
+trigger     = "restart service|restart app|reload service|service restart"
+params      = ["host", "service"]
+confidence  = 0.85
+steps       = [
+    "ssh {host} 'sudo systemctl restart {service} && sleep 2 && systemctl status {service} --no-pager | head -10'",
+]
+description = "Restart a systemd service and verify it's running"
+
+[[operations]]
+name        = "check-docker"
+trigger     = "docker status|containers|docker ps|container health"
+params      = ["host"]
+confidence  = 0.90
+steps       = [
+    "ssh {host} 'docker ps --format \"table {{.Names}}\\t{{.Status}}\\t{{.Ports}}\" 2>/dev/null || echo \"Docker not running\"'",
+]
+description = "List running Docker containers with status and ports"
+
+[[operations]]
+name        = "check-nginx"
+trigger     = "nginx status|web server status|nginx check|reverse proxy"
+params      = ["host"]
+confidence  = 0.90
+steps       = [
+    "ssh {host} 'nginx -t 2>&1 && systemctl status nginx --no-pager | head -5'",
+]
+description = "Test nginx config and check service status"
+
+[[operations]]
+name        = "disk-cleanup"
+trigger     = "disk full|cleanup disk|free space|disk space"
+params      = ["host"]
+confidence  = 0.82
+steps       = [
+    "ssh {host} 'du -sh /var/log/* 2>/dev/null | sort -rh | head -5; echo \"---\"; du -sh /tmp/* 2>/dev/null | sort -rh | head -5'",
+]
+description = "Find largest files in /var/log and /tmp for cleanup"

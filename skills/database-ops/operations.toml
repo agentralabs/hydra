@@ -1,0 +1,76 @@
+# Database Operations — monitor and manage databases via CLI
+# Supports PostgreSQL, MySQL, MongoDB, Redis
+# Credentials come from vault/database.toml
+
+[[operations]]
+name        = "pg-connection-check"
+trigger     = "check database|db status|postgres status|database connection"
+params      = ["host", "dbname"]
+confidence  = 0.95
+steps       = [
+    "pg_isready -h {host} -d {dbname} 2>&1 || echo 'PostgreSQL NOT reachable'",
+]
+description = "Check if PostgreSQL is accepting connections"
+
+[[operations]]
+name        = "pg-table-sizes"
+trigger     = "table sizes|database size|disk usage|storage"
+params      = ["host", "dbname"]
+confidence  = 0.90
+steps       = [
+    "psql -h {host} -d {dbname} -c \"SELECT schemaname||'.'||tablename AS table, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size FROM pg_tables WHERE schemaname='public' ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC LIMIT 10;\"",
+]
+description = "Show top 10 largest tables by size"
+
+[[operations]]
+name        = "pg-active-connections"
+trigger     = "active connections|connection count|who is connected|db connections"
+params      = ["host", "dbname"]
+confidence  = 0.92
+steps       = [
+    "psql -h {host} -d {dbname} -c \"SELECT count(*) as total, state FROM pg_stat_activity GROUP BY state ORDER BY total DESC;\"",
+]
+description = "Count active database connections by state"
+
+[[operations]]
+name        = "pg-slow-queries"
+trigger     = "slow queries|long running|blocked queries|query performance"
+params      = ["host", "dbname"]
+confidence  = 0.90
+steps       = [
+    "psql -h {host} -d {dbname} -c \"SELECT pid, now()-pg_stat_activity.query_start AS duration, query FROM pg_stat_activity WHERE (now()-pg_stat_activity.query_start) > interval '5 seconds' AND state='active' ORDER BY duration DESC LIMIT 5;\"",
+]
+description = "Show queries running longer than 5 seconds"
+
+[[operations]]
+name        = "redis-check"
+trigger     = "redis status|cache status|redis info|redis check"
+params      = ["host"]
+confidence  = 0.90
+steps       = [
+    "redis-cli -h {host} ping",
+    "redis-cli -h {host} info memory | grep used_memory_human",
+    "redis-cli -h {host} info keyspace | head -5",
+]
+description = "Check Redis connectivity, memory usage, keyspace"
+
+[[operations]]
+name        = "mysql-check"
+trigger     = "mysql status|mysql check|mariadb status"
+params      = ["host", "dbname"]
+confidence  = 0.90
+steps       = [
+    "mysqladmin -h {host} ping 2>&1 || echo 'MySQL NOT reachable'",
+    "mysql -h {host} -e 'SHOW PROCESSLIST;' {dbname} 2>/dev/null | head -10",
+]
+description = "Check MySQL/MariaDB connectivity and active processes"
+
+[[operations]]
+name        = "db-backup-check"
+trigger     = "backup status|last backup|backup check|recovery point"
+params      = ["backup_dir"]
+confidence  = 0.85
+steps       = [
+    "ls -lht {backup_dir}/*.sql* 2>/dev/null | head -5 || echo 'No backups found in {backup_dir}'",
+]
+description = "Check latest database backup files and timestamps"

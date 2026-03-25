@@ -1,0 +1,23 @@
+[[entries]]
+situation    = "database connection refused or timeout"
+approach     = "1. Check if DB process is running (pg_isready / mysqladmin ping). 2. Check max_connections vs current connections. 3. Check disk space on DB server. 4. Check pg_hba.conf or MySQL user grants. 5. If all normal: check network/firewall between app and DB."
+confidence   = 0.95
+observations = 10000
+
+[[entries]]
+situation    = "database queries are slow"
+approach     = "1. Find slow queries (pg_stat_activity / slow_query_log). 2. Check EXPLAIN ANALYZE on the worst query. 3. Common fixes: missing index, sequential scan on large table, N+1 query pattern, lock contention. 4. Add index if missing. 5. Never optimize without measuring first."
+confidence   = 0.96
+observations = 15000
+
+[[entries]]
+situation    = "database disk usage growing fast"
+approach     = "1. Check table sizes (pg_total_relation_size). 2. Check for unvacuumed dead tuples (PostgreSQL). 3. Check binary log retention (MySQL). 4. Check if old data can be archived. 5. VACUUM FULL is last resort — locks the table."
+confidence   = 0.93
+observations = 5000
+
+[[entries]]
+situation    = "need to verify database backup is restorable"
+approach     = "A backup that has never been tested is not a backup. 1. Restore to a test database. 2. Run validation queries (row counts, checksums). 3. Document restore time (RTO). 4. Automate this as a weekly job. 5. Store backup verification results."
+confidence   = 0.97
+observations = 8000

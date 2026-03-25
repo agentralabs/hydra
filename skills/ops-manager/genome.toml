@@ -1,0 +1,29 @@
+[[entries]]
+situation    = "server is unreachable or not responding"
+approach     = "1. Ping the IP directly (bypass DNS). 2. Check if SSH works. 3. If no SSH: check hosting provider status page. 4. If SSH works: check nginx/apache status, check disk space (full disk kills everything), check memory (OOM killer). 5. Check recent deployments that may have broken something."
+confidence   = 0.96
+observations = 15000
+
+[[entries]]
+situation    = "high CPU or memory usage on server"
+approach     = "1. Identify the process: top/htop sorted by CPU or MEM. 2. If it's the application: check for memory leaks, infinite loops, connection pool exhaustion. 3. If it's database: check slow queries, lock contention. 4. If it's a background job: check if it's stuck. 5. Short-term: restart the process. Long-term: fix the root cause."
+confidence   = 0.94
+observations = 10000
+
+[[entries]]
+situation    = "disk space running low on production server"
+approach     = "1. Find large files: du -sh /* | sort -rh. 2. Common culprits: /var/log (rotate and compress), /tmp (clear old files), docker images (docker system prune), old deployments. 3. NEVER delete /var/log blindly — rotate first. 4. Set up alerting at 80% threshold."
+confidence   = 0.95
+observations = 8000
+
+[[entries]]
+situation    = "need to deploy or rollback a production change"
+approach     = "1. NEVER deploy without a rollback plan. 2. Check current version. 3. Backup database before schema changes. 4. Deploy to staging first. 5. Monitor error rates for 15 minutes after deploy. 6. If error rate spikes: rollback immediately, investigate later."
+confidence   = 0.97
+observations = 20000
+
+[[entries]]
+situation    = "application errors spiking in production"
+approach     = "1. Check error logs: tail -f /var/log/app/error.log. 2. Identify pattern: is it one endpoint or all? 3. Check recent deployments (git log). 4. Check external dependencies (database, APIs, CDN). 5. If localized: disable the broken feature. If global: rollback last deploy."
+confidence   = 0.95
+observations = 12000

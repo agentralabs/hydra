@@ -1,0 +1,85 @@
+# Site Monitor Operations — generic website monitoring skill
+# Works for any site. Hydra uses these as operational playbooks.
+
+[[operations]]
+name        = "check-ssl-certificate"
+trigger     = "check ssl|certificate expiry|ssl status|tls check"
+confidence  = 0.95
+params      = ["domain"]
+steps       = [
+    "echo | openssl s_client -servername {domain} -connect {domain}:443 2>/dev/null | openssl x509 -noout -dates -subject -issuer",
+]
+description = "Check SSL certificate validity, expiry date, issuer"
+
+[[operations]]
+name        = "check-dns"
+trigger     = "check dns|dns lookup|resolve domain|nameserver"
+params      = ["domain"]
+confidence  = 0.95
+steps       = [
+    "dig {domain} +short",
+    "dig {domain} MX +short",
+    "dig {domain} NS +short",
+]
+description = "Check DNS resolution, MX records, nameservers"
+
+[[operations]]
+name        = "check-headers"
+trigger     = "check headers|security headers|http headers|response headers"
+params      = ["url"]
+confidence  = 0.90
+steps       = [
+    "curl -sI {url} | head -30",
+]
+description = "Check HTTP response headers (security, cache, CORS)"
+
+[[operations]]
+name        = "check-response-time"
+trigger     = "response time|latency|speed test|page speed|load time"
+params      = ["url"]
+confidence  = 0.95
+steps       = [
+    "curl -o /dev/null -s -w 'DNS: %{{time_namelookup}}s\nConnect: %{{time_connect}}s\nTLS: %{{time_appconnect}}s\nFirst byte: %{{time_starttransfer}}s\nTotal: %{{time_total}}s\nSize: %{{size_download}} bytes\nHTTP: %{{http_code}}\n' {url}",
+]
+description = "Measure DNS, connect, TLS, TTFB, total time, response size"
+
+[[operations]]
+name        = "port-scan"
+trigger     = "port scan|open ports|check ports|scan ports"
+params      = ["host"]
+confidence  = 0.85
+steps       = [
+    "for port in 22 80 443 3000 3306 5432 6379 8080 8443 9200; do nc -z -w2 {host} $port 2>/dev/null && echo \"Port $port: OPEN\" || echo \"Port $port: closed\"; done",
+]
+description = "Scan common ports (SSH, HTTP, HTTPS, DB, Redis, Elasticsearch)"
+
+[[operations]]
+name        = "check-ssl-grade"
+trigger     = "ssl grade|ssl rating|ssl labs|security grade"
+params      = ["domain"]
+confidence  = 0.80
+steps       = [
+    "curl -s 'https://api.ssllabs.com/api/v3/analyze?host={domain}&fromCache=on' | python3 -c \"import sys,json; d=json.load(sys.stdin); print(f'Grade: {d.get(\\\"endpoints\\\",[{}])[0].get(\\\"grade\\\",\\\"pending\\\")}') if 'endpoints' in d else print('Analysis pending — rerun in 60s')\"",
+]
+description = "Get SSL Labs grade (A+/A/B/C/F) for the domain"
+
+[[operations]]
+name        = "check-whois"
+trigger     = "whois|domain registration|domain expiry|registrar"
+params      = ["domain"]
+confidence  = 0.90
+steps       = [
+    "whois {domain} | grep -iE 'expir|registrar|creation|updated|name server' | head -10",
+]
+description = "Check domain registration, expiry, registrar, nameservers"
+
+[[operations]]
+name        = "check-uptime-history"
+trigger     = "uptime history|downtime history|availability|uptime report"
+params      = ["url"]
+confidence  = 0.85
+steps       = [
+    "echo 'Checking last 5 probes...'",
+    "for i in 1 2 3 4 5; do status=$(curl -o /dev/null -s -w '%{http_code}' --connect-timeout 5 {url}); echo \"Probe $i: HTTP $status\"; sleep 2; done",
+]
+description = "Quick uptime check — 5 probes with 2s intervals"

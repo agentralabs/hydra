@@ -1,0 +1,41 @@
+[[entries]]
+situation    = "website is down or returning errors"
+approach     = "1. Check if DNS resolves (dig domain). 2. Check if server responds (curl -I). 3. Check SSL certificate (openssl). 4. Check from different location (use external service). 5. If server accessible but site broken — check application logs via SSH. 6. If DNS fails — check registrar and nameservers."
+confidence   = 0.95
+observations = 10000
+
+[[entries]]
+situation    = "SSL certificate expiring soon"
+approach     = "Check exact expiry date with openssl. If <30 days: alert owner immediately. If using Let's Encrypt: check certbot auto-renewal cron. If manual cert: document renewal process and set calendar reminder. Never let a cert expire — it breaks trust and SEO."
+confidence   = 0.97
+observations = 5000
+
+[[entries]]
+situation    = "slow website response time detected"
+approach     = "Measure with curl timing breakdown (DNS, connect, TLS, TTFB, total). If DNS slow: check nameserver. If connect slow: check server load. If TTFB slow: check application/database. If total slow but TTFB fast: check asset sizes and CDN. Compare with baseline."
+confidence   = 0.93
+observations = 8000
+
+[[entries]]
+situation    = "security headers missing from HTTP response"
+approach     = "Check for: Strict-Transport-Security, Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy. Missing HSTS is critical — add immediately. Missing CSP is high — implement progressively. Report each missing header with severity."
+confidence   = 0.95
+observations = 7000
+
+[[entries]]
+situation    = "unexpected ports open on production server"
+approach     = "Scan common ports (22,80,443,3306,5432,6379,8080). Every open port that isn't in the expected list is a risk. Database ports (3306,5432) should NEVER be open to the internet. Redis (6379) should NEVER be exposed. If unexpected port found: investigate process, check firewall rules, close immediately."
+confidence   = 0.96
+observations = 6000
+
+[[entries]]
+situation    = "domain registration expiring"
+approach     = "Check whois for expiry date. If <60 days: renew immediately. Enable auto-renewal. Set up monitoring for domain changes (DNS hijacking detection). Keep registrar account secured with MFA. Document who has registrar access."
+confidence   = 0.95
+observations = 3000
+
+[[entries]]
+situation    = "need to monitor a production website continuously"
+approach     = "Set up: 1. HTTP uptime check every 60s. 2. SSL certificate check daily. 3. DNS resolution check hourly. 4. Response time baseline + alerting on degradation. 5. Security header audit weekly. 6. Port scan monthly. Store all results in genome for trend analysis."
+confidence   = 0.94
+observations = 5000

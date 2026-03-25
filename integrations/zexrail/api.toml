@@ -1,0 +1,35 @@
+# Zexrail — Production Site Monitoring Integration
+# Hydra monitors this as: uptime, SSL, security, performance
+
+[integration]
+name        = "zexrail"
+description = "Zexrail production website — uptime, SSL, security, performance monitoring"
+protocol    = "REST"
+base_url    = "https://www.zexrail.com"
+auth_type   = "none"
+docs_url    = "https://www.zexrail.com"
+
+# Health endpoints to monitor
+[[capabilities.read]]
+name        = "homepage"
+endpoint    = "/"
+method      = "GET"
+description = "Check homepage loads (status 200, response time)"
+
+[[capabilities.read]]
+name        = "api-health"
+endpoint    = "/api/health"
+method      = "GET"
+description = "API health endpoint (if exists)"
+
+[[capabilities.read]]
+name        = "robots"
+endpoint    = "/robots.txt"
+method      = "GET"
+description = "Check robots.txt exists (SEO + security)"
+
+[[capabilities.read]]
+name        = "sitemap"
+endpoint    = "/sitemap.xml"
+method      = "GET"
+description = "Check sitemap exists and is valid XML"
