@@ -20,8 +20,8 @@ pub fn render(frame: &mut Frame, state: &RenderState) {
     let input_lines = state.input_line_count.clamp(1, 5) as u16;
     let input_height = input_lines + 1;
 
-    // Greeting is now part of the stream (scrolls naturally like Claude Code)
-    let top_frame_height = 0u16;
+    // Top frame: show Hydra identity + session status (adaptive height)
+    let top_frame_height = 3u16; // compact: logo + status line + border
 
     // Slash menu: when input starts with "/", show inline command list below input
     let slash_active = state.input_text.starts_with('/') && !state.is_thinking;
@@ -38,6 +38,7 @@ pub fn render(frame: &mut Frame, state: &RenderState) {
         ])
         .split(area);
 
+    top_frame::render(frame, chunks[0], state);
     stream::render(frame, chunks[1], state);
     input::render(frame, chunks[2], state);
     if slash_active {
