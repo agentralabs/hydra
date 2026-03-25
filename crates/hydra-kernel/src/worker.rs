@@ -202,7 +202,28 @@ pub fn execute_interface_step(
         StepType::DesktopAction { goal } => {
             app_ctx.focused_app = Some("desktop".into());
             eprintln!("hydra-worker: desktop action → {goal}");
-            (true, format!("[Desktop: {goal}]"), vec![])
+            // Wire to real DesktopAgent via tokio block_in_place
+            if let Ok(handle) = tokio::runtime::Handle::try_current() {
+                let goal = goal.clone();
+                let result = tokio::task::block_in_place(|| {
+                    handle.block_on(async {
+                        let vision = match crate::vision_bridge::LlmVisionProvider::new() {
+                            Some(v) => v,
+                            None => return Err(hydra_desktop::DesktopError::VisionError(
+                                "No API key for vision — set ANTHROPIC_API_KEY".into())),
+                        };
+                        let (tx, _rx) = tokio::sync::mpsc::channel(64);
+                        let agent = hydra_desktop::agent::DesktopAgent::new();
+                        agent.execute_task_v2(&goal, &vision, tx).await
+                    })
+                });
+                match result {
+                    Ok(r) => (r.completed, r.final_observation, vec![]),
+                    Err(e) => (false, format!("Desktop error: {e}"), vec![]),
+                }
+            } else {
+                (true, format!("[Desktop: {goal}]"), vec![])
+            }
         }
         StepType::ApiCall { method, url, body } => {
             let escaped_url = url.replace('\'', "'\\''");

@@ -1,9 +1,9 @@
 # Hydra Orchestration Registry — Master Index
 
-**Total: 105 orchestrations** (32 complete, 73 future)
-**Last updated: 2026-03-24**
+**Total: 112 orchestrations** (39 complete, 73 future)
+**Last updated: 2026-03-25**
 
-## Completed Orchestrations (32)
+## Completed Orchestrations (39)
 
 | O# | Name | Session | Status | Key File |
 |---|---|---|---|---|
@@ -33,6 +33,13 @@
 | O23 | Universal Drop Gateway | 30 | Complete | kernel/drop/ (3 files) |
 | O24 | Account Connectors + Security | 31 | Complete | kernel/monitor/connectors.rs + security/features.rs |
 | O25 | Hardening Mega-Session | 32 | Complete | 20+ files modified |
+| O26 | Application Mind Model (AMM) | 33 | Complete | desktop/perception.rs + app_model.rs + verification.rs + agent_amm.rs, kernel/convention.rs + muscle_memory.rs |
+| O27 | Intent Compiler | 33 | Complete | kernel/intent_compiler.rs |
+| O28 | State Graph | 33 | Complete | desktop/state_graph.rs |
+| O29 | Autonomy Gradient | 33 | Complete | wisdom/autonomy.rs, wired into worker.rs |
+| O30 | Recovery Engine | 33 | Complete | kernel/recovery.rs |
+| O31 | Proactive Agent | 33 | Complete | kernel/proactive.rs |
+| O32 | Quality Judge | 33 | Complete | kernel/quality_judge.rs |
 | — | Autonomous Learning | 20 | Complete | kernel/learning_loop.rs + learning_validator.rs |
 | — | Multi-Agent Swarm | 21 | Complete | kernel/swarm_learning.rs + swarm-browser/ |
 | — | Boot Orchestrator | 22 | Complete | kernel/boot.rs + health.rs + discovery.rs |

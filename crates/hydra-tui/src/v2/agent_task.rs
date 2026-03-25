@@ -177,7 +177,7 @@ async fn run_desktop_agent(
         }
     });
 
-    match agent.execute_task(&goal, &vision_ref, step_tx).await {
+    match agent.execute_task_v2(&goal, &vision_ref, step_tx).await {
         Ok(result) => {
             let _ = bridge.await;
             let _ = tx.send(AgentUpdate::Done {

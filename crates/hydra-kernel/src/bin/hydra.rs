@@ -69,6 +69,9 @@ async fn async_main() {
         std::process::exit(0);
     }
 
+    // Auto-install system dependencies + check permissions
+    hydra_desktop::deps::preflight();
+
     eprintln!("Hydra — Agentra Labs");
     eprintln!(
         "Provider: {}",
