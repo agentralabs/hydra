@@ -364,6 +364,16 @@ fn drain_llm_stream(
                         StreamChunk::Done { tokens_used, duration_ms } => {
                             state.is_thinking = false;
                             state.tokens_used += tokens_used as u64;
+                            // Parse computer_use actions from response — show as notifications, not raw XML
+                            let (clean_text, actions) = hydra_tui::v2::action_parser::parse_response(streaming_text);
+                            for action in &actions {
+                                state.stream.push(StreamItem::SystemNotification {
+                                    id: uuid::Uuid::new_v4(),
+                                    content: action.display.clone(),
+                                    timestamp: chrono::Utc::now(),
+                                });
+                            }
+                            *streaming_text = clean_text;
                             state.stream.update_last_text(streaming_text);
                             if let Some(prep) = prepared.take() {
                                 cognitive.finalize_streaming(prep, streaming_text, tokens_used);
@@ -401,7 +411,13 @@ fn drain_llm_stream(
         if *cursor < streaming_text.len() {
             *cursor = (*cursor + pacer_chars).min(streaming_text.len());
             while *cursor < streaming_text.len() && !streaming_text.is_char_boundary(*cursor) { *cursor += 1; }
-            state.stream.update_last_text(&streaming_text[..*cursor]);
+            // Strip incomplete <computer_use> tags during live streaming
+            let display_text = &streaming_text[..*cursor];
+            let clean = if display_text.contains("<computer_use>") {
+                let (clean, _) = hydra_tui::v2::action_parser::parse_response(display_text);
+                clean
+            } else { display_text.to_string() };
+            state.stream.update_last_text(&clean);
             if state.stream.is_auto_scroll() { state.stream.scroll_to_bottom(); }
         }
     }

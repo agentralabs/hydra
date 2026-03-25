@@ -23,3 +23,4 @@ pub mod smart_pacer;
 pub mod state;
 pub mod tui_helpers;
 pub mod view;
+pub mod action_parser;
