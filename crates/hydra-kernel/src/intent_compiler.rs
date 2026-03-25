@@ -113,6 +113,27 @@ fn resolve_instructions(ast: &IntentAST, conventions: &ConventionEngine) -> Vec<
     let mut instructions = Vec::new();
     let lower = ast.goal.to_lowercase();
 
+    // DIRECT SHELL COMMANDS — common verbs that should just execute
+    // "open google.com" → shell: open https://google.com
+    // "open TextEdit" → shell: open -a TextEdit
+    // "run npm install" → shell: npm install
+    if lower.starts_with("open ") {
+        let target = ast.goal[5..].trim();
+        if target.contains('.') && !target.contains(' ') {
+            // Looks like a URL or domain
+            let url = if target.starts_with("http") { target.to_string() }
+                else { format!("https://{target}") };
+            return vec![UiInstruction::ClickElement { description: format!("shell:open {url}") }];
+        } else {
+            // Looks like an app name
+            return vec![UiInstruction::OpenApp { name: target.into() }];
+        }
+    }
+    if lower.starts_with("run ") || lower.starts_with("execute ") {
+        let cmd = if lower.starts_with("run ") { &ast.goal[4..] } else { &ast.goal[8..] };
+        return vec![UiInstruction::ClickElement { description: format!("shell:{}", cmd.trim()) }];
+    }
+
     // If app specified, open it first
     if let Some(app) = &ast.target_app {
         instructions.push(UiInstruction::OpenApp { name: app.clone() });
@@ -184,10 +205,14 @@ pub fn plan_to_steps(plan: &TypedPlan) -> Vec<Step> {
                 StepType::DesktopAction { goal: format!("select tool: {tool_name}") },
                 format!("Tool: {tool_name}"),
             ),
-            UiInstruction::ClickElement { description } => (
-                StepType::DesktopAction { goal: description.clone() },
-                description.clone(),
-            ),
+            UiInstruction::ClickElement { description } => {
+                // "shell:<command>" → execute as shell step
+                if let Some(cmd) = description.strip_prefix("shell:") {
+                    (StepType::Shell { command: cmd.to_string(), long_running: false }, cmd.to_string())
+                } else {
+                    (StepType::DesktopAction { goal: description.clone() }, description.clone())
+                }
+            }
             UiInstruction::TypeInField { field_hint, text } => (
                 StepType::DesktopAction { goal: format!("type '{text}' in {field_hint}") },
                 format!("Type in {field_hint}"),
