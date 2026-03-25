@@ -138,6 +138,10 @@ impl CognitiveLoop {
 
         // O34: Deliberation — think before acting on complex tasks
         let domain = perceived.comprehended.primary_domain.label();
+        // O37: Load self-narrative as identity context for deliberation
+        let narrative = crate::temporal_self::SelfNarrative::load();
+        mw_enrichments.insert("self.narrative".into(), narrative.as_context());
+
         let delib = crate::deliberation::deliberate(raw, domain, &self.genome);
         self.last_thinking = delib.thinking_log.clone();
         for step in &delib.thinking_log {
@@ -238,6 +242,14 @@ impl CognitiveLoop {
             }
         };
         crate::feedback::log_outcome(&outcome);
+
+        // O36: Emotional Valence — compute feeling about this cycle
+        let user_affect = cycle.enrichments.get("user_affect").map(|s| s.as_str());
+        let valence = crate::emotional_valence::compute_valence(
+            success, tokens, duration_ms, &domain, user_affect);
+        crate::emotional_valence::persist_valence(&valence);
+        eprintln!("hydra-emotion: valence={:.2} mood={}",
+            valence.score, crate::emotional_valence::Mood::from_valence(valence.score).label());
 
         // HOOK: post_deliver — middlewares finalize
         self.middlewares.run_post_deliver(&cycle);

@@ -39,6 +39,12 @@ pub struct DreamSubsystems {
     pub swarm_learning: SwarmLearning,
     pub self_test: crate::self_test::SelfTestTracker,
     pub idle_secs: u64,
+    /// O35: Inner monologue — self-reflective thinking.
+    pub monologue: crate::inner_monologue::InnerMonologue,
+    /// O36: Emotional state — feeling about experiences.
+    pub emotional_state: crate::emotional_valence::EmotionalState,
+    /// O37: Temporal self — evolving identity narrative.
+    pub narrative: crate::temporal_self::SelfNarrative,
 }
 
 impl DreamSubsystems {
@@ -59,6 +65,9 @@ impl DreamSubsystems {
             swarm_learning: SwarmLearning::new(),
             self_test: crate::self_test::SelfTestTracker::new(),
             idle_secs: 0,
+            monologue: crate::inner_monologue::InnerMonologue::new(),
+            emotional_state: crate::emotional_valence::EmotionalState::new(),
+            narrative: crate::temporal_self::SelfNarrative::load(),
         }
     }
 }
@@ -314,10 +323,28 @@ pub fn cycle_with_subsystems(
             }
         }
 
+        // O35: Inner Monologue — self-reflective thinking when idle
+        if subs.monologue.should_think(subs.idle_secs) {
+            if let Some(thought) = subs.monologue.think(&subs.genome) {
+                // Feed insights back into beliefs
+                if matches!(thought.thought_type, crate::inner_monologue::ThoughtType::Insight) {
+                    let belief = hydra_belief::Belief::world(&thought.content, 0.6);
+                    let _ = subs.beliefs.insert(belief);
+                }
+            }
+        }
+
+        // O37: Temporal Self — update narrative every 1000 steps (~8 min)
+        if step % 1000 == 0 && step > 0 {
+            let summary = subs.monologue.daily_summary();
+            subs.narrative.update(&summary, &subs.emotional_state, &subs.genome);
+        }
+
         // Log milestone
         if step % 100 == 0 && step > 0 {
-            eprintln!("hydra: dream step={} beliefs={} genome={} patterns={}",
-                step, subs.beliefs.len(), subs.genome.len(), subs.automation.pattern_count());
+            eprintln!("hydra: dream step={} beliefs={} genome={} patterns={} mood={}",
+                step, subs.beliefs.len(), subs.genome.len(), subs.automation.pattern_count(),
+                subs.emotional_state.mood.label());
         }
     }
 

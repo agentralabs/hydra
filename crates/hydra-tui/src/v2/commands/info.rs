@@ -316,7 +316,23 @@ fn cmd_audit(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
     }
 }
 
-fn cmd_self_model(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
+fn cmd_self_model(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
+    // /self story → show narrative (O37)
+    if args.trim() == "story" || args.trim() == "narrative" {
+        let narrative = hydra_kernel::temporal_self::SelfNarrative::load();
+        return vec![sys(&narrative.display())];
+    }
+    // /self thoughts → show recent inner monologue (O35)
+    if args.trim() == "thoughts" || args.trim() == "monologue" {
+        let thoughts = hydra_kernel::inner_monologue::load_recent_thoughts(10);
+        if thoughts.is_empty() { return vec![sys("No inner thoughts yet. Hydra reflects during idle time.")]; }
+        let mut items = vec![sys(&format!("--- RECENT THOUGHTS ({}) ---", thoughts.len()))];
+        for t in &thoughts {
+            items.push(sys(&format!("  [{}] {}", t.thought_type.label(), t.content)));
+        }
+        return items;
+    }
+    // /self → full self-model
     let model = hydra_reflexive::SelfModel::bootstrap_layer1();
     let caps = model.active_capabilities();
     let mut items = vec![sys(&format!("Self-model: {} active capabilities", caps.len()))];
@@ -327,6 +343,10 @@ fn cmd_self_model(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
     // O21: User model patterns
     let user_model = hydra_kernel::user_model::DeepUserModel::load();
     items.push(sys(&format!("User: {}", user_model.summary())));
+    // O37: Narrative preview
+    let narrative = hydra_kernel::temporal_self::SelfNarrative::load();
+    items.push(sys(&format!("Identity (day {}): {}", narrative.day_number, narrative.who_i_am)));
+    items.push(sys("  (use /self story for full narrative, /self thoughts for inner monologue)"));
     items
 }
 

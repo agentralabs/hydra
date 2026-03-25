@@ -41,6 +41,9 @@ pub fn run_orch_check(test: &V3Test) -> V3Result {
         "orch-aesthetic" => check_aesthetic(test),
         // O26: Application Mind Model (AMM) + 6-Layer Stack
         "orch-deliberate" => super::runner_orch_amm::check_deliberation(test),
+        "orch-monologue" => super::runner_orch_amm::check_monologue(test),
+        "orch-valence" => super::runner_orch_amm::check_valence(test),
+        "orch-narrative" => super::runner_orch_amm::check_narrative(test),
         // O26-O32: delegate to runner_orch_amm
         "orch-perception" => super::runner_orch_amm::check_perception(test),
         "orch-amm" => super::runner_orch_amm::check_app_model(test),

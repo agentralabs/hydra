@@ -76,6 +76,9 @@ pub mod proactive;
 pub mod guardrail;
 pub mod routine;
 pub mod deliberation;
+pub mod inner_monologue;
+pub mod emotional_valence;
+pub mod temporal_self;
 
 // Re-exports for convenience
 pub use boot::{BootResult, run_boot_sequence};

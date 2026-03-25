@@ -149,3 +149,34 @@ pub fn check_deliberation(test: &V3Test) -> V3Result {
     ok(test, &format!("deliberation: simple_skip={simple_skip} complex_thinks={complex_thinks} \
         depth={complex_depth:.2} modes={:?} iterations={}", modes, state.iterations))
 }
+
+pub fn check_monologue(test: &V3Test) -> V3Result {
+    let monologue = hydra_kernel::inner_monologue::InnerMonologue::new();
+    // Verify structure works (don't actually call LLM in test)
+    let should_think = monologue.should_think(120); // 2 min idle
+    let count = monologue.thought_count();
+    let recent = hydra_kernel::inner_monologue::load_recent_thoughts(5);
+    ok(test, &format!("monologue: should_think={should_think} count={count} recent={}", recent.len()))
+}
+
+pub fn check_valence(test: &V3Test) -> V3Result {
+    // Compute valence for a successful cycle
+    let good = hydra_kernel::emotional_valence::compute_valence(true, 200, 1500, "engineering", Some("Celebratory"));
+    // Compute valence for a failed cycle
+    let bad = hydra_kernel::emotional_valence::compute_valence(false, 0, 30000, "unknown", Some("Frustrated"));
+    // Verify emotional state tracking
+    let mut state = hydra_kernel::emotional_valence::EmotionalState::new();
+    state.update(&good);
+    state.update(&bad);
+    ok(test, &format!("valence: good={:.2} bad={:.2} mood={} avg={:.2}",
+        good.score, bad.score, state.mood.label(), state.moving_average))
+}
+
+pub fn check_narrative(test: &V3Test) -> V3Result {
+    let narrative = hydra_kernel::temporal_self::SelfNarrative::load();
+    let has_identity = !narrative.who_i_am.is_empty();
+    let has_learning = !narrative.what_im_learning.is_empty();
+    let context = narrative.as_context();
+    ok(test, &format!("narrative: day={} identity={has_identity} learning={has_learning} context_len={}",
+        narrative.day_number, context.len()))
+}

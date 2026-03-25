@@ -138,9 +138,18 @@ pub fn orch_tests() -> Vec<V3Test> {
         V3Test { id: "orch-quality", name: "O32: Quality judgment", category: V3Category::OrchExecution,
             eval_method: EvalMethod::DirectCheck, input: "quality_judge",
             pass_contains: &[], fail_contains: &[], min_hour: 0, timeout_secs: 60 },
-        // O34: Deliberation Engine
+        // O34-O37: Deliberation + Inner Experience
         V3Test { id: "orch-deliberate", name: "O34: Deliberation engine", category: V3Category::OrchIntelligence,
             eval_method: EvalMethod::DirectCheck, input: "deliberation_engine",
+            pass_contains: &[], fail_contains: &[], min_hour: 0, timeout_secs: 60 },
+        V3Test { id: "orch-monologue", name: "O35: Inner monologue", category: V3Category::OrchIntelligence,
+            eval_method: EvalMethod::DirectCheck, input: "inner_monologue",
+            pass_contains: &[], fail_contains: &[], min_hour: 0, timeout_secs: 60 },
+        V3Test { id: "orch-valence", name: "O36: Emotional valence", category: V3Category::OrchIntelligence,
+            eval_method: EvalMethod::DirectCheck, input: "emotional_valence",
+            pass_contains: &[], fail_contains: &[], min_hour: 0, timeout_secs: 60 },
+        V3Test { id: "orch-narrative", name: "O37: Temporal self", category: V3Category::OrchIntelligence,
+            eval_method: EvalMethod::DirectCheck, input: "temporal_self",
             pass_contains: &[], fail_contains: &[], min_hour: 0, timeout_secs: 60 },
     ]
 }
