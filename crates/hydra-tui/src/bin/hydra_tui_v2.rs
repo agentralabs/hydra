@@ -372,6 +372,13 @@ fn drain_llm_stream(
                                     content: action.display.clone(),
                                     timestamp: chrono::Utc::now(),
                                 });
+                                // EXECUTE the action — actually do it on the system
+                                let result = hydra_tui::v2::action_parser::execute_action(action);
+                                state.stream.push(StreamItem::SystemNotification {
+                                    id: uuid::Uuid::new_v4(),
+                                    content: result,
+                                    timestamp: chrono::Utc::now(),
+                                });
                             }
                             *streaming_text = clean_text;
                             state.stream.update_last_text(streaming_text);

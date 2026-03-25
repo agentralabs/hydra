@@ -90,3 +90,64 @@ fn shorten_url(url: &str) -> String {
     let clean = url.trim_start_matches("https://").trim_start_matches("http://");
     if clean.len() > 40 { format!("{}...", &clean[..37]) } else { clean.into() }
 }
+
+/// Execute a parsed action — actually do it on the system.
+pub fn execute_action(action: &ParsedAction) -> String {
+    match action.action_type.as_str() {
+        "browser_navigate" => {
+            // Open URL in the user's default browser (visible, not headless)
+            let url = &action.target;
+            let result = if cfg!(target_os = "macos") {
+                std::process::Command::new("open").arg(url).status()
+            } else if cfg!(target_os = "linux") {
+                std::process::Command::new("xdg-open").arg(url).status()
+            } else {
+                return "Unsupported platform".into();
+            };
+            match result {
+                Ok(s) if s.success() => format!("✓ Opened {}", shorten_url(url)),
+                Ok(s) => format!("✗ Failed to open (exit {})", s.code().unwrap_or(-1)),
+                Err(e) => format!("✗ Error: {e}"),
+            }
+        }
+        "click" => {
+            let mut input = hydra_desktop::InputSimulator::new();
+            // Parse coordinates from "[x, y]" format
+            let coords = action.target.trim_matches(|c| c == '[' || c == ']');
+            let parts: Vec<&str> = coords.split(',').collect();
+            if parts.len() == 2 {
+                if let (Ok(x), Ok(y)) = (parts[0].trim().parse::<f64>(), parts[1].trim().parse::<f64>()) {
+                    match input.click_at(x, y) {
+                        Ok(_) => format!("✓ Clicked at ({x:.0}, {y:.0})"),
+                        Err(e) => format!("✗ Click failed: {e}"),
+                    }
+                } else { "✗ Invalid coordinates".into() }
+            } else { "✗ Invalid coordinate format".into() }
+        }
+        "type" => {
+            let input = hydra_desktop::InputSimulator::new();
+            match input.key_type(&action.target) {
+                Ok(_) => format!("✓ Typed: \"{}\"", &action.target[..action.target.len().min(20)]),
+                Err(e) => format!("✗ Type failed: {e}"),
+            }
+        }
+        "key_press" | "key_combo" => {
+            let input = hydra_desktop::InputSimulator::new();
+            if action.target.contains('+') {
+                let parts: Vec<&str> = action.target.split('+').collect();
+                if parts.len() == 2 {
+                    match input.key_combo(parts[0].trim(), parts[1].trim()) {
+                        Ok(_) => format!("✓ Key: {}", action.target),
+                        Err(e) => format!("✗ Key failed: {e}"),
+                    }
+                } else { "✗ Invalid key combo".into() }
+            } else {
+                match input.key_press(&action.target) {
+                    Ok(_) => format!("✓ Key: {}", action.target),
+                    Err(e) => format!("✗ Key failed: {e}"),
+                }
+            }
+        }
+        _ => format!("⏵ {}: not yet wired", action.action_type),
+    }
+}
