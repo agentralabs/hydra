@@ -157,8 +157,36 @@ pub fn download_whisper_model() -> Result<PathBuf, String> {
     }
 }
 
-/// Download the whisper-cpp CLI binary for the current platform.
+/// Download or install the whisper-cpp CLI binary for the current platform.
 pub fn download_whisper_binary() -> Result<PathBuf, String> {
+    // Check if already available via PATH (brew install whisper-cpp)
+    if command_exists("whisper-cpp") {
+        let out = std::process::Command::new("which").arg("whisper-cpp").output().ok();
+        if let Some(o) = out {
+            let path = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if !path.is_empty() {
+                eprintln!("hydra: whisper-cpp found at {path}");
+                return Ok(std::path::PathBuf::from(path));
+            }
+        }
+    }
+    // macOS: install via Homebrew (pre-built binaries no longer available from GitHub)
+    if cfg!(target_os = "macos") && command_exists("brew") {
+        eprintln!("hydra: installing whisper-cpp via Homebrew...");
+        let status = std::process::Command::new("brew").args(["install", "whisper-cpp"])
+            .stdout(std::process::Stdio::null()).status();
+        if let Ok(s) = status {
+            if s.success() && command_exists("whisper-cpp") {
+                let out = std::process::Command::new("which").arg("whisper-cpp").output().ok();
+                if let Some(o) = out {
+                    let path = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                    eprintln!("hydra: whisper-cpp installed at {path}");
+                    return Ok(std::path::PathBuf::from(path));
+                }
+            }
+        }
+    }
+
     let bin_path = models_dir().join("whisper-cli");
     if bin_path.exists() {
         return Ok(bin_path);
@@ -167,18 +195,18 @@ pub fn download_whisper_binary() -> Result<PathBuf, String> {
     let dir = models_dir();
     std::fs::create_dir_all(&dir).map_err(|e| format!("mkdir: {e}"))?;
 
-    // Determine platform binary URL
+    // Fallback: download pre-built binary (may not be available for all platforms)
     let (url, archive_name) = match (std::env::consts::OS, std::env::consts::ARCH) {
         ("macos", "aarch64") => (
-            "https://github.com/ggerganov/whisper.cpp/releases/latest/download/whisper-cli-bin-darwin-arm64.zip",
+            "https://github.com/ggml-org/whisper.cpp/releases/latest/download/whisper-cli-bin-darwin-arm64.zip",
             "whisper-cli-bin-darwin-arm64",
         ),
         ("macos", _) => (
-            "https://github.com/ggerganov/whisper.cpp/releases/latest/download/whisper-cli-bin-darwin-x86_64.zip",
+            "https://github.com/ggml-org/whisper.cpp/releases/latest/download/whisper-cli-bin-darwin-x86_64.zip",
             "whisper-cli-bin-darwin-x86_64",
         ),
         ("linux", _) => (
-            "https://github.com/ggerganov/whisper.cpp/releases/latest/download/whisper-cli-bin-linux-x86_64.zip",
+            "https://github.com/ggml-org/whisper.cpp/releases/latest/download/whisper-cli-bin-linux-x86_64.zip",
             "whisper-cli-bin-linux-x86_64",
         ),
         _ => return Err("Unsupported platform for whisper binary".into()),
@@ -194,11 +222,21 @@ pub fn download_whisper_binary() -> Result<PathBuf, String> {
             .arg("-o")
             .arg(zip_path.to_str().unwrap_or("whisper.zip"))
             .arg("--progress-bar")
+            .arg("-L")  // follow redirects (GitHub moves repos)
             .arg(url)
             .status()
             .map_err(|e| format!("curl failed: {e}"))?;
         if !status.success() {
             return Err("Download failed".into());
+        }
+        // Validate downloaded file (must be > 1MB for a real binary zip)
+        if let Ok(meta) = std::fs::metadata(&zip_path) {
+            if meta.len() < 1_000_000 {
+                let content = std::fs::read_to_string(&zip_path).unwrap_or_default();
+                let _ = std::fs::remove_file(&zip_path);
+                return Err(format!("Download corrupted ({}B). Server returned: {}",
+                    meta.len(), content.chars().take(100).collect::<String>()));
+            }
         }
     } else {
         return Err("curl not found — cannot download whisper binary".into());
