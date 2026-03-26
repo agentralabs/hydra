@@ -120,7 +120,7 @@ fn run(
             }
         }
         drain_llm_stream(&mut active_stream, &mut streaming_text, &mut streaming_display_cursor,
-            &mut streaming_prepared, &mut state, &mut cognitive, pacer_chars);
+            &mut streaming_prepared, &mut state, &mut cognitive, pacer_chars, &mut voice_loop);
         if let Some(rx) = &mut browser_rx {
             if let Some(_done) = drain_browser(rx, &mut state.stream) { browser_rx = None; }
         }
@@ -363,6 +363,7 @@ fn drain_llm_stream(
     streaming_text: &mut String, cursor: &mut usize,
     prepared: &mut Option<hydra_kernel::engine::PreparedCycle>,
     state: &mut AppState, cognitive: &mut CognitiveLoop, pacer_chars: usize,
+    voice_loop: &mut hydra_voice::VoiceLoop,
 ) {
     if let Some(rx) = active_stream.as_mut() {
         loop {
@@ -402,6 +403,11 @@ fn drain_llm_stream(
                             }
                             state.stream.push(StreamItem::ThinkingPill { duration_secs: duration_ms as f64 / 1000.0 });
                             state.input_placeholder = hydra_tui::v2::tui_helpers::suggest_placeholder(streaming_text);
+                            // TTS: speak the response if voice is active
+                            if state.voice_active {
+                                let tts_text = streaming_text.clone();
+                                voice_loop.speak_response(&tts_text);
+                            }
                             state.stream.push(StreamItem::Blank);
                             state.stream.scroll_to_bottom();
                             *active_stream = None; streaming_text.clear(); *cursor = 0;

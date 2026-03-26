@@ -10,36 +10,55 @@ pub struct ParsedAction {
     pub display: String,        // compact display string for TUI
 }
 
-/// Parse LLM response text, extract any <computer_use> actions, return clean text + actions.
+/// Parse LLM response text, extract any <computer_use> or inline action tags.
 pub fn parse_response(raw: &str) -> (String, Vec<ParsedAction>) {
     let mut clean = String::new();
     let mut actions = Vec::new();
     let mut remaining = raw;
 
+    // Parse <computer_use> blocks
     while let Some(start) = remaining.find("<computer_use>") {
-        // Add text before the tag
         clean.push_str(&remaining[..start]);
-
         if let Some(end) = remaining.find("</computer_use>") {
             let tag_content = &remaining[start + 14..end];
-            if let Some(action) = parse_tag(tag_content) {
-                actions.push(action);
-            }
+            if let Some(action) = parse_tag(tag_content) { actions.push(action); }
             remaining = &remaining[end + 15..];
-        } else {
-            // Unclosed tag — skip it
-            remaining = &remaining[start + 14..];
-        }
+        } else { remaining = &remaining[start + 14..]; }
     }
     clean.push_str(remaining);
 
-    // Clean up extra whitespace from tag removal
-    let clean = clean.lines()
-        .filter(|l| !l.trim().is_empty())
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    (clean, actions)
+    // Also parse inline action tags: <click>x,y</click>, <screenshot>, <type>text</type>
+    let inline_tags = [("click", "click"), ("screenshot", "screenshot"),
+        ("type", "type"), ("key", "key_press"), ("scroll", "scroll")];
+    for (tag, action_type) in &inline_tags {
+        let open = format!("<{tag}>");
+        let close = format!("</{tag}>");
+        let mut search = clean.as_str();
+        while let Some(s) = search.find(&open) {
+            let after = &search[s + open.len()..];
+            let target = if let Some(e) = after.find(&close) {
+                let t = after[..e].trim().to_string();
+                search = &after[e + close.len()..];
+                t
+            } else { search = &search[s + open.len()..]; continue; };
+            if !target.is_empty() || *tag == "screenshot" {
+                actions.push(ParsedAction {
+                    action_type: action_type.to_string(),
+                    target: target.clone(),
+                    display: format!("⏵ {action_type}: {target}"),
+                });
+            }
+        }
+    }
+    // Strip inline tags from clean text
+    let mut result = clean.clone();
+    for (tag, _) in &inline_tags {
+        let re_open = format!("<{tag}>");
+        let re_close = format!("</{tag}>");
+        result = result.replace(&re_open, "").replace(&re_close, "");
+    }
+    let result = result.lines().filter(|l| !l.trim().is_empty()).collect::<Vec<_>>().join("\n");
+    (result, actions)
 }
 
 fn parse_tag(content: &str) -> Option<ParsedAction> {
