@@ -85,6 +85,8 @@ pub struct RenderState {
     // Status bar spec fields
     pub lyapunov: f64,
     pub task_count: usize,
+    pub belief_count: usize,
+    pub obstacle_count: usize,
 
     // Slash menu
     pub slash_selected: usize,
@@ -145,6 +147,8 @@ impl Default for RenderState {
             mode: "local".into(),
             lyapunov: 0.42,
             task_count: 0,
+            belief_count: 0,
+            obstacle_count: 0,
             slash_selected: 0,
             show_top_frame: true,
             username: whoami::username().into(),

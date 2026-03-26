@@ -65,15 +65,15 @@ fn render_left(frame: &mut Frame, area: Rect, state: &RenderState) {
         ]),
         Line::from(vec![
             Span::styled("beliefs       ", k),
-            Span::styled("3 revised · 565 loaded", v),
+            Span::styled(format!("{} loaded", state.belief_count), v),
         ]),
         Line::from(vec![
             Span::styled("antifragile   ", k),
-            Span::styled("14 obstacle classes overcome", Style::default().fg(BLUE)),
+            Span::styled(format!("{} obstacles overcome", state.obstacle_count), Style::default().fg(BLUE)),
         ]),
         Line::from(vec![
-            Span::styled("cartography   ", k),
-            Span::styled("34 systems mapped", Style::default().fg(BLUE)),
+            Span::styled("middlewares    ", k),
+            Span::styled(format!("{} active", state.middleware_count), Style::default().fg(BLUE)),
         ]),
         Line::from(vec![
             Span::styled("persona       ", k),
@@ -100,7 +100,9 @@ fn render_right(frame: &mut Frame, area: Rect, state: &RenderState) {
         Line::from(Span::styled("Entity health", Style::default().fg(Color::Rgb(45, 94, 58)))),
         Line::from(vec![
             Span::styled("● ", Style::default().fg(GREEN)), Span::styled("alive", Style::default().fg(GREEN)),
-            Span::styled(" · V=0.42 ", Style::default().fg(GREEN)), Span::styled("stable", Style::default().fg(Color::Rgb(45, 110, 68))),
+            Span::styled(format!(" · V={:.2} ", state.lyapunov), Style::default().fg(GREEN)),
+            Span::styled(if state.lyapunov > 0.85 { "stable" } else if state.lyapunov > 0.5 { "nominal" } else { "degraded" },
+                Style::default().fg(Color::Rgb(45, 110, 68))),
         ]),
         Line::from(vec![
             Span::styled(format!("{integ} integrations"), v),
@@ -167,7 +169,7 @@ pub fn greeting_items(model: &str, genome_count: usize, mw_count: usize) -> Vec<
     let right = [
         format!("  project  {project}"), format!("  branch   {}", if branch.is_empty() { "-" } else { &branch }),
         format!("  model    {md}"), format!("  {sep}"), "  Entity health".into(),
-        "  ● alive · V=0.42 stable".into(), "  /help · /settings · Ctrl+K".into(),
+        format!("  ● alive · V={:.2}", 0.42), "  /help · /settings · Ctrl+K".into(),
     ];
     let s = |t: &str| -> crate::stream_types::StreamItem { crate::stream_types::StreamItem::SystemNotification {
         id: uuid::Uuid::new_v4(), content: t.into(), timestamp: chrono::Utc::now() } };

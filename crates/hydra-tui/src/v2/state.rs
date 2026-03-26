@@ -45,6 +45,8 @@ pub struct AppState {
 
     // System metrics
     pub lyapunov: f64,
+    pub active_tasks: usize,
+    pub health_issues: usize,
 
     // Flags
     pub should_quit: bool,
@@ -78,6 +80,8 @@ impl AppState {
             voice_state: None,
             input_placeholder: "What are we building today?".into(),
             lyapunov: 0.42,
+            active_tasks: 0,
+            health_issues: 0,
             should_quit: false,
             boot_complete: false,
             generation: 0,

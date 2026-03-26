@@ -374,7 +374,7 @@ fn cmd_self_model(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
 }
 
 fn cmd_fleet(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
-    let registry = hydra_fleet::FleetRegistry::new();
+    let registry = hydra_fleet::FleetRegistry::load();
     let agents = registry.agents();
     if agents.is_empty() {
         return vec![sys("Fleet: no agents. Use /spawn <task> to create one.")];

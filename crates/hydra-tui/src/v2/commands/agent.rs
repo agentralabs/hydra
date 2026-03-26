@@ -356,7 +356,7 @@ fn cmd_feedback(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
 fn cmd_conduct(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
     let goal = args.trim();
     if goal.is_empty() { return vec![sys("Usage: /do <goal>")]; }
-    let genome = hydra_genome::GenomeStore::new();
+    let genome = hydra_genome::GenomeStore::open();
     let result = hydra_kernel::conductor_exec::conduct(goal, &genome);
     match result {
         hydra_kernel::conductor::ConductorResult::Complete { results } => {
@@ -379,13 +379,15 @@ fn cmd_conduct(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
     }
 }
 
-fn cmd_swarm(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
+fn cmd_swarm(args: &str, ctx: &CommandContext) -> Vec<StreamItem> {
     let goal = args.trim();
     if goal.is_empty() { return vec![sys("Usage: /swarm <research goal>")]; }
-    // Wire to real swarm learning
+    // Wire to real swarm learning with actual idle time
     let mut learning = hydra_kernel::swarm_learning::SwarmLearning::new();
     let mut genome = hydra_genome::GenomeStore::open();
-    let result = learning.tick(&mut genome, 0, 0);
+    let idle_secs = ctx.session_minutes * 60;
+    let genome_len = genome.len() as u64;
+    let result = learning.tick(&mut genome, idle_secs, genome_len);
     let mut items = vec![sys(&format!("Swarm launched: {goal}"))];
     items.push(sys(&format!("Single-agent harvest: +{} entries, {} rejected",
         result.entries_added, result.entries_rejected)));

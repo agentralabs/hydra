@@ -32,6 +32,8 @@ pub struct FrameCache {
     pub git_branch: CachedValue<String>,
     pub username: CachedValue<String>,
     pub project_path: CachedValue<String>,
+    beliefs: CachedValue<usize>,
+    obstacles: CachedValue<usize>,
 }
 
 impl FrameCache {
@@ -43,13 +45,20 @@ impl FrameCache {
                 std::env::current_dir().map(|p| p.display().to_string()).unwrap_or_default(),
                 Duration::from_secs(3600),
             ),
+            beliefs: CachedValue::new(hydra_belief::BeliefStore::new().len(), Duration::from_secs(30)),
+            obstacles: CachedValue::new(hydra_antifragile::AntifragileStore::new().total_encounters() as usize, Duration::from_secs(30)),
         }
     }
 
     /// Refresh all values that have expired.
     pub fn refresh(&mut self) {
         self.git_branch.get_or_refresh(compute_git_branch);
+        self.beliefs.get_or_refresh(|| hydra_belief::BeliefStore::new().len());
+        self.obstacles.get_or_refresh(|| hydra_antifragile::AntifragileStore::new().total_encounters() as usize);
     }
+
+    pub fn belief_count(&self) -> usize { *self.beliefs.get() }
+    pub fn obstacle_count(&self) -> usize { *self.obstacles.get() }
 }
 
 fn compute_git_branch() -> String {

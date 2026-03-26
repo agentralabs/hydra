@@ -168,6 +168,22 @@ pub fn surface_enrichments(enrichments: &HashMap<String, String>) -> Vec<StreamI
         });
     }
 
+    // Show which middlewares contributed enrichments (visibility)
+    let middleware_names: Vec<&str> = enrichments.keys()
+        .filter_map(|k| k.split('.').next())
+        .filter(|k| !["agent_intent", "browser_relevant", "actionable", "zero_token"].contains(k))
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    if middleware_names.len() > 1 {
+        let names = middleware_names.join(", ");
+        items.push(StreamItem::SystemNotification {
+            id: uuid::Uuid::new_v4(),
+            content: format!("  middlewares: {names}"),
+            timestamp: chrono::Utc::now(),
+        });
+    }
+
     // Gift 6: Enrichment timing
     if !items.is_empty() {
         let elapsed = start.elapsed();

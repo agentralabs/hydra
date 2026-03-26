@@ -193,6 +193,41 @@ impl FleetRegistry {
     }
 }
 
+impl FleetRegistry {
+    /// Load fleet from disk, creating empty registry if no file exists.
+    pub fn load() -> Self {
+        let path = fleet_path();
+        if path.exists() {
+            if let Ok(data) = std::fs::read_to_string(&path) {
+                if let Ok(agents) = serde_json::from_str::<Vec<FleetAgent>>(&data) {
+                    return Self { agents, trust: TrustField::new(), receipts: Vec::new() };
+                }
+            }
+        }
+        Self::new()
+    }
+
+    /// Persist current fleet state to disk.
+    pub fn save(&self) {
+        let path = fleet_path();
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        match serde_json::to_string_pretty(&self.agents) {
+            Ok(data) => {
+                if let Err(e) = std::fs::write(&path, data) {
+                    eprintln!("hydra-fleet: save failed: {e}");
+                }
+            }
+            Err(e) => eprintln!("hydra-fleet: serialize failed: {e}"),
+        }
+    }
+}
+
+fn fleet_path() -> std::path::PathBuf {
+    dirs::home_dir().unwrap_or_default().join(".hydra/data/fleet.json")
+}
+
 impl Default for FleetRegistry {
     fn default() -> Self {
         Self::new()

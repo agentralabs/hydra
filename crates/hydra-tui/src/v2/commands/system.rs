@@ -268,12 +268,15 @@ fn cmd_spawn(args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
     };
     match hydra_fleet::check_spawn(&request) {
         Ok(result) if result.permitted => {
-            let mut registry = hydra_fleet::FleetRegistry::new();
+            let mut registry = hydra_fleet::FleetRegistry::load();
             match registry.spawn(&name, hydra_fleet::AgentSpecialization::Generalist, args, 1.0, hydra_trust::TrustTier::Platinum) {
-                Ok(agent_id) => vec![
-                    sys(&format!("Agent {name} spawned (id: {})", &agent_id.to_string()[..8])),
-                    sys(&format!("  Task: {args}")),
-                ],
+                Ok(agent_id) => {
+                    registry.save();
+                    vec![
+                        sys(&format!("Agent {name} spawned (id: {})", &agent_id.to_string()[..8])),
+                        sys(&format!("  Task: {args}")),
+                    ]
+                }
                 Err(e) => vec![sys(&format!("Spawn failed: {e}"))],
             }
         }

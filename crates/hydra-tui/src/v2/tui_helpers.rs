@@ -50,7 +50,9 @@ pub fn build_render_state_full(
         tokens_used: s.tokens_used,
         mode: "local".into(),
         lyapunov,
-        task_count: 0,
+        task_count: s.active_tasks,
+        belief_count: cache.belief_count(),
+        obstacle_count: cache.obstacle_count(),
         slash_selected: s.slash_selected,
         show_top_frame: true,
         username: std::sync::Arc::from(cache.username.get().as_str()),
@@ -63,8 +65,8 @@ pub fn build_render_state_full(
         agent_active: cu.agent_active,
         theme: crate::theme::current(),
         voice_state: s.voice_state.clone(),
-        monitor_count: 0,
-        alert_count: 0,
+        monitor_count: 0, // TODO: wire from MonitorHub when external monitors are configured
+        alert_count: s.health_issues,
         alive_message: Some(alive_message(s.session_minutes)),
         presence_state: None,
         new_while_scrolled: s.stream.new_while_scrolled(),
@@ -86,21 +88,10 @@ pub fn build_command_context(s: &AppState) -> CommandContext {
             }
         })
         .unwrap_or_default();
-    let exchanges: Vec<_> = s
-        .stream
-        .items()
-        .iter()
-        .filter_map(|i| {
-            if let StreamItem::UserMessage { text, .. } = i {
-                Some(text.clone())
-            } else {
-                None
-            }
-        })
+    let exchanges: Vec<_> = s.stream.items().iter()
+        .filter_map(|i| if let StreamItem::UserMessage { text, .. } = i { Some(text.clone()) } else { None })
         .zip(s.stream.items().iter().filter_map(|i| {
-            if let StreamItem::AssistantText { text, .. } = i {
-                Some(text.clone())
-            } else {
+            if let StreamItem::AssistantText { text, .. } = i { Some(text.clone()) } else {
                 None
             }
         }))
@@ -191,44 +182,6 @@ pub fn redirect_stderr() {
     }
 }
 
-/// DEPRECATED: Use `hydra_kernel::intent_classifier::classify()` instead.
-/// This hardcoded keyword matching causes false positives and violates
-/// the "no hardcoded intelligence" rule. Kept only as fallback if LLM is unavailable.
-#[deprecated(note = "Use hydra_kernel::intent_classifier::AgentIntent::is_actionable() instead")]
-pub fn is_task_intent(text: &str) -> bool {
-    let lower = text.to_lowercase();
-    let task_verbs = [
-        // Creation & building
-        "create ", "build ", "set up ", "setup ", "deploy ", "install ",
-        "make ", "generate ", "write ", "add ", "configure ", "init ",
-        // Execution & running
-        "run ", "execute ", "start ", "launch ", "spawn ", "trigger ",
-        // Modification & management
-        "delete ", "remove ", "update ", "fix ", "edit ", "modify ", "change ",
-        "restart ", "stop ", "kill ", "pause ", "resume ",
-        // File & system operations
-        "publish ", "upload ", "download ", "send ", "post ", "move ", "copy ",
-        "rename ", "save ", "export ", "import ", "backup ",
-        // Browsing & navigation
-        "open ", "browse ", "navigate ", "go to ", "visit ", "search for ",
-        // Monitoring & checking
-        "check ", "scan ", "monitor ", "test ", "verify ", "audit ", "inspect ",
-        "analyze ", "diagnose ",
-        // Desktop & application control
-        "click ", "type ", "drag ", "scroll ", "press ", "switch to ",
-        "close ", "minimize ", "maximize ", "focus ",
-        // Learning & research
-        "learn ", "research ", "study ", "find ",
-    ];
-    task_verbs.iter().any(|s| lower.starts_with(s))
-        // Also catch "can you <verb>" and "please <verb>" patterns
-        || lower.starts_with("can you ") && task_verbs.iter().any(|s| lower[8..].starts_with(s))
-        || lower.starts_with("please ") && task_verbs.iter().any(|s| lower[7..].starts_with(s))
-        || lower.starts_with("could you ") && task_verbs.iter().any(|s| lower[10..].starts_with(s))
-        || lower.starts_with("i want you to ") && task_verbs.iter().any(|s| lower[14..].starts_with(s))
-        || lower.starts_with("i need you to ") && task_verbs.iter().any(|s| lower[14..].starts_with(s))
-}
-
 /// Open a URL in the user's visible default browser (not headless CDP).
 pub fn open_visible_browser(url: &str) -> Result<(), String> {
     let cmd = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
@@ -262,7 +215,7 @@ pub fn spawn_conductor(
         let result = hydra_kernel::conductor_exec::conduct(&goal, &genome);
         let _ = tx.send(ConductorUpdate::Info { message: "Evaluating quality...".into() }).await;
         match result {
-            hydra_kernel::conductor::ConductorResult::Complete { results } => {
+            hydra_kernel::conductor::ConductorResult::Complete { results } if !results.is_empty() => {
                 for r in &results {
                     let _ = tx.send(ConductorUpdate::Step {
                         description: r.output.clone(), success: r.success,
@@ -270,6 +223,11 @@ pub fn spawn_conductor(
                 }
                 let _ = tx.send(ConductorUpdate::Done {
                     steps: results.len(), success: results.iter().all(|r| r.success),
+                }).await;
+            }
+            hydra_kernel::conductor::ConductorResult::Complete { .. } => {
+                let _ = tx.send(ConductorUpdate::Failed {
+                    step: 0, error: "No steps generated. Try a more specific request, or use /do <goal> for explicit execution.".into(),
                 }).await;
             }
             hydra_kernel::conductor::ConductorResult::StepFailed { step_id, error } => {
@@ -294,6 +252,36 @@ pub enum ConductorUpdate {
     Info { message: String },
     Done { steps: usize, success: bool },
     Failed { step: usize, error: String },
+}
+
+/// Spawn the O9 Supreme Coder as a background task. Streams progress via ConductorUpdate.
+pub fn spawn_coder(
+    rt: &tokio::runtime::Runtime,
+    goal: String,
+) -> tokio::sync::mpsc::Receiver<ConductorUpdate> {
+    let (tx, rx) = tokio::sync::mpsc::channel(32);
+    rt.spawn(async move {
+        let _ = tx.send(ConductorUpdate::Info { message: "Analyzing codebase...".into() }).await;
+        let working_dir = std::env::current_dir()
+            .unwrap_or_else(|_| std::path::PathBuf::from("."))
+            .to_string_lossy().to_string();
+        let mut genome = hydra_genome::GenomeStore::open();
+        let result = hydra_kernel::coder::code(&goal, &working_dir, &mut genome);
+        let _ = tx.send(ConductorUpdate::Step {
+            description: format!("Score: {:.1}/10, {} files, {}/{} tests",
+                result.score, result.files_created,
+                result.tests_passed, result.tests_passed + result.tests_failed),
+            success: result.tests_failed == 0 && result.score >= 7.0,
+        }).await;
+        for issue in result.review_issues.iter().take(5) {
+            let _ = tx.send(ConductorUpdate::Info {
+                message: format!("Review: {issue:?}"),
+            }).await;
+        }
+        let success = result.tests_failed == 0 && result.score >= 7.0;
+        let _ = tx.send(ConductorUpdate::Done { steps: 1, success }).await;
+    });
+    rx
 }
 
 // ── Session 22: Boot Orchestrator ──
@@ -351,13 +339,10 @@ pub fn shutdown_systems() {
     eprintln!("hydra-shutdown: session ended cleanly");
 }
 
-/// Generate the alive signal message (rotating background activity indicator).
+/// Rotating background activity indicator.
 pub fn alive_message(tick: u64) -> String {
-    let messages = [
-        "monitoring...", "learning...", "genome growing...",
-        "calibrating...", "dreaming...", "ready",
-    ];
-    messages[(tick as usize / 60) % messages.len()].to_string()
+    const M: &[&str] = &["monitoring...", "learning...", "genome growing...", "calibrating...", "dreaming...", "ready"];
+    M[(tick as usize / 60) % M.len()].to_string()
 }
 
 /// Tick the thinking spinner — verb rotation + frame advancement.

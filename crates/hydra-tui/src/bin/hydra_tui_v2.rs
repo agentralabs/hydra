@@ -154,17 +154,37 @@ fn run(
                 state.stream.scroll_to_bottom();
             }
         }
-        for action in hydra_tui::v2::bridge_voice::poll_voice(&mut voice_loop) { reduce(&mut state, action); }
+        let mut voice_auto_submit = false;
+        for action in hydra_tui::v2::bridge_voice::poll_voice(&mut voice_loop) {
+            if matches!(&action, hydra_tui::v2::action::Action::Voice(hydra_tui::v2::action::VoiceAction::FinalTranscript(_))) {
+                voice_auto_submit = true;
+            }
+            reduce(&mut state, action);
+        }
+        if voice_auto_submit && !state.input.text().is_empty() {
+            handle_action(hydra_tui::v2::action::Action::Input(hydra_tui::v2::action::InputAction::Submit),
+                &mut state, &mut active_stream, &mut streaming_text,
+                &mut streaming_display_cursor, &mut streaming_prepared, &mut cognitive,
+                &registry, &companion_channel, &mut voice_loop, &rt,
+                &mut browser_rx, &mut agent_rx, &vision_provider,
+                &mut shell_rx, &mut shell_mode, &mut conductor_rx);
+        }
         for a in hydra_tui::v2::bridge_companion::poll_companion(&companion_channel) { reduce(&mut state, a); }
         companion_service.tick();
         if last_dream.elapsed() >= Duration::from_secs(5) {
             dream_subs.idle_secs = last_user_input.elapsed().as_secs();
             let r = hydra_kernel::loop_dream::cycle_with_subsystems(
                 &hydra_kernel::state::HydraState::initial(), Some(&mut dream_subs));
-            if r.genome_entries_created > 0 {
-                state.stream.push(StreamItem::DreamNotification { id: uuid::Uuid::new_v4(),
-                    content: format!("{} genome entries from experience", r.genome_entries_created),
-                    timestamp: chrono::Utc::now() });
+            if r.did_work {
+                let mut parts = Vec::new();
+                if r.genome_entries_created > 0 { parts.push(format!("+{} genome", r.genome_entries_created)); }
+                if r.beliefs_consolidated > 0 { parts.push(format!("+{} beliefs", r.beliefs_consolidated)); }
+                if r.predictions_rehearsed > 0 { parts.push(format!("{} predictions", r.predictions_rehearsed)); }
+                if !parts.is_empty() {
+                    state.stream.push(StreamItem::DreamNotification { id: uuid::Uuid::new_v4(),
+                        content: parts.join(" | "),
+                        timestamp: chrono::Utc::now() });
+                }
             }
             last_dream = Instant::now();
         }
@@ -287,6 +307,21 @@ fn handle_submit(
         if text.starts_with("/quit") || text.starts_with("/exit") || text.starts_with("/q") { state.should_quit = true; }
         else if text == "/shell" { *shell_mode = true; state.stream.push(sysn("Shell mode on. Type commands directly. /exit to leave.")); }
         else if text.starts_with("/clear") || text.starts_with("/cls") { state.stream.clear(); }
+        // Async commands: /do and /code run on tokio runtime to avoid blocking TUI
+        else if (text.starts_with("/do ") || text.starts_with("/execute ") || text.starts_with("/task ")) && conductor_rx.is_none() {
+            let goal = text.splitn(2, ' ').nth(1).unwrap_or("").trim().to_string();
+            if !goal.is_empty() {
+                *conductor_rx = Some(hydra_tui::v2::tui_helpers::spawn_conductor(rt, goal));
+                state.stream.push(sysn("◌ Executing via conductor..."));
+            } else { state.stream.push(sysn("Usage: /do <goal>")); }
+        }
+        else if text.starts_with("/code ") || text.starts_with("/coder ") {
+            let goal = text.splitn(2, ' ').nth(1).unwrap_or("").trim().to_string();
+            if !goal.is_empty() {
+                state.stream.push(sysn("◌ Starting coder pipeline..."));
+                *conductor_rx = Some(hydra_tui::v2::tui_helpers::spawn_coder(rt, goal));
+            } else { state.stream.push(sysn("Usage: /code <description>")); }
+        }
         else if let Some(cmd) = match text.as_str() {
             "/pause" => Some(hydra_signals::CompanionCommand::Pause),
             "/resume" => Some(hydra_signals::CompanionCommand::Resume),
@@ -378,21 +413,28 @@ fn drain_llm_stream(
                         StreamChunk::Done { tokens_used, duration_ms } => {
                             state.is_thinking = false;
                             state.tokens_used += tokens_used as u64;
-                            // Parse computer_use actions from response — show as notifications, not raw XML
+                            // Strip computer_use XML from display (always clean the output)
                             let (clean_text, actions) = hydra_tui::v2::action_parser::parse_response(streaming_text);
-                            for action in &actions {
-                                state.stream.push(StreamItem::SystemNotification {
-                                    id: uuid::Uuid::new_v4(),
-                                    content: action.display.clone(),
-                                    timestamp: chrono::Utc::now(),
-                                });
-                                // EXECUTE the action — actually do it on the system
-                                let result = hydra_tui::v2::action_parser::execute_action(action);
-                                state.stream.push(StreamItem::SystemNotification {
-                                    id: uuid::Uuid::new_v4(),
-                                    content: result,
-                                    timestamp: chrono::Utc::now(),
-                                });
+                            // Only EXECUTE actions if there are 3 or fewer (safety: prevent spam loops)
+                            // AND the actions look intentional (not hallucinated key presses)
+                            if !actions.is_empty() && actions.len() <= 3 {
+                                for action in &actions {
+                                    // Skip hallucinated key_press spam
+                                    if action.action_type == "key_press" || action.action_type == "key_combo" {
+                                        continue; // Don't execute random key presses from LLM
+                                    }
+                                    state.stream.push(StreamItem::SystemNotification {
+                                        id: uuid::Uuid::new_v4(),
+                                        content: action.display.clone(),
+                                        timestamp: chrono::Utc::now(),
+                                    });
+                                    let result = hydra_tui::v2::action_parser::execute_action(action);
+                                    state.stream.push(StreamItem::SystemNotification {
+                                        id: uuid::Uuid::new_v4(),
+                                        content: result,
+                                        timestamp: chrono::Utc::now(),
+                                    });
+                                }
                             }
                             *streaming_text = clean_text;
                             state.stream.update_last_text(streaming_text);
@@ -437,12 +479,17 @@ fn drain_llm_stream(
         if *cursor < streaming_text.len() {
             *cursor = (*cursor + pacer_chars).min(streaming_text.len());
             while *cursor < streaming_text.len() && !streaming_text.is_char_boundary(*cursor) { *cursor += 1; }
-            // Strip incomplete <computer_use> tags during live streaming
+            // During live streaming: hide <computer_use> blocks if they appear
             let display_text = &streaming_text[..*cursor];
-            let clean = if display_text.contains("<computer_use>") {
+            let clean = if display_text.contains("<computer_use>") && display_text.contains("</computer_use>") {
                 let (clean, _) = hydra_tui::v2::action_parser::parse_response(display_text);
                 clean
-            } else { display_text.to_string() };
+            } else if display_text.contains("<computer_use>") {
+                // Incomplete tag — show text up to the tag start only
+                display_text.split("<computer_use>").next().unwrap_or(display_text).to_string()
+            } else {
+                display_text.to_string()
+            };
             state.stream.update_last_text(&clean);
             if state.stream.is_auto_scroll() { state.stream.scroll_to_bottom(); }
         }

@@ -50,4 +50,4 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 
 [[bin]]
 name = "hydra-tui"
-path = "src/bin/hydra_tui_v2.rs"
+path = "src/bin/hydra_tui_v3.rs"
