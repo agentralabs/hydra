@@ -27,6 +27,7 @@ hydra-web          = { path = "../hydra-web" }
 hydra-semantic-nav = { path = "../hydra-semantic-nav" }
 hydra-swarm-browser = { path = "../hydra-swarm-browser" }
 hydra-belief       = { path = "../hydra-belief" }
+hydra-memory       = { path = "../hydra-memory" }
 
 ratatui        = "0.29"
 crossterm      = { version = "0.28", features = ["event-stream"] }

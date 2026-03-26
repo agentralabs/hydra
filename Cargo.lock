@@ -3174,6 +3174,7 @@ dependencies = [
  "hydra-fleet",
  "hydra-genome",
  "hydra-kernel",
+ "hydra-memory",
  "hydra-metabolism",
  "hydra-persona",
  "hydra-reflexive",
