@@ -43,11 +43,15 @@ pub fn transcribe(samples: &[f32]) -> Result<String, String> {
     ))
 }
 
-/// Path to the whisper-cpp binary — check PATH first (brew), then local.
+/// Path to the whisper binary — check PATH first (brew: whisper-cli), then local.
 fn whisper_binary_path() -> PathBuf {
-    if let Ok(out) = std::process::Command::new("which").arg("whisper-cpp").output() {
-        let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
-        if !p.is_empty() { return PathBuf::from(p); }
+    for name in &["whisper-cli", "whisper-cpp", "whisper"] {
+        if let Ok(out) = std::process::Command::new("which").arg(name).output() {
+            let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !p.is_empty() && std::path::Path::new(&p).exists() {
+                return PathBuf::from(p);
+            }
+        }
     }
     crate::setup::models_dir().join("whisper-cli")
 }

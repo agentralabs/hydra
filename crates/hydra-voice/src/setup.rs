@@ -159,29 +159,32 @@ pub fn download_whisper_model() -> Result<PathBuf, String> {
 
 /// Download or install the whisper-cpp CLI binary for the current platform.
 pub fn download_whisper_binary() -> Result<PathBuf, String> {
-    // Check if already available via PATH (brew install whisper-cpp)
-    if command_exists("whisper-cpp") {
-        let out = std::process::Command::new("which").arg("whisper-cpp").output().ok();
-        if let Some(o) = out {
-            let path = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            if !path.is_empty() {
-                eprintln!("hydra: whisper-cpp found at {path}");
-                return Ok(std::path::PathBuf::from(path));
+    // Check if already available via PATH (brew install whisper-cpp → binary is "whisper-cli")
+    for name in &["whisper-cli", "whisper-cpp", "whisper"] {
+        if command_exists(name) {
+            let out = std::process::Command::new("which").arg(name).output().ok();
+            if let Some(o) = out {
+                let path = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                if !path.is_empty() {
+                    eprintln!("hydra: whisper found at {path}");
+                    return Ok(std::path::PathBuf::from(path));
+                }
             }
         }
     }
-    // macOS: install via Homebrew (pre-built binaries no longer available from GitHub)
+    // macOS: install via Homebrew (pre-built binaries no longer on GitHub)
     if cfg!(target_os = "macos") && command_exists("brew") {
         eprintln!("hydra: installing whisper-cpp via Homebrew...");
         let status = std::process::Command::new("brew").args(["install", "whisper-cpp"])
-            .stdout(std::process::Stdio::null()).status();
+            .status();
         if let Ok(s) = status {
-            if s.success() && command_exists("whisper-cpp") {
-                let out = std::process::Command::new("which").arg("whisper-cpp").output().ok();
-                if let Some(o) = out {
+            if s.success() {
+                if let Ok(o) = std::process::Command::new("which").arg("whisper-cli").output() {
                     let path = String::from_utf8_lossy(&o.stdout).trim().to_string();
-                    eprintln!("hydra: whisper-cpp installed at {path}");
-                    return Ok(std::path::PathBuf::from(path));
+                    if !path.is_empty() {
+                        eprintln!("hydra: whisper-cli installed at {path}");
+                        return Ok(std::path::PathBuf::from(path));
+                    }
                 }
             }
         }
