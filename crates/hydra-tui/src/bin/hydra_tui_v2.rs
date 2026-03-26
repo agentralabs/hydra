@@ -30,6 +30,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if hydra_kernel::first_run::is_first_run() {
         hydra_kernel::first_run::run_wizard();
     }
+    // Preflight: check macOS permissions (Accessibility + Screen Recording).
+    // Opens System Settings automatically if missing. Waits up to 60s for user to grant.
+    // MUST run BEFORE raw mode — needs visible terminal output for prompts.
+    hydra_desktop::deps::preflight();
+
     let config = hydra_tui::config::HydraConfig::load();
     hydra_tui::theme::init(hydra_tui::theme::Theme::by_name(&config.tui.theme));
     redirect_stderr();

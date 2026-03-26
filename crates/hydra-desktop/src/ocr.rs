@@ -26,12 +26,15 @@ pub fn ocr_screenshot(image_path: &str) -> Result<Vec<OcrRegion>, DesktopError> 
 
 /// Run OCR on the current screen (captures screenshot first).
 pub fn ocr_current_screen() -> Result<Vec<OcrRegion>, DesktopError> {
-    let tmp = format!("/tmp/hydra_ocr_{}.png", uuid::Uuid::new_v4());
-    // Capture screenshot
     let (bytes, _info) = crate::screen::ScreenCapture::capture_full()?;
-    if let Err(e) = std::fs::write(&tmp, &bytes) {
-        return Err(DesktopError::CaptureFailed(format!("Write screenshot: {e}")));
-    }
+    ocr_from_bytes(&bytes)
+}
+
+/// Run OCR on pre-captured screenshot bytes (avoids redundant re-capture).
+pub fn ocr_from_bytes(bytes: &[u8]) -> Result<Vec<OcrRegion>, DesktopError> {
+    let tmp = format!("/tmp/hydra_ocr_{}.png", uuid::Uuid::new_v4());
+    std::fs::write(&tmp, bytes)
+        .map_err(|e| DesktopError::CaptureFailed(format!("Write OCR temp: {e}")))?;
     let result = ocr_screenshot(&tmp);
     let _ = std::fs::remove_file(&tmp);
     result

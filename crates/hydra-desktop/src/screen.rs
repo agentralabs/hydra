@@ -90,9 +90,39 @@ impl ScreenCapture {
         result?;
 
         // Read the captured file
-        let bytes = std::fs::read(&tmp_path).map_err(|e| {
+        let mut bytes = std::fs::read(&tmp_path).map_err(|e| {
             DesktopError::CaptureFailed(format!("Cannot read screenshot: {e}"))
         })?;
+
+        // Resize if > 4MB (Anthropic API limit is 5MB, leave margin)
+        const MAX_IMAGE_BYTES: usize = 4_000_000;
+        if bytes.len() > MAX_IMAGE_BYTES {
+            if let Ok(img) = image::load_from_memory(&bytes) {
+                let (w, h) = (img.width(), img.height());
+                // Scale down to fit within budget
+                let scale = (MAX_IMAGE_BYTES as f64 / bytes.len() as f64).sqrt() * 0.85;
+                let nw = (w as f64 * scale) as u32;
+                let nh = (h as f64 * scale) as u32;
+                let resized = img.resize(nw, nh, image::imageops::FilterType::Triangle);
+                // Try JPEG first (much smaller than PNG for screenshots)
+                let mut buf = std::io::Cursor::new(Vec::new());
+                let jpeg_ok = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buf, 75)
+                    .encode_image(&resized).is_ok();
+                if jpeg_ok && buf.get_ref().len() < MAX_IMAGE_BYTES {
+                    eprintln!("hydra-desktop: screenshot {}KB → {}KB JPEG ({}x{} → {}x{})",
+                        bytes.len() / 1024, buf.get_ref().len() / 1024, w, h, nw, nh);
+                    bytes = buf.into_inner();
+                } else {
+                    // Fallback to PNG resize
+                    let mut png_buf = std::io::Cursor::new(Vec::new());
+                    if resized.write_to(&mut png_buf, image::ImageFormat::Png).is_ok() {
+                        eprintln!("hydra-desktop: screenshot {}KB → {}KB PNG ({}x{} → {}x{})",
+                            bytes.len() / 1024, png_buf.get_ref().len() / 1024, w, h, nw, nh);
+                        bytes = png_buf.into_inner();
+                    }
+                }
+            }
+        }
 
         // Get dimensions from the PNG header (simple parse)
         let (width, height) = Self::png_dimensions(&bytes);

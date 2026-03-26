@@ -18,13 +18,8 @@ fn press_macos(target: &Target) -> Result<(), DesktopError> {
         Target::MouseLeft => run_cliclick("dd:."),
         Target::MouseRight => run_cliclick("rd:."),
         Target::MouseMiddle => run_cliclick("md:."),
-        Target::Key(k) => run_osascript(&format!(
-            r#"tell application "System Events" to key code {} using {{}}"#, macos_key_code(k))),
-        Target::Modifier(m) => {
-            // Hold modifier: use key down event
-            let code = macos_modifier_code(m);
-            run_osascript(&format!(r#"tell application "System Events" to key code {code}"#))
-        }
+        Target::Key(k) => run_cliclick(&format!("kd:{}", cliclick_key(k))),
+        Target::Modifier(m) => run_cliclick(&format!("kd:{}", cliclick_modifier(m))),
     }
 }
 
@@ -51,12 +46,8 @@ fn release_macos(target: &Target) -> Result<(), DesktopError> {
         Target::MouseLeft => run_cliclick("du:."),
         Target::MouseRight => run_cliclick("ru:."),
         Target::MouseMiddle => run_cliclick("mu:."),
-        Target::Key(k) => run_osascript(&format!(
-            r#"tell application "System Events" to key code {} using {{}}"#, macos_key_code(k))),
-        Target::Modifier(m) => {
-            let code = macos_modifier_code(m);
-            run_osascript(&format!(r#"tell application "System Events" to key code {code}"#))
-        }
+        Target::Key(k) => run_cliclick(&format!("ku:{}", cliclick_key(k))),
+        Target::Modifier(m) => run_cliclick(&format!("ku:{}", cliclick_modifier(m))),
     }
 }
 
@@ -100,6 +91,20 @@ pub fn scroll_wheel(dx: i32, dy: i32) -> Result<(), DesktopError> {
         Ok(())
     } else {
         Err(DesktopError::UnsupportedPlatform("scroll".into()))
+    }
+}
+
+// ── TYPE TEXT ──
+
+/// Type text using cliclick (macOS) or xdotool (Linux). No osascript needed.
+pub fn type_text(text: &str) -> Result<(), DesktopError> {
+    if cfg!(target_os = "macos") {
+        // cliclick t: command — escape colons
+        run_cliclick(&format!("t:{}", text.replace(':', "\\:")))
+    } else if cfg!(target_os = "linux") {
+        run_xdotool(&["type", "--clearmodifiers", text])
+    } else {
+        Err(DesktopError::UnsupportedPlatform("type_text".into()))
     }
 }
 
@@ -169,6 +174,48 @@ fn run_xdotool(args: &[&str]) -> Result<(), DesktopError> {
         return Err(DesktopError::InputFailed { action: "xdotool".into(), reason: stderr.into() });
     }
     Ok(())
+}
+
+fn cliclick_key(key: &str) -> String {
+    match key.to_lowercase().as_str() {
+        "enter" | "return" => "return".into(),
+        "tab" => "tab".into(),
+        "escape" | "esc" => "escape".into(),
+        "space" => "space".into(),
+        "backspace" | "delete" => "delete".into(),
+        "up" => "arrow-up".into(),
+        "down" => "arrow-down".into(),
+        "left" => "arrow-left".into(),
+        "right" => "arrow-right".into(),
+        other => other.into(),
+    }
+}
+
+/// Single key press (down+up). Use for Enter, Tab, Escape, etc.
+pub fn key_press_single(key: &str) -> Result<(), DesktopError> {
+    let key = key.trim();
+    if key.is_empty() { return Ok(()); } // No-op for empty key
+    if cfg!(target_os = "macos") {
+        // cliclick kp: accepts: return, tab, escape, space, delete, arrow-up/down/left/right, f1-f16
+        run_cliclick(&format!("kp:{}", cliclick_key(key)))
+    } else if cfg!(target_os = "linux") {
+        run_xdotool(&["key", &xdotool_key(key)])
+    } else {
+        Err(DesktopError::UnsupportedPlatform("key_press".into()))
+    }
+}
+
+/// Expose cliclick key mapping for external use.
+pub fn cliclick_key_name(key: &str) -> String { cliclick_key(key) }
+
+fn cliclick_modifier(modifier: &str) -> String {
+    match modifier.to_lowercase().as_str() {
+        "cmd" | "command" => "cmd".into(),
+        "ctrl" | "control" => "ctrl".into(),
+        "alt" | "option" => "alt".into(),
+        "shift" => "shift".into(),
+        _ => "cmd".into(),
+    }
 }
 
 fn macos_key_code(key: &str) -> &str {

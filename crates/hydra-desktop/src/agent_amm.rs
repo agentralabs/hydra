@@ -106,80 +106,65 @@ impl DesktopAgent {
         }
 
         for step_num in 1..=self.max_steps() {
-            // L1: Capture and compute perception delta
-            let (screenshot_bytes, _info) =
-                tokio::task::spawn_blocking(|| ScreenCapture::capture_full())
-                    .await
-                    .map_err(|e| DesktopError::CaptureFailed(format!("Join: {e}")))?
-                    .map_err(|e| DesktopError::CaptureFailed(format!("{e}")))?;
-
-            let delta = perception.perceive_delta(&screenshot_bytes);
-            eprintln!("hydra-desktop: L1 delta: {:.0}% changed ({} cells)",
-                delta.change_ratio * 100.0, delta.changed_cells.len());
-
-            // L1: Detect stale screen (nothing changed after click → retry)
-            if step_num > 1 && delta.change_ratio < 0.01 {
-                eprintln!("hydra-desktop: screen unchanged — previous action may have missed");
-            }
-
-            // Build prompt with history + AMM context
-            let history_text = if history.is_empty() { "(first step)".into() }
-                else { history.iter().enumerate()
-                    .map(|(i, (a, o))| format!("  {}: {} → {}", i+1, a, o))
-                    .collect::<Vec<_>>().join("\n") };
-            let amm_context = format!(
-                "APP: {} | MENUS: {:?} | SHORTCUTS: {} known | TOOLS: {} known",
-                app_model.name,
-                app_model.menus.keys().collect::<Vec<_>>(),
-                app_model.shortcuts.len(), app_model.toolbar.len(),
-            );
-
-            let prompt = format!(
-                "GOAL: {goal}\nAPP CONTEXT: {amm_context}\n\
-                 PREVIOUS STEPS:\n{history_text}\nCURRENT STEP: {step_num}\n\n\
-                 Look at this screenshot. Decide the NEXT action.\n\
-                 Respond in JSON: {{\"action\": \"click|double_click|right_click|\
-                 type|key_press|key_combo|scroll|drag|modifier_click|paste|wait|wait_stable|done\", \
-                 \"x\": pixel_x, \"y\": pixel_y, \"x2\": drag_end_x, \"y2\": drag_end_y, \
-                 \"text\": \"text to type or paste\", \
-                 \"modifier\": \"cmd|ctrl|alt|shift\", \"key\": \"key name\", \
-                 \"direction\": \"up|down\", \"amount\": scroll_clicks, \
-                 \"reasoning\": \"why\"}}\n\n\
-                 Use drag for: moving items, resizing, timeline scrubbing, slider adjustment.\n\
-                 Use modifier_click for: Shift+Click (range select), Cmd+Click (multi-select).\n\
-                 Use paste for: inserting text from clipboard.\n\
-                 Use wait_stable for: waiting for renders, downloads, or compiles.\n\
-                 If the goal is complete, use \"done\"."
-            );
-
-            // O2: Vision Bridge — try FREE tiers (a11y + OCR) before expensive LLM vision
+            // O2 TIER 1: Accessibility tree FIRST (0 tokens, 0 screenshots)
             let a11y_result = tokio::task::spawn_blocking(|| {
                 crate::accessibility::AccessibilityTree::from_focused_app()
             }).await.ok().and_then(|r| r.ok());
             let mut resolved_action: Option<DesktopAction> = None;
             if let Some(tree) = &a11y_result {
-                // Check if any element matches the goal directly (Tier 1: 0 tokens)
                 if let Some(el) = tree.find_by_title(goal) {
                     let (cx, cy) = crate::accessibility::AccessibilityTree::element_center(el);
-                    eprintln!("hydra-desktop: O2 Tier 1 hit — '{}' at ({:.0},{:.0})", el.title, cx, cy);
+                    eprintln!("hydra-desktop: O2 Tier 1 a11y hit — '{}' ({:.0},{:.0})", el.title, cx, cy);
                     resolved_action = Some(DesktopAction::Click { x: cx, y: cy });
                 }
             }
-            // Tier 2: OCR — check if goal text is visible on screen (0 tokens)
-            if resolved_action.is_none() {
-                if let Ok(regions) = crate::ocr::ocr_current_screen() {
+
+            // Only capture screenshot if a11y didn't resolve
+            let screenshot_bytes = if resolved_action.is_none() {
+                let (bytes, _info) = tokio::task::spawn_blocking(|| ScreenCapture::capture_full())
+                    .await
+                    .map_err(|e| DesktopError::CaptureFailed(format!("Join: {e}")))?
+                    .map_err(|e| DesktopError::CaptureFailed(format!("{e}")))?;
+                let delta = perception.perceive_delta(&bytes);
+                eprintln!("hydra-desktop: L1 delta: {:.0}% changed ({} cells)",
+                    delta.change_ratio * 100.0, delta.changed_cells.len());
+                if step_num > 1 && delta.change_ratio < 0.01 {
+                    eprintln!("hydra-desktop: screen unchanged — previous action may have missed");
+                }
+                // O2 TIER 2: OCR on captured bytes (0 tokens, reuses screenshot)
+                if let Ok(regions) = crate::ocr::ocr_from_bytes(&bytes) {
                     if let Some(region) = crate::ocr::find_best_match(goal, &regions) {
                         let cx = region.x + region.width / 2.0;
                         let cy = region.y + region.height / 2.0;
-                        eprintln!("hydra-desktop: O2 Tier 2 OCR hit — '{}' at ({:.0},{:.0})", region.text, cx, cy);
+                        eprintln!("hydra-desktop: O2 Tier 2 OCR hit — '{}' ({:.0},{:.0})", region.text, cx, cy);
                         resolved_action = Some(DesktopAction::Click { x: cx, y: cy });
                     }
                 }
-            }
+                Some(bytes)
+            } else {
+                eprintln!("hydra-desktop: a11y resolved — skipping screenshot");
+                None
+            };
 
-            // Tier 3: Vision LLM — only if Tier 1+2 couldn't resolve
+            // Build prompt (only needed for Tier 3)
+            let history_text = if history.is_empty() { "(first step)".into() }
+                else { history.iter().enumerate()
+                    .map(|(i, (a, o))| format!("  {}: {} → {}", i+1, a, o))
+                    .collect::<Vec<_>>().join("\n") };
+            let amm_context = format!("APP: {} | SHORTCUTS: {} | TOOLS: {}",
+                app_model.name, app_model.shortcuts.len(), app_model.toolbar.len());
+            let prompt = format!(
+                "GOAL: {goal}\nAPP: {amm_context}\nSTEPS:\n{history_text}\nSTEP: {step_num}\n\n\
+                 Decide the NEXT action. JSON: {{\"action\": \"click|double_click|type|\
+                 key_press|key_combo|scroll|drag|paste|wait|done\", \
+                 \"x\": px, \"y\": py, \"text\": \"...\", \"modifier\": \"cmd|ctrl|alt|shift\", \
+                 \"key\": \"...\", \"reasoning\": \"why\"}}\nIf done, use \"done\".");
+
+            // O2 TIER 3: Vision LLM — ONLY if Tiers 1+2 failed
             let action = if let Some(a) = resolved_action { a } else {
-                let response = vision.analyze_image(&screenshot_bytes, &prompt).await
+                let bytes = screenshot_bytes.as_ref().ok_or_else(||
+                    DesktopError::VisionError("No screenshot and no a11y resolution".into()))?;
+                let response = vision.analyze_image(bytes, &prompt).await
                     .map_err(|e| DesktopError::VisionError(format!("{e}")))?;
                 Self::parse_response(&response)
             };

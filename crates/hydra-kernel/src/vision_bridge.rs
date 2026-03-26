@@ -46,6 +46,10 @@ impl VisionProvider for LlmVisionProvider {
     ) -> Result<String, BrowserError> {
         use base64::Engine as _;
         let b64 = base64::engine::general_purpose::STANDARD.encode(image_bytes);
+        // Detect actual format from magic bytes (JPEG=FF D8, PNG=89 50)
+        let media_type = if image_bytes.len() >= 2 && image_bytes[0] == 0xFF && image_bytes[1] == 0xD8 {
+            "image/jpeg"
+        } else { "image/png" };
 
         let body = serde_json::json!({
             "model": self.model,
@@ -57,7 +61,7 @@ impl VisionProvider for LlmVisionProvider {
                         "type": "image",
                         "source": {
                             "type": "base64",
-                            "media_type": "image/png",
+                            "media_type": media_type,
                             "data": b64,
                         }
                     },

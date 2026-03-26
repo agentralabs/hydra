@@ -200,23 +200,59 @@ pub fn check_permissions() -> (bool, bool) {
             .stderr(std::process::Stdio::null())
             .status().map(|s| s.success()).unwrap_or(false)
     } else { true };
-
-    if !screen_ok {
-        eprintln!("hydra-deps: Screen Recording permission NOT granted");
-        eprintln!("hydra-deps: Grant in: System Settings > Privacy & Security > Screen Recording");
-    }
-    if !a11y_ok {
-        eprintln!("hydra-deps: Accessibility permission NOT granted");
-        eprintln!("hydra-deps: Grant in: System Settings > Privacy & Security > Accessibility");
-    }
     (screen_ok, a11y_ok)
 }
 
-/// Preflight: check permissions. Deps are installed on-demand, not upfront.
+/// Preflight: check permissions, prompt user to grant if missing.
+/// Opens System Settings automatically on macOS. Returns true if all OK.
 pub fn preflight() -> bool {
     let (screen_ok, a11y_ok) = check_permissions();
     if screen_ok && a11y_ok {
         eprintln!("hydra-deps: preflight OK — permissions granted, deps install on-demand");
+        return true;
     }
-    screen_ok && a11y_ok
+    if !a11y_ok {
+        eprintln!("hydra-deps: ⚠ Accessibility permission required for desktop automation");
+        eprintln!("hydra-deps: Opening System Settings — please grant access to your terminal app");
+        // Open Accessibility preferences directly
+        let _ = Command::new("open").arg(
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+        ).spawn();
+        // Wait for user to grant permission (poll every 2s, timeout 60s)
+        for i in 0..30 {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            let (_, ok) = check_permissions();
+            if ok {
+                eprintln!("hydra-deps: ✓ Accessibility permission granted!");
+                break;
+            }
+            if i % 5 == 4 {
+                eprintln!("hydra-deps: still waiting for Accessibility permission... ({}/60s)", (i+1)*2);
+            }
+        }
+    }
+    if !screen_ok {
+        eprintln!("hydra-deps: ⚠ Screen Recording permission required for screenshots");
+        eprintln!("hydra-deps: Opening System Settings — please grant access to your terminal app");
+        let _ = Command::new("open").arg(
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+        ).spawn();
+        for i in 0..30 {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            let (ok, _) = check_permissions();
+            if ok {
+                eprintln!("hydra-deps: ✓ Screen Recording permission granted!");
+                break;
+            }
+            if i % 5 == 4 {
+                eprintln!("hydra-deps: still waiting for Screen Recording permission... ({}/60s)", (i+1)*2);
+            }
+        }
+    }
+    let (s, a) = check_permissions();
+    if !s || !a {
+        eprintln!("hydra-deps: ⚠ Some permissions still missing. Desktop automation may not work.");
+        eprintln!("hydra-deps: Grant in: System Settings > Privacy & Security > Accessibility + Screen Recording");
+    }
+    s && a
 }

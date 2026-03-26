@@ -191,23 +191,15 @@ pub fn execute_interface_step(
     match &step.step_type {
         StepType::BrowserNavigate { url } => {
             app_ctx.focused_app = Some("browser".into());
-            eprintln!("hydra-worker: browser navigate → {url}");
-            if let Ok(handle) = tokio::runtime::Handle::try_current() {
-                let url = url.clone();
-                let result = tokio::task::block_in_place(|| {
-                    handle.block_on(async {
-                        let mut engine = hydra_browser::BrowserEngine::new();
-                        engine.launch().await.map_err(|e| format!("Browser launch: {e}"))?;
-                        engine.navigate(&url).await.map_err(|e| format!("Navigate: {e}"))?;
-                        Ok::<String, String>(format!("Navigated to {url}"))
-                    })
-                });
-                match result {
-                    Ok(msg) => (true, msg, vec![]),
-                    Err(e) => (false, e, vec![]),
-                }
-            } else {
-                (true, format!("[Browser: navigating to {url}]"), vec![])
+            eprintln!("hydra-worker: browser navigate (visible) → {url}");
+            // VISIBLE: open in user's default browser (not headless CDP)
+            let result = std::process::Command::new("sh")
+                .arg("-c").arg(format!("open '{}'", url.replace('\'', "'\\''")))
+                .status();
+            match result {
+                Ok(s) if s.success() => (true, format!("[Browser: opened {url}]"), vec![]),
+                Ok(s) => (false, format!("Browser open failed (exit {})", s.code().unwrap_or(-1)), vec![]),
+                Err(e) => (false, format!("Browser open error: {e}"), vec![]),
             }
         }
         StepType::BrowserInteract { goal } => {
@@ -239,6 +231,22 @@ pub fn execute_interface_step(
         StepType::DesktopAction { goal } => {
             app_ctx.focused_app = Some("desktop".into());
             eprintln!("hydra-worker: desktop action → {goal}");
+            // Fast-path: "open <app>" → visible launch via shell (no vision loop needed)
+            let lower_goal = goal.to_lowercase();
+            if lower_goal.starts_with("open ") || lower_goal.starts_with("launch ") {
+                let target = if lower_goal.starts_with("open ") { &goal[5..] } else { &goal[7..] };
+                let cmd = if target.contains("http") || target.contains('.') && target.contains('/') {
+                    format!("open '{}'", target.trim().replace('\'', "'\\''"))
+                } else {
+                    format!("open -a '{}'", target.trim().replace('\'', "'\\''"))
+                };
+                if let Ok(s) = std::process::Command::new("sh").arg("-c").arg(&cmd).status() {
+                    if s.success() {
+                        return (true, format!("[Desktop: opened {target}]"), vec![]);
+                    }
+                }
+                // Fall through to vision loop if shell open failed
+            }
             // Wire to real DesktopAgent via tokio block_in_place
             if let Ok(handle) = tokio::runtime::Handle::try_current() {
                 let goal = goal.clone();

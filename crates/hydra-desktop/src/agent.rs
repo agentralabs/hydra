@@ -162,7 +162,13 @@ impl DesktopAgent {
     pub fn max_steps(&self) -> u32 { self.max_steps }
 
     pub(crate) fn parse_response(response: &str) -> DesktopAction {
-        if let Ok(val) = serde_json::from_str::<serde_json::Value>(response) {
+        // Extract JSON from markdown-wrapped responses (```json{...}```)
+        let json_str = if let Some(start) = response.find('{') {
+            if let Some(end) = response.rfind('}') {
+                &response[start..=end]
+            } else { response }
+        } else { response };
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(json_str) {
             let action = val
                 .get("action")
                 .and_then(|v| v.as_str())

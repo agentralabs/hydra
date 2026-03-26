@@ -148,6 +148,34 @@ pub fn execute_action(action: &ParsedAction) -> String {
                 }
             }
         }
+        "screenshot" => {
+            match hydra_desktop::ScreenCapture::capture_full() {
+                Ok((bytes, info)) => {
+                    let path = std::env::temp_dir().join("hydra-screenshot.png");
+                    match std::fs::write(&path, &bytes) {
+                        Ok(_) => format!("✓ Screenshot ({}x{}, {}KB) → {}", info.width, info.height, bytes.len()/1024, path.display()),
+                        Err(e) => format!("✗ Save failed: {e}"),
+                    }
+                }
+                Err(e) => format!("✗ Screenshot failed: {e}"),
+            }
+        }
+        "scroll" => {
+            let mut input = hydra_desktop::InputSimulator::new();
+            let amount = action.target.parse::<i32>().unwrap_or(3);
+            match input.scroll_wheel(960.0, 540.0, amount) {
+                Ok(_) => format!("✓ Scrolled {amount}"),
+                Err(e) => format!("✗ Scroll failed: {e}"),
+            }
+        }
+        "key" => {
+            // Alias for key_press
+            let input = hydra_desktop::InputSimulator::new();
+            match input.key_press(&action.target) {
+                Ok(_) => format!("✓ Key: {}", action.target),
+                Err(e) => format!("✗ Key failed: {e}"),
+            }
+        }
         _ => format!("⏵ {}: not yet wired", action.action_type),
     }
 }

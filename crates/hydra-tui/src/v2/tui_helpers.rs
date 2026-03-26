@@ -217,6 +217,30 @@ pub fn is_task_intent(text: &str) -> bool {
         // Also catch "can you <verb>" and "please <verb>" patterns
         || lower.starts_with("can you ") && task_verbs.iter().any(|s| lower[8..].starts_with(s))
         || lower.starts_with("please ") && task_verbs.iter().any(|s| lower[7..].starts_with(s))
+        || lower.starts_with("could you ") && task_verbs.iter().any(|s| lower[10..].starts_with(s))
+        || lower.starts_with("i want you to ") && task_verbs.iter().any(|s| lower[14..].starts_with(s))
+        || lower.starts_with("i need you to ") && task_verbs.iter().any(|s| lower[14..].starts_with(s))
+}
+
+/// Open a URL in the user's visible default browser (not headless CDP).
+pub fn open_visible_browser(url: &str) -> Result<(), String> {
+    let cmd = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
+    std::process::Command::new(cmd).arg(url).spawn()
+        .map_err(|e| format!("Failed to open browser: {e}"))?;
+    Ok(())
+}
+
+/// Extract a URL from user input text (explicit URLs or bare domains).
+pub fn extract_url(text: &str) -> Option<String> {
+    for word in text.split_whitespace() {
+        let w = word.trim_end_matches(|c: char| ".,;:!?)\"'".contains(c));
+        if w.starts_with("http://") || w.starts_with("https://") { return Some(w.into()); }
+        if w.contains('.') && !w.starts_with('.') && w.len() > 3
+            && !w.ends_with(".rs") && !w.ends_with(".md") && !w.ends_with(".toml") {
+            return Some(format!("https://{w}"));
+        }
+    }
+    None
 }
 
 /// Spawn the conductor as a background task. Returns a receiver for step updates.

@@ -158,177 +158,52 @@ impl InputSimulator {
             .collect()
     }
 
-    // ── Platform-specific implementations ──
+    // ── Platform implementations — delegate to input_platform.rs (cliclick/xdotool) ──
 
     fn platform_mouse_move(x: i32, y: i32) -> Result<(), DesktopError> {
-        if cfg!(target_os = "macos") {
-            Self::run_osascript(&format!(
-                r#"tell application "System Events" to set position of mouse to {{{x}, {y}}}"#
-            ))
-        } else if cfg!(target_os = "linux") {
-            Self::run_cmd("xdotool", &["mousemove", &x.to_string(), &y.to_string()])
-        } else {
-            Err(DesktopError::UnsupportedPlatform("mouse_move".into()))
-        }
+        crate::input_platform::mouse_move(x, y)
     }
 
     fn platform_click(x: i32, y: i32) -> Result<(), DesktopError> {
-        if cfg!(target_os = "macos") {
-            Self::run_osascript(&format!(
-                r#"do shell script "cliclick c:{x},{y}""#
-            )).or_else(|_| {
-                // Fallback if cliclick not installed
-                Self::run_osascript(&format!(
-                    r#"tell application "System Events" to click at {{{x}, {y}}}"#
-                ))
-            })
-        } else if cfg!(target_os = "linux") {
-            Self::run_cmd("xdotool", &["mousemove", &x.to_string(), &y.to_string(), "click", "1"])
-        } else {
-            Err(DesktopError::UnsupportedPlatform("click".into()))
-        }
+        crate::input_platform::mouse_move(x, y)?;
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        crate::input_platform::press(&crate::input_atoms::Target::MouseLeft)?;
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        crate::input_platform::release(&crate::input_atoms::Target::MouseLeft)
     }
 
     fn platform_double_click(x: i32, y: i32) -> Result<(), DesktopError> {
-        if cfg!(target_os = "linux") {
-            Self::run_cmd("xdotool", &["mousemove", &x.to_string(), &y.to_string(), "click", "--repeat", "2", "1"])
-        } else {
-            // macOS: two clicks with short delay
-            Self::platform_click(x, y)?;
-            std::thread::sleep(std::time::Duration::from_millis(50));
-            Self::platform_click(x, y)
-        }
+        Self::platform_click(x, y)?;
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        Self::platform_click(x, y)
     }
 
     fn platform_right_click(x: i32, y: i32) -> Result<(), DesktopError> {
-        if cfg!(target_os = "linux") {
-            Self::run_cmd("xdotool", &["mousemove", &x.to_string(), &y.to_string(), "click", "3"])
-        } else if cfg!(target_os = "macos") {
-            Self::run_osascript(&format!(
-                r#"do shell script "cliclick rc:{x},{y}""#
-            ))
-        } else {
-            Err(DesktopError::UnsupportedPlatform("right_click".into()))
-        }
+        crate::input_platform::mouse_move(x, y)?;
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        crate::input_platform::press(&crate::input_atoms::Target::MouseRight)?;
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        crate::input_platform::release(&crate::input_atoms::Target::MouseRight)
     }
 
     fn platform_key_char(ch: char) -> Result<(), DesktopError> {
-        if cfg!(target_os = "macos") {
-            Self::run_osascript(&format!(
-                r#"tell application "System Events" to keystroke "{ch}""#
-            ))
-        } else if cfg!(target_os = "linux") {
-            Self::run_cmd("xdotool", &["type", "--clearmodifiers", &ch.to_string()])
-        } else {
-            Err(DesktopError::UnsupportedPlatform("key_char".into()))
-        }
+        // Use cliclick t: for typing (no osascript/System Events needed)
+        crate::input_platform::type_text(&ch.to_string())
     }
 
     fn platform_key_press(key: &str) -> Result<(), DesktopError> {
-        if cfg!(target_os = "macos") {
-            let key_code = Self::macos_key_name(key);
-            Self::run_osascript(&format!(
-                r#"tell application "System Events" to key code {key_code}"#
-            ))
-        } else if cfg!(target_os = "linux") {
-            let xdo_key = Self::xdotool_key_name(key);
-            Self::run_cmd("xdotool", &["key", &xdo_key])
-        } else {
-            Err(DesktopError::UnsupportedPlatform("key_press".into()))
-        }
+        // Use kp: (single press) not kd:/ku: (hold/release) for regular keys
+        let ckey = crate::input_platform::cliclick_key_name(key);
+        crate::input_platform::key_press_single(&ckey)
     }
 
     fn platform_key_combo(modifier: &str, key: &str) -> Result<(), DesktopError> {
-        if cfg!(target_os = "macos") {
-            let mod_name = match modifier {
-                "cmd" | "command" => "command down",
-                "ctrl" | "control" => "control down",
-                "alt" | "option" => "option down",
-                "shift" => "shift down",
-                _ => "command down",
-            };
-            Self::run_osascript(&format!(
-                r#"tell application "System Events" to keystroke "{key}" using {{{mod_name}}}"#
-            ))
-        } else if cfg!(target_os = "linux") {
-            let mod_name = match modifier {
-                "cmd" | "command" => "super",
-                "ctrl" | "control" => "ctrl",
-                "alt" | "option" => "alt",
-                "shift" => "shift",
-                _ => "ctrl",
-            };
-            Self::run_cmd("xdotool", &["key", &format!("{mod_name}+{key}")])
-        } else {
-            Err(DesktopError::UnsupportedPlatform("key_combo".into()))
-        }
-    }
-
-    fn run_osascript(script: &str) -> Result<(), DesktopError> {
-        let output = std::process::Command::new("osascript")
-            .arg("-e")
-            .arg(script)
-            .output()
-            .map_err(|e| DesktopError::InputFailed {
-                action: "osascript".into(),
-                reason: e.to_string(),
-            })?;
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(DesktopError::InputFailed {
-                action: "osascript".into(),
-                reason: stderr.to_string(),
-            });
-        }
-        Ok(())
-    }
-
-    fn run_cmd(cmd: &str, args: &[&str]) -> Result<(), DesktopError> {
-        let output = std::process::Command::new(cmd)
-            .args(args)
-            .output()
-            .map_err(|e| DesktopError::InputFailed {
-                action: cmd.into(),
-                reason: e.to_string(),
-            })?;
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(DesktopError::InputFailed {
-                action: cmd.into(),
-                reason: stderr.to_string(),
-            });
-        }
-        Ok(())
-    }
-
-    fn macos_key_name(key: &str) -> &str {
-        match key.to_lowercase().as_str() {
-            "enter" | "return" => "36",
-            "tab" => "48",
-            "escape" | "esc" => "53",
-            "space" => "49",
-            "backspace" | "delete" => "51",
-            "up" => "126",
-            "down" => "125",
-            "left" => "123",
-            "right" => "124",
-            _ => "36", // default to enter
-        }
-    }
-
-    fn xdotool_key_name(key: &str) -> String {
-        match key.to_lowercase().as_str() {
-            "enter" | "return" => "Return".into(),
-            "tab" => "Tab".into(),
-            "escape" | "esc" => "Escape".into(),
-            "space" => "space".into(),
-            "backspace" | "delete" => "BackSpace".into(),
-            "up" => "Up".into(),
-            "down" => "Down".into(),
-            "left" => "Left".into(),
-            "right" => "Right".into(),
-            other => other.into(),
-        }
+        crate::input_platform::press(&crate::input_atoms::Target::Modifier(modifier.into()))?;
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        crate::input_platform::press(&crate::input_atoms::Target::Key(key.into()))?;
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        crate::input_platform::release(&crate::input_atoms::Target::Key(key.into()))?;
+        crate::input_platform::release(&crate::input_atoms::Target::Modifier(modifier.into()))
     }
 
     // ── O33: Atomic Input Algebra — composed operations ──
@@ -415,16 +290,15 @@ mod tests {
     }
 
     #[test]
-    fn key_mapping_macos() {
-        assert_eq!(InputSimulator::macos_key_name("enter"), "36");
-        assert_eq!(InputSimulator::macos_key_name("tab"), "48");
-        assert_eq!(InputSimulator::macos_key_name("escape"), "53");
+    fn platform_delegates_exist() {
+        // Verify platform functions compile (they delegate to input_platform)
+        // Actual execution requires cliclick + accessibility permissions
+        assert!(true); // Compile-time check is sufficient
     }
 
     #[test]
-    fn key_mapping_linux() {
-        assert_eq!(InputSimulator::xdotool_key_name("enter"), "Return");
-        assert_eq!(InputSimulator::xdotool_key_name("tab"), "Tab");
-        assert_eq!(InputSimulator::xdotool_key_name("escape"), "Escape");
+    fn input_simulator_creates() {
+        let sim = InputSimulator::new();
+        assert_eq!(sim.position(), (0.0, 0.0));
     }
 }

@@ -104,6 +104,17 @@ pub fn classify_heuristic_sync(input: &str, _api_key: Option<&str>) -> AgentInte
 /// This is intentionally simple — the LLM path is preferred.
 fn classify_heuristic(input: &str) -> AgentIntent {
     let lower = input.to_lowercase();
+
+    // "open my browser/chrome/firefox/safari" → Desktop (visible app, not headless)
+    if lower.contains("open") && (lower.contains("browser") || lower.contains("chrome")
+        || lower.contains("firefox") || lower.contains("safari")) {
+        return AgentIntent::Desktop;
+    }
+    // "open TextEdit/Finder/etc" → Desktop
+    if lower.starts_with("open ") && !lower.contains("http") && !lower.contains(".com") {
+        return AgentIntent::Desktop;
+    }
+
     let has_url = input.contains("http://") || input.contains("https://");
     let has_domain = input.split_whitespace().any(|w| {
         let w = w.trim_end_matches(|c: char| ".,;:!?)\"'".contains(c));
@@ -112,13 +123,18 @@ fn classify_heuristic(input: &str) -> AgentIntent {
     });
 
     if has_url || has_domain {
-        // If it looks like a multi-step task, route to agent
         if lower.contains("post") || lower.contains("fill") || lower.contains("submit")
             || lower.contains("login") || lower.contains("sign in")
         {
             return AgentIntent::BrowserAgent;
         }
         return AgentIntent::BrowserFetch;
+    }
+
+    // Shell commands
+    if lower.starts_with("run ") || lower.starts_with("execute ") || lower.starts_with("ls ")
+        || lower.starts_with("cat ") || lower.starts_with("git ") {
+        return AgentIntent::Shell;
     }
 
     AgentIntent::Conversation

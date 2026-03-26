@@ -102,15 +102,8 @@ pub fn decompose(goal: &str, genome: &hydra_genome::GenomeStore) -> Vec<Step> {
         eprintln!("hydra-conductor: workflow template matched ({} steps)", steps.len());
         return steps;
     }
-    // Genome approach (semantic similarity)
-    let similar = genome.query(goal);
-    if let Some(entry) = similar.first() {
-        if entry.effective_confidence() > 0.7 && !entry.approach.steps.is_empty() {
-            eprintln!("hydra-conductor: genome approach (conf={:.2})", entry.effective_confidence());
-            return steps_from_genome(entry);
-        }
-    }
-    // O27: Intent Compiler — typed UI plan before LLM fallback
+    // O27: Intent Compiler FIRST — catches "open X", "run X", direct shell commands.
+    // These are unambiguous and should NOT be overridden by genome matches.
     let conventions = crate::convention::ConventionEngine::new();
     let plan = crate::intent_compiler::compile(goal, None, &conventions, genome);
     if !plan.instructions.is_empty() {
@@ -118,6 +111,14 @@ pub fn decompose(goal: &str, genome: &hydra_genome::GenomeStore) -> Vec<Step> {
         if !steps.is_empty() {
             eprintln!("hydra-conductor: intent compiler → {} steps (risk={:.2})", steps.len(), plan.risk_score);
             return steps;
+        }
+    }
+    // Genome approach (semantic similarity) — only for goals the intent compiler couldn't handle
+    let similar = genome.query(goal);
+    if let Some(entry) = similar.first() {
+        if entry.effective_confidence() > 0.7 && !entry.approach.steps.is_empty() {
+            eprintln!("hydra-conductor: genome approach (conf={:.2})", entry.effective_confidence());
+            return steps_from_genome(entry);
         }
     }
     // LLM micro-call fallback
@@ -291,10 +292,23 @@ mod tests {
     #[test]
     fn decompose_produces_plan_via_intent_compiler() {
         let genome = hydra_genome::GenomeStore::new();
-        // O27: Intent Compiler now produces steps for any goal (no more empty fallback)
         let steps = decompose("can you post on the internet?", &genome);
-        // Intent compiler generates at least a ClickElement + Verify step
         assert!(!steps.is_empty(), "O27 intent compiler should produce steps");
+    }
+
+    #[test]
+    fn decompose_open_url_produces_shell_step() {
+        let genome = hydra_genome::GenomeStore::new();
+        let steps = decompose("open google.com", &genome);
+        assert!(!steps.is_empty(), "open google.com should produce steps");
+        // Must be a Shell step with 'open' command, NOT a DesktopAction or port scan
+        let first = &steps[0];
+        assert!(matches!(first.step_type, StepType::Shell { .. }),
+            "open google.com should be Shell, got {:?}", first.step_type);
+        if let StepType::Shell { command, .. } = &first.step_type {
+            assert!(command.contains("open") && command.contains("google"),
+                "Shell command should be 'open https://google.com', got: {command}");
+        }
     }
 
     #[test]
