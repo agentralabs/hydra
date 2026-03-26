@@ -123,12 +123,29 @@ fn classify_heuristic(input: &str) -> AgentIntent {
     });
 
     if has_url || has_domain {
+        // Don't launch browser for status/monitoring/info requests about a domain
+        let is_info_request = lower.contains("status") || lower.contains("check")
+            || lower.contains("monitor") || lower.contains("ping")
+            || lower.contains("uptime") || lower.contains("health")
+            || lower.contains("tell me") || lower.contains("what is")
+            || lower.contains("how is") || lower.contains("is it")
+            || lower.contains("services") || lower.contains("running");
+        if is_info_request { return AgentIntent::Conversation; }
+
+        // Multi-step browser tasks
         if lower.contains("post") || lower.contains("fill") || lower.contains("submit")
             || lower.contains("login") || lower.contains("sign in")
         {
             return AgentIntent::BrowserAgent;
         }
-        return AgentIntent::BrowserFetch;
+        // Only browse if intent is clearly to visit/open/navigate
+        if lower.contains("open") || lower.contains("go to") || lower.contains("visit")
+            || lower.contains("browse") || lower.contains("navigate")
+            || lower.starts_with("http") {
+            return AgentIntent::BrowserFetch;
+        }
+        // Default: conversation (let LLM decide if browsing is needed)
+        return AgentIntent::Conversation;
     }
 
     // Shell commands

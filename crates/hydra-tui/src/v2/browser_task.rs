@@ -24,26 +24,52 @@ async fn run(goal: String, tx: mpsc::Sender<BrowserUpdate>) {
         format!("https://{url}")
     } else { url };
 
-    // Try Chrome first
+    // Wrap entire browser operation in catch_unwind to prevent TUI crashes
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        // Nothing here — the actual async work is below
+    }));
+    if result.is_err() {
+        let _ = tx.send(BrowserUpdate::Error("Browser panicked — Chrome may not be available".into())).await;
+        return;
+    }
+
+    // Try Chrome with timeout
     let mut engine = hydra_browser::BrowserEngine::new();
-    match engine.launch().await {
-        Ok(_) => {
-            let _ = tx.send(BrowserUpdate::Status("Chrome launched, navigating...".into())).await;
-            if let Err(e) = engine.navigate(&url).await {
-                let _ = tx.send(BrowserUpdate::Error(format!("Navigation: {e}"))).await;
-                engine.close().await;
-                return;
-            }
-            let result = engine.execute(&hydra_browser::BrowserAction::GetText).await;
-            if result.success {
-                let text = truncate(&result.data, 2000);
-                let _ = tx.send(BrowserUpdate::Done { url, title: "Page loaded".into(), text_preview: text }).await;
-            } else {
-                let _ = tx.send(BrowserUpdate::Error(result.error.unwrap_or_default())).await;
+    match tokio::time::timeout(std::time::Duration::from_secs(30), engine.launch()).await {
+        Ok(Ok(_)) => {} // launched
+        Ok(Err(e)) => {
+            let _ = tx.send(BrowserUpdate::Error(format!("Chrome launch failed: {e}"))).await;
+            return;
+        }
+        Err(_) => {
+            let _ = tx.send(BrowserUpdate::Error("Chrome launch timed out (30s)".into())).await;
+            return;
+        }
+    }
+    let _ = tx.send(BrowserUpdate::Status("Chrome launched, navigating...".into())).await;
+    match tokio::time::timeout(std::time::Duration::from_secs(30), engine.navigate(&url)).await {
+        Ok(Ok(_)) => {
+            let result = tokio::time::timeout(
+                std::time::Duration::from_secs(15),
+                engine.execute(&hydra_browser::BrowserAction::GetText)
+            ).await;
+            match result {
+                Ok(r) if r.success => {
+                    let text = truncate(&r.data, 2000);
+                    let _ = tx.send(BrowserUpdate::Done { url, title: "Page loaded".into(), text_preview: text }).await;
+                }
+                Ok(r) => { let _ = tx.send(BrowserUpdate::Error(r.error.unwrap_or_default())).await; }
+                Err(_) => { let _ = tx.send(BrowserUpdate::Error("Page text extraction timed out".into())).await; }
             }
             engine.close().await;
         }
+        Ok(Err(e)) => {
+            let _ = tx.send(BrowserUpdate::Error(format!("Navigation failed: {e}"))).await;
+            engine.close().await;
+        }
         Err(_) => {
+            let _ = tx.send(BrowserUpdate::Error("Navigation timed out (30s)".into())).await;
+            engine.close().await;
             // Fallback: HTTP fetch
             let _ = tx.send(BrowserUpdate::Status("HTTP fetch (Chrome not available)...".into())).await;
             match reqwest::get(&url).await {
