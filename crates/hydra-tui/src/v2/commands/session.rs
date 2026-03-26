@@ -130,6 +130,7 @@ mod tests {
             genome_count: 0, middleware_count: 0, provider: "test".into(),
             model: "test".into(), tokens_used: 0, session_minutes: 0,
             stream_len: 0, last_response: String::new(), exchanges: Vec::new(),
+            lyapunov: 0.42, genome_domains: Vec::new(),
         };
         let items = cmd_compact("", &ctx);
         assert!(!items.is_empty());

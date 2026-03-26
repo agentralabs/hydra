@@ -43,6 +43,9 @@ pub struct AppState {
     /// GAP 6: Context-aware input placeholder.
     pub input_placeholder: String,
 
+    // System metrics
+    pub lyapunov: f64,
+
     // Flags
     pub should_quit: bool,
     pub boot_complete: bool,
@@ -74,6 +77,7 @@ impl AppState {
             voice_active: false,
             voice_state: None,
             input_placeholder: "What are we building today?".into(),
+            lyapunov: 0.42,
             should_quit: false,
             boot_complete: false,
             generation: 0,

@@ -198,6 +198,23 @@ impl GenomeStore {
         &self.entries
     }
 
+    /// Count entries grouped by approach type (domain proxy).
+    /// Returns sorted vec of (domain, count) pairs, descending by count.
+    pub fn domain_counts(&self) -> Vec<(String, usize)> {
+        let mut counts = std::collections::HashMap::<String, usize>::new();
+        for entry in &self.entries {
+            let domain = if entry.approach.approach_type.is_empty() {
+                "general".to_string()
+            } else {
+                entry.approach.approach_type.clone()
+            };
+            *counts.entry(domain).or_default() += 1;
+        }
+        let mut result: Vec<_> = counts.into_iter().collect();
+        result.sort_by(|a, b| b.1.cmp(&a.1));
+        result
+    }
+
     pub fn load_from_skills(&mut self) -> usize {
         let skill_genomes = crate::skill_loader::load_all_skill_genomes();
         let mut loaded = 0;

@@ -102,6 +102,7 @@ fn run(
     let mut frame_cache = hydra_tui::v2::cache::FrameCache::new();
     loop {
         state.session_minutes = boot_time.elapsed().as_secs() / 60;
+        state.lyapunov = metabolism.tracker().current().unwrap_or(0.42);
         hydra_tui::v2::tui_helpers::tick_spinner(&mut state);
         let cu_state = ComputerUseState {
             shell_mode, agent_active: agent_rx.is_some(), vision_budget_remaining: None,
@@ -305,33 +306,35 @@ fn handle_submit(
     let intent = rt.block_on(hydra_kernel::intent_classifier::classify(&text, api_key.as_deref()));
     let mut prepared = cognitive.prepare_cycle(&text);
     hydra_kernel::intent_classifier::inject_enrichments(&intent, &mut prepared.enrichments);
-    // O1: Route task intents to conductor (EXECUTE, don't just talk about it)
-    let is_task = hydra_tui::v2::tui_helpers::is_task_intent(&text);
-    if is_task && conductor_rx.is_none() {
-        *conductor_rx = Some(hydra_tui::v2::tui_helpers::spawn_conductor(rt, text.clone()));
-        state.stream.push(sysn("◌ Executing..."));
-        // For tasks: skip LLM streaming — conductor handles it
-        // The conductor result will show as step notifications
-        state.is_thinking = false;
-        return;
+    // Show route decision so user can see how their input was classified
+    state.stream.push(sysn(&format!("◌ route: {intent}")));
+    // Route based on LLM intent classification (not hardcoded keywords)
+    match &intent {
+        // Actionable intents → conductor
+        i if i.is_actionable() && conductor_rx.is_none() => {
+            *conductor_rx = Some(hydra_tui::v2::tui_helpers::spawn_conductor(rt, text.clone()));
+            state.stream.push(sysn("◌ Executing..."));
+            state.is_thinking = false;
+            return;
+        }
+        // Browser agent → multi-step browser interaction
+        hydra_kernel::intent_classifier::AgentIntent::BrowserAgent if agent_rx.is_none() => {
+            *agent_rx = Some(hydra_tui::v2::agent_task::spawn_browser_agent(rt, text.clone(), vision.clone()));
+        }
+        // Desktop → GUI automation
+        hydra_kernel::intent_classifier::AgentIntent::Desktop if agent_rx.is_none() => {
+            *agent_rx = Some(hydra_tui::v2::agent_task::spawn_desktop_agent(rt, text.clone(), vision.clone()));
+        }
+        // Browser fetch → simple URL content extraction
+        hydra_kernel::intent_classifier::AgentIntent::BrowserFetch if browser_rx.is_none() => {
+            *browser_rx = Some(hydra_tui::v2::browser_task::spawn(rt, text.clone()));
+        }
+        // Search → web search (falls through to LLM with enrichments for now)
+        // Conversation → normal LLM chat
+        _ => {}
     }
     if prepared.needs_llm {
         for item in hydra_tui::v2::enrichment_bridge::surface_enrichments(&prepared.enrichments) { state.stream.push(item); }
-        if browser_rx.is_none() && agent_rx.is_none() {
-            let intent = prepared.enrichments.get("agent_intent").map(|s| s.as_str());
-            match intent {
-                Some("browser_agent") => {
-                    *agent_rx = Some(hydra_tui::v2::agent_task::spawn_browser_agent(rt, text.clone(), vision.clone()));
-                }
-                Some("desktop") => {
-                    *agent_rx = Some(hydra_tui::v2::agent_task::spawn_desktop_agent(rt, text.clone(), vision.clone()));
-                }
-                _ if prepared.enrichments.contains_key("browser_relevant") => {
-                    *browser_rx = Some(hydra_tui::v2::browser_task::spawn(rt, text.clone()));
-                }
-                _ => {}
-            }
-        }
         // O34: Push deliberation thinking steps to TUI stream (visible reasoning)
         if !cognitive.last_thinking.is_empty() {
             state.stream.push(StreamItem::thinking("", "hydra thinking...", 0));

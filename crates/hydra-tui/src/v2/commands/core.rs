@@ -239,6 +239,7 @@ mod tests {
             provider: "anthropic".into(), model: "sonnet".into(),
             tokens_used: 100, session_minutes: 5, stream_len: 10,
             last_response: String::new(), exchanges: Vec::new(),
+            lyapunov: 0.42, genome_domains: Vec::new(),
         }
     }
 

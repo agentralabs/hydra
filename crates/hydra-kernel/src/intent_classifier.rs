@@ -20,8 +20,24 @@ pub enum AgentIntent {
     File,
     /// Web search for information.
     Search,
+    /// General task execution — user wants something DONE (create, build, deploy, etc.).
+    /// Routes to the conductor for step decomposition and execution.
+    Action,
     /// Normal conversation — no agent needed.
     Conversation,
+}
+
+impl AgentIntent {
+    /// Whether this intent should be routed to the conductor for execution.
+    pub fn is_actionable(&self) -> bool {
+        matches!(self, Self::Action | Self::Shell | Self::File)
+    }
+}
+
+impl std::fmt::Display for AgentIntent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
 
 impl AgentIntent {
@@ -33,6 +49,7 @@ impl AgentIntent {
             Self::Shell => "shell",
             Self::File => "file",
             Self::Search => "search",
+            Self::Action => "action",
             Self::Conversation => "conversation",
         }
     }
@@ -45,6 +62,7 @@ impl AgentIntent {
             "shell" => Self::Shell,
             "file" | "filesystem" => Self::File,
             "search" | "web_search" => Self::Search,
+            "action" | "task" | "execute" => Self::Action,
             _ => Self::Conversation,
         }
     }
@@ -79,6 +97,9 @@ pub fn inject_enrichments(
                 .entry("browser_relevant".into())
                 .or_insert_with(|| "true".into());
         }
+        AgentIntent::Action | AgentIntent::Shell | AgentIntent::File => {
+            enrichments.insert("actionable".into(), "true".into());
+        }
         _ => {}
     }
 }
@@ -86,7 +107,15 @@ pub fn inject_enrichments(
 async fn classify_via_llm(input: &str, _api_key: &str) -> Option<AgentIntent> {
     let prompt = format!(
         "Classify this user input into exactly ONE category. Reply with ONLY the category name.\n\
-         Categories: browser_agent, browser_fetch, desktop, shell, file, search, conversation\n\
+         Categories:\n\
+         - action: user wants something DONE (create, build, deploy, install, delete, run a task)\n\
+         - browser_agent: multi-step browser interaction (fill forms, login, post content)\n\
+         - browser_fetch: just visit a URL and get content\n\
+         - desktop: control a desktop GUI app (not browser)\n\
+         - shell: execute a specific shell command\n\
+         - file: file system operations (read, write, search files)\n\
+         - search: web search for information\n\
+         - conversation: question, discussion, explanation — no action needed\n\
          Input: {input}"
     );
     let content = crate::loop_::llm::LlmCaller::micro_call(&prompt).await?;
@@ -166,8 +195,19 @@ mod tests {
         assert_eq!(AgentIntent::from_str("browser_agent"), AgentIntent::BrowserAgent);
         assert_eq!(AgentIntent::from_str("desktop"), AgentIntent::Desktop);
         assert_eq!(AgentIntent::from_str("shell"), AgentIntent::Shell);
+        assert_eq!(AgentIntent::from_str("action"), AgentIntent::Action);
+        assert_eq!(AgentIntent::from_str("task"), AgentIntent::Action);
         assert_eq!(AgentIntent::from_str("conversation"), AgentIntent::Conversation);
         assert_eq!(AgentIntent::from_str("nonsense"), AgentIntent::Conversation);
+    }
+
+    #[test]
+    fn actionable_intents() {
+        assert!(AgentIntent::Action.is_actionable());
+        assert!(AgentIntent::Shell.is_actionable());
+        assert!(AgentIntent::File.is_actionable());
+        assert!(!AgentIntent::Conversation.is_actionable());
+        assert!(!AgentIntent::BrowserAgent.is_actionable());
     }
 
     #[test]

@@ -152,22 +152,38 @@ fn cmd_status(_args: &str, ctx: &CommandContext) -> Vec<StreamItem> {
 }
 
 fn cmd_health(_args: &str, ctx: &CommandContext) -> Vec<StreamItem> {
+    let stability = if ctx.lyapunov > 0.85 { "stable" }
+        else if ctx.lyapunov > 0.5 { "nominal" }
+        else if ctx.lyapunov > 0.0 { "degraded" }
+        else { "critical" };
+    let integrity = hydra_kernel::integrity::IntegrityMonitor::new().check();
+    let integrity_status = if integrity.is_healthy() { "healthy" } else {
+        &format!("{} issues", integrity.issues.len())
+    };
     vec![
         sys(&format!("genome:      {} entries", ctx.genome_count)),
         sys(&format!("middlewares:  {}", ctx.middleware_count)),
         sys(&format!("provider:    {}", ctx.provider)),
         sys(&format!("model:       {}", ctx.model)),
-        sys("lyapunov:    stable"),
-        sys("all systems nominal"),
+        sys(&format!("lyapunov:    {:.3} ({})", ctx.lyapunov, stability)),
+        sys(&format!("integrity:   {integrity_status}")),
     ]
 }
 
 fn cmd_genome(args: &str, ctx: &CommandContext) -> Vec<StreamItem> {
     if args == "domains" {
-        // Domain breakdown would need CognitiveLoop access — return placeholder
-        return vec![sys(&format!("Genome: {} entries. Use Ctrl+K → 'genome domains' for breakdown.", ctx.genome_count))];
+        if ctx.genome_domains.is_empty() {
+            return vec![sys(&format!("Genome: {} entries, no domain breakdown available.", ctx.genome_count))];
+        }
+        let mut items = vec![sys(&format!("Genome: {} entries across {} domains", ctx.genome_count, ctx.genome_domains.len()))];
+        for (domain, count) in ctx.genome_domains.iter().take(20) {
+            let bar_len = (*count as f64 / ctx.genome_count.max(1) as f64 * 20.0) as usize;
+            let bar = "█".repeat(bar_len.max(1));
+            items.push(sys(&format!("  {:<20} {:>4}  {bar}", domain, count)));
+        }
+        return items;
     }
-    vec![sys(&format!("Genome: {} entries loaded.", ctx.genome_count))]
+    vec![sys(&format!("Genome: {} entries loaded. Use /genome domains for breakdown.", ctx.genome_count))]
 }
 
 fn cmd_memory(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
@@ -178,9 +194,16 @@ fn cmd_memory(_args: &str, _ctx: &CommandContext) -> Vec<StreamItem> {
     } else {
         format!("{}KB", size / 1024)
     };
-    vec![
-        sys(&format!("Memory: {size_str} ({})", amem.display())),
-    ]
+    let bridge = hydra_memory::HydraMemoryBridge::new();
+    let health = bridge.health();
+    let mut items = vec![
+        sys(&format!("Memory: {size_str} — {} entries written", health.total_written)),
+        sys(&format!("  temporal indexed: {}", health.temporal_indexed)),
+        sys(&format!("  persistent nodes: {}", health.persistent_nodes)),
+        sys(&format!("  session exchanges: {}", health.exchange_count)),
+    ];
+    items.push(sys("  Layers: Verbatim | Episodic | Semantic | Relational | Causal | Procedural | Anticipatory | Identity"));
+    items
 }
 
 fn cmd_metrics(_args: &str, ctx: &CommandContext) -> Vec<StreamItem> {
@@ -397,6 +420,7 @@ mod tests {
             provider: "anthropic".into(), model: "sonnet".into(),
             tokens_used: 100, session_minutes: 5, stream_len: 10,
             last_response: "test response".into(), exchanges: Vec::new(),
+            lyapunov: 0.42, genome_domains: Vec::new(),
         }
     }
 

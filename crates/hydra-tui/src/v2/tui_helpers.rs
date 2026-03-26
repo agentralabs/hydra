@@ -105,6 +105,11 @@ pub fn build_command_context(s: &AppState) -> CommandContext {
             }
         }))
         .collect();
+    // Compute genome domain breakdown
+    let genome_domains = {
+        let genome = hydra_genome::GenomeStore::open();
+        genome.domain_counts()
+    };
     CommandContext {
         genome_count: s.genome_count,
         middleware_count: s.middleware_count,
@@ -115,6 +120,8 @@ pub fn build_command_context(s: &AppState) -> CommandContext {
         stream_len: s.stream.len(),
         last_response: last,
         exchanges,
+        lyapunov: s.lyapunov,
+        genome_domains,
     }
 }
 
@@ -184,10 +191,10 @@ pub fn redirect_stderr() {
     }
 }
 
-/// Check if input looks like a task (actionable) vs a question (informational).
-/// Tasks go to the conductor. Questions go to the LLM.
-/// Only matches when the input STARTS with a task verb — mid-sentence matches
-/// caused false positives (e.g. "can you post" matched on "post ").
+/// DEPRECATED: Use `hydra_kernel::intent_classifier::classify()` instead.
+/// This hardcoded keyword matching causes false positives and violates
+/// the "no hardcoded intelligence" rule. Kept only as fallback if LLM is unavailable.
+#[deprecated(note = "Use hydra_kernel::intent_classifier::AgentIntent::is_actionable() instead")]
 pub fn is_task_intent(text: &str) -> bool {
     let lower = text.to_lowercase();
     let task_verbs = [

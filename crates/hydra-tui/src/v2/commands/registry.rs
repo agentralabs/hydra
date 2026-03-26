@@ -60,6 +60,8 @@ pub struct CommandContext {
     pub stream_len: usize,
     pub last_response: String,
     pub exchanges: Vec<(String, String)>,
+    pub lyapunov: f64,
+    pub genome_domains: Vec<(String, usize)>,
 }
 
 /// The command registry.
@@ -194,6 +196,7 @@ mod tests {
             provider: "anthropic".into(), model: "sonnet".into(),
             tokens_used: 0, session_minutes: 0, stream_len: 0,
             last_response: String::new(), exchanges: Vec::new(),
+            lyapunov: 0.42, genome_domains: Vec::new(),
         }
     }
 
